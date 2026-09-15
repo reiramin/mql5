@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+dist/
+build/
+
+# Generated data / results
+data/
+results/
+reports/
+*.log
+
+# MetaTrader compiled artifacts
+mql5/**/*.ex5
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.DS_Store

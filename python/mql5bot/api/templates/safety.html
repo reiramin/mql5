@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Safety — AEGIS</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1rem; background: #101418; color: #e6e6e6; }
+    a { color: #7fd1ff; }
+    .pill { padding: .1rem .5rem; border-radius: 999px; font-size: .8rem; }
+    .pill.NORMAL { background: #1d3b2a; color: #7be0a2; }
+    .pill.NO_NEW_TRADES { background: #4b3b19; color: #ffd479; }
+    .pill.EMERGENCY_HALT { background: #4b1d1d; color: #ff8484; }
+    form { background: #1a2028; padding: .8rem; border-radius: 8px; max-width: 30rem; }
+    input { width: 100%; margin: .25rem 0 .6rem; background: #232b36; color: #e6e6e6; border: 1px solid #39424e; border-radius: 4px; padding: .3rem; }
+    button { padding: .4rem .9rem; border-radius: 4px; border: 0; background: #4b3b19; color: #ffd479; cursor: pointer; }
+    li { font-size: .85rem; }
+  </style>
+</head>
+<body>
+<p><a href="/">&larr; board</a></p>
+<h1>Safety governance</h1>
+<h2>Kill switch: <span class="pill {{ kill_switch }}">{{ kill_switch }}</span></h2>
+{% if kill_reason %}<p>Reason: {{ kill_reason }}</p>{% endif %}
+<form method="post" action="/safety/killswitch/reset">
+  <label>Actor<input name="actor" required></label>
+  <label>Reason (explicit, audited)<input name="reason" required></label>
+  <button type="submit">Explicit reset to NORMAL</button>
+</form>
+<h2>Allocation circuit breaker</h2>
+<p>{{ "FROZEN — keeping last safe allocation" if breaker_frozen else "CLEAR" }}
+{% if breaker_reason %} — {{ breaker_reason }}{% endif %}</p>
+<h2>Recent watchdog alerts</h2>
+<ul>
+  {% for a in alerts %}<li>{{ a.watchdog_alert }} (ts {{ a.ts }})</li>
+  {% else %}<li>none</li>{% endfor %}
+</ul>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AEGIS Governance Console</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1rem; background: #101418; color: #e6e6e6; }
+    .board { display: flex; gap: .6rem; overflow-x: auto; }
+    .col { min-width: 11rem; background: #1a2028; border-radius: 8px; padding: .5rem; }
+    .col h3 { font-size: .8rem; margin: .2rem 0 .5rem; color: #9fb3c8; text-transform: uppercase; }
+    .card { background: #232b36; border-radius: 6px; padding: .45rem .6rem; margin-bottom: .4rem; font-size: .85rem; }
+    .card a { color: #7fd1ff; text-decoration: none; }
+    .pill { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .72rem; }
+    .pill.NORMAL, .pill.ok { background: #1d3b2a; color: #7be0a2; }
+    .pill.NO_NEW_TRADES { background: #4b3b19; color: #ffd479; }
+    .pill.EMERGENCY_HALT { background: #4b1d1d; color: #ff8484; }
+    header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+    header nav a { color: #7fd1ff; margin-right: 1rem; }
+  </style>
+</head>
+<body>
+<header>
+  <strong>AEGIS</strong>
+  <nav><a href="/">Board</a><a href="/safety">Safety</a></nav>
+  <span>Kill switch: <span class="pill {{ kill_switch }}">{{ kill_switch }}</span></span>
+  {% if breaker_frozen %}<span class="pill EMERGENCY_HALT">BREAKER FROZEN</span>{% endif %}
+</header>
+{% if kill_reason %}<p>Reason: {{ kill_reason }}</p>{% endif %}
+<div class="board">
+  {% for col in columns %}
+  <div class="col">
+    <h3>{{ col.name }} ({{ col.cards|length }})</h3>
+    {% for card in col.cards %}
+    <div class="card">
+      <a href="/strategies/{{ card.strategy_id }}">{{ card.strategy_id }}</a>
+      <div>v{{ card.version }}{% if card.score %} · score {{ "%.3f"|format(card.score) }}{% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>

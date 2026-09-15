@@ -1,0 +1,2921 @@
+{
+  "entries": [
+    {
+      "atr_signal_bar": 0.0003549267,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 480,
+        "minutes_to_session_start": 0,
+        "price_margin_ticks_vs_channel": 0.0,
+        "rsi_prev_to_overbought": 12.886308,
+        "rsi_prev_to_oversold": 27.113692,
+        "rsi_to_overbought": 14.955239,
+        "rsi_to_oversold": 25.044761
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.7
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.4
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003571
+        }
+      },
+      "risk": {
+        "approved_lots": 1.4,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T08:00:00",
+      "sizing_basis": 10000.0,
+      "stop_distance": 0.0007098534
+    },
+    {
+      "atr_signal_bar": 0.0004618224,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 468,
+        "minutes_to_session_start": 12,
+        "price_margin_ticks_vs_channel": 234.0,
+        "rsi_prev_to_overbought": 13.505045,
+        "rsi_prev_to_oversold": 26.494955,
+        "rsi_to_overbought": 39.718719,
+        "rsi_to_oversold": 0.281281
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.1
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.53
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.07
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.004673
+        }
+      },
+      "risk": {
+        "approved_lots": 1.07,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T08:12:00",
+      "sizing_basis": 9899.2,
+      "stop_distance": 0.0009236448
+    },
+    {
+      "atr_signal_bar": 0.0004253705,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 439,
+        "minutes_to_session_start": 41,
+        "price_margin_ticks_vs_channel": 3.0,
+        "rsi_prev_to_overbought": 18.305941,
+        "rsi_prev_to_oversold": 21.694059,
+        "rsi_to_overbought": 16.60251,
+        "rsi_to_oversold": 23.39749
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.11
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.57
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.15
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.004348
+        }
+      },
+      "risk": {
+        "approved_lots": 1.15,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T08:41:00",
+      "sizing_basis": 9849.98,
+      "stop_distance": 0.000850741
+    },
+    {
+      "atr_signal_bar": 0.0003270214,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 411,
+        "minutes_to_session_start": 69,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.795678,
+        "rsi_prev_to_oversold": 18.204322,
+        "rsi_to_overbought": 23.901452,
+        "rsi_to_oversold": 16.098548
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.15
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.75
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.5
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003333
+        }
+      },
+      "risk": {
+        "approved_lots": 1.5,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T09:09:00",
+      "sizing_basis": 9795.93,
+      "stop_distance": 0.0006540429
+    },
+    {
+      "atr_signal_bar": 0.00032086,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 382,
+        "minutes_to_session_start": 98,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.188559,
+        "rsi_prev_to_oversold": 22.811441,
+        "rsi_to_overbought": 15.087573,
+        "rsi_to_oversold": 24.912427
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.15
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.76
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.52
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003289
+        }
+      },
+      "risk": {
+        "approved_lots": 1.52,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T09:38:00",
+      "sizing_basis": 9757.63,
+      "stop_distance": 0.00064172
+    },
+    {
+      "atr_signal_bar": 0.000310798,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 351,
+        "minutes_to_session_start": 129,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.645899,
+        "rsi_prev_to_oversold": 18.354101,
+        "rsi_to_overbought": 23.868477,
+        "rsi_to_oversold": 16.131523
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.15
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.78
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.56
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003205
+        }
+      },
+      "risk": {
+        "approved_lots": 1.56,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T10:09:00",
+      "sizing_basis": 9721.17,
+      "stop_distance": 0.000621596
+    },
+    {
+      "atr_signal_bar": 0.0003189686,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 322,
+        "minutes_to_session_start": 158,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.142965,
+        "rsi_prev_to_oversold": 22.857035,
+        "rsi_to_overbought": 15.031563,
+        "rsi_to_oversold": 24.968437
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.15
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.75
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.51
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003311
+        }
+      },
+      "risk": {
+        "approved_lots": 1.51,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T10:38:00",
+      "sizing_basis": 9680.69,
+      "stop_distance": 0.0006379372
+    },
+    {
+      "atr_signal_bar": 0.0005382673,
+      "distance_to_boundary": {},
+      "entry_kind": "persistence_reentry",
+      "fire_kinds": [],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.09
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.9
+        }
+      },
+      "risk": {
+        "approved_lots": 0.9,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T11:12:00",
+      "sizing_basis": 9824.09,
+      "stop_distance": 0.0010765346
+    },
+    {
+      "atr_signal_bar": 0.0007855339,
+      "distance_to_boundary": {},
+      "entry_kind": "persistence_reentry",
+      "fire_kinds": [],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.06
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.3
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.61
+        }
+      },
+      "risk": {
+        "approved_lots": 0.61,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T11:13:00",
+      "sizing_basis": 9725.99,
+      "stop_distance": 0.0015710679
+    },
+    {
+      "atr_signal_bar": 0.0007130369,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 285,
+        "minutes_to_session_start": 195,
+        "price_margin_ticks_vs_channel": 50.0,
+        "rsi_prev_to_overbought": 25.349557,
+        "rsi_prev_to_oversold": 14.650443,
+        "rsi_to_overbought": 27.585989,
+        "rsi_to_oversold": 12.414011
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.06
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.33
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.67
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.007463
+        }
+      },
+      "risk": {
+        "approved_lots": 0.67,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T11:15:00",
+      "sizing_basis": 9723.55,
+      "stop_distance": 0.0014260738
+    },
+    {
+      "atr_signal_bar": 0.000505856,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 260,
+        "minutes_to_session_start": 220,
+        "price_margin_ticks_vs_channel": 30.0,
+        "rsi_prev_to_overbought": 17.749399,
+        "rsi_prev_to_oversold": 22.250601,
+        "rsi_to_overbought": 15.726686,
+        "rsi_to_oversold": 24.273314
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.09
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.47
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.95
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.005263
+        }
+      },
+      "risk": {
+        "approved_lots": 0.95,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T11:40:00",
+      "sizing_basis": 9648.51,
+      "stop_distance": 0.001011712
+    },
+    {
+      "atr_signal_bar": 0.0003317598,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 230,
+        "minutes_to_session_start": 250,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.542756,
+        "rsi_prev_to_oversold": 18.457244,
+        "rsi_to_overbought": 23.629345,
+        "rsi_to_oversold": 16.370655
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.72
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.45
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003448
+        }
+      },
+      "risk": {
+        "approved_lots": 1.45,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T12:10:00",
+      "sizing_basis": 9605.37,
+      "stop_distance": 0.0006635197
+    },
+    {
+      "atr_signal_bar": 0.0003214124,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 201,
+        "minutes_to_session_start": 279,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.166365,
+        "rsi_prev_to_oversold": 22.833635,
+        "rsi_to_overbought": 15.069977,
+        "rsi_to_oversold": 24.930023
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.74
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.49
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003356
+        }
+      },
+      "risk": {
+        "approved_lots": 1.49,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T12:39:00",
+      "sizing_basis": 9568.67,
+      "stop_distance": 0.0006428249
+    },
+    {
+      "atr_signal_bar": 0.0003108535,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 170,
+        "minutes_to_session_start": 310,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.642754,
+        "rsi_prev_to_oversold": 18.357246,
+        "rsi_to_overbought": 23.86508,
+        "rsi_to_oversold": 16.13492
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.15
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.76
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.53
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003268
+        }
+      },
+      "risk": {
+        "approved_lots": 1.53,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T13:10:00",
+      "sizing_basis": 9530.01,
+      "stop_distance": 0.000621707
+    },
+    {
+      "atr_signal_bar": 0.0003189751,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 141,
+        "minutes_to_session_start": 339,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.142704,
+        "rsi_prev_to_oversold": 22.857296,
+        "rsi_to_overbought": 15.031356,
+        "rsi_to_oversold": 24.968644
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.74
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.48
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003378
+        }
+      },
+      "risk": {
+        "approved_lots": 1.48,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T13:39:00",
+      "sizing_basis": 9490.31,
+      "stop_distance": 0.0006379501
+    },
+    {
+      "atr_signal_bar": 0.0003106085,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 110,
+        "minutes_to_session_start": 370,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.644009,
+        "rsi_prev_to_oversold": 18.355991,
+        "rsi_to_overbought": 23.86803,
+        "rsi_to_oversold": 16.13197
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.15
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.76
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.52
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003289
+        }
+      },
+      "risk": {
+        "approved_lots": 1.52,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T14:10:00",
+      "sizing_basis": 9451.73,
+      "stop_distance": 0.000621217
+    },
+    {
+      "atr_signal_bar": 0.0003189465,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 81,
+        "minutes_to_session_start": 399,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.142424,
+        "rsi_prev_to_oversold": 22.857576,
+        "rsi_to_overbought": 15.0309,
+        "rsi_to_oversold": 24.9691
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.73
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.47
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003401
+        }
+      },
+      "risk": {
+        "approved_lots": 1.47,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T14:39:00",
+      "sizing_basis": 9412.29,
+      "stop_distance": 0.000637893
+    },
+    {
+      "atr_signal_bar": 0.0002914834,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 45,
+        "minutes_to_session_start": 435,
+        "price_margin_ticks_vs_channel": 5.0,
+        "rsi_prev_to_overbought": 20.584449,
+        "rsi_prev_to_oversold": 19.415551,
+        "rsi_to_overbought": 22.400855,
+        "rsi_to_oversold": 17.599145
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.16
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.81
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.62
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003086
+        }
+      },
+      "risk": {
+        "approved_lots": 1.62,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T15:15:00",
+      "sizing_basis": 9413.66,
+      "stop_distance": 0.0005829669
+    },
+    {
+      "atr_signal_bar": 0.0002588613,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 2,
+        "minutes_to_session_start": 478,
+        "price_margin_ticks_vs_channel": 11.0,
+        "rsi_prev_to_overbought": 17.955796,
+        "rsi_prev_to_oversold": 22.044204,
+        "rsi_to_overbought": 15.309271,
+        "rsi_to_oversold": 24.690729
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.18
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.9
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.8
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.002778
+        }
+      },
+      "risk": {
+        "approved_lots": 1.8,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T15:58:00",
+      "sizing_basis": 9410.72,
+      "stop_distance": 0.0005177226
+    },
+    {
+      "atr_signal_bar": 0.0350455907,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 480,
+        "minutes_to_session_start": 0,
+        "price_margin_ticks_vs_channel": 0.0,
+        "rsi_prev_to_overbought": 21.936761,
+        "rsi_prev_to_oversold": 18.063239,
+        "rsi_to_overbought": 22.005333,
+        "rsi_to_oversold": 17.994667
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.5": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.01
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.5
+        }
+      },
+      "risk": {
+        "approved_lots": 0.01,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T08:00:00",
+      "sizing_basis": 9403.7,
+      "stop_distance": 0.0700911813
+    },
+    {
+      "atr_signal_bar": 0.0227172407,
+      "distance_to_boundary": {},
+      "entry_kind": "persistence_reentry",
+      "fire_kinds": [],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.01
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.02
+        }
+      },
+      "risk": {
+        "approved_lots": 0.02,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T08:06:00",
+      "sizing_basis": 9403.7,
+      "stop_distance": 0.0454344813
+    },
+    {
+      "atr_signal_bar": 0.0017555686,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 435,
+        "minutes_to_session_start": 45,
+        "price_margin_ticks_vs_channel": 3.0,
+        "rsi_prev_to_overbought": 20.336693,
+        "rsi_prev_to_oversold": 19.663307,
+        "rsi_to_overbought": 19.886123,
+        "rsi_to_oversold": 20.113877
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.02
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.13
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.26
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.019231
+        }
+      },
+      "risk": {
+        "approved_lots": 0.26,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T08:45:00",
+      "sizing_basis": 9402.53,
+      "stop_distance": 0.0035111372
+    },
+    {
+      "atr_signal_bar": 0.0005265028,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 409,
+        "minutes_to_session_start": 71,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.433019,
+        "rsi_prev_to_oversold": 18.566981,
+        "rsi_to_overbought": 22.750797,
+        "rsi_to_oversold": 17.249203
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.08
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.44
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.89
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.005618
+        }
+      },
+      "risk": {
+        "approved_lots": 0.89,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T09:11:00",
+      "sizing_basis": 9396.16,
+      "stop_distance": 0.0010530056
+    },
+    {
+      "atr_signal_bar": 0.0003457878,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 380,
+        "minutes_to_session_start": 100,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.45128,
+        "rsi_prev_to_oversold": 22.54872,
+        "rsi_to_overbought": 15.4909,
+        "rsi_to_oversold": 24.5091
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.13
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.68
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.36
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003676
+        }
+      },
+      "risk": {
+        "approved_lots": 1.36,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T09:40:00",
+      "sizing_basis": 9385.34,
+      "stop_distance": 0.0006915756
+    },
+    {
+      "atr_signal_bar": 0.0003148556,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 349,
+        "minutes_to_session_start": 131,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.619808,
+        "rsi_prev_to_oversold": 18.380192,
+        "rsi_to_overbought": 23.814927,
+        "rsi_to_oversold": 16.185073
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.74
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.48
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003378
+        }
+      },
+      "risk": {
+        "approved_lots": 1.48,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T10:11:00",
+      "sizing_basis": 9369.26,
+      "stop_distance": 0.0006297113
+    },
+    {
+      "atr_signal_bar": 0.0003211128,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 320,
+        "minutes_to_session_start": 160,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.152403,
+        "rsi_prev_to_oversold": 22.847597,
+        "rsi_to_overbought": 15.05468,
+        "rsi_to_oversold": 24.94532
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.73
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.46
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003425
+        }
+      },
+      "risk": {
+        "approved_lots": 1.46,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T10:40:00",
+      "sizing_basis": 9350.14,
+      "stop_distance": 0.0006422256
+    },
+    {
+      "atr_signal_bar": 0.0003123752,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 289,
+        "minutes_to_session_start": 191,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.623569,
+        "rsi_prev_to_oversold": 18.376431,
+        "rsi_to_overbought": 23.835947,
+        "rsi_to_oversold": 16.164053
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.15
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.75
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.5
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003333
+        }
+      },
+      "risk": {
+        "approved_lots": 1.5,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T11:11:00",
+      "sizing_basis": 9332.61,
+      "stop_distance": 0.0006247504
+    },
+    {
+      "atr_signal_bar": 0.0003208236,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 260,
+        "minutes_to_session_start": 220,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.148615,
+        "rsi_prev_to_oversold": 22.851385,
+        "rsi_to_overbought": 15.049169,
+        "rsi_to_oversold": 24.950831
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.72
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.45
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003448
+        }
+      },
+      "risk": {
+        "approved_lots": 1.45,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T11:40:00",
+      "sizing_basis": 9313.15,
+      "stop_distance": 0.0006416473
+    },
+    {
+      "atr_signal_bar": 0.0003123461,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 229,
+        "minutes_to_session_start": 251,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.623614,
+        "rsi_prev_to_oversold": 18.376386,
+        "rsi_to_overbought": 23.836195,
+        "rsi_to_oversold": 16.163805
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.74
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.49
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003356
+        }
+      },
+      "risk": {
+        "approved_lots": 1.49,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T12:11:00",
+      "sizing_basis": 9295.84,
+      "stop_distance": 0.0006246922
+    },
+    {
+      "atr_signal_bar": 0.0003208202,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 200,
+        "minutes_to_session_start": 280,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.14857,
+        "rsi_prev_to_oversold": 22.85143,
+        "rsi_to_overbought": 15.049105,
+        "rsi_to_oversold": 24.950895
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.72
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.44
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003472
+        }
+      },
+      "risk": {
+        "approved_lots": 1.44,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T12:40:00",
+      "sizing_basis": 9276.64,
+      "stop_distance": 0.0006416405
+    },
+    {
+      "atr_signal_bar": 0.0003123458,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 169,
+        "minutes_to_session_start": 311,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.623614,
+        "rsi_prev_to_oversold": 18.376386,
+        "rsi_to_overbought": 23.836198,
+        "rsi_to_oversold": 16.163802
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.74
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.49
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003356
+        }
+      },
+      "risk": {
+        "approved_lots": 1.49,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T13:11:00",
+      "sizing_basis": 9259.34,
+      "stop_distance": 0.0006246915
+    },
+    {
+      "atr_signal_bar": 0.0003208202,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 140,
+        "minutes_to_session_start": 340,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.14857,
+        "rsi_prev_to_oversold": 22.85143,
+        "rsi_to_overbought": 15.049104,
+        "rsi_to_oversold": 24.950896
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.72
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.44
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003472
+        }
+      },
+      "risk": {
+        "approved_lots": 1.44,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T13:40:00",
+      "sizing_basis": 9240.14,
+      "stop_distance": 0.0006416404
+    },
+    {
+      "atr_signal_bar": 0.0003123458,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 109,
+        "minutes_to_session_start": 371,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.623614,
+        "rsi_prev_to_oversold": 18.376386,
+        "rsi_to_overbought": 23.836198,
+        "rsi_to_oversold": 16.163802
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.74
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.48
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003378
+        }
+      },
+      "risk": {
+        "approved_lots": 1.48,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T14:11:00",
+      "sizing_basis": 9222.84,
+      "stop_distance": 0.0006246915
+    },
+    {
+      "atr_signal_bar": 0.0003208202,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 80,
+        "minutes_to_session_start": 400,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.14857,
+        "rsi_prev_to_oversold": 22.85143,
+        "rsi_to_overbought": 15.049104,
+        "rsi_to_oversold": 24.950896
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.71
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.43
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003497
+        }
+      },
+      "risk": {
+        "approved_lots": 1.43,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T14:40:00",
+      "sizing_basis": 9203.64,
+      "stop_distance": 0.0006416404
+    },
+    {
+      "atr_signal_bar": 0.0003123458,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 49,
+        "minutes_to_session_start": 431,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 21.623614,
+        "rsi_prev_to_oversold": 18.376386,
+        "rsi_to_overbought": 23.836198,
+        "rsi_to_oversold": 16.163802
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.74
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.48
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003378
+        }
+      },
+      "risk": {
+        "approved_lots": 1.48,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T15:11:00",
+      "sizing_basis": 9186.57,
+      "stop_distance": 0.0006246915
+    },
+    {
+      "atr_signal_bar": 0.0003208202,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 20,
+        "minutes_to_session_start": 460,
+        "price_margin_ticks_vs_channel": 20.0,
+        "rsi_prev_to_overbought": 17.14857,
+        "rsi_prev_to_oversold": 22.85143,
+        "rsi_to_overbought": 15.049104,
+        "rsi_to_oversold": 24.950896
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.14
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.71
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 1.43
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.003497
+        }
+      },
+      "risk": {
+        "approved_lots": 1.43,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T15:40:00",
+      "sizing_basis": 9167.39,
+      "stop_distance": 0.0006416404
+    },
+    {
+      "atr_signal_bar": 0.0001307509,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 480,
+        "minutes_to_session_start": 0,
+        "price_margin_ticks_vs_channel": 0.0,
+        "rsi_prev_to_overbought": -12.465495,
+        "rsi_prev_to_oversold": 52.465495,
+        "rsi_to_overbought": -8.41095,
+        "rsi_to_oversold": 48.41095
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.35
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 1.76
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 3.53
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001416
+        }
+      },
+      "risk": {
+        "approved_lots": 3.53,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T08:00:00",
+      "sizing_basis": 9197.89,
+      "stop_distance": 0.0002615017
+    },
+    {
+      "atr_signal_bar": 0.0002034472,
+      "distance_to_boundary": {},
+      "entry_kind": "persistence_reentry",
+      "fire_kinds": [],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.22
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 1.12
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 2.24
+        }
+      },
+      "risk": {
+        "approved_lots": 2.24,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T08:30:00",
+      "sizing_basis": 9211.54,
+      "stop_distance": 0.0004068945
+    },
+    {
+      "atr_signal_bar": 0.0005460581,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 449,
+        "minutes_to_session_start": 31,
+        "price_margin_ticks_vs_channel": 340.0,
+        "rsi_prev_to_overbought": -9.504612,
+        "rsi_prev_to_oversold": 49.504612,
+        "rsi_to_overbought": 42.494437,
+        "rsi_to_oversold": -2.494437
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down",
+        "rsi_escape_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.08
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.42
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.84
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.005952
+        }
+      },
+      "risk": {
+        "approved_lots": 0.84,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T08:31:00",
+      "sizing_basis": 9202.3,
+      "stop_distance": 0.0010921163
+    },
+    {
+      "atr_signal_bar": 0.0001763463,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 414,
+        "minutes_to_session_start": 66,
+        "price_margin_ticks_vs_channel": 2.0,
+        "rsi_prev_to_overbought": 21.701219,
+        "rsi_prev_to_oversold": 18.298781,
+        "rsi_to_overbought": 19.397662,
+        "rsi_to_oversold": 20.602338
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.26
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 1.31
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 2.62
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001908
+        }
+      },
+      "risk": {
+        "approved_lots": 2.62,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T09:06:00",
+      "sizing_basis": 9199.1,
+      "stop_distance": 0.0003526926
+    },
+    {
+      "atr_signal_bar": 0.0001270731,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 400,
+        "minutes_to_session_start": 80,
+        "price_margin_ticks_vs_channel": 1.0,
+        "rsi_prev_to_overbought": 21.431105,
+        "rsi_prev_to_oversold": 18.568895,
+        "rsi_to_overbought": 24.161192,
+        "rsi_to_oversold": 15.838808
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.36
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 1.83
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 3.67
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001362
+        }
+      },
+      "risk": {
+        "approved_lots": 3.67,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T09:20:00",
+      "sizing_basis": 9193.74,
+      "stop_distance": 0.0002541463
+    },
+    {
+      "atr_signal_bar": 0.000104844,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 377,
+        "minutes_to_session_start": 103,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 18.143539,
+        "rsi_prev_to_oversold": 21.856461,
+        "rsi_to_overbought": 14.863597,
+        "rsi_to_oversold": 25.136403
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.43
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.18
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.37
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001144
+        }
+      },
+      "risk": {
+        "approved_lots": 4.37,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T09:43:00",
+      "sizing_basis": 9192.5,
+      "stop_distance": 0.0002096881
+    },
+    {
+      "atr_signal_bar": 0.000100892,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 353,
+        "minutes_to_session_start": 127,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 22.871794,
+        "rsi_prev_to_oversold": 17.128206,
+        "rsi_to_overbought": 26.208333,
+        "rsi_to_oversold": 13.791667
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.29
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.59
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001089
+        }
+      },
+      "risk": {
+        "approved_lots": 4.59,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T10:07:00",
+      "sizing_basis": 9186.62,
+      "stop_distance": 0.000201784
+    },
+    {
+      "atr_signal_bar": 0.000100095,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 331,
+        "minutes_to_session_start": 149,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 17.581392,
+        "rsi_prev_to_oversold": 22.418608,
+        "rsi_to_overbought": 14.185948,
+        "rsi_to_oversold": 25.814052
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.29
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.59
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001089
+        }
+      },
+      "risk": {
+        "approved_lots": 4.59,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T10:29:00",
+      "sizing_basis": 9180.36,
+      "stop_distance": 0.0002001901
+    },
+    {
+      "atr_signal_bar": 0.00010009,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 307,
+        "minutes_to_session_start": 173,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 22.817654,
+        "rsi_prev_to_oversold": 17.182346,
+        "rsi_to_overbought": 26.18479,
+        "rsi_to_oversold": 13.81521
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.29
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.58
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001092
+        }
+      },
+      "risk": {
+        "approved_lots": 4.58,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T10:53:00",
+      "sizing_basis": 9174.06,
+      "stop_distance": 0.00020018
+    },
+    {
+      "atr_signal_bar": 9.9938e-05,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 285,
+        "minutes_to_session_start": 195,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 17.561816,
+        "rsi_prev_to_oversold": 22.438184,
+        "rsi_to_overbought": 14.162435,
+        "rsi_to_oversold": 25.837565
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.29
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.58
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001092
+        }
+      },
+      "risk": {
+        "approved_lots": 4.58,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T11:15:00",
+      "sizing_basis": 9167.76,
+      "stop_distance": 0.0001998759
+    },
+    {
+      "atr_signal_bar": 0.0001000635,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 261,
+        "minutes_to_session_start": 219,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 22.815847,
+        "rsi_prev_to_oversold": 17.184153,
+        "rsi_to_overbought": 26.184005,
+        "rsi_to_oversold": 13.815995
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.29
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.58
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001092
+        }
+      },
+      "risk": {
+        "approved_lots": 4.58,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T11:39:00",
+      "sizing_basis": 9161.46,
+      "stop_distance": 0.000200127
+    },
+    {
+      "atr_signal_bar": 9.99328e-05,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 239,
+        "minutes_to_session_start": 241,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 17.561167,
+        "rsi_prev_to_oversold": 22.438833,
+        "rsi_to_overbought": 14.161656,
+        "rsi_to_oversold": 25.838344
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.28
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.57
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001094
+        }
+      },
+      "risk": {
+        "approved_lots": 4.57,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T12:01:00",
+      "sizing_basis": 9155.16,
+      "stop_distance": 0.0001998655
+    },
+    {
+      "atr_signal_bar": 0.0001000626,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 215,
+        "minutes_to_session_start": 265,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 22.815787,
+        "rsi_prev_to_oversold": 17.184213,
+        "rsi_to_overbought": 26.183979,
+        "rsi_to_oversold": 13.816021
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.28
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.57
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001094
+        }
+      },
+      "risk": {
+        "approved_lots": 4.57,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T12:25:00",
+      "sizing_basis": 9148.86,
+      "stop_distance": 0.0002001252
+    },
+    {
+      "atr_signal_bar": 9.99326e-05,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 193,
+        "minutes_to_session_start": 287,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 17.561146,
+        "rsi_prev_to_oversold": 22.438854,
+        "rsi_to_overbought": 14.16163,
+        "rsi_to_oversold": 25.83837
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.28
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.57
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001094
+        }
+      },
+      "risk": {
+        "approved_lots": 4.57,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T12:47:00",
+      "sizing_basis": 9142.56,
+      "stop_distance": 0.0001998652
+    },
+    {
+      "atr_signal_bar": 0.0001000626,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 169,
+        "minutes_to_session_start": 311,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 22.815785,
+        "rsi_prev_to_oversold": 17.184215,
+        "rsi_to_overbought": 26.183978,
+        "rsi_to_oversold": 13.816022
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.28
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.56
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001096
+        }
+      },
+      "risk": {
+        "approved_lots": 4.56,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T13:11:00",
+      "sizing_basis": 9136.26,
+      "stop_distance": 0.0002001252
+    },
+    {
+      "atr_signal_bar": 9.99326e-05,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 147,
+        "minutes_to_session_start": 333,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 17.561145,
+        "rsi_prev_to_oversold": 22.438855,
+        "rsi_to_overbought": 14.161629,
+        "rsi_to_oversold": 25.838371
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.28
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.56
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001096
+        }
+      },
+      "risk": {
+        "approved_lots": 4.56,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T13:33:00",
+      "sizing_basis": 9129.96,
+      "stop_distance": 0.0001998652
+    },
+    {
+      "atr_signal_bar": 0.0001000626,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 123,
+        "minutes_to_session_start": 357,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 22.815785,
+        "rsi_prev_to_oversold": 17.184215,
+        "rsi_to_overbought": 26.183978,
+        "rsi_to_oversold": 13.816022
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.28
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.56
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001096
+        }
+      },
+      "risk": {
+        "approved_lots": 4.56,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T13:57:00",
+      "sizing_basis": 9123.66,
+      "stop_distance": 0.0002001252
+    },
+    {
+      "atr_signal_bar": 9.99326e-05,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 101,
+        "minutes_to_session_start": 379,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 17.561145,
+        "rsi_prev_to_oversold": 22.438855,
+        "rsi_to_overbought": 14.161629,
+        "rsi_to_oversold": 25.838371
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.27
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.55
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001099
+        }
+      },
+      "risk": {
+        "approved_lots": 4.55,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T14:19:00",
+      "sizing_basis": 9117.36,
+      "stop_distance": 0.0001998652
+    },
+    {
+      "atr_signal_bar": 0.0001000626,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 77,
+        "minutes_to_session_start": 403,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 22.815785,
+        "rsi_prev_to_oversold": 17.184215,
+        "rsi_to_overbought": 26.183978,
+        "rsi_to_oversold": 13.816022
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.27
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.55
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001099
+        }
+      },
+      "risk": {
+        "approved_lots": 4.55,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T14:43:00",
+      "sizing_basis": 9111.06,
+      "stop_distance": 0.0002001252
+    },
+    {
+      "atr_signal_bar": 9.99326e-05,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 55,
+        "minutes_to_session_start": 425,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 17.561145,
+        "rsi_prev_to_oversold": 22.438855,
+        "rsi_to_overbought": 14.161629,
+        "rsi_to_oversold": 25.838371
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.27
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.55
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001099
+        }
+      },
+      "risk": {
+        "approved_lots": 4.55,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T15:05:00",
+      "sizing_basis": 9104.76,
+      "stop_distance": 0.0001998652
+    },
+    {
+      "atr_signal_bar": 0.0001000626,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 31,
+        "minutes_to_session_start": 449,
+        "price_margin_ticks_vs_channel": 10.0,
+        "rsi_prev_to_overbought": 22.815785,
+        "rsi_prev_to_oversold": 17.184215,
+        "rsi_to_overbought": 26.183978,
+        "rsi_to_oversold": 13.816022
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.45
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.27
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.54
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001101
+        }
+      },
+      "risk": {
+        "approved_lots": 4.54,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T15:29:00",
+      "sizing_basis": 9098.46,
+      "stop_distance": 0.0002001252
+    },
+    {
+      "atr_signal_bar": 6.15962e-05,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 480,
+        "minutes_to_session_start": 0,
+        "price_margin_ticks_vs_channel": 6.0,
+        "rsi_prev_to_overbought": 9.974869,
+        "rsi_prev_to_oversold": 30.025131,
+        "rsi_to_overbought": 7.193515,
+        "rsi_to_oversold": 32.806485
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.75
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 3.79
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 7.58
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.00066
+        }
+      },
+      "risk": {
+        "approved_lots": 7.58,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-04T08:00:00",
+      "sizing_basis": 9100.26,
+      "stop_distance": 0.0001231924
+    },
+    {
+      "atr_signal_bar": 8.71481e-05,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 458,
+        "minutes_to_session_start": 22,
+        "price_margin_ticks_vs_channel": 12.0,
+        "rsi_prev_to_overbought": 33.105933,
+        "rsi_prev_to_oversold": 6.894067,
+        "rsi_to_overbought": 36.734639,
+        "rsi_to_oversold": 3.265361
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.53
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.67
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 5.35
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.000935
+        }
+      },
+      "risk": {
+        "approved_lots": 5.35,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-04T08:22:00",
+      "sizing_basis": 9100.26,
+      "stop_distance": 0.0001742962
+    },
+    {
+      "atr_signal_bar": 0.0001196404,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 418,
+        "minutes_to_session_start": 62,
+        "price_margin_ticks_vs_channel": 5.0,
+        "rsi_prev_to_overbought": 10.021329,
+        "rsi_prev_to_oversold": 29.978671,
+        "rsi_to_overbought": 4.047873,
+        "rsi_to_oversold": 35.952127
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.37
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 1.89
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 3.79
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001319
+        }
+      },
+      "risk": {
+        "approved_lots": 3.79,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-04T09:02:00",
+      "sizing_basis": 9100.26,
+      "stop_distance": 0.0002392808
+    },
+    {
+      "atr_signal_bar": 0.0001045243,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 323,
+        "minutes_to_session_start": 157,
+        "price_margin_ticks_vs_channel": 70.0,
+        "rsi_prev_to_overbought": -2.385171,
+        "rsi_prev_to_oversold": 42.385171,
+        "rsi_to_overbought": 47.080551,
+        "rsi_to_oversold": -7.080551
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "breakout_down",
+        "rsi_escape_down"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.43
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 2.16
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 4.33
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001155
+        }
+      },
+      "risk": {
+        "approved_lots": 4.33,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-01-04T10:37:00",
+      "sizing_basis": 9100.26,
+      "stop_distance": 0.0002090486
+    },
+    {
+      "atr_signal_bar": 0.0001684868,
+      "distance_to_boundary": {
+        "minutes_to_session_end": 322,
+        "minutes_to_session_start": 158,
+        "price_margin_ticks_vs_channel": 0.0,
+        "rsi_prev_to_overbought": 47.080551,
+        "rsi_prev_to_oversold": -7.080551,
+        "rsi_to_overbought": 14.402903,
+        "rsi_to_oversold": 25.597097
+      },
+      "entry_kind": "signal_transition",
+      "fire_kinds": [
+        "rsi_escape_up"
+      ],
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.26
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 1.33
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 2.67
+        },
+        "below_min": {
+          "action": "DROP",
+          "final_lots": 0.0,
+          "weight": 0.001873
+        }
+      },
+      "risk": {
+        "approved_lots": 2.67,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-01-04T10:38:00",
+      "sizing_basis": 9100.26,
+      "stop_distance": 0.0003369737
+    }
+  ],
+  "equity_start": 10000.0,
+  "manifest_hash": "251deec862f4a9e3864f387fd4f2fc96a5cbcb30edd63eba8ebc1d0bf9cad1ab",
+  "risk_percent": 1.0,
+  "risk_vetoes": 0,
+  "sizing_mode": "risk_percent_equity"
+}

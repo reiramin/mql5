@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" -r requirements.txt
+          pip install ruff optuna
+
+      - name: Lint (ruff)
+        run: ruff check python tests
+
+      - name: Migrations smoke (Alembic up/down)
+        run: |
+          export AEGIS_FACTORY_DB=/tmp/ci_mig.db
+          python -m alembic upgrade head
+          python -m alembic downgrade 0001
+          python -m alembic upgrade head
+
+      - name: Run test suite
+        run: python -m pytest tests/ -v
+
+      - name: CLI smoke test
+        run: |
+          mql5bot data --symbol EURUSD --timeframe H1 --days 180 --out /tmp/eurusd.csv
+          mql5bot backtest --data /tmp/eurusd.csv --strategy ema_crossover \
+            --spread 1.0 --commission 7 --risk 1 --json-out /tmp/bt.json
+          mql5bot compare --data /tmp/eurusd.csv
+          mql5bot optimize --data /tmp/eurusd.csv --strategy ema_crossover \
+            --grid '{"fast":[8,12],"slow":[25,40]}' --top 3
+          mql5bot walkforward --data /tmp/eurusd.csv --strategy ema_crossover \
+            --grid '{"fast":[8,12],"slow":[25,40]}' --windows 2

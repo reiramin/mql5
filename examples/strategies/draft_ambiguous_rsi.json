@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "strategy_id": "draft_rsi_low",
+  "version": 1,
+  "name": "Draft: trade when RSI is low (ambiguous)",
+  "description": "User said: 'Trade when RSI is low.' The threshold is ambiguous and MUST NOT be invented.",
+  "source": {
+    "type": "USER_TEXT",
+    "reference": "owner description (EN, underspecified)"
+  },
+  "market": {
+    "symbol": "EURUSD",
+    "timeframe": "H1"
+  },
+  "indicators": [
+    {
+      "id": "rsi_m",
+      "kind": "RSI",
+      "period": 14,
+      "applied": "close"
+    }
+  ],
+  "entry": {
+    "mode": "instant",
+    "long": {
+      "left": {
+        "ind": "rsi_m"
+      },
+      "cmp": "LT",
+      "right": {
+        "ambiguous": "rsi_threshold",
+        "range": [
+          20,
+          40
+        ]
+      }
+    }
+  },
+  "exit": {
+    "sl": {
+      "model": "atr",
+      "mult": 2.0
+    }
+  },
+  "filters": {},
+  "risk": {
+    "note": "Stops constrain trade geometry only; position risk is authorized solely by the Aegis Risk Engine."
+  },
+  "metadata": {
+    "requires_codegen": false,
+    "missing_features": []
+  }
+}

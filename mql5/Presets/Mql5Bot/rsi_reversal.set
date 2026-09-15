@@ -1,0 +1,15 @@
+; mql5bot preset — RSI reversal (mean reversion)
+; Defaults mirror python/mql5bot/strategies.py STRATEGIES["rsi_reversal"]
+InpStrategy=1
+InpRsiPeriod=14
+InpRsiOversold=30.0
+InpRsiOverbought=70.0
+InpSlAtr=2.0
+InpTpAtr=3.0
+InpRiskPercent=1.0
+InpMaxLots=10.0
+InpTrailAtr=0.0
+InpBreakevenAtr=0.0
+InpPartialAtr=0.0
+InpAllowShort=true
+InpMagic=20240904

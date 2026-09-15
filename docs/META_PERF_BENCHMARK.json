@@ -1,0 +1,39 @@
+{
+  "generated_at": "2026-09-05T16:46:25.655368+00:00",
+  "note": "synthetic frames; decision latency is dominated by per-book as-of statistics backtests (canonical path, unoptimized by gate rule)",
+  "results": [
+    {
+      "scale": "1sym x 3books",
+      "n_books": 3,
+      "bars_per_symbol": 2880,
+      "decisions_timed": 3,
+      "decision_ms_mean": 182.2,
+      "decision_ms_max": 208.4,
+      "decision_ms_per_book": 60.7,
+      "execution_wall_s": 2.6,
+      "engine_build_s": 0.019
+    },
+    {
+      "scale": "3sym x 5books",
+      "n_books": 5,
+      "bars_per_symbol": 2880,
+      "decisions_timed": 3,
+      "decision_ms_mean": 359.4,
+      "decision_ms_max": 377.5,
+      "decision_ms_per_book": 71.9,
+      "execution_wall_s": 4.0,
+      "engine_build_s": 0.019
+    },
+    {
+      "scale": "6sym x 10books",
+      "n_books": 10,
+      "bars_per_symbol": 2880,
+      "decisions_timed": 3,
+      "decision_ms_mean": 672.0,
+      "decision_ms_max": 750.3,
+      "decision_ms_per_book": 67.2,
+      "execution_wall_s": 8.7,
+      "engine_build_s": 0.019
+    }
+  ]
+}

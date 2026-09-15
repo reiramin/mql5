@@ -1,0 +1,127 @@
+{
+  "_comment": "OWNER MT5 EXECUTION GATE certification manifest (§28 identity chain). Every PENDING_OWNER value must be replaced with real owner-side evidence; a value copied from Python output or left guessed invalidates the attempt. Any mismatch in the chain invalidates the corresponding certification leg.",
+  "chain": {
+    "SOURCE": {
+      "commit": "52cbaa5e0077056d75ac7ed2afc423ef24d5cd23",
+      "proven": true
+    },
+    "CONFIG": {
+      "gold_1_config_hash": "",
+      "gold_2_config_hash": "69e54b83eafa1f232a1289104bbfdf0a3ffddb8e5a74b206ca32b3b7bd1d98e7",
+      "proven": true
+    },
+    "FIXTURE": {
+      "gold_1_dataset_hash": "2b1730cbb43e959291a115c53db8a0c8620ea80ccf00b2251bf01dd236ebd764",
+      "gold_2_dataset_hash": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
+      "proven": true
+    },
+    "DATASET": {
+      "import_hash_before": "PENDING_OWNER",
+      "import_hash_after": "PENDING_OWNER",
+      "mutation_free": "PENDING_OWNER"
+    },
+    "SYMBOLSPEC": {
+      "export_path": "PENDING_OWNER",
+      "export_sha256": "PENDING_OWNER",
+      "broker": "PENDING_OWNER",
+      "server": "PENDING_OWNER",
+      "account_type": "PENDING_OWNER",
+      "terminal_build": "PENDING_OWNER",
+      "export_timestamp": "PENDING_OWNER",
+      "comparison_class_per_field": "PENDING_OWNER"
+    },
+    "EX5": {
+      "compile_timestamp": "PENDING_OWNER",
+      "compiler_version": "PENDING_OWNER",
+      "compiler_log_sha256": "PENDING_OWNER",
+      "ex5_sha256": "PENDING_OWNER",
+      "strict_exit_code": "PENDING_OWNER"
+    },
+    "TESTER_MODEL": {
+      "gold_1": {
+        "m1_ohlc": {
+          "requested": "PENDING_OWNER",
+          "actual": "PENDING_OWNER",
+          "journal_id": "PENDING_OWNER"
+        },
+        "every_tick": {
+          "requested": "PENDING_OWNER",
+          "actual": "PENDING_OWNER",
+          "journal_id": "PENDING_OWNER"
+        },
+        "real_ticks": {
+          "requested": "PENDING_OWNER",
+          "actual": "PENDING_OWNER",
+          "journal_id": "PENDING_OWNER"
+        }
+      },
+      "gold_2": {
+        "m1_ohlc": {
+          "requested": "PENDING_OWNER",
+          "actual": "PENDING_OWNER",
+          "journal_id": "PENDING_OWNER"
+        },
+        "every_tick": {
+          "requested": "PENDING_OWNER",
+          "actual": "PENDING_OWNER",
+          "journal_id": "PENDING_OWNER"
+        },
+        "real_ticks": {
+          "requested": "PENDING_OWNER",
+          "actual": "PENDING_OWNER",
+          "journal_id": "PENDING_OWNER"
+        }
+      }
+    },
+    "RAW_REPORT": {
+      "sha256": {
+        "gold_1_m1_ohlc": "PENDING_OWNER",
+        "gold_1_every_tick": "PENDING_OWNER",
+        "gold_1_real_ticks": "PENDING_OWNER",
+        "gold_2_m1_ohlc": "PENDING_OWNER",
+        "gold_2_every_tick": "PENDING_OWNER",
+        "gold_2_real_ticks": "PENDING_OWNER"
+      }
+    },
+    "PARSED_REPORT": {
+      "extractor": "tools/run_mt5_backtest.py parse (never hand-typed)",
+      "sha256": {
+        "gold_1_m1_ohlc": "PENDING_OWNER",
+        "gold_1_every_tick": "PENDING_OWNER",
+        "gold_1_real_ticks": "PENDING_OWNER",
+        "gold_2_m1_ohlc": "PENDING_OWNER",
+        "gold_2_every_tick": "PENDING_OWNER",
+        "gold_2_real_ticks": "PENDING_OWNER"
+      }
+    },
+    "REAL_TICK_COVERAGE": {
+      "coverage": "PENDING_OWNER",
+      "fallback_intervals": "PENDING_OWNER",
+      "broker_tick_availability": "PENDING_OWNER",
+      "requested_interval": "PENDING_OWNER",
+      "actual_interval": "PENDING_OWNER"
+    },
+    "RECONCILIATION": {
+      "gold_1": "PENDING_OWNER",
+      "gold_2": "PENDING_OWNER",
+      "taxonomy": "closed 14-class set (docs/MT5_ROUNDTRIP.md step 8)",
+      "first_divergence": {
+        "gold_1": "PENDING_OWNER",
+        "gold_2": "PENDING_OWNER"
+      }
+    },
+    "ENVIRONMENT": {
+      "os": "PENDING_OWNER",
+      "terminal_build": "PENDING_OWNER",
+      "tester_build": "PENDING_OWNER",
+      "broker_server": "PENDING_OWNER",
+      "account_mode": "PENDING_OWNER",
+      "symbol": "PENDING_OWNER",
+      "timeframe": "M1"
+    },
+    "VERDICT": {
+      "status": "REALITY_GATE_BLOCKED",
+      "note": "assigned by tools/certify_strategy.py --reconciliation <artifact 12>; exactly one of MT5_VALIDATED / REALITY_GATE_BLOCKED / REALITY_GATE_INCOMPLETE; Python-only evidence can never produce MT5_VALIDATED"
+    }
+  }
+}

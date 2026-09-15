@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ sid }} — AEGIS</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1rem; background: #101418; color: #e6e6e6; }
+    a { color: #7fd1ff; }
+    table { border-collapse: collapse; font-size: .85rem; }
+    td, th { padding: .3rem .6rem; border-bottom: 1px solid #232b36; text-align: left; }
+    form.approval { background: #1a2028; padding: .8rem; border-radius: 8px; max-width: 34rem; }
+    input, textarea, select { width: 100%; margin: .25rem 0 .6rem; background: #232b36; color: #e6e6e6; border: 1px solid #39424e; border-radius: 4px; padding: .3rem; }
+    button { padding: .4rem .9rem; border-radius: 4px; border: 0; cursor: pointer; }
+    button.approve { background: #1d3b2a; color: #7be0a2; }
+    button.deny { background: #4b1d1d; color: #ff8484; }
+    .error { color: #ff8484; }
+  </style>
+</head>
+<body>
+<p><a href="/">&larr; board</a></p>
+<h1>{{ sid }} <small>— {{ state }}</small></h1>
+{% if score %}
+<h2>Discovery score {{ "%.4f"|format(score.score) }} <small>({{ score.score_version }}; ranks, never authorizes)</small></h2>
+<table>
+  <tr><th>component</th><th>raw</th><th>norm</th><th>weight</th><th>contribution</th></tr>
+  {% for r in score.rows %}
+  <tr><td>{{ r.component }}</td><td>{{ r.raw if r.raw is not none else "—" }}</td>
+      <td>{{ "%.3f"|format(r.normalized) }}</td><td>{{ r.weight }}</td>
+      <td>{{ "%.4f"|format(r.contribution) }}{% if not r.available %} (MISSING EVIDENCE){% endif %}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+<h2>Lifecycle history</h2>
+<table>
+  <tr><th>from</th><th>to</th><th>kind</th><th>actor</th><th>reason</th><th>at</th></tr>
+  {% for h in history %}
+  <tr><td>{{ h.from }}</td><td>{{ h.to }}</td><td>{{ h.kind }}</td>
+      <td>{{ h.actor }}</td><td>{{ h.reason }}</td><td>{{ h.ts }}</td></tr>
+  {% endfor %}
+</table>
+{% if proposable %}
+<h2>Human approval ({{ state }} → {{ proposable }})</h2>
+<form class="approval" method="post" action="/approvals">
+  <input type="hidden" name="sid" value="{{ sid }}">
+  <label>Actor (your name/role)<input name="actor" required></label>
+  <label>Reason (required, audited)<textarea name="reason" required></textarea></label>
+  <label>Evidence ref(s) (validation run ids, comma separated)<input name="evidence" placeholder="123,124"></label>
+  <input type="hidden" name="decision" value="APPROVED">
+  <button class="approve" type="submit">Approve {{ state }} → {{ proposable }}</button>
+</form>
+<form class="approval" method="post" action="/approvals" style="margin-top:.6rem">
+  <input type="hidden" name="sid" value="{{ sid }}">
+  <input type="hidden" name="decision" value="DENIED">
+  <label>Deny with reason<input name="actor" required></label>
+  <textarea name="reason" required></textarea>
+  <button class="deny" type="submit">Deny (records oversight event, no state change)</button>
+</form>
+{% else %}
+<p>No UI-proposable transition from <strong>{{ state }}</strong> — the
+operator console never issues LIVE activations or lifecycle skips.</p>
+{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+</body>
+</html>

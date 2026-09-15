@@ -1,0 +1,14 @@
+; mql5bot preset — EMA crossover (trend)
+; Defaults mirror python/mql5bot/strategies.py STRATEGIES["ema_crossover"]
+InpStrategy=0
+InpFastEma=10
+InpSlowEma=30
+InpSlAtr=2.5
+InpTpAtr=4.0
+InpRiskPercent=1.0
+InpMaxLots=10.0
+InpTrailAtr=2.5
+InpBreakevenAtr=0.0
+InpPartialAtr=0.0
+InpAllowShort=true
+InpMagic=20240904

@@ -1,0 +1,100 @@
+# AEGIS autonomous-discovery policy — ALL tunables live here (mission
+# §97); business code never hardcodes these numbers.  Changing this
+# file changes policy_hash, which is bound into every score/campaign
+# record (mission §98: historical decisions stay reproducible).
+
+policy_version: discovery-defaults-1.0
+
+autonomy_level: RESEARCH_AUTOMATION   # §96 default (or safer)
+
+discovery_score:
+  # §27 component weights (sum normalized; missing evidence = no pass)
+  weights:
+    oos_survival: 0.12
+    profit_factor: 0.08
+    drawdown_quality: 0.08
+    expectancy: 0.06
+    trade_count_confidence: 0.06
+    parameter_robustness: 0.07
+    wfa_survival: 0.07
+    cpcv_pbo_evidence: 0.07
+    monte_carlo_stability: 0.06
+    cost_robustness: 0.06
+    regime_stability: 0.05
+    drift_health: 0.05
+    execution_realism: 0.05
+    portfolio_diversification: 0.06
+    shadow_evidence: 0.04
+    live_evidence: 0.06
+
+search:
+  # §62/§63 staged budgets (candidate-count bounds per stage)
+  stage1_single_indicator_max: 12
+  stage2_two_factor_max: 24
+  stage3_multi_factor_max: 12
+  stage4_portfolio_max: 6
+  stage5_mutations_max: 10
+  max_variants_per_axis: 5
+  redundancy_corr_threshold: 0.98      # §64 research-efficiency filter
+  redundancy_sample_bars: 1500
+
+capital:
+  # §40: target gross exposure 10–20% is a TARGET, never a minimum;
+  # 0% is always allowed when nothing qualifies or safety demands it.
+  target_gross_min_pct: 10.0
+  target_gross_max_pct: 20.0
+  allow_zero_exposure: true
+
+allocation_bounds:
+  # §79: circuit-breaker bounds on allocation change (per rebalance)
+  max_daily_abs_change_pct: 15.0       # portfolio gross, percent points
+  max_strategy_delta: 0.20             # per-strategy weight delta
+  max_gross_exposure_delta_pct: 20.0
+  max_risk_delta: 0.05                 # portfolio-heat fraction delta
+
+decay_bands:
+  # §35 decay multipliers (illustrative defaults, configurable)
+  - {name: HEALTHY, multiplier: 1.00, pause: false}
+  - {name: MINOR_DEGRADATION, multiplier: 0.80, pause: false}
+  - {name: MODERATE_DEGRADATION, multiplier: 0.55, pause: false}
+  - {name: SEVERE_DEGRADATION, multiplier: 0.25, pause: false}
+  - {name: CRITICAL, multiplier: 0.00, pause: true}
+  # signal thresholds entering the band decision
+  min_expectancy_ratio: 0.5            # live/backtest expectancy
+  max_dd_ratio: 2.0                    # live DD vs backtest DD
+  max_drift_score: 0.6
+  min_rolling_trades: 10               # below this: no demotion (§35)
+
+live_small_ramp:
+  # §33/§34 progressive, evidence-gated, reversible
+  steps:
+    - {factor: 0.25, min_live_trades: 0,   max_live_dd_pct: 4.0, max_slippage_bps: 30}
+    - {factor: 0.40, min_live_trades: 20,  max_live_dd_pct: 4.0, max_slippage_bps: 30}
+    - {factor: 0.60, min_live_trades: 40,  max_live_dd_pct: 5.0, max_slippage_bps: 30}
+    - {factor: 0.80, min_live_trades: 60,  max_live_dd_pct: 6.0, max_slippage_bps: 30}
+    - {factor: 1.00, min_live_trades: 100, max_live_dd_pct: 8.0, max_slippage_bps: 30}
+
+kill_switch:
+  # §42: thresholds (policy-driven; EMERGENCY_HALT requires explicit reset)
+  max_daily_dd_pct: 6.0
+  max_weekly_dd_pct: 12.0
+  max_total_dd_pct: 25.0
+  max_trade_rate_per_hour: 60
+  max_execution_failure_rate: 0.5
+  max_stale_heartbeat_seconds: 300
+  equity_floor_pct: 50.0               # of reference equity
+  close_all_on_emergency: false        # §42: policy-driven, default keep
+
+circuit_breaker:
+  # §41/§80: decision-behavior anomaly guard (NOT the kill switch)
+  max_allocation_jump_pct: 25.0        # single rebalance gross jump
+  max_strategy_count_drop: 2           # 5 strategies → 1 = anomaly
+  max_candidate_explosion: 200         # unexpected candidate flood
+  cooldown_rebalances: 3               # freeze length in rebalances
+
+watchdog:
+  # §44/§45: minimal external monitor
+  heartbeat_max_age_seconds: 300
+  max_dd_pct: 20.0
+  alert_rate_limit_seconds: 300
+  alert_channel: log                   # log | webhook (url via env)

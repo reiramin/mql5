@@ -1,0 +1,1606 @@
+{
+  "fields": [
+    "signal_time",
+    "strategy_id",
+    "symbol",
+    "side",
+    "risk_approved",
+    "meta_weight",
+    "requested_lots",
+    "broker_normalized_lots",
+    "fill_volume",
+    "entry_price",
+    "sl",
+    "tp",
+    "position_identifier",
+    "exit_time",
+    "exit_price",
+    "realized_pnl"
+  ],
+  "manifest_hash": "251deec862f4a9e3864f387fd4f2fc96a5cbcb30edd63eba8ebc1d0bf9cad1ab",
+  "mql5_source_contracts": [
+    "closed-bar signals (shift 1), act at next bar open",
+    "market orders; single OrderSend path",
+    "RSI zone-escape rule = SignalEngine.EvaluateRsiReversal (PROVEN_EXACT closure, DECISIONS.md 2026-09-07)",
+    "session flatten = filters only ever flatten (strategies propose, filters veto)",
+    "SL-first both-touch rule",
+    "risk sizing floor-to-step with the 1e-9 dust guard; below-minimum REJECTED in both runtimes",
+    "meta allocation reduce-only, floor-to-step, DROP below min"
+  ],
+  "note": "Python<->DSL proven here; MQL5/MT5 legs require the owner terminal protocol (docs/MT5_ROUNDTRIP.md canonical TEN-step sequence).",
+  "parity_class": "PYTHON_DSL_MQL5_SOURCE_PARITY",
+  "parity_disclaimer": "This record proves Python<->DSL trace parity and pins the MQL5 source-level contracts. It is NOT MT5 runtime parity: no MetaTrader 5 terminal, Strategy Tester, or broker environment exists in this sandbox; those legs remain PENDING_OWNER per the canonical owner protocol.",
+  "python_vs_dsl": "MATCHED",
+  "python_vs_mql5_source": "SOURCE_PARITY",
+  "python_vs_mt5_tester": "PENDING_OWNER",
+  "trades": [
+    {
+      "dsl": {
+        "entry_fill": 1.10074,
+        "exit_price": 1.10002,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-01T08:12:00",
+        "lots": 1.4,
+        "pnl": -100.8,
+        "side": "long",
+        "signal_time": "2024-01-01T08:01:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.10074,
+        "exit_price": 1.10002,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-01T08:12:00",
+        "lots": 1.4,
+        "pnl": -100.8,
+        "side": "long",
+        "signal_time": "2024-01-01T08:01:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T08:01:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09806,
+        "exit_price": 1.09852,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T08:41:00",
+        "lots": 1.07,
+        "pnl": -49.22,
+        "side": "short",
+        "signal_time": "2024-01-01T08:13:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09806,
+        "exit_price": 1.09852,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T08:41:00",
+        "lots": 1.07,
+        "pnl": -49.22,
+        "side": "short",
+        "signal_time": "2024-01-01T08:13:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T08:13:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09873,
+        "exit_price": 1.09824,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T09:10:00",
+        "lots": 1.15,
+        "pnl": -56.35,
+        "side": "long",
+        "signal_time": "2024-01-01T08:42:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09873,
+        "exit_price": 1.09824,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T09:10:00",
+        "lots": 1.15,
+        "pnl": -56.35,
+        "side": "long",
+        "signal_time": "2024-01-01T08:42:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T08:42:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09824,
+        "exit_price": 1.09849,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T09:39:00",
+        "lots": 1.5,
+        "pnl": -37.5,
+        "side": "short",
+        "signal_time": "2024-01-01T09:10:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09824,
+        "exit_price": 1.09849,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T09:39:00",
+        "lots": 1.5,
+        "pnl": -37.5,
+        "side": "short",
+        "signal_time": "2024-01-01T09:10:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T09:10:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09849,
+        "exit_price": 1.09824,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T10:10:00",
+        "lots": 1.52,
+        "pnl": -38.0,
+        "side": "long",
+        "signal_time": "2024-01-01T09:39:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09849,
+        "exit_price": 1.09824,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T10:10:00",
+        "lots": 1.52,
+        "pnl": -38.0,
+        "side": "long",
+        "signal_time": "2024-01-01T09:39:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T09:39:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09824,
+        "exit_price": 1.09849,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T10:39:00",
+        "lots": 1.56,
+        "pnl": -39.0,
+        "side": "short",
+        "signal_time": "2024-01-01T10:10:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09824,
+        "exit_price": 1.09849,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T10:39:00",
+        "lots": 1.56,
+        "pnl": -39.0,
+        "side": "short",
+        "signal_time": "2024-01-01T10:10:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T10:10:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09849,
+        "exit_price": 1.09945,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-01T11:12:00",
+        "lots": 1.51,
+        "pnl": 144.96,
+        "side": "long",
+        "signal_time": "2024-01-01T10:39:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09849,
+        "exit_price": 1.09945,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-01T11:12:00",
+        "lots": 1.51,
+        "pnl": 144.96,
+        "side": "long",
+        "signal_time": "2024-01-01T10:39:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T10:39:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.10168,
+        "exit_price": 1.10059,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-01T11:13:00",
+        "lots": 0.9,
+        "pnl": -98.1,
+        "side": "long",
+        "signal_time": "2024-01-01T11:13:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.10168,
+        "exit_price": 1.10059,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-01T11:13:00",
+        "lots": 0.9,
+        "pnl": -98.1,
+        "side": "long",
+        "signal_time": "2024-01-01T11:13:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T11:13:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09768,
+        "exit_price": 1.09764,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T11:15:00",
+        "lots": 0.61,
+        "pnl": -2.44,
+        "side": "long",
+        "signal_time": "2024-01-01T11:14:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09768,
+        "exit_price": 1.09764,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T11:15:00",
+        "lots": 0.61,
+        "pnl": -2.44,
+        "side": "long",
+        "signal_time": "2024-01-01T11:14:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T11:14:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09714,
+        "exit_price": 1.09828,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T11:41:00",
+        "lots": 0.67,
+        "pnl": -76.38,
+        "side": "short",
+        "signal_time": "2024-01-01T11:16:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09714,
+        "exit_price": 1.09828,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T11:41:00",
+        "lots": 0.67,
+        "pnl": -76.38,
+        "side": "short",
+        "signal_time": "2024-01-01T11:16:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T11:16:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09828,
+        "exit_price": 1.09782,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T12:11:00",
+        "lots": 0.95,
+        "pnl": -43.7,
+        "side": "long",
+        "signal_time": "2024-01-01T11:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09828,
+        "exit_price": 1.09782,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T12:11:00",
+        "lots": 0.95,
+        "pnl": -43.7,
+        "side": "long",
+        "signal_time": "2024-01-01T11:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T11:41:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09782,
+        "exit_price": 1.09808,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T12:40:00",
+        "lots": 1.45,
+        "pnl": -37.7,
+        "side": "short",
+        "signal_time": "2024-01-01T12:11:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09782,
+        "exit_price": 1.09808,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T12:40:00",
+        "lots": 1.45,
+        "pnl": -37.7,
+        "side": "short",
+        "signal_time": "2024-01-01T12:11:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T12:11:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09808,
+        "exit_price": 1.09782,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T13:11:00",
+        "lots": 1.49,
+        "pnl": -38.74,
+        "side": "long",
+        "signal_time": "2024-01-01T12:40:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09808,
+        "exit_price": 1.09782,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T13:11:00",
+        "lots": 1.49,
+        "pnl": -38.74,
+        "side": "long",
+        "signal_time": "2024-01-01T12:40:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T12:40:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09782,
+        "exit_price": 1.09808,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T13:40:00",
+        "lots": 1.53,
+        "pnl": -39.78,
+        "side": "short",
+        "signal_time": "2024-01-01T13:11:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09782,
+        "exit_price": 1.09808,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T13:40:00",
+        "lots": 1.53,
+        "pnl": -39.78,
+        "side": "short",
+        "signal_time": "2024-01-01T13:11:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T13:11:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09808,
+        "exit_price": 1.09782,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T14:11:00",
+        "lots": 1.48,
+        "pnl": -38.48,
+        "side": "long",
+        "signal_time": "2024-01-01T13:40:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09808,
+        "exit_price": 1.09782,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T14:11:00",
+        "lots": 1.48,
+        "pnl": -38.48,
+        "side": "long",
+        "signal_time": "2024-01-01T13:40:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T13:40:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09782,
+        "exit_price": 1.09808,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T14:40:00",
+        "lots": 1.52,
+        "pnl": -39.52,
+        "side": "short",
+        "signal_time": "2024-01-01T14:11:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09782,
+        "exit_price": 1.09808,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T14:40:00",
+        "lots": 1.52,
+        "pnl": -39.52,
+        "side": "short",
+        "signal_time": "2024-01-01T14:11:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T14:11:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09808,
+        "exit_price": 1.09809,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T15:16:00",
+        "lots": 1.47,
+        "pnl": 1.47,
+        "side": "long",
+        "signal_time": "2024-01-01T14:40:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09808,
+        "exit_price": 1.09809,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T15:16:00",
+        "lots": 1.47,
+        "pnl": 1.47,
+        "side": "long",
+        "signal_time": "2024-01-01T14:40:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T14:40:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09809,
+        "exit_price": 1.0981,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T15:59:00",
+        "lots": 1.62,
+        "pnl": -1.62,
+        "side": "short",
+        "signal_time": "2024-01-01T15:16:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09809,
+        "exit_price": 1.0981,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T15:59:00",
+        "lots": 1.62,
+        "pnl": -1.62,
+        "side": "short",
+        "signal_time": "2024-01-01T15:16:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-01T15:16:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.0981,
+        "exit_price": 1.09807,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T16:01:00",
+        "lots": 1.8,
+        "pnl": -5.4,
+        "side": "long",
+        "signal_time": "2024-01-01T15:59:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.0981,
+        "exit_price": 1.09807,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-01T16:01:00",
+        "lots": 1.8,
+        "pnl": -5.4,
+        "side": "long",
+        "signal_time": "2024-01-01T15:59:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-01T15:59:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09587,
+        "exit_price": 1.09704,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T08:45:00",
+        "lots": 0.01,
+        "pnl": -1.17,
+        "side": "short",
+        "signal_time": "2024-01-02T08:07:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09587,
+        "exit_price": 1.09704,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T08:45:00",
+        "lots": 0.01,
+        "pnl": -1.17,
+        "side": "short",
+        "signal_time": "2024-01-02T08:07:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T08:07:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09726,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T09:12:00",
+        "lots": 0.13,
+        "pnl": -6.63,
+        "side": "long",
+        "signal_time": "2024-01-02T08:46:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09726,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T09:12:00",
+        "lots": 0.13,
+        "pnl": -6.63,
+        "side": "long",
+        "signal_time": "2024-01-02T08:46:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T08:46:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T09:41:00",
+        "lots": 0.44,
+        "pnl": -11.0,
+        "side": "short",
+        "signal_time": "2024-01-02T09:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T09:41:00",
+        "lots": 0.44,
+        "pnl": -11.0,
+        "side": "short",
+        "signal_time": "2024-01-02T09:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T09:12:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T10:12:00",
+        "lots": 0.68,
+        "pnl": -17.0,
+        "side": "long",
+        "signal_time": "2024-01-02T09:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T10:12:00",
+        "lots": 0.68,
+        "pnl": -17.0,
+        "side": "long",
+        "signal_time": "2024-01-02T09:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T09:41:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T10:41:00",
+        "lots": 0.74,
+        "pnl": -18.5,
+        "side": "short",
+        "signal_time": "2024-01-02T10:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T10:41:00",
+        "lots": 0.74,
+        "pnl": -18.5,
+        "side": "short",
+        "signal_time": "2024-01-02T10:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T10:12:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T11:12:00",
+        "lots": 0.73,
+        "pnl": -18.25,
+        "side": "long",
+        "signal_time": "2024-01-02T10:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T11:12:00",
+        "lots": 0.73,
+        "pnl": -18.25,
+        "side": "long",
+        "signal_time": "2024-01-02T10:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T10:41:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T11:41:00",
+        "lots": 0.75,
+        "pnl": -18.75,
+        "side": "short",
+        "signal_time": "2024-01-02T11:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T11:41:00",
+        "lots": 0.75,
+        "pnl": -18.75,
+        "side": "short",
+        "signal_time": "2024-01-02T11:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T11:12:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T12:12:00",
+        "lots": 0.72,
+        "pnl": -18.0,
+        "side": "long",
+        "signal_time": "2024-01-02T11:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T12:12:00",
+        "lots": 0.72,
+        "pnl": -18.0,
+        "side": "long",
+        "signal_time": "2024-01-02T11:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T11:41:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T12:41:00",
+        "lots": 0.74,
+        "pnl": -18.5,
+        "side": "short",
+        "signal_time": "2024-01-02T12:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T12:41:00",
+        "lots": 0.74,
+        "pnl": -18.5,
+        "side": "short",
+        "signal_time": "2024-01-02T12:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T12:12:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T13:12:00",
+        "lots": 0.72,
+        "pnl": -18.0,
+        "side": "long",
+        "signal_time": "2024-01-02T12:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T13:12:00",
+        "lots": 0.72,
+        "pnl": -18.0,
+        "side": "long",
+        "signal_time": "2024-01-02T12:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T12:41:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T13:41:00",
+        "lots": 0.74,
+        "pnl": -18.5,
+        "side": "short",
+        "signal_time": "2024-01-02T13:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T13:41:00",
+        "lots": 0.74,
+        "pnl": -18.5,
+        "side": "short",
+        "signal_time": "2024-01-02T13:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T13:12:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T14:12:00",
+        "lots": 0.72,
+        "pnl": -18.0,
+        "side": "long",
+        "signal_time": "2024-01-02T13:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T14:12:00",
+        "lots": 0.72,
+        "pnl": -18.0,
+        "side": "long",
+        "signal_time": "2024-01-02T13:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T13:41:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T14:41:00",
+        "lots": 0.74,
+        "pnl": -18.5,
+        "side": "short",
+        "signal_time": "2024-01-02T14:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T14:41:00",
+        "lots": 0.74,
+        "pnl": -18.5,
+        "side": "short",
+        "signal_time": "2024-01-02T14:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T14:12:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T15:12:00",
+        "lots": 0.71,
+        "pnl": -17.75,
+        "side": "long",
+        "signal_time": "2024-01-02T14:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09675,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T15:12:00",
+        "lots": 0.71,
+        "pnl": -17.75,
+        "side": "long",
+        "signal_time": "2024-01-02T14:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T14:41:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T15:41:00",
+        "lots": 0.74,
+        "pnl": -18.5,
+        "side": "short",
+        "signal_time": "2024-01-02T15:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09675,
+        "exit_price": 1.097,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T15:41:00",
+        "lots": 0.74,
+        "pnl": -18.5,
+        "side": "short",
+        "signal_time": "2024-01-02T15:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-02T15:12:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09744,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T16:01:00",
+        "lots": 0.71,
+        "pnl": 31.24,
+        "side": "long",
+        "signal_time": "2024-01-02T15:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.097,
+        "exit_price": 1.09744,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-02T16:01:00",
+        "lots": 0.71,
+        "pnl": 31.24,
+        "side": "long",
+        "signal_time": "2024-01-02T15:41:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T15:41:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09968,
+        "exit_price": 1.10007,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-03T08:30:00",
+        "lots": 0.35,
+        "pnl": 13.65,
+        "side": "long",
+        "signal_time": "2024-01-03T08:01:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09968,
+        "exit_price": 1.10007,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-03T08:30:00",
+        "lots": 0.35,
+        "pnl": 13.65,
+        "side": "long",
+        "signal_time": "2024-01-03T08:01:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T08:01:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.10137,
+        "exit_price": 1.10095,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-03T08:31:00",
+        "lots": 0.22,
+        "pnl": -9.24,
+        "side": "long",
+        "signal_time": "2024-01-03T08:31:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.10137,
+        "exit_price": 1.10095,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-03T08:31:00",
+        "lots": 0.22,
+        "pnl": -9.24,
+        "side": "long",
+        "signal_time": "2024-01-03T08:31:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T08:31:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09634,
+        "exit_price": 1.09676,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T09:07:00",
+        "lots": 0.08,
+        "pnl": -3.36,
+        "side": "short",
+        "signal_time": "2024-01-03T08:32:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09634,
+        "exit_price": 1.09676,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T09:07:00",
+        "lots": 0.08,
+        "pnl": -3.36,
+        "side": "short",
+        "signal_time": "2024-01-03T08:32:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T08:32:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09676,
+        "exit_price": 1.09654,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T09:21:00",
+        "lots": 0.26,
+        "pnl": -5.72,
+        "side": "long",
+        "signal_time": "2024-01-03T09:07:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09676,
+        "exit_price": 1.09654,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T09:21:00",
+        "lots": 0.26,
+        "pnl": -5.72,
+        "side": "long",
+        "signal_time": "2024-01-03T09:07:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T09:07:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09654,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T09:44:00",
+        "lots": 0.36,
+        "pnl": -1.44,
+        "side": "short",
+        "signal_time": "2024-01-03T09:21:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09654,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T09:44:00",
+        "lots": 0.36,
+        "pnl": -1.44,
+        "side": "short",
+        "signal_time": "2024-01-03T09:21:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T09:21:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T10:08:00",
+        "lots": 0.43,
+        "pnl": -6.02,
+        "side": "long",
+        "signal_time": "2024-01-03T09:44:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T10:08:00",
+        "lots": 0.43,
+        "pnl": -6.02,
+        "side": "long",
+        "signal_time": "2024-01-03T09:44:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T09:44:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T10:30:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T10:08:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T10:30:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T10:08:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T10:08:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T10:54:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T10:30:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T10:54:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T10:30:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T10:30:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T11:16:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T10:54:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T11:16:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T10:54:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T10:54:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T11:40:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T11:16:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T11:40:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T11:16:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T11:16:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T12:02:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T11:40:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T12:02:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T11:40:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T11:40:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T12:26:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T12:02:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T12:26:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T12:02:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T12:02:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T12:48:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T12:26:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T12:48:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T12:26:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T12:26:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T13:12:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T12:48:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T13:12:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T12:48:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T12:48:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T13:34:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T13:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T13:34:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T13:12:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T13:12:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T13:58:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T13:34:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T13:58:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T13:34:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T13:34:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T14:20:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T13:58:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T14:20:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T13:58:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T13:58:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T14:44:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T14:20:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T14:44:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T14:20:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T14:20:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T15:06:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T14:44:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09658,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T15:06:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "short",
+        "signal_time": "2024-01-03T14:44:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T14:44:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T15:30:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T15:06:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09658,
+        "exit_price": 1.09644,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T15:30:00",
+        "lots": 0.45,
+        "pnl": -6.3,
+        "side": "long",
+        "signal_time": "2024-01-03T15:06:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T15:06:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09638,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T16:01:00",
+        "lots": 0.45,
+        "pnl": 2.7,
+        "side": "short",
+        "signal_time": "2024-01-03T15:30:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09644,
+        "exit_price": 1.09638,
+        "exit_reason": "signal_exit",
+        "exit_time": "2024-01-03T16:01:00",
+        "lots": 0.45,
+        "pnl": 2.7,
+        "side": "short",
+        "signal_time": "2024-01-03T15:30:00",
+        "strategy_id": "gold2_multifactor"
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T15:30:00"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Research — AEGIS</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1rem; background: #101418; color: #e6e6e6; }
+    a { color: #7fd1ff; }
+    form { background: #1a2028; padding: .8rem; border-radius: 8px; max-width: 40rem; }
+    input, textarea, select { width: 100%; margin: .25rem 0 .6rem; background: #232b36; color: #e6e6e6; border: 1px solid #39424e; border-radius: 4px; padding: .3rem; }
+    button { padding: .4rem .9rem; border-radius: 4px; border: 0; background: #1d3b2a; color: #7be0a2; cursor: pointer; }
+    table { border-collapse: collapse; font-size: .85rem; }
+    td, th { padding: .3rem .6rem; border-bottom: 1px solid #232b36; text-align: left; }
+    .warn { color: #ffd479; }
+  </style>
+</head>
+<body>
+<p><a href="/">&larr; board</a></p>
+<h1>Research campaigns</h1>
+<h2>Add Strategy Idea</h2>
+<form method="post" action="/campaigns">
+  <label>Idea (what should the strategy do?)<textarea name="idea" required></textarea></label>
+  <label>Source (optional paste; stored as untrusted DATA with provenance)<textarea name="source"></textarea></label>
+  <label>Dataset<select name="dataset">
+    <option value="synthetic-default">synthetic-default</option>
+    <option value="owner-upload">owner-upload</option>
+  </select></label>
+  <label>Actor (your name/role)<input name="actor" required></label>
+  <button type="submit">Start research</button>
+</form>
+{% if not runner_configured %}
+<p class="warn">Research runner is not configured in this console instance —
+campaigns are registered and PAUSED; attach the deterministic research
+pipeline to execute them.  Nothing is silently faked.</p>
+{% endif %}
+<h2>Campaigns</h2>
+<table>
+  <tr><th>campaign</th><th>idea</th><th>stage</th><th>status</th><th>dataset</th></tr>
+  {% for c in campaigns %}
+  <tr><td>{{ c.campaign_id }}</td><td>{{ c.name }}</td><td>{{ c.stage }}</td><td>{{ c.status }}</td><td>{{ c.dataset_hash[:12] }}</td></tr>
+  {% else %}
+  <tr><td colspan="4">none</td></tr>
+  {% endfor %}
+</table>
+</body>
+</html>

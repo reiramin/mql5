@@ -1,0 +1,14 @@
+; mql5bot preset — Bollinger reversal (mean reversion)
+; Defaults mirror python/mql5bot/strategies.py STRATEGIES["bollinger_reversal"]
+InpStrategy=3
+InpBollingerPeriod=20
+InpBollingerDev=2.0
+InpSlAtr=2.5
+InpTpAtr=3.5
+InpRiskPercent=1.0
+InpMaxLots=10.0
+InpTrailAtr=0.0
+InpBreakevenAtr=0.0
+InpPartialAtr=0.0
+InpAllowShort=true
+InpMagic=20240904
