@@ -35,8 +35,8 @@
     "timeframe": "M1"
   },
   "source": {
-    "branch": "arena/01a07c73-mql5bot",
-    "commit": "52cbaa5e0077056d75ac7ed2afc423ef24d5cd23",
-    "note": "FROZEN SOURCE COMMIT: the owner must compile and execute this exact commit. Anchor migrated 781bea4 -> 54613aa -> this commit (2026-09-08, see docs/DECISIONS.md entries of the same date): each migration was forced by the first REAL MetaEditor compiles (non-compilable identifiers, then strict-gate warnings) and is MQL5-compilation-correctness-only — the five engine semantics, gold fixtures, manifests and certification protocol below are pinned UNCHANGED (fixture/config/dataset hashes in this file are untouched). Later commits may add owner-package/documentation work only. Owner flow: checkout this commit, run tools\\compile.ps1 -Strict directly (PowerShell 5.1 safe, pure ASCII), then verify evidence from the latest checkout carrying this frozen_inputs.json."
+    "branch": "master",
+    "commit": "227bf665654b2d2491c89c226dcff735570b915a",
+    "note": "FROZEN SOURCE COMMIT: the owner must compile and execute this exact commit. Anchor history 781bea4 -> 54613aa -> 52cbaa5 (2026-09-08, see docs/DECISIONS.md entries of the same date): each migration was forced by the first REAL MetaEditor compiles (non-compilable identifiers, then strict-gate warnings) and is MQL5-compilation-correctness-only. Re-anchored 2026-09-16 to this commit (see docs/DECISIONS.md 2026-09-16 entry): the repository was published as a squashed snapshot (single 'Initial commit' 227bf66) and the prior anchor 52cbaa5 is genuinely unreachable — not a shallow clone, so `git fetch --unshallow` cannot recover it. The re-anchor is provenance-correctness-only: the five engine semantics, gold fixtures, manifests and certification protocol below are pinned UNCHANGED (all fixture/config/dataset/manifest/spec hashes in this file are byte-untouched; the golds are present at this snapshot exactly as frozen, so `git diff <anchor> HEAD -- artifacts/gold artifacts/gold_2` is empty). Owner flow: checkout this commit, run tools\\compile.ps1 -Strict directly (PowerShell 5.1 safe, pure ASCII), then verify evidence from the latest checkout carrying this frozen_inputs.json."
   }
 }

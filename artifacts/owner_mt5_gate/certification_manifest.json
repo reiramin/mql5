@@ -2,8 +2,9 @@
   "_comment": "OWNER MT5 EXECUTION GATE certification manifest (§28 identity chain). Every PENDING_OWNER value must be replaced with real owner-side evidence; a value copied from Python output or left guessed invalidates the attempt. Any mismatch in the chain invalidates the corresponding certification leg.",
   "chain": {
     "SOURCE": {
-      "commit": "52cbaa5e0077056d75ac7ed2afc423ef24d5cd23",
-      "proven": true
+      "commit": "227bf665654b2d2491c89c226dcff735570b915a",
+      "proven": true,
+      "_comment": "Re-anchored 2026-09-16 to the squashed snapshot (was 52cbaa5e…, now unreachable); see artifacts/owner_mt5_gate/frozen_inputs.json source.note and docs/DECISIONS.md 2026-09-16. Provenance-only: gold/config/dataset hashes below are byte-unchanged."
     },
     "CONFIG": {
       "gold_1_config_hash": "",

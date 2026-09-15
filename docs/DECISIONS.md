@@ -9,6 +9,54 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-16 — Owner-gate freeze anchor re-anchored to the squashed snapshot
+
+**Trigger.** The repository is now published as a squashed single-commit
+snapshot: `227bf66 Initial commit`
+(`227bf665654b2d2491c89c226dcff735570b915a`, branch `master`). The prior
+freeze anchor `52cbaa5e0077056d75ac7ed2afc423ef24d5cd23` recorded in
+`artifacts/owner_mt5_gate/frozen_inputs.json` is unreachable from this
+history, so
+`tests/test_docs_contract.py::test_owner_mt5_gate_package_exists_and_is_pending_owner`
+failed its `git merge-base --is-ancestor <anchor> HEAD` check.
+
+**Diagnosis (this is NOT the shallow-clone case).** The 2026-09-08
+environment note below documents a *shallow clone* reproduction where the
+anchor object is merely absent locally and `git fetch --unshallow`
+restores it with no source change. That is explicitly not the situation
+here: `.git/shallow` is absent, `git rev-list --count HEAD` is exactly
+`1`, and the historical commits (`58ce3ad`, `29dd770`, `781290b`, and the
+old anchor itself) genuinely do not exist in the object store and cannot
+be fetched. The history was rewritten by a squash; the anchor is gone for
+good, not hidden.
+
+**Decision — provenance-correctness-only re-anchor.**
+
+1. `frozen_inputs.json` `source.commit` is migrated
+   `781bea4 -> 54613aa -> 52cbaa5 -> 227bf665…` and `source.branch` set to
+   `master`, under the same rule as the 2026-09-08 anchor migrations: a
+   change to the source-of-record snapshot moves the anchor.
+2. This re-anchor touches provenance only. Every frozen semantic hash in
+   the file — gold #1/#2 fixture, config, dataset, manifest, spec, and the
+   Gold #2 `artifact_hash_chain` — is byte-untouched, and
+   `git_commit_recorded` for each gold (the historical commit that
+   *produced* that gold) is deliberately left as-is; it records when the
+   gold was made, not the current freeze anchor.
+3. The freeze invariant still holds and is still enforced: with the anchor
+   equal to HEAD the golds are present at the snapshot exactly as frozen,
+   so `git diff <anchor> HEAD -- artifacts/gold artifacts/gold_2` is empty
+   and `merge-base --is-ancestor` passes. The contract was re-pointed to
+   the truth, not weakened; `certification_manifest.json` remains
+   `REALITY_GATE_BLOCKED` / `PENDING_OWNER` and no owner evidence was
+   fabricated.
+
+**Owner flow unchanged.** Checkout `227bf665…`, run
+`tools\compile.ps1 -Strict` (0/0 expected), re-run the exporter on the
+live account, commit the real broker exports, then re-run
+`tools/broker_symbol_parity.py`.
+
+---
+
 ## 2026-09-15 — Stage A validation count discrepancy and exporter sign gate
 
 1. The reported `1599 passed / 1 skipped` versus `1598 passed / 1 skipped`
