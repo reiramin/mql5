@@ -185,6 +185,43 @@ def test_kelly_capped_at_quarter(specs):
     assert res.risk_money_budget == pytest.approx(2500.0)
 
 
+def test_kelly_caller_cap_cannot_exceed_hard_ceiling(specs):
+    """A caller passing kelly_cap>0.25 must NOT get more than the 0.25 hard
+    ceiling (mirrors the MQL5 ``MathMin(k, KELLY_CAP)`` hard cap). Full
+    Kelly here is 1/3; with kelly_cap=1.0 the budget must still clamp to 25%
+    of equity (2500 on 10k), not 33%."""
+    res = size_position(
+        specs["EURUSD"], mode=KELLY_FRACTION, equity=10_000.0, value=0.0,
+        stop_distance=0.0020, win_rate=0.6, payoff_ratio=1.5,
+        kelly_enabled=True, kelly_cap=1.0,
+    )
+    assert res.reason == OK
+    assert res.risk_money_budget == pytest.approx(2500.0)
+    assert res.lots == pytest.approx(12.5)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_inputs_fail_closed(specs, bad):
+    """SPEC §8.C invariant: NaN/Inf must VETO (INVALID_ARGS), never crash or
+    silently size. Previously NaN slipped every comparison and crashed in
+    normalize_volume, and +Inf equity returned a clamped tradable size."""
+    from mql5bot.sizer import INVALID_ARGS
+
+    # non-finite equity
+    r = size_position(specs["EURUSD"], mode=RISK_PERCENT_EQUITY,
+                      equity=bad, value=1.0, stop_distance=0.0020)
+    assert r.rejected and r.reason == INVALID_ARGS
+    # non-finite stop distance
+    r = size_position(specs["EURUSD"], mode=RISK_PERCENT_EQUITY,
+                      equity=10_000.0, value=1.0, stop_distance=bad)
+    assert r.rejected and r.reason == INVALID_ARGS
+    # non-finite profit->deposit conversion
+    r = size_position(specs["EURUSD"], mode=RISK_PERCENT_EQUITY,
+                      equity=10_000.0, value=1.0, stop_distance=0.0020,
+                      profit_to_deposit=bad)
+    assert r.rejected and r.reason == INVALID_ARGS
+
+
 def test_kelly_no_edge_rejected(specs):
     res = size_position(
         specs["EURUSD"], mode=KELLY_FRACTION, equity=10_000.0, value=0.0,

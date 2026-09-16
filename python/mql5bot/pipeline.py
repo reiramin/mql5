@@ -428,6 +428,17 @@ def _warmup_allowed(span_start: int, warmup_bars: int,
     return w
 
 
+def _most_selected(hashes: list[str]) -> str:
+    """The most-frequently IS-selected config hash across folds, chosen
+    DETERMINISTICALLY: the distinct hashes are sorted first so a tie in
+    selection count resolves to the smallest hash (matching the IS argmax
+    tie-break in :func:`purged_cv_stage`). ``max(set(...))`` alone depends on
+    set-iteration order, which is PYTHONHASHSEED-salted — that would make the
+    one-look OOS config choice, and the run's ``manifest_id``, differ across
+    processes for the same inputs."""
+    return max(sorted(set(hashes)), key=hashes.count)
+
+
 def purged_cv_stage(df: pd.DataFrame, strategy: str,
                     params_list: list[dict], *,
                     n_splits: int = 6,
@@ -653,8 +664,10 @@ def purged_cv_stage(df: pd.DataFrame, strategy: str,
                 {"param_hash": h, "params": c, "n_trades": int(t)}
                 for h, c, t in zip(cfg_ids, params_list, trade_counts)
             ],
-            "selected_most": max(set(selected_hashes),
-                                 key=selected_hashes.count),
+            # deterministic most-selected config (see _most_selected): ties
+            # resolve to the smallest hash, never to set-iteration order, so
+            # the one-look OOS config choice and manifest_id are reproducible.
+            "selected_most": _most_selected(selected_hashes),
             "per_fold_oos_sharpe": [float(x) for x in fold_scores],
             "folds": fold_log,
         },

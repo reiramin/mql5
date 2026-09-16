@@ -21,7 +21,6 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 import pandas as pd
-
 from mql5bot.data import generate_ohlc
 from mql5bot.meta_portfolio import MetaPortfolioEngine
 
@@ -88,7 +87,7 @@ def main() -> int:
     per_regime = {}
     for regime, g in df.groupby("regime"):
         per_regime[regime] = {
-            "trades": int(len(g)),
+            "trades": len(g),
             "pnl_sum": round(float(g["pnl"].sum()), 2),
             "pnl_mean": round(float(g["pnl"].mean()), 2),
             "hit_rate": round(float((g["pnl"] > 0).mean()), 4),
@@ -121,19 +120,19 @@ def main() -> int:
         fh.write("\n")
 
     lines = ["# Regime matrix (Phases 21–23)", "",
-             "Frozen canonical config; decisions/trades partitioned by "
-             "the regime label KNOWN at the covering decision "
-             "(causal, as-of).  Measurement only — no tuning.",
+             ("Frozen canonical config; decisions/trades partitioned by "
+              "the regime label KNOWN at the covering decision "
+              "(causal, as-of).  Measurement only — no tuning."),
              "",
-             f"Run: {len(meta.weights)} rebalances, "
-             f"{len(trades)} trades.", "",
+             (f"Run: {len(meta.weights)} rebalances, "
+              f"{len(trades)} trades."), "",
              "## Labels live per symbol (decision counts)", ""]
     for sym, counts in sorted(label_counts.items()):
         lines.append(f"- **{sym}**: " + ", ".join(
             f"{k}={v}" for k, v in sorted(counts.items())))
     lines += ["", "## Per-regime trade statistics", "",
-              "| regime | trades | pnl sum | pnl mean | hit rate | "
-              "mean weight |", "|---|---|---|---|---|---|"]
+              ("| regime | trades | pnl sum | pnl mean | hit rate | "
+               "mean weight |"), "|---|---|---|---|---|---|"]
     for regime in sorted(per_regime):
         r = per_regime[regime]
         lines.append(

@@ -148,6 +148,21 @@ def test_load_owner_export_rejects_wrong_schema_and_missing_fields(tmp_path):
         load_owner_export(p2)
 
 
+def test_main_exit_code_fails_closed_when_nothing_verified(tmp_path, monkeypatch):
+    """The machine gate (exit code) must FAIL CLOSED: an empty exports dir
+    is NOT VERIFIED (exit 2), never a pass (old code returned 0 whenever no
+    row was a MISMATCH, so 'nothing verified' read as PASS to CI)."""
+    from broker_symbol_parity import main
+
+    empty = tmp_path / "no_exports"
+    empty.mkdir()
+    monkeypatch.setattr(sys, "argv", [
+        "broker_symbol_parity", "--exports", str(empty),
+        "--out-json", str(tmp_path / "parity_report.json"),
+    ])
+    assert main() == 2
+
+
 def test_missing_export_reports_pending_and_fabricates_nothing(capsys):
     from broker_symbol_parity import build_report
     exports, rows, coverage = build_report(

@@ -31,7 +31,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import sys
 from pathlib import Path
 
 import pandas as pd
@@ -112,8 +111,7 @@ def main() -> int:
 
     # ---- full basket present: build contexts and run -------------------
     from mql5bot.costs import CostConfig
-    from mql5bot.meta_portfolio import InstrumentContext, \
-        MetaPortfolioEngine
+    from mql5bot.meta_portfolio import InstrumentContext, MetaPortfolioEngine
     from mql5bot.symbolspec import SymbolSpec
 
     specs = {r["symbol"]: r["spec"] for r in loaded}

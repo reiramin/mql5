@@ -395,14 +395,22 @@ def verify_symbolspec(root: Path | str,
                                  "(comparison PENDING_OWNER)")
         return report
 
+    # The frozen broker_spec convention names the symbol under `name`, while
+    # the SymbolSpec doc names it under `symbol`. Translate so a frozen symbol
+    # identity is ACTUALLY enforced when provided — otherwise `doc.get("name")`
+    # is always None -> UNSUPPORTED_BROKER_DIFFERENCE -> silently ignored, and
+    # a leg run on the WRONG symbol whose decision numerics coincide would pass
+    # identity. A wrong symbol identity is decision-changing (STOP).
+    _FROZEN_TO_DOC = {"name": "symbol"}
+    _IDENTITY_FIELDS = {"name", "symbol"}
     decision_changing = []
     for field, expected in frozen_expected.items():
-        actual = doc.get(field)
+        actual = doc.get(_FROZEN_TO_DOC.get(field, field))
         if actual is None:
             cls = UNSUPPORTED_BROKER_DIFFERENCE
         elif actual == expected:
             cls = EXACT_MATCH
-        elif field in _DECISION_FIELDS:
+        elif field in _DECISION_FIELDS or field in _IDENTITY_FIELDS:
             cls = DECISION_CHANGING_MISMATCH
             decision_changing.append(field)
         else:
@@ -649,9 +657,22 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
 
     The reconciliation artifact must bind SOURCE→FIXTURE→CONFIG→
     DATASET→SYMBOLSPEC→EX5→TESTER MODEL→REPORT; any broken edge
-    invalidates the leg. The python side of every event must equal the
-    frozen expected execution (a reconciliation whose python column
-    drifts from the frozen artifact is INVALID, never trusted).
+    invalidates the leg.
+
+    ANCHORING SCOPE (be precise — do not overclaim): the reconciliation
+    must DECLARE the exact frozen ``expected_execution_sha256`` (checked
+    below against the frozen record, so it cannot name a different
+    expected-execution artifact), it must carry an MT5 observation for
+    every reconciled field (completeness gate below), and no field may
+    diverge python↔mt5. What is NOT enforced here: byte-level anchoring of
+    each event's python column to the bytes of ``expected_execution.json``.
+    That artifact is the FROZEN reference (``artifacts/gold*/…``); it is
+    not part of the owner evidence LAYOUT and there is no defined
+    projection from the per-bar events onto it, so the python column is
+    trusted to the extent that the owner declared the correct frozen
+    expected-execution hash. Full byte-level python-column anchoring is an
+    OWNER/BUILD-side follow-up (same class as the empty ``gold_1
+    .config_hash`` note in docs/DECISIONS.md 2026-09-16 Wave 2.2).
     """
     root = Path(root)
     path = root / LAYOUT[f"reconciliation_{gold}"]
@@ -681,10 +702,13 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
         ("config_hash", fman.get("config_hash")),
         ("dataset_hash", fman.get("dataset_hash_from_manifest")),
         # anchor the PYTHON reference to the frozen truth engine: the
-        # reconciliation must declare the exact expected-execution artifact
-        # the python column was produced from, so an owner cannot fabricate
-        # both columns to agree with each other yet drift from the frozen
-        # expectation.
+        # reconciliation must DECLARE the exact frozen expected-execution
+        # hash (this cross-check forces the declared binding to equal the
+        # frozen constant, so the owner cannot name a different
+        # expected-execution artifact). NOTE: this does not byte-verify the
+        # events' python column against expected_execution.json — see the
+        # ANCHORING SCOPE note in the docstring; that is an owner/build
+        # follow-up.
         ("expected_execution_sha256",
          fman.get("expected_execution_sha256")),
     )
@@ -773,6 +797,33 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
     if not isinstance(events, list) or not events:
         report["state"] = INVALID
         report["reasons"].append("reconciliation carries no events")
+        return report
+
+    # A real python<->MT5 reconciliation must actually carry the MT5 side.
+    # `_field_divergent` treats a field with no `mt5` key (or mt5 null) as
+    # NON-divergent, so a python-only package — one never run on MT5 —
+    # would otherwise reach MATCH/VALID and feed MT5_VALIDATED. Reject
+    # incompleteness here, fail-closed: every reconciled field (a dict
+    # carrying a `python` value) MUST also carry a non-null `mt5`
+    # observation, and there must be at least one such field.
+    reconciled = incomplete = 0
+    for event in events:
+        for spec in (event.get("fields") or {}).values():
+            if isinstance(spec, dict) and "python" in spec:
+                reconciled += 1
+                if spec.get("mt5") is None:
+                    incomplete += 1
+    if reconciled == 0:
+        report["state"] = INVALID
+        report["reasons"].append(
+            "reconciliation events carry no comparable python/mt5 fields")
+        return report
+    if incomplete:
+        report["state"] = INVALID
+        report["reasons"].append(
+            f"reconciliation incomplete: {incomplete} field(s) carry a "
+            "python value with no MT5 observation (mt5 null/missing) — the "
+            "gold lane requires a real MT5 side for every reconciled field")
         return report
 
     div = first_divergence(events)

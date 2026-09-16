@@ -13,6 +13,7 @@ from mql5bot.pipeline import (
     RunManifest,
     _block_edges,
     _entry_index_map,
+    _most_selected,
     _pnl_per_bar,
     cost_stress_stage,
     dataset_version_of,
@@ -23,6 +24,23 @@ from mql5bot.pipeline import (
     run_stages,
     screen_stage,
 )
+
+
+def test_most_selected_tie_break_is_deterministic():
+    """The most-selected config must be chosen deterministically: on a tie in
+    selection count the SMALLEST hash wins, independent of input ordering and
+    of set-iteration order (PYTHONHASHSEED). Regression for a nondeterministic
+    ``max(set(...))`` that could certify different one-look OOS params, and
+    hash different manifest_ids, across processes for identical inputs."""
+    # "aaa" and "bbb" each selected twice (a tie); "ccc" once.
+    base = ["bbb", "ccc", "aaa", "bbb", "aaa"]
+    assert _most_selected(base) == "aaa"  # tie -> smallest hash
+    # invariant to input ordering
+    import itertools
+    for perm in itertools.permutations(base):
+        assert _most_selected(list(perm)) == "aaa"
+    # a clear winner is returned regardless of ties elsewhere
+    assert _most_selected(["zzz", "yyy", "zzz", "aaa"]) == "zzz"
 
 
 @pytest.fixture

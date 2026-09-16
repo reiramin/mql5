@@ -466,6 +466,54 @@ def test_expected_execution_binding_must_match_frozen_truth(tmp_path):
     assert report["verdict"] != og.MT5_VALIDATED
 
 
+def test_reconciliation_python_only_package_fails_closed(tmp_path):
+    """P1: a reconciliation that carries a python column but NO MT5 side
+    (mt5 key omitted on every field) must fail closed. The divergence
+    engine treats a missing mt5 side as non-divergent, so without the
+    completeness gate such a package — one never actually run on MT5 —
+    would reach MATCH/VALID and feed MT5_VALIDATED."""
+    root = build_package(tmp_path)
+    doc = json.loads((root / "reconciliation" / "gold2.json").read_text())
+    for event in doc["events"]:
+        for spec in event["fields"].values():
+            spec.pop("mt5", None)  # python-only: MT5 side never captured
+    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc))
+    _rebuild_manifest(root)
+    report = gate(root)
+    assert report["gold"]["gold2"]["state"] == og.INVALID
+    assert report["verdict"] != og.MT5_VALIDATED
+
+
+def test_reconciliation_null_mt5_side_fails_closed(tmp_path):
+    """P1: an explicit null MT5 observation is incompleteness, not a
+    match — a single field with mt5=None must invalidate the leg."""
+    root = build_package(tmp_path)
+    doc = json.loads((root / "reconciliation" / "gold2.json").read_text())
+    doc["events"][4]["fields"]["signal"] = {"python": 1, "mt5": None,
+                                            "status": "MATCH"}
+    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc))
+    _rebuild_manifest(root)
+    report = gate(root)
+    assert report["gold"]["gold2"]["state"] == og.INVALID
+    assert report["verdict"] != og.MT5_VALIDATED
+
+
+def test_symbolspec_frozen_symbol_name_is_enforced(tmp_path):
+    """P2: a frozen symbol identity (broker_spec convention: `name`) must be
+    enforced against the doc's `symbol`. Old code did `doc.get("name")` which
+    is always None -> UNSUPPORTED_BROKER_DIFFERENCE -> silently ignored, so a
+    leg on the WRONG symbol could pass identity."""
+    root = build_package(tmp_path)  # doc symbol is EURUSD
+    # matching frozen name -> VALID
+    ok = og.verify_symbolspec(root, {"name": "EURUSD"})
+    assert ok["state"] == og.VALID
+    assert ok["field_classes"]["name"] == og.EXACT_MATCH
+    # wrong frozen name -> decision-changing STOP (never silently accepted)
+    bad = og.verify_symbolspec(root, {"name": "GBPUSD"})
+    assert bad["state"] == og.MISMATCHED
+    assert bad["field_classes"]["name"] == og.DECISION_CHANGING_MISMATCH
+
+
 def test_classification_is_deterministic_and_closed():
     assert og.classify_field("signal") == og.SIGNAL_MISMATCH
     assert og.classify_field("indicator_rsi") == og.INDICATOR_MISMATCH

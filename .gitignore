@@ -22,3 +22,6 @@ mql5/**/*.ex5
 .idea/
 *.swp
 .DS_Store
+
+# Local agent/session config (never part of the repo)
+.claude/

@@ -9,6 +9,133 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-16 — Wave 2.3 final Mac release-candidate audit: determinism + fail-closed hardening
+
+**Purpose.** Independent adversarial re-audit of the whole tree (security,
+financial correctness, research/determinism, certification tooling, discovery/
+authority boundaries) to reach a true Mac release-candidate state where the only
+remaining work is owner Windows/MT5 execution + evidence. No features, no
+weakened gate. Full detail of what was found vs. cleared below.
+
+**P1 — nondeterministic one-look OOS config selection (`pipeline.py`).** The
+purged-CV "most-selected" config used `max(set(selected_hashes),
+key=...count)`; `set` iteration over hex strings is `PYTHONHASHSEED`-salted, so
+on a tie in selection count the winner (and therefore the params handed to the
+irreplaceable one-look OOS certification, AND `RunManifest.manifest_id`, which
+hashes the artifacts) differed across processes for identical inputs. Fixed:
+extracted `_most_selected()` — `max(sorted(set(...)), key=count)` — ties resolve
+to the smallest hash (matching the existing IS argmax tie-break). Regression:
+`test_most_selected_tie_break_is_deterministic`; verified by running the full
+suite under two `PYTHONHASHSEED` values with identical results.
+
+**P1 — owner-gate reconciliation accepted a python-only package
+(`owner_gate.verify_reconciliation`).** `_field_divergent` treats a field with
+no `mt5` key (or `mt5` null) as NON-divergent, so a reconciliation carrying a
+`python` column but no MT5 side at all — one never actually run on MT5 —
+reached `first_divergence==None` → MATCH → VALID → fed `MT5_VALIDATED`. (The
+`certify_strategy` lane already required a real MT5 observation; the owner-gate
+lane, which issues the verdict, did not.) Fixed: a completeness gate now
+requires every reconciled field (a dict carrying `python`) to also carry a
+non-null `mt5`, and at least one such field to exist; incompleteness → INVALID,
+fail-closed. Regressions: `test_reconciliation_python_only_package_fails_closed`,
+`test_reconciliation_null_mt5_side_fails_closed`.
+
+**P2 — owner-gate frozen SYMBOL identity was never enforced
+(`owner_gate.verify_symbolspec`).** The frozen broker_spec names the symbol
+under `name`, the SymbolSpec doc under `symbol`, so `doc.get("name")` was always
+None → `UNSUPPORTED_BROKER_DIFFERENCE` → silently ignored; a leg run on the
+WRONG symbol whose decision numerics coincide would pass identity, and any
+future owner-supplied `name` expectation would be a no-op. Fixed: `name`→`symbol`
+field translation + symbol identity treated as decision-changing (STOP).
+Regression: `test_symbolspec_frozen_symbol_name_is_enforced`. (Currently latent:
+the committed `symbolspec_expectations` is `None` and the test set omits `name`,
+so no in-repo verdict changes — this hardens the machinery for when the owner
+populates it.)
+
+**P2 — `broker_symbol_parity.py` machine gate failed OPEN when nothing was
+verified.** `main()` returned 0 whenever no row was a MISMATCH, so "no export
+present" and "every export malformed/skipped" both read as PASS to a CI/owner
+gate keying on exit status (only the markdown said NOT VERIFIED). Fixed to fail
+closed: exit 1 = real MISMATCH, exit 2 = nothing/incomplete verified (no
+exports or a class still PENDING), 0 only when exports present + every class
+covered + no mismatch. Regression:
+`test_main_exit_code_fails_closed_when_nothing_verified`. Also: the
+`sizer.round_to_tick` parity row hard-coded `"MATCH"` regardless of the computed
+value (a check that could never fail) — replaced with a real on-grid
+idempotency comparison that can report MISMATCH.
+
+**P2 — Python sizer did not fail-closed on non-finite inputs (`sizer.py`).**
+`size_position` validated `< 0` but not finiteness: NaN slipped every comparison
+and crashed in `normalize_volume` (ValueError, not a clean veto), and +Inf
+equity inflated the budget past the cap and returned a tradable clamped size
+(fail-OPEN) — contradicting the SPEC §8.C invariant "NaN/Inf must VETO". Fixed:
+explicit `isfinite` veto on all numeric inputs → `INVALID_ARGS`. (Engine callers
+pre-validate finiteness, so this is a canonical-library contract hardening, not
+a live-path breach.) Regression: `test_non_finite_inputs_fail_closed`.
+
+**P3 — Python Kelly cap was caller-overridable above the ceiling (`sizer.py`).**
+`kelly_cap` had no hard ceiling, so a caller passing `kelly_cap=1.0` got full
+Kelly, diverging from MQL5's hard `#define KELLY_CAP 0.25` + `MathMin(k,
+KELLY_CAP)`. Added `KELLY_HARD_CAP = 0.25` and `min(k, kelly_cap,
+KELLY_HARD_CAP)` so the two ports cannot diverge on the risk ceiling. Regression:
+`test_kelly_caller_cap_cannot_exceed_hard_ceiling`.
+
+**Lint — `tools/` ruff debt cleared.** The two files documented as pre-existing
+ruff debt (`tools/meta_real_basket.py` unused `sys` + import sort;
+`tools/meta_regime_matrix.py` import sort, redundant `int()`, three
+line-wrapped implicit string concatenations) are fixed. `ruff check python/
+tests/ tools/ factory/` is now clean (was `python/ tests/` only). All ISC004
+concatenations were confirmed intentional line-wraps, not missing-comma bugs.
+
+**OWNER-COORDINATED finding (confirmed, NOT applied on Mac) — inverted
+OrderCalcMargin direction (`RiskManager.mqh:296`).** `long dir = (price <
+slPrice) ? POSITION_TYPE_LONG : POSITION_TYPE_SHORT;` is fully inverted: a LONG
+(slPrice < price) maps to `POSITION_TYPE_SHORT` and thus sizes against SELL
+margin, and vice-versa. `dir` only selects the ORDER_TYPE for `OrderCalcMargin`
+(it does NOT set the order side), so impact is bounded — nil where buy/sell
+margin are equal (typical FX), wrong required-margin only on instruments with
+asymmetric long/short margin rates. Correct: `(price > slPrice) ? LONG : SHORT`.
+**Deliberately NOT changed on Mac:** the mql5 tree is byte-anchored to the
+frozen source commit `227bf66` (`frozen_inputs.json` `source.commit`: "the owner
+must compile and execute THIS EXACT commit"), so editing it from Mac would break
+the "compile exactly this commit" provenance contract and re-anchoring the
+frozen source commit is an owner-authority action tied to the (already
+owner-pending) strict EA compile. The fix is a one-line source edit requiring
+MetaEditor to verify. **Owner action:** apply this one-liner at the next strict
+compile and re-anchor `source.commit` accordingly.
+
+**P3 defense-in-depth (documented, NOT changed) — currently unreachable.** Per
+the P3 "do not spend time" rule, and because each is unreachable in the
+intended deployment: (a) `api/main.py killswitch_reset` accepts any actor/reason
+with no machine-vs-human role check (its sibling `store.transition` enforces
+one) — the console is an unauthenticated owner-only local app; (b)
+`discovery/research_service.advance` has a latent `actor="owner"` branch that is
+never reached (only single legal steps for PARSED…SHADOW, `human` never True);
+(c) `entry_chain.govern_entry` reports the first-failing gate, so the kill-switch
+is not always the attributed `veto_owner` when an earlier gate also fails
+(attribution nit only); (d) `owner_gate.verify_compile` freshness tolerates a
+2-day mtime drift band — the real anchor is the EX5 SHA-256 equality, so this is
+belt-and-suspenders. Recommend the owner tighten (a) and (d) if desired; none
+blocks the Mac RC.
+
+**Cleared with no defect (independent adversarial audits).** Security: no
+deserialization/injection/traversal/zip-slip/SSRF/non-loopback-bind/evidence-
+forgery/kill-switch-bypass reachable (all absent or correctly defended).
+Research/determinism: CPCV two-sided purge+embargo, `np.array_split` block cuts,
+seeded RNG everywhere, canonical `sort_keys` JSON into every hash, no
+`inplace=True`, closed-bar signals (no lookahead) — clean apart from the
+`_most_selected` tie-break above. Discovery/authority: SCORE≠PERMISSION, no
+order authority outside `TradeManager`, fail-closed DSL/gates/adapter, human
+approval real, meta reduce-only, ML bounded/conservative — invariants hold.
+
+**Validation.** Full deterministic suite: **1602 passed, 1 skipped, 0 failed**
+(was 1593/1; +9 regression tests this wave), verified under
+`PYTHONHASHSEED=12345` AND cross-checked identical under seeds 1/777 on the
+determinism-sensitive suites. `ruff check python/ tests/ tools/ factory/` clean;
+`git diff --check` clean. The frozen mql5 tree is byte-unchanged
+(`git diff -- mql5/` empty); golds/manifests untouched. Owner certification
+remains REALITY_GATE_BLOCKED — nothing runtime-certified, nothing simulated.
+
 ## 2026-09-16 — Wave 2.2 final pre-certification audit: verifier hardening + doc-truth fixes
 
 **Purpose.** Deepest pre-owner-certification audit. Fixed genuine

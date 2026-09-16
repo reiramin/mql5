@@ -39,6 +39,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from math import isfinite
 
 from .symbolspec import SymbolSpec, enforce_min_stop, loss_per_lot, normalize_volume
 
@@ -58,6 +59,12 @@ SIZING_MODES = (
 )
 
 KELLY_DEFAULT_CAP = 0.25  # SPEC §8.C: capped Kelly, conservative
+# Hard ceiling — the Kelly fraction can NEVER exceed this, even if a caller
+# passes a larger ``kelly_cap``. Mirrors the MQL5 hard cap
+# (``#define KELLY_CAP 0.25`` + ``MathMin(k, KELLY_CAP)`` in RiskManager.mqh)
+# so the two ports cannot diverge on the risk ceiling (SPEC §8.C invariant:
+# Kelly <= 0.25).
+KELLY_HARD_CAP = 0.25
 KELLY_DEFAULT_OFF = True  # SPEC §8.C: off by default
 
 # Result reasons ------------------------------------------------------------
@@ -137,6 +144,17 @@ def size_position(
     # -- argument validation --------------------------------------------
     if mode not in SIZING_MODES:
         return SizingResult(reason=INVALID_ARGS)
+    # FAIL CLOSED on non-finite inputs (SPEC §8.C / DECISIONS.md invariant:
+    # NaN/Inf must VETO, never silently size). NaN slips through every `<`/`>`
+    # comparison below (so it would otherwise crash in normalize_volume), and
+    # +Inf equity/value would inflate the budget past the cap and return a
+    # tradable clamped size — both are unsafe. Reject up front.
+    _finite_inputs = (equity, balance, stop_distance, value, profit_to_deposit,
+                      max_lots, kelly_cap, win_rate, payoff_ratio)
+    if not all(isfinite(x) for x in _finite_inputs):
+        return SizingResult(reason=INVALID_ARGS)
+    if free_margin is not None and not isfinite(free_margin):
+        return SizingResult(reason=INVALID_ARGS)
     if equity < 0.0 or balance < 0.0 or free_margin is not None and free_margin < 0.0:
         return SizingResult(reason=INVALID_ARGS)
     if mode == KELLY_FRACTION and not kelly_enabled:
@@ -166,7 +184,7 @@ def size_position(
         k = kelly_fraction(win_rate, payoff_ratio)
         if k <= 0.0:
             return SizingResult(reason=NO_EDGE)
-        budget = equity * min(k, kelly_cap)
+        budget = equity * min(k, kelly_cap, KELLY_HARD_CAP)
         lots_raw = budget / loss_pl
     else:  # risk_percent_equity (default)
         budget = equity * value / 100.0

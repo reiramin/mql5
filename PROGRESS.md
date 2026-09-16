@@ -31,13 +31,17 @@ OWNER-PENDING items remain Windows/owner responsibilities (see below).
   deterministic `as_of`, cost-stress `None` guard, ML risk-seam
   duplicate-key robustness, telemetry body cap, and docstring honesty.
   Full detail: `docs/DECISIONS.md` 2026-09-16 Wave-2 entry.
-- **Tests.** Full deterministic Python suite green: **1593 passed, 1
-  skipped, 0 failed** (was 1576/1; +17 regression tests across Waves 2–2.2:
-  five in Wave 2, four in Wave 2.1, and eight in Wave 2.2 pinning the
-  owner-gate verifier hardening — value-based reconciliation divergence,
-  required `expected_execution_sha256` + `tester_models` bindings, and the
-  `certify_strategy` PENDING-reconciliation rejection). `ruff check python/
-  tests/` clean; `git diff --check` clean.
+- **Tests.** Full deterministic Python suite green: **1602 passed, 1
+  skipped, 0 failed** (was 1593/1; +9 regression tests in Wave 2.3 —
+  deterministic `_most_selected` tie-break, owner-gate python-only/null-mt5
+  reconciliation rejection, frozen-symbol identity enforcement, broker-parity
+  fail-closed exit code, sizer non-finite veto, Kelly hard-cap). Verified under
+  `PYTHONHASHSEED=12345` and cross-checked identical under seeds 1/777 on the
+  determinism-sensitive suites. `ruff check python/ tests/ tools/ factory/`
+  clean (broadened from `python/ tests/`; the previously-documented `tools/`
+  ruff debt is cleared); `git diff --check` clean. Prior waves: +17 regression
+  tests across Waves 2–2.2 (five Wave 2, four Wave 2.1, eight Wave 2.2 pinning
+  the owner-gate verifier hardening).
 - **Broker parity — parity machinery CODE-COMPLETE; in-repo verdict
   PENDING; owner witness CAPTURED-OUTSIDE-REPO.** Three distinct facts,
   kept apart:
@@ -75,6 +79,16 @@ Tick / Every-Tick-real-ticks), Python↔MT5 reconciliation, kill-switch seam
 exports (FX/METAL/INDEX/CRYPTO) → denomination verdict, and the final owner
 certification manifest. Status stays **REALITY_GATE_BLOCKED** until the
 owner round-trip runs. No profit claims; no runtime-certified claim.
+
+**Owner-coordinated source fix pending (one line, MT5-verify-only).** Wave 2.3
+confirmed an inverted `OrderCalcMargin` direction in `RiskManager.mqh:296`
+(`price < slPrice` should be `price > slPrice`; bounded impact — nil on
+symmetric-margin FX, wrong required-margin only on asymmetric long/short margin
+instruments). It was NOT changed on Mac to preserve the frozen source anchor
+`227bf66` ("compile exactly this commit"). The owner applies it at the next
+strict compile + `source.commit` re-anchor. Wave 2.3 also hardened the Python/
+tooling side (determinism, fail-closed reconciliation/parity/sizer, frozen
+symbol identity) — see `docs/DECISIONS.md` 2026-09-16 Wave 2.3 entry.
 
 ---
 

@@ -297,9 +297,16 @@ def sizer_behaviour_parity(doc: dict, stop_distance: float = 25 * 1e-5) -> list[
         currency_deposit=account_currency,
     )
     rows = []
-    px = 100.0 * float(sym["point"]) * 1000  # arbitrary representable price
-    rows.append(Row(sym["name"], "sizer.round_to_tick", px,
-                    round_to_tick(px, spec), "MATCH", "representable by grid"))
+    tick = float(sym["tick_size"])
+    # Snap an arbitrary price onto the broker tick grid, then verify
+    # round_to_tick is idempotent on an on-grid price. This is a REAL
+    # comparison (it can report MISMATCH if round_to_tick is broken) — the
+    # previous row hard-coded "MATCH" regardless of the computed value.
+    px = round_to_tick(100.0 * float(sym["point"]) * 1000, spec)
+    rounded = round_to_tick(px, spec)
+    rows.append(Row(sym["name"], "sizer.round_to_tick", px, rounded,
+                    "MATCH" if abs(rounded - px) <= tick * 1e-6 else "MISMATCH",
+                    "on-grid price is idempotent under round_to_tick"))
     raw = float(sym["volume_min"]) + 0.4 * float(sym["volume_step"])
     floored = normalize_volume(raw, spec)
     rows.append(Row(sym["name"], "sizer.normalize_volume(floor)", raw, floored,
@@ -524,8 +531,26 @@ def main() -> int:
             "n_exports": len(exports), "coverage": coverage,
             "rows": [r.__dict__ for r in rows],
         }, indent=2), encoding="utf-8")
+    # FAIL CLOSED on the exit code (the machine gate). Previously this
+    # returned 0 whenever no row was a MISMATCH — so "no export present" and
+    # "every export malformed and skipped" both looked like PASS to a CI/owner
+    # gate keying on the exit status, even though the markdown said NOT
+    # VERIFIED. Distinguish the three outcomes:
+    #   1 = a real MISMATCH was found (parity FAILED)
+    #   2 = nothing/incomplete was verified (no exports, or a class still
+    #       PENDING) — parity is NOT VERIFIED and must never be read as pass
+    #   0 = exports present, every asset class covered, no mismatch
     mism = [r for r in rows if r.status == "MISMATCH"]
-    return 1 if mism else 0
+    if mism:
+        return 1
+    pending = [cls for cls, v in coverage.items()
+               if str(v).startswith("PENDING")]
+    if not exports or pending or not rows:
+        print(f"NOT VERIFIED: n_exports={len(exports)} "
+              f"pending_classes={sorted(pending)} — parity not established",
+              file=sys.stderr)
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
