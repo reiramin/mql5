@@ -139,6 +139,29 @@ def test_cost_stress_doubles_costs_and_gates(df_small):
         m.artifacts["base_end_equity"]
 
 
+def test_cost_stress_gate_handles_none_drawdown(df_small, monkeypatch):
+    """compute_metrics reports max_drawdown_pct=None for degenerate runs;
+    cost_stress_stage must not crash on float(None). Pins the Wave-2 _num
+    guard — the old code did float(bm.get("max_drawdown_pct", 0.0)) and
+    raised TypeError mid-stage."""
+    import mql5bot.pipeline as pl
+
+    class _Res:
+        def __init__(self, metrics):
+            self.metrics = metrics
+
+    def fake_runner(df, strategy, params, **kw):
+        # a degenerate run: no drawdown / no equity defined
+        return _Res({"trades": 0, "max_drawdown_pct": None,
+                     "end_equity": None})
+
+    monkeypatch.setattr(pl, "run_backtest", fake_runner)
+    out = cost_stress_stage(df_small, "ema_crossover",
+                            [{"fast": 10, "slow": 30}], min_trades=1)
+    # no exception; the degenerate run is simply dropped
+    assert out["manifests"][0].status == "dropped"
+
+
 def test_cost_stress_gate_drops_below_min_trades(df_small):
     out = cost_stress_stage(df_small, "ema_crossover",
                             [{"fast": 10, "slow": 30}],

@@ -1,6 +1,15 @@
 # AEGIS — PROJECT HANDOFF (mental roadmap, decisions, state, todo)
 Read this together with `docs/SPEC.md` (v4). SPEC is canonical for WHAT to build; this file is canonical for WHERE we are, WHY decisions were made, and WHAT to do next. If they conflict, SPEC wins for engineering, this file wins for process/state.
 
+> **CURRENT STATE POINTER (2026-09-16, Wave 2.1 — Mac freeze).** The
+> authoritative *current* status is `PROGRESS.md` → CURRENT STATE and
+> `docs/DECISIONS.md` (newest on top). The Mac code side is **FROZEN,
+> CODE-COMPLETE / RESEARCH-COMPLETE**; the next phase is the **Windows Owner
+> Certification Campaign** — its precise inputs and the canonical protocol
+> are in `docs/WINDOWS_OWNER_HANDOFF.md`. The design narrative in §0–§14
+> below is retained as roadmap/rationale; where a §-item predates the
+> current state, the CURRENT STATE pointer wins.
+
 ---
 ## 0. One-paragraph summary
 Owner (Persian-speaking, non-programmer, trades via MetaTrader 5) wants an automated trading system where he can describe strategies in plain language (sourced weekly from a public strategy-sharing website), have them turned into executable logic, validated statistically, selected/combined intelligently by market regime, and traded with strict risk controls. We designed **Aegis**: (1) **Aegis-EA** — an MQL5 execution/risk framework with a JSON strategy DSL interpreter; (2) **Aegis-Factory** — a Python "strategy CRM" that converts descriptions → DSL specs → statistical gates → allocation → monitoring/retirement. Core philosophy: **strategies are data; the framework makes losing money due to bugs, mis-sizing, missing stops, broker quirks, overfitting or human error as close to impossible as engineering allows. No profit claims, ever.**

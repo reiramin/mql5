@@ -76,6 +76,37 @@ def test_oos_one_look_recorded_and_refused_afterwards(dev, oos, tmp_path):
                      registry=reg)
 
 
+def test_oos_one_look_is_checked_BEFORE_the_oos_backtests_run(
+        dev, oos, tmp_path, monkeypatch):
+    """The one-look must be enforced before the OOS slice is consumed:
+    a refused second look must NOT re-run the OOS backtests. Pins the
+    Wave-2 ordering fix (check_identity moved ahead of the OOS loop) —
+    the earlier code raised only AFTER re-executing the whole OOS look,
+    so a test that merely asserts the raise passes under the old bug too.
+    """
+    import mql5bot.meta_oos as mo
+    from mql5bot.pipeline import OosOneLookViolation, OosRegistry
+
+    real = mo.run_backtest
+    oos_calls = {"n": 0}
+
+    def spy(df, *a, **k):
+        if df is oos:                       # only the OOS-slice backtests
+            oos_calls["n"] += 1
+        return real(df, *a, **k)
+
+    monkeypatch.setattr(mo, "run_backtest", spy)
+    reg = OosRegistry(tmp_path / "oos.json")
+    run_meta_oos(dev, oos, SPECS, MetaConfig(), registry=reg)
+    assert oos_calls["n"] == len(SPECS)     # first look touched the slice
+    oos_calls["n"] = 0
+    with pytest.raises(OosOneLookViolation):
+        run_meta_oos(dev, oos, SPECS, MetaConfig(max_strategy_weight=0.9),
+                     registry=reg)
+    # the refused look never touched the OOS slice (old code: == len(SPECS))
+    assert oos_calls["n"] == 0
+
+
 def test_no_oos_tuning_frozen_hash_binds_the_record(dev, oos):
     out = run_meta_oos(dev, oos, SPECS, MetaConfig())
     assert verify_frozen(out["identity"]["meta_parameter_hash"],

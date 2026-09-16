@@ -3,6 +3,34 @@
 All notable changes to mql5bot are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased — Wave 2 + Wave 2.1 (research/ML/governance hardening + Mac freeze)
+
+- Correctness (Wave 2): CPCV block-partition leakage fixed
+  (`robustness.combinatorial_purged_cv` now `np.array_split`, two-sided
+  embargo); allocation governor no longer resurrects a failed-gate strategy
+  via the symmetric delta cap and clamps caller-supplied decay/ramp
+  multipliers to `[0,1]`; drift execution-window aligned to the pnl windows
+  (`drift_feed`); meta-OOS one-look now enforced BEFORE the OOS slice is
+  consumed and `policy_weights` `as_of` is deterministic; `cost_stress_gate`
+  guards `float(None)`; the ML risk seam tolerates non-unique `order_key`.
+  Each fix has a pinned regression test (5 added).
+- Security (Wave 2): telemetry collector caps the POST body at 1 MiB
+  (defense in depth atop the loopback bind). Source audit: no
+  high/critical reachable vulnerabilities.
+- Provenance/status (Wave 2.1): broker-evidence model stated as three
+  distinct facts — CAPTURED (owner, Windows) ≠ NOT COMMITTED / NOT
+  repo-reproducible ≠ NOT VERIFIED (verdict). `probe.ok=true` is a
+  precondition, not a parity PASS. `TASKS.md` marked archival (Phase 2.5
+  checklist is not a current backlog); `PROGRESS.md` gained an authoritative
+  CURRENT STATE header; `docs/WINDOWS_OWNER_HANDOFF.md` added. Denomination
+  decision stays owner-gated (PENDING); no runtime semantics changed.
+- Freeze: final Mac engineering freeze. Compile anchor `227bf66` unchanged
+  (`git diff 227bf66 HEAD -- mql5/` empty); golds untouched. Wave 2.1 also
+  closed three green-on-green gaps by adding real regression tests for the
+  meta-OOS check-before-look ordering, the cost-stress `None` guard and the
+  telemetry 413 cap (4 tests). Tests: 1585 passed / 1 skipped / 0 failed;
+  `ruff check python/ tests/` clean; `git diff --check` clean.
+
 ## Unreleased — Wave 1 code-side pass (audit + security hardening)
 
 - Security (Wave 1F): the telemetry collector (`telemetry_bridge.py`) and the

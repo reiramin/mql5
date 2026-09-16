@@ -1,4 +1,29 @@
-# TASKS — AEGIS Phase 2.5 / Research Foundation Correction
+# TASKS
+
+> **STATUS BANNER — READ FIRST (2026-09-16).**
+> **This file is an ARCHIVAL checklist, NOT the current backlog.** It is the
+> Phase 2.5 "Research Foundation Correction" plan from an earlier session
+> (branch `arena/01a06cdc-mql5bot`). Its checkbox states are **frozen as
+> written** and are deliberately **not** updated — a `[ ]` here does **not**
+> mean open work.
+>
+> - **Phases 0–14 (research foundation) are CODE-COMPLETE.** The modules and
+>   behaviours they describe are implemented and tested in the current tree
+>   (`python/mql5bot/{specs,costs,dayclock,engine,optimizer,robustness,
+>   metrics,ml_interfaces}.py`, etc.; 1585 passing tests). Do **not** treat
+>   these unchecked boxes as a backlog.
+> - **The ONLY genuinely-open items are the OWNER-PENDING "Reality Gate"
+>   boxes at the bottom** (`[ ] OWNER: …`) — the Windows Owner Certification
+>   Campaign. These are RUNTIME-PENDING, never simulated on Mac.
+> - **Authoritative current status lives elsewhere:** `PROGRESS.md`
+>   (CURRENT STATE block), `docs/DECISIONS.md` (newest on top), `HANDOFF.md`,
+>   and the Windows handoff `docs/WINDOWS_OWNER_HANDOFF.md`.
+>
+> History below is preserved verbatim for provenance. Do not rewrite it.
+
+---
+
+# TASKS — AEGIS Phase 2.5 / Research Foundation Correction (HISTORICAL / ARCHIVAL)
 
 Canonicalise the research/backtest engine BEFORE any ML / CPCV / Optuna /
 portfolio-logic work. No NN/Transformer/LSTM/RL. No new trading strategies.

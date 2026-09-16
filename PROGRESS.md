@@ -26,15 +26,38 @@ OWNER-PENDING items remain Windows/owner responsibilities (see below).
   deterministic `as_of`, cost-stress `None` guard, ML risk-seam
   duplicate-key robustness, telemetry body cap, and docstring honesty.
   Full detail: `docs/DECISIONS.md` 2026-09-16 Wave-2 entry.
-- **Tests.** Full deterministic Python suite green: **1581 passed, 1
-  skipped, 0 failed** (was 1576 passed / 1 skipped; five new regression
-  tests pin the Wave-2 fixes). Ruff clean; `git diff --check` clean.
-- **Broker parity — NOT VERIFIED (OWNER-PENDING).** `data/broker_exports/`
-  holds no owner export; `tools/broker_symbol_parity.py` reports every
-  asset class PENDING. The tick-value ACCOUNT vs PROFIT denomination stays
-  owner-gated — confirmed/refuted only from committed owner exports on
-  Windows. The parity machinery (harness, field map, tolerances, tests) is
-  code-complete.
+- **Tests.** Full deterministic Python suite green: **1585 passed, 1
+  skipped, 0 failed** (was 1576 passed / 1 skipped; nine new regression
+  tests across Waves 2–2.1 pin the fixes — five in Wave 2, four in Wave 2.1
+  closing the green-on-green gaps for the meta-OOS ordering, cost-stress
+  `None` guard and telemetry body cap). `ruff check python/ tests/` clean;
+  `git diff --check` clean.
+- **Broker parity — parity machinery CODE-COMPLETE; in-repo verdict
+  PENDING; owner witness CAPTURED-OUTSIDE-REPO.** Three distinct facts,
+  kept apart:
+  1. *Not performed vs not committed.* The owner environment (Windows) has
+     ALREADY captured symbol-spec exports with a successful
+     `denomination_probe` (`ok=true`, `source=OrderCalcProfit`) for
+     EURUSD / XAUEUR / US30 / BTC. `data/` is `.gitignore`d, so those raw
+     owner exports are **NOT committed** and are **NOT
+     repository-reproducible** on Mac — but the measurement WAS performed.
+     "Not in the repo" ≠ "not done".
+  2. *Probe ok ≠ parity PASS.* `denomination_probe.ok=true` is a
+     *precondition* (both `OrderCalcProfit` calls valid, signs correct,
+     tick values re-read), NOT a verdict. The ACCOUNT_CURRENCY vs
+     PROFIT_CURRENCY verdict is rendered only when
+     `tools/broker_symbol_parity.py` runs on the committed export. With no
+     export committed here, the in-repo report is `n_exports:0`, every
+     class PENDING. Broker parity is therefore **NOT VERIFIED in this
+     repository** — no PASS is claimed.
+  3. *Denomination decision stays PENDING.* The tick-value ACCOUNT vs
+     PROFIT denomination remains owner-gated (see DECISIONS.md 2026-09-16
+     Wave-1 entry); it is confirmed/refuted only when the owner commits the
+     exports and the harness renders an accepted verdict on Windows.
+  The parity machinery (harness, field map, tolerances, exporter, tests)
+  is code-complete. Binding contract for the committed evidence:
+  `docs/BROKER_SYMBOL_PARITY.md` + `artifacts/owner_mt5_gate/` (the owner
+  evidence package with frozen input hashes).
 - **Authority model unchanged.** `STRATEGY → META/PORTFOLIO → RISK +
   EXECUTION veto`; no ML/LLM/meta/discovery path has order authority. The
   only order authority is the MQL5 `TradeManager`.

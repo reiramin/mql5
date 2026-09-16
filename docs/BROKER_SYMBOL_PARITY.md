@@ -64,6 +64,34 @@ The sizer primitives (`round_to_tick`, `normalize_volume` floor semantics,
 `loss_per_lot`) are replayed against the OWNER's exported grid so parity is
 behavioural, not just field-by-field.
 
+## Owner-evidence provenance — captured ≠ committed ≠ verified
+
+Three states are kept strictly apart so the repository never over- or
+under-claims:
+
+- **CAPTURED (owner environment).** As of 2026-09-16 the owner has run the
+  exporter on the live Windows account and obtained a successful
+  `denomination_probe` (`ok=true`, `source=OrderCalcProfit`) for EURUSD,
+  XAUEUR, US30 and BTC. The measurement was **performed** — this is not a
+  gap.
+- **NOT COMMITTED / NOT REPRODUCIBLE (this repo).** `data/` is
+  `.gitignore`d, so those raw owner exports are not in Git and cannot be
+  re-derived on Mac. On this host `tools/broker_symbol_parity.py` sees
+  `n_exports:0` and reports every asset class PENDING. "Absent from the
+  repo" means *not committed*, **not** *not performed*.
+- **NOT VERIFIED (verdict).** `denomination_probe.ok=true` is a
+  *precondition*, not a verdict. The ACCOUNT_CURRENCY vs PROFIT_CURRENCY
+  decision — and hence the parity PASS — is rendered ONLY when the harness
+  runs on the committed export. No verdict is claimed here; the tick-value
+  denomination decision stays owner-gated (see `docs/DECISIONS.md`
+  2026-09-16 Wave-1 entry).
+
+To move from CAPTURED to VERIFIED the owner commits the exports under
+`data/broker_exports/` on the certification host and re-runs the harness;
+the frozen input contract for that evidence lives in
+`artifacts/owner_mt5_gate/`. No raw owner export is committed merely to turn
+a dashboard green, and none is fabricated.
+
 ## Status
 
 | Item | Status |
@@ -71,5 +99,6 @@ behavioural, not just field-by-field.
 | Export script (`Mql5BotExportSymbolSpec.mq5`) | WRITTEN (compile owner-gated) |
 | Harness (`tools/broker_symbol_parity.py`) | COMPLETE, tested |
 | Schema validation + strict fail-fast | COMPLETE, tested |
-| Owner exports (FX/METAL/INDEX/CRYPTO) | **PENDING — owner only** |
-| Parity verdict | **NOT VERIFIED** |
+| Owner probe capture (EURUSD/XAUEUR/US30/BTC) | CAPTURED on Windows (`denomination_probe.ok=true`) — see provenance section |
+| Owner exports committed to this repo | **NOT COMMITTED** (`data/` gitignored; not repo-reproducible) |
+| Parity verdict (in this repository) | **NOT VERIFIED** — rendered only when exports are committed and the harness runs |

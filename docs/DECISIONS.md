@@ -9,6 +9,108 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-16 — Wave 2.1 final audit + Mac freeze for owner certification
+
+**Purpose.** Audit Wave 2, make the repository internally truthful and
+reproducible, freeze the code side, and prepare the Windows Owner
+Certification handoff. No new features, strategies, ML architecture or
+unrelated refactor. Authority model unchanged.
+
+**Wave-2 fix re-verification.** All seven Wave-2 fixes were re-checked
+against code AND against the old-bug condition (not just "a test exists"):
+CPCV block partition (old code makes `n_splits+1` overlapping blocks →
+`n_combos=C(7,3)=35` for t=100, the pinned test asserts 6/20), two-sided
+CPCV embargo, governor failed-gate no-resurrection (old symmetric delta cap
+leaves 0.30 on a gate-failed book; test asserts 0.0), governor demote-only
+`[0,1]` multiplier clamp, drift execution-window alignment (old window gives
+~0.8 execution-drift on the 60-trade fixture; test asserts 0.0), meta-OOS
+one-look-before-look ordering + deterministic `as_of`, cost-stress `None`
+guard, and the ML risk-seam duplicate-`order_key` robustness. No accidental
+semantic changes found. Fixes 1/2/3/6 were PROVEN to fail under the old-bug
+condition (block overlap → C(7,3)=35; symmetric cap → 0.30 on a gate-failed
+book; old drift window → ~0.8 execution-drift; old `.loc[key]` → TypeError on
+dup keys). Three fixes were green-on-green (correct implementation, but the
+existing tests passed even with the old bug): meta-OOS ordering, cost-stress
+`None` guard, and the telemetry cap had no failing-under-old-bug test. Wave 2.1
+CLOSED these gaps by adding four regression tests: a `run_backtest` spy proving
+the refused second OOS look never touches the slice (old code re-ran it), a
+degenerate-run test driving `max_drawdown_pct=None` through the cost-stress
+gate (old code raised `TypeError`), and a real ephemeral-port telemetry server
+asserting a small body → 200 and an oversized `Content-Length` → 413 before any
+read.
+
+**Provenance / status truthfulness (the substantive change).** The
+broker-evidence model is now stated as THREE distinct facts so the repo
+neither over- nor under-claims:
+1. **CAPTURED (owner) ≠ NOT PERFORMED.** The owner has already run the
+   exporter on Windows and obtained a successful `denomination_probe`
+   (`ok=true`, `source=OrderCalcProfit`) for EURUSD / XAUEUR / US30 / BTC.
+2. **NOT COMMITTED / NOT REPRODUCIBLE ≠ MISSING.** `data/` is gitignored, so
+   those raw exports are not in Git and cannot be re-derived on Mac; the
+   in-repo parity report is `n_exports:0`, all classes PENDING.
+3. **probe.ok ≠ PARITY PASS.** The ACCOUNT vs PROFIT verdict is rendered only
+   when the harness runs on a committed export. No verdict is claimed; the
+   denomination decision stays owner-gated (Wave-1 entry unchanged).
+   Documented in `docs/BROKER_SYMBOL_PARITY.md` (new "Owner-evidence
+   provenance" section + status table) and `PROGRESS.md` CURRENT STATE. No
+   raw owner export is committed to green a dashboard, and none is fabricated
+   or modified. `data/broker_exports/parity_report.json` (gitignored, local)
+   confirms the Mac view is genuinely `n_exports:0`.
+
+**Denomination semantics — unchanged (PENDING).** Reviewed the implemented
+parity logic: `denomination_probe.ok=true` is only a precondition; the
+harness returns `ACCOUNT_CURRENCY` only when both exported tick values agree
+with the independent `OrderCalcProfit` witness, else `PROFIT_CURRENCY` /
+`UNVERIFIED` / PENDING. With no committed export the verdict cannot be
+rendered here, so PENDING stands. No runtime sizer/RiskManager/SymbolSpec
+semantics changed for the sake of completion; no FX rate invented; no
+circular derivation from `tick_value`.
+
+**TASKS.md migration.** `TASKS.md` is the archival Phase-2.5 checklist; its
+unchecked boxes are NOT a current backlog (the Phase 0–14 research-foundation
+modules are all implemented and tested). Added a STATUS BANNER marking it
+archival, stating Phases 0–14 are CODE-COMPLETE, identifying the only open
+items as the OWNER-PENDING Reality-Gate boxes, and pointing current status to
+`PROGRESS.md` / this log / `docs/WINDOWS_OWNER_HANDOFF.md`. Checkbox states
+left verbatim; history preserved.
+
+**Freeze anchor.** `artifacts/owner_mt5_gate/frozen_inputs.json` still anchors
+the compile to `227bf66`; `git diff 227bf66 HEAD -- mql5/` is empty (Waves 1–2
+touched only Python/docs/owner-gate metadata), so the owner compiles the same
+EA. The gold artifacts are unchanged since the anchor (freeze invariant
+intact).
+
+**ML boundary — unchanged.** ML remains estimation-only: `ml_interfaces.py`
+labeler/meta-label/calibrator/feature-store are intentional interface-only
+stubs (no training/inference anywhere); the risk seam only drops/shrinks and
+re-checks; regime/drift feeds are causal, bounded `[0,1]`, missing→conservative
+`0.5`. No generic AI trading system introduced. See `docs/ML_VS_LLM_BOUNDARY.md`.
+
+**Security final pass.** Re-swept the tree with focus on Wave-2 files: NO
+high/critical/medium reachable findings. The telemetry body cap is correct and
+not bypassable (missing/negative/non-numeric Content-Length handled; chunked
+transfer-encoding is not auto-decoded by `BaseHTTPRequestHandler`, so no
+unbounded read). Wave 2 introduced no new file-write/subprocess/deserialization
+/network sink. All prior controls (loopback binds, paste-first providers,
+`yaml.safe_load`, UI→LIVE reject, evidence binding, human-approval actor
+prefixes) intact.
+
+**Windows handoff.** Added `docs/WINDOWS_OWNER_HANDOFF.md`: final source SHA /
+frozen compile anchor, the `-Strict` compile command, required MQL5 targets,
+required owner exports (EURUSD/XAUEUR/US30/BTC), and the 12 owner actions
+mapped onto the canonical ten-step `docs/MT5_ROUNDTRIP.md` protocol (no shorter
+protocol invented).
+
+**Validation.** Full deterministic suite: **1585 passed, 1 skipped, 0 failed**
+(Wave 2 was 1581/1; Wave 2.1 added four regression tests, no source-behaviour
+change); `git diff --check` clean. "Ruff clean" here means the
+canonical package `ruff check python/ tests/` (All checks passed) — the repo's
+established scope; a bare `ruff check` also lints legacy `tools/`/`examples/`
+and reports ~13 PRE-EXISTING findings there, untouched by any wave and out of
+the canonical scope (Wave 2.1 changed only docs, no Python). This is the final
+Mac engineering freeze — the next phase is Windows Owner Certification. Nothing
+is runtime-certified.
+
 ## 2026-09-16 — Wave 2 research/ML/governance hardening: correctness fixes, no new authority
 
 **Scope.** Wave 2 finished the code-side research/intelligence/governance
