@@ -9,7 +9,43 @@ were already made and must not be silently reverted.
 
 ---
 
-## 2026-09-16 — Owner-gate freeze anchor re-anchored to the squashed snapshot
+## 2026-09-16 — Wave 1 code-side pass: tick-value denomination stays owner-gated; loopback-default network servers
+
+**Trigger.** Wave 1 asked whether the runtime double-converts stop-loss
+risk: `SpecLossPerLot` (and the Python `loss_per_lot`) multiply
+`tick_value_loss` — read at runtime from `SYMBOL_TRADE_TICK_VALUE_LOSS`
+(`SymbolSpec.mqh:82`) — by a runtime `ProfitToDeposit` FX factor
+(`RiskManager.mqh:213,374`). If MT5 already denominates that tick value in
+the *account* currency, the second multiply is an unjustified conversion
+for cross-currency symbols (e.g. EURUSD/US30/BTC on a EUR account).
+
+**Decision — DEFER, do NOT patch runtime semantics.** The
+ACCOUNT_CURRENCY vs PROFIT_CURRENCY denomination is exactly what
+`tools/broker_symbol_parity.py` resolves, and only from a committed owner
+export carrying an independent `OrderCalcProfit` witness
+(`docs/BROKER_SYMBOL_PARITY.md`, Stage A). In this tree
+`data/broker_exports/` contains **no owner export** (`parity_report.json`
+→ `n_exports: 0`; every asset class PENDING). The witness numbers quoted
+in the Wave-1 directive are not present as verifiable artifacts, and
+deriving the fix from them would (a) contradict the repo's own fail-closed
+deferral of this denomination and (b) act on evidence that cannot be
+attested on this host — a provenance violation. Per the Wave-1 rule
+"evidence does not conclusively prove a defect → do not patch runtime
+semantics, preserve fail-closed behavior": no sizer / RiskManager /
+SymbolSpec semantics changed. The suspected double-conversion is recorded
+as an **owner-gated open item**: it is confirmed or refuted only when real
+FX/METAL/INDEX/CRYPTO owner exports land and the parity harness renders an
+accepted `ACCOUNT_CURRENCY` verdict on Windows. `NEVER derive FX from
+tick_value` and `no global FX state` remain in force.
+
+**Security hardening (Wave 1F, applied).** The two unauthenticated HTTP
+servers — the telemetry collector (`telemetry_bridge.py`) and the status
+dashboard (`dashboard.py`) — bound `0.0.0.0` unconditionally, exposing an
+attacker-writable JSONL sink and a status endpoint to the whole LAN. Both
+now default to `127.0.0.1` with an explicit `--host` opt-in for cross-host
+use behind a firewall/tunnel. Fail-safe default; no capability removed.
+Cross-host telemetry from the MT5 terminal now requires an explicit
+`--host 0.0.0.0` (documented in the collector's `--help`).
 
 **Trigger.** The repository is now published as a squashed single-commit
 snapshot: `227bf66 Initial commit`

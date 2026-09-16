@@ -135,12 +135,17 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="mql5bot telemetry collector")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--log", default=_DEFAULT_LOG)
+    # Fail-safe default: bind loopback only. The collector is unauthenticated
+    # and appends attacker-controllable JSON to disk, so a wider bind must be
+    # an explicit operator choice (e.g. --host 0.0.0.0 behind a firewall, or
+    # prefer an SSH tunnel from the MT5 host). Security audit, Wave 1F.
+    parser.add_argument("--host", default="127.0.0.1")
     args = parser.parse_args(argv)
 
     collector = Collector(args.log)
-    server = ThreadingHTTPServer(("0.0.0.0", args.port), _Handler)
+    server = ThreadingHTTPServer((args.host, args.port), _Handler)
     server.collector = collector  # type: ignore[attr-defined]
-    print(f"mql5bot telemetry collector on http://0.0.0.0:{args.port} "
+    print(f"mql5bot telemetry collector on http://{args.host}:{args.port} "
           f"(log: {args.log})")
     try:
         server.serve_forever()

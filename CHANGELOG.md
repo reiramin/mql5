@@ -3,6 +3,19 @@
 All notable changes to mql5bot are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased — Wave 1 code-side pass (audit + security hardening)
+
+- Security (Wave 1F): the telemetry collector (`telemetry_bridge.py`) and the
+  status dashboard (`dashboard.py`) no longer bind `0.0.0.0` unconditionally.
+  Both default to `127.0.0.1`; wider exposure is an explicit `--host` opt-in
+  (behind a firewall/tunnel). Fail-safe default; no capability removed.
+- Stage-B tick-value denomination (Wave 1A) remains **owner-gated**: with no
+  owner export in `data/broker_exports/` (`n_exports: 0`), the suspected
+  cross-currency double-conversion in `SpecLossPerLot`/`loss_per_lot` is
+  neither confirmed nor patched. Runtime risk semantics unchanged. See
+  `docs/DECISIONS.md` (2026-09-16 Wave 1 entry). Broker parity STILL NOT
+  VERIFIED.
+
 ## Unreleased — Stage A: independent tick-value denomination measurement
 
 - Rebuilt the lost Stage-A content on top of `58ce3ad`: the MQL5 owner

@@ -118,6 +118,9 @@ def main(argv: list[str] | None = None) -> int:
     p_dash.add_argument("--data", default=None, help="CSV to load; generated if omitted")
     p_dash.add_argument("--strategy", default="ema_crossover")
     p_dash.add_argument("--port", type=int, default=8000)
+    p_dash.add_argument("--host", default="127.0.0.1",
+                        help="bind address (loopback by default; use 0.0.0.0 "
+                             "only behind a firewall)")
     add_cost_args(p_dash)
 
     args = parser.parse_args(argv)
@@ -256,7 +259,8 @@ def main(argv: list[str] | None = None) -> int:
 
                 df.attrs["symbol"] = getattr(args, "data", None) or "EURUSD"
                 print(f"dashboard: http://localhost:{args.port}")
-                run_dashboard(df, args.strategy, kwargs, port=args.port)
+                run_dashboard(df, args.strategy, kwargs, port=args.port,
+                              host=args.host)
 
     except (ValueError, KeyError, OSError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
