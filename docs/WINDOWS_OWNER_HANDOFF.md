@@ -105,6 +105,20 @@ Also required by step 8 (do not skip): sub-check **8c** execution-path proofs
 (retry/backoff, lost-response adoption, SlGuard verify→modify→re-verify) and
 **8d** account-type legs (NETTING and HEDGING).
 
+**Reconciliation bindings (step 8 — the verifier fails closed without them).**
+Each `reconciliation/gold{1,2}.json` must carry a `bindings` object with ALL
+of: `source_commit`, `fixture_sha256`, `config_hash`, `dataset_hash`,
+`symbolspec_sha256`, `ex5_sha256`, `expected_execution_sha256` (anchors the
+python column to the frozen truth engine — must equal
+`frozen_inputs.json` `gold_X.expected_execution_sha256`), `tester_models`
+(covering every model: m1_ohlc, every_tick, real_ticks), `raw_report_hashes`
+and `parsed_report_hashes`. Every per-event field records `{"python": …,
+"mt5": …, "status": …}`; divergence is computed from the python vs mt5
+VALUES (the `status` label is advisory and cannot hide a value mismatch).
+Generate every hash with `python tools/owner_evidence_bind.py bind …` — never
+hand-type one. The verifier (`tools/verify_owner_mt5_gate.py`) names any
+missing/mismatched binding in its `reasons`.
+
 Two independent lanes (never conflate — `docs/CERTIFICATION.md`): the **GOLD
 lane** (frozen Gold #1/#2 reconciliation, no trade-count gate) and the
 **EMPIRICAL lane** (regime × model ladder, 100-trade minimum). A gold pass can

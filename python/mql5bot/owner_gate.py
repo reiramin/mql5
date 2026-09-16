@@ -590,14 +590,29 @@ def verify_real_tick_coverage(root: Path | str) -> dict:
 # 6. first-divergence engine + reconciliation (§14/§16)
 # ---------------------------------------------------------------------------
 
+def _field_divergent(spec: dict) -> bool:
+    """A reconciliation field DIVERGES when the owner declared it
+    ``DIVERGENT`` OR the recorded ``python``/``mt5`` values disagree
+    (zero tolerance, the gold lane is exact). The owner-supplied
+    ``status`` is ADVISORY ONLY: a real divergence can never be hidden by
+    labelling a field ``MATCH`` or by omitting the status — the values
+    decide. (Previously divergence was read solely from the owner's
+    ``status`` string, so a diverging MT5 run could be waved through by
+    writing ``"status":"MATCH"``.)"""
+    if spec.get("status") == "DIVERGENT":
+        return True
+    if "python" in spec and "mt5" in spec:
+        return spec["python"] != spec["mt5"]
+    return False
+
+
 def first_divergence(events: list[dict]) -> dict | None:
     """The FIRST event with any DIVERGENT field — never just the final
     metrics. Deterministic: events are walked in index order."""
     for event in sorted(events, key=lambda e: int(e.get("index", 0))):
         fields = event.get("fields") or {}
         divergent = {name: spec for name, spec in fields.items()
-                     if isinstance(spec, dict)
-                     and spec.get("status") == "DIVERGENT"}
+                     if isinstance(spec, dict) and _field_divergent(spec)}
         if divergent:
             field = min(divergent)
             return {
@@ -624,6 +639,7 @@ def first_divergence(events: list[dict]) -> dict | None:
 
 _BINDING_FIELDS = ("source_commit", "fixture_sha256", "config_hash",
                    "dataset_hash", "symbolspec_sha256", "ex5_sha256",
+                   "expected_execution_sha256", "tester_models",
                    "raw_report_hashes", "parsed_report_hashes")
 
 
@@ -664,6 +680,13 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
         ("fixture_sha256", fman.get("fixture_sha256")),
         ("config_hash", fman.get("config_hash")),
         ("dataset_hash", fman.get("dataset_hash_from_manifest")),
+        # anchor the PYTHON reference to the frozen truth engine: the
+        # reconciliation must declare the exact expected-execution artifact
+        # the python column was produced from, so an owner cannot fabricate
+        # both columns to agree with each other yet drift from the frozen
+        # expectation.
+        ("expected_execution_sha256",
+         fman.get("expected_execution_sha256")),
     )
     mism = [name for name, expected in cross
             if expected and str(bindings.get(name)) != str(expected)]
@@ -727,7 +750,16 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
         return report
 
     # --- tester-model identity for each bound model --------------------
-    for model, triad in (bindings.get("tester_models") or {}).items():
+    # tester_models is a REQUIRED binding (above) and must cover EVERY
+    # model: otherwise the "was the intended tester model actually used?"
+    # check could be silently skipped for a gold leg by omitting its entry.
+    tmods = bindings.get("tester_models")
+    if not isinstance(tmods, dict) or not set(MODELS) <= set(tmods):
+        report["state"] = INVALID
+        report["reasons"].append(
+            f"tester_models must bind every model: {sorted(MODELS)}")
+        return report
+    for model, triad in tmods.items():
         ident = verify_model_identity(triad)
         model_identities[f"{gold}:{model}"] = ident
         if ident["state"] != VALID:

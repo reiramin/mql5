@@ -18,20 +18,26 @@ OWNER-PENDING items remain Windows/owner responsibilities (see below).
 
 - **Waves 1 & 2 (code-side) complete.** Wave 1 established fresh owner-broker
   evidence scaffolding, independent `OrderCalcProfit` denomination probes,
-  the Stage-A exporter, loopback-default network servers, and a real
-  MetaEditor compile (0 errors / 0 warnings — owner environment). Wave 2
+  the Stage-A exporter, and loopback-default network servers. (Owner-compile
+  status, precisely: the **exporter script** compiled 0 errors / 0 warnings
+  in the owner's MetaEditor; the **EA**'s last real owner compile was 0
+  errors / **2 warnings**, after which those warnings were closed by
+  source-only edits that have NOT been recompiled — so a **strict 0/0 EA
+  compile-of-record remains OWNER-PENDING**, not achieved. See
+  `docs/DECISIONS.md`/`CHANGELOG.md` 2026-09-08.) Wave 2
   finished the research/ML/governance hardening: CPCV block-leakage fix +
   two-sided embargo, governor no-resurrection + demote-only clamps, drift
   execution-window alignment, meta-OOS one-look-before-look ordering +
   deterministic `as_of`, cost-stress `None` guard, ML risk-seam
   duplicate-key robustness, telemetry body cap, and docstring honesty.
   Full detail: `docs/DECISIONS.md` 2026-09-16 Wave-2 entry.
-- **Tests.** Full deterministic Python suite green: **1585 passed, 1
-  skipped, 0 failed** (was 1576 passed / 1 skipped; nine new regression
-  tests across Waves 2–2.1 pin the fixes — five in Wave 2, four in Wave 2.1
-  closing the green-on-green gaps for the meta-OOS ordering, cost-stress
-  `None` guard and telemetry body cap). `ruff check python/ tests/` clean;
-  `git diff --check` clean.
+- **Tests.** Full deterministic Python suite green: **1593 passed, 1
+  skipped, 0 failed** (was 1576/1; +17 regression tests across Waves 2–2.2:
+  five in Wave 2, four in Wave 2.1, and eight in Wave 2.2 pinning the
+  owner-gate verifier hardening — value-based reconciliation divergence,
+  required `expected_execution_sha256` + `tester_models` bindings, and the
+  `certify_strategy` PENDING-reconciliation rejection). `ruff check python/
+  tests/` clean; `git diff --check` clean.
 - **Broker parity — parity machinery CODE-COMPLETE; in-repo verdict
   PENDING; owner witness CAPTURED-OUTSIDE-REPO.** Three distinct facts,
   kept apart:

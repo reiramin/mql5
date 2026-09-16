@@ -9,6 +9,85 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-16 — Wave 2.2 final pre-certification audit: verifier hardening + doc-truth fixes
+
+**Purpose.** Deepest pre-owner-certification audit. Fixed genuine
+certification-integrity (P0/P1) and provenance/truthfulness defects; no new
+features, no weakened gate. Independent audits of the owner-gate verifier
+chain, gold/status lane separation, and a repo-wide doc-truth sweep.
+
+**P0 — reconciliation divergence was owner-graded, not computed
+(`owner_gate.first_divergence`).** A field diverged ONLY when the
+owner-supplied string `status == "DIVERGENT"`; the recorded `python`/`mt5`
+values were never compared. An owner whose real MT5 run diverged could reach
+`MT5_VALIDATED` by labelling every field `"MATCH"`. Fixed: `_field_divergent`
+now treats `status` as ADVISORY and flags a field DIVERGENT whenever the
+python/mt5 values disagree (zero tolerance — the gold lane is exact).
+Regression: `test_owner_declared_match_cannot_hide_value_divergence`.
+
+**P1 — python column was unanchored to the frozen truth engine
+(`owner_gate.verify_reconciliation`).** The docstring promised "the python
+side of every event must equal the frozen expected execution," but
+`expected_execution_sha256` was never consumed (dead in `frozen_inputs.json`);
+a single fabricated `{python:42,mt5:42}` event reached `MT5_VALIDATED`. Fixed:
+`expected_execution_sha256` is now a REQUIRED binding, cross-checked against
+the frozen `gold_X.expected_execution_sha256`, so the reconciliation must
+declare the exact frozen expected-execution artifact its python column came
+from. Regression: `test_expected_execution_binding_must_match_frozen_truth`.
+
+**P1 — `tester_models` binding was optional.** Omitting it left
+`model_identities` empty, silently skipping the "was the intended tester model
+actually used?" check for a gold leg. Fixed: `tester_models` is now a required
+binding and must cover every model in `MODELS`. Regression:
+`test_tester_models_binding_is_required_and_must_cover_all_models`.
+
+**P1 — `certify_strategy._reconciliation_ok` accepted a PENDING_OWNER
+reconciliation as step-8 evidence.** It returned True on mere presence of a
+`fields`/`trades` block — which both frozen gold reconciliation artifacts
+carry for the python↔DSL/source lanes while `python_vs_mt5_tester ==
+"PENDING_OWNER"` and every `mt5 == None`. On a Windows host where the legs
+pass, pointing `--reconciliation` at either gold artifact would set
+`reconciliation_ok=True` and let VERIFIED stand. Fixed: the helper now
+requires a non-PENDING `python_vs_mt5_tester` marker AND at least one real
+(non-null) `mt5` observation. Regressions in
+`tests/test_certify_strategy_tool.py` (both frozen gold artifacts → False).
+
+**P2 (documented, not code-changed).** (a) `frozen_inputs.json`
+`gold_1.config_hash` is empty, so the reconciliation's gold-1 CONFIG binding
+is required non-empty but not cross-checked to a frozen anchor (gold-1 config
+identity rests on fixture+dataset+source, which ARE anchored). Populating it
+needs the real build hash (not fabricated here) — owner/build-side follow-up.
+(b) The Gold #2 reproducibility pin is `frozen_inputs.json`
+`gold_2.git_commit_recorded = 6b172dac92a6` (Gold #1's is `abea0f410c5a`);
+any regeneration MUST pass `--git-commit 6b172dac92a6` to reproduce the
+committed manifest hash. The freeze otherwise rests on "never regenerate" +
+the git-diff guard (`test_docs_contract`), which both hold.
+
+**Doc-truth fixes.** (1) `PROGRESS.md` CURRENT STATE wrongly claimed a "real
+MetaEditor compile (0 errors / 0 warnings — owner environment)" for the EA;
+truth: the **exporter script** compiled 0/0, but the **EA**'s last real owner
+compile was 0 errors / **2 warnings**, closed by source-only edits never
+recompiled — a strict 0/0 EA compile-of-record remains OWNER-PENDING. (2)
+`README.md` "no owner artifacts exist yet" corrected to "not committed to this
+repo" (owner captured evidence outside the repo; `data/` gitignored). (3)
+`HANDOFF.md` weekly self-check "0-warning compile log exists" softened to an
+owner-pending target.
+
+**Financial/determinism spot-checks (no defect).** Kelly is capped at 0.25
+AND off by default (MQL5 `KELLY_CAP 0.25` / `KELLY_DEFAULT_OFF=True`,
+no-edge→no-trade); no martingale/grid-trading anywhere ("grid" = broker
+tick/volume grid only). `RunManifest.digest()` excludes the wall-clock
+`created` field, so INV-DET holds; remaining `datetime.now()`/`time.time()`
+uses are audit-trail metadata, owner-runtime tooling, or `as_of` defaults that
+deterministic callers override.
+
+**Validation.** Full suite: **1593 passed, 1 skipped, 0 failed** (was 1585/1;
++8 owner-gate/certify regression tests); `ruff check python/ tests/` clean;
+`git diff --check` clean. Frozen MQL5 anchor `227bf66`
+unchanged (`git diff 227bf66 HEAD -- mql5/` empty); golds untouched. Owner
+certification remains BLOCKED_OWNER_ENVIRONMENT / REALITY_GATE_BLOCKED —
+nothing runtime-certified, nothing simulated.
+
 ## 2026-09-16 — Wave 2.1 final audit + Mac freeze for owner certification
 
 **Purpose.** Audit Wave 2, make the repository internally truthful and

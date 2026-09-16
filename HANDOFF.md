@@ -146,7 +146,7 @@ RED TEAM REVIEW — no new features. Read docs/SPEC.md and the code of Release <
 ## 11. Definition of "we are on track" (owner's weekly self-check)
 - `main` has SPEC.md, HANDOFF.md, TASKS.md, PROGRESS.md and code; `git log` shows one commit per file.
 - Current release's phase in PROGRESS.md matches ticked items in TASKS.md.
-- Compile log with 0 warnings exists for the latest EA state; MQL5 unit tests and pytest pass.
+- A strict 0/0 compile log SHOULD exist for the latest EA state (this is an owner-pending target, not a current fact — see the CURRENT STATE pointer above); MQL5 unit tests and pytest pass.
 - No unmerged `arena/*` branch older than one session.
 - Release tags exist for finished releases; Red Team doc exists per finished release.
 

@@ -44,7 +44,7 @@ another:
 |---|---|---|
 | Python toolkit + tests | **IMPLEMENTED, RESEARCH-VALIDATED** | deterministic suite (see CI) |
 | Gold #1 / Gold #2 semantic parity (Python↔DSL) | **GOLD_SEMANTIC_PASS** (local) | `artifacts/gold/`, `artifacts/gold_2/` — frozen, hash-chained |
-| MQL5 compile / Strategy Tester / reconciliation | **BLOCKED_OWNER_ENVIRONMENT** | no owner artifacts exist yet |
+| MQL5 compile / Strategy Tester / reconciliation | **BLOCKED_OWNER_ENVIRONMENT** | no owner artifacts committed to this repo (owner has captured probe/compile evidence outside the repo; `data/` is gitignored — see `docs/BROKER_SYMBOL_PARITY.md`); strict 0/0 EA compile-of-record still owner-pending |
 | Real-tick coverage | **REAL_TICK_COVERAGE_UNKNOWN** | honest default until owner evidence |
 | Empirical lane | **PENDING_OWNER** | package defined (`docs/AEGIS_EMPIRICAL_LANE_PACKAGE.md`), not executed |
 | Demo / Live | **NOT_READY** | demo never auto-starts; no live capital in this workflow |

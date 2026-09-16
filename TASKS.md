@@ -10,7 +10,7 @@
 > - **Phases 0–14 (research foundation) are CODE-COMPLETE.** The modules and
 >   behaviours they describe are implemented and tested in the current tree
 >   (`python/mql5bot/{specs,costs,dayclock,engine,optimizer,robustness,
->   metrics,ml_interfaces}.py`, etc.; 1585 passing tests). Do **not** treat
+>   metrics,ml_interfaces}.py`, etc.; 1593 passing tests). Do **not** treat
 >   these unchecked boxes as a backlog.
 > - **The ONLY genuinely-open items are the OWNER-PENDING "Reality Gate"
 >   boxes at the bottom** (`[ ] OWNER: …`) — the Windows Owner Certification

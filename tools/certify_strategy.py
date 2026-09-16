@@ -74,10 +74,14 @@ def _python_runner(cfg: CertifyConfig):
 def _reconciliation_ok(path: str) -> bool:
     """Fail-closed check of a reconciliation artifact (canonical step 8).
 
-    The artifact must exist, parse as JSON, and carry a non-empty field
-    comparison — otherwise the evidence is incomplete and a VERIFIED
-    verdict stays withheld.  A PENDING_OWNER field is legitimate owner
-    work-in-progress, but an EMPTY reconciliation is not evidence.
+    The artifact must exist, parse as JSON, and record a COMPLETED
+    Python↔MT5 tester comparison. A reconciliation whose MT5 side is
+    still ``PENDING_OWNER`` — or whose every trade/field carries a null
+    ``mt5`` value — is owner work-in-progress, NOT step-8 evidence:
+    presence of a ``fields``/``trades`` block alone (which the frozen
+    gold reconciliation artifacts carry for the python↔DSL/source lanes
+    with ``python_vs_mt5_tester == "PENDING_OWNER"`` and ``mt5 == None``)
+    can never satisfy the gate, so a VERIFIED verdict stays withheld.
     """
     try:
         doc = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -85,9 +89,17 @@ def _reconciliation_ok(path: str) -> bool:
         return False
     if not isinstance(doc, dict):
         return False
-    fields = doc.get("fields")
-    trades = doc.get("trades")
-    return bool(fields) or bool(trades)
+    # the MT5-tester comparison must be present and no longer pending
+    marker = doc.get("python_vs_mt5_tester")
+    if not marker or marker == "PENDING_OWNER":
+        return False
+
+    def _has_real_mt5(rows) -> bool:
+        return isinstance(rows, list) and any(
+            isinstance(r, dict) and r.get("mt5") is not None for r in rows)
+
+    # and at least one real MT5 observation must be recorded
+    return _has_real_mt5(doc.get("trades")) or _has_real_mt5(doc.get("fields"))
 
 
 def main(argv: list[str] | None = None) -> int:

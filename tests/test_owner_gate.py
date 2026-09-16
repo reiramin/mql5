@@ -21,9 +21,11 @@ FROZEN_COMMIT = "a" * 40
 FROZEN = {
     "source": {"commit": FROZEN_COMMIT},
     "gold_1": {"fixture_sha256": "f1" * 32, "config_hash": "c1" * 32,
-               "dataset_hash_from_manifest": "d1" * 32},
+               "dataset_hash_from_manifest": "d1" * 32,
+               "expected_execution_sha256": "e1" * 32},
     "gold_2": {"fixture_sha256": "f2" * 32, "config_hash": "c2" * 32,
                "dataset_hash_from_manifest": "d2" * 32,
+               "expected_execution_sha256": "e2" * 32,
                "provenance_label": "GOLD_2_RECONSTRUCTED_NEW_PROVENANCE"},
     "symbolspec_expectations": {"point": 1e-05, "volume_min": 0.01,
                                 "contract_size": 100000},
@@ -55,7 +57,8 @@ def _build_manifest(root):
                     FROZEN["gold_2"]["fixture_sha256"]}}
 
 
-def build_package(root, *, diverge_gold2=None, coverage="FULL",
+def build_package(root, *, diverge_gold2=None, diverge_status="DIVERGENT",
+                  coverage="FULL",
                   skip=(), source_commit=FROZEN_COMMIT,
                   ex5_stale=False, log_stale=False, model_wrong=False):
     """Build a synthetic owner package. Divergence/wrongness hooks let
@@ -143,6 +146,8 @@ def build_package(root, *, diverge_gold2=None, coverage="FULL",
             ["dataset_hash_from_manifest"],
             "symbolspec_sha256": spec_hash,
             "ex5_sha256": ex5_hash,
+            "expected_execution_sha256":
+                FROZEN[f"gold_{gold[-1]}"]["expected_execution_sha256"],
             "raw_report_hashes": raw_hashes,
             "parsed_report_hashes": parsed_hashes,
             "tester_models": {
@@ -165,7 +170,7 @@ def build_package(root, *, diverge_gold2=None, coverage="FULL",
         if diverge_gold2 and gold == "gold2":
             field, py_v, mt5_v = diverge_gold2
             events[3]["fields"][field] = {"python": py_v, "mt5": mt5_v,
-                                          "status": "DIVERGENT"}
+                                          "status": diverge_status}
         if f"reconciliation_{gold}" not in skip and "reconciliation" \
                 not in skip:
             _w(root / "reconciliation" / f"{gold}.json",
@@ -410,6 +415,55 @@ def test_first_divergence_earliest_event_wins(tmp_path):
     div = og.run_gate(root, FROZEN)["gold"]["gold2"]["first_divergence"]
     assert div["event_index"] == 2
     assert div["classification"] == og.SIZING_MISMATCH
+
+
+def _rebuild_manifest(root):
+    """Re-bind the archive manifest to the current bytes so that a
+    post-build mutation to ONE artifact isolates its own failure reason
+    instead of also tripping the manifest hash-binding check."""
+    _w(root / "archive_manifest.json", _build_manifest(root))
+
+
+def test_owner_declared_match_cannot_hide_value_divergence(tmp_path):
+    """P0: divergence is computed from python/mt5 VALUES, not from the
+    owner's status label. A real MT5 divergence labelled MATCH must still
+    fail closed (old code read status only and returned MT5_VALIDATED)."""
+    root = build_package(tmp_path,
+                         diverge_gold2=("sl", 1.05, 9.99),
+                         diverge_status="MATCH")
+    report = gate(root)
+    g2 = report["gold"]["gold2"]
+    assert g2["state"] == og.MISMATCHED
+    assert g2["first_divergence"]["first_divergent_field"] == "sl"
+    assert report["verdict"] != og.MT5_VALIDATED
+
+
+def test_tester_models_binding_is_required_and_must_cover_all_models(tmp_path):
+    """P1: tester_models is a required binding and must cover every model
+    — omitting it (old code) silently skipped the tester-model identity
+    check for that gold leg."""
+    root = build_package(tmp_path)
+    doc = json.loads((root / "reconciliation" / "gold2.json").read_text())
+    del doc["bindings"]["tester_models"]
+    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc))
+    _rebuild_manifest(root)
+    report = gate(root)
+    assert report["gold"]["gold2"]["state"] in (og.INVALID, og.MISMATCHED)
+    assert report["verdict"] != og.MT5_VALIDATED
+
+
+def test_expected_execution_binding_must_match_frozen_truth(tmp_path):
+    """P1: the reconciliation must anchor its python column to the frozen
+    expected-execution artifact; a wrong/forged expected_execution_sha256
+    fails closed (old code never consumed this binding)."""
+    root = build_package(tmp_path)
+    doc = json.loads((root / "reconciliation" / "gold2.json").read_text())
+    doc["bindings"]["expected_execution_sha256"] = "00" * 32
+    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc))
+    _rebuild_manifest(root)
+    report = gate(root)
+    assert report["gold"]["gold2"]["state"] == og.MISMATCHED
+    assert report["verdict"] != og.MT5_VALIDATED
 
 
 def test_classification_is_deterministic_and_closed():

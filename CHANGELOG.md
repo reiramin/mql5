@@ -3,6 +3,28 @@
 All notable changes to mql5bot are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased — Wave 2.2 (final pre-certification: owner-gate verifier hardening)
+
+- Certification integrity (P0/P1): the owner-evidence verifier now COMPUTES
+  reconciliation divergence from the recorded python/mt5 values instead of
+  trusting the owner's `status` label (`owner_gate.first_divergence`); the
+  reconciliation must bind `expected_execution_sha256` (anchoring the python
+  column to the frozen truth engine) and `tester_models` covering every model
+  — both are now required bindings; and `certify_strategy._reconciliation_ok`
+  rejects a PENDING_OWNER reconciliation (non-null MT5 evidence required) so
+  a work-in-progress artifact can no longer satisfy step 8. +8 regression
+  tests. No contract weakened — every change makes the gate stricter.
+- Doc-truth: corrected an overclaimed "0/0 owner EA compile" in PROGRESS.md
+  (the EA compiled 0 errors / 2 warnings, closed source-only, never
+  recompiled — strict 0/0 EA compile-of-record is owner-pending; the 0/0 was
+  the exporter script); README "no owner artifacts exist yet" → "not committed
+  to this repo"; HANDOFF weekly-check compile line softened to a target.
+- Provenance (P2, documented): Gold #2 reproducibility pin is
+  `frozen_inputs.json gold_2.git_commit_recorded = 6b172dac92a6` (regeneration
+  must pass `--git-commit`); `gold_1.config_hash` empty anchor noted.
+- Tests: 1593 passed / 1 skipped / 0 failed; `ruff check python/ tests/`
+  clean; `git diff --check` clean. MQL5 anchor `227bf66` unchanged.
+
 ## Unreleased — Wave 2 + Wave 2.1 (research/ML/governance hardening + Mac freeze)
 
 - Correctness (Wave 2): CPCV block-partition leakage fixed
