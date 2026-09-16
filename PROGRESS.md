@@ -1,4 +1,57 @@
-# PROGRESS — AEGIS Reality Gate continuation
+# PROGRESS
+
+> **HOW TO READ THIS FILE.** The single authoritative statement of where
+> the repository is *right now* is the **CURRENT STATE** block immediately
+> below. Everything under **HISTORICAL SESSION LOGS** is an append-only
+> archive of past sessions — it names old branches (`arena/…`), superseded
+> phase numbers and historical test counts that are **NOT** the current
+> state and must not be read as such. History is preserved, never rewritten.
+> Canonical status also lives in `docs/DECISIONS.md` (newest on top) and
+> `HANDOFF.md`.
+
+---
+
+## CURRENT STATE (authoritative) — 2026-09-16, branch `master`
+
+**Lane.** CODE-COMPLETE / RESEARCH-COMPLETE on Mac; RUNTIME-PENDING and
+OWNER-PENDING items remain Windows/owner responsibilities (see below).
+
+- **Waves 1 & 2 (code-side) complete.** Wave 1 established fresh owner-broker
+  evidence scaffolding, independent `OrderCalcProfit` denomination probes,
+  the Stage-A exporter, loopback-default network servers, and a real
+  MetaEditor compile (0 errors / 0 warnings — owner environment). Wave 2
+  finished the research/ML/governance hardening: CPCV block-leakage fix +
+  two-sided embargo, governor no-resurrection + demote-only clamps, drift
+  execution-window alignment, meta-OOS one-look-before-look ordering +
+  deterministic `as_of`, cost-stress `None` guard, ML risk-seam
+  duplicate-key robustness, telemetry body cap, and docstring honesty.
+  Full detail: `docs/DECISIONS.md` 2026-09-16 Wave-2 entry.
+- **Tests.** Full deterministic Python suite green: **1581 passed, 1
+  skipped, 0 failed** (was 1576 passed / 1 skipped; five new regression
+  tests pin the Wave-2 fixes). Ruff clean; `git diff --check` clean.
+- **Broker parity — NOT VERIFIED (OWNER-PENDING).** `data/broker_exports/`
+  holds no owner export; `tools/broker_symbol_parity.py` reports every
+  asset class PENDING. The tick-value ACCOUNT vs PROFIT denomination stays
+  owner-gated — confirmed/refuted only from committed owner exports on
+  Windows. The parity machinery (harness, field map, tolerances, tests) is
+  code-complete.
+- **Authority model unchanged.** `STRATEGY → META/PORTFOLIO → RISK +
+  EXECUTION veto`; no ML/LLM/meta/discovery path has order authority. The
+  only order authority is the MQL5 `TradeManager`.
+
+**Remaining Windows / owner work (RUNTIME-PENDING — never faked on Mac):**
+strict MetaEditor compile of record, Strategy Tester legs (M1-OHLC / Every
+Tick / Every-Tick-real-ticks), Python↔MT5 reconciliation, kill-switch seam
++ restart proofs, Gold #2 rebuild with new provenance, real owner broker
+exports (FX/METAL/INDEX/CRYPTO) → denomination verdict, and the final owner
+certification manifest. Status stays **REALITY_GATE_BLOCKED** until the
+owner round-trip runs. No profit claims; no runtime-certified claim.
+
+---
+
+# HISTORICAL SESSION LOGS (archive — NOT current state)
+
+# PROGRESS — AEGIS Reality Gate continuation (historical)
 
 - Branch: `arena/01a07c73-mql5bot` (session-pinned; prior gate work from
   `arena/01a070b0-mql5bot` @ b8004f81 merged in by fast-forward)

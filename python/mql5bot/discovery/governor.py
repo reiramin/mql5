@@ -14,6 +14,7 @@ Hard separations enforced in code:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from .domain import AllocationWeight
@@ -118,23 +119,34 @@ class AllocationGovernor:
                                  f"{kill_switch_state.value}: "
                                  "no new trades")]}
 
+        # decay/ramp are DEMOTE-ONLY multipliers by contract (decay bands and
+        # ramp steps are all in [0, 1]). Clamp defensively so a hostile or
+        # buggy caller cannot pass a multiplier > 1 and inflate exposure
+        # above the gross band — Meta/governor may only REDUCE.
+        def _demote(d: dict[str, float], sid: str) -> float:
+            v = d.get(sid, 1.0)
+            if not math.isfinite(v):
+                return 0.0  # non-finite → most conservative
+            return min(1.0, max(0.0, v))
+
         raw: dict[str, float] = {}
         records: list[AllocationDecisionRecord] = []
         for e in entries:
             ok, why = e.eligible()
+            dm = _demote(decay_mult, e.strategy_id)
+            rf = _demote(ramp, e.strategy_id)
             rec = 0.0
             if ok:
                 base = max(0.0, scores.get(e.strategy_id, 0.0))
-                rec = (base * decay_mult.get(e.strategy_id, 1.0)
-                       * ramp.get(e.strategy_id, 1.0))
+                rec = base * dm * rf
             raw[e.strategy_id] = rec
             records.append(AllocationDecisionRecord(
                 strategy_id=e.strategy_id, score=scores.get(
                     e.strategy_id, 0.0),
                 eligible=ok, recommendation=rec, approved=ok,
                 effective_weight=rec,
-                decay_multiplier=decay_mult.get(e.strategy_id, 1.0),
-                ramp_factor=ramp.get(e.strategy_id, 1.0),
+                decay_multiplier=dm,
+                ramp_factor=rf,
                 reasons=[] if ok else [why]))
         # normalize into the gross target band, THEN apply decay×ramp —
         # safety/degradation multipliers scale the FINAL allocation and
@@ -146,7 +158,10 @@ class AllocationGovernor:
             w = (raw[r.strategy_id] / total) * gross_target \
                 if total > 0 else 0.0
             w *= r.decay_multiplier * r.ramp_factor
-            aw = AllocationWeight(round(min(w, 1.5), 6))
+            # a single strategy can never carry more than the whole gross
+            # target band (reduce-only ceiling; the [0,1.5] domain type stays
+            # a loose backstop above this tighter cap).
+            aw = AllocationWeight(round(min(w, gross_target), 6))
             r.effective_weight = aw.value
             allocs.append(r)
         gross = round(sum(r.effective_weight for r in allocs) * 100, 4)
@@ -156,6 +171,15 @@ class AllocationGovernor:
                            "(legitimate, §40)")
         # §79: bound per-strategy and gross deltas vs previous
         for r in allocs:
+            # An ineligible strategy (failed gate / lifecycle demotion /
+            # missing evidence / kill switch) is a HARD zero and must never
+            # be smoothed back up by the symmetric delta cap — mirrors the
+            # zero-reason exemption in meta_layer._apply_modes. Without this
+            # a strategy that just failed its gate would keep
+            # ``prev - max_strategy_delta`` of allocation (§66/§78).
+            if not r.eligible:
+                r.effective_weight = 0.0
+                continue
             prev = previous.get(r.strategy_id, 0.0)
             if abs(r.effective_weight - prev) > \
                     self.bounds.max_strategy_delta:

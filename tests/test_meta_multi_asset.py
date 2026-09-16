@@ -401,6 +401,24 @@ def test_drift_causality_future_trades_cannot_change_snapshot():
         assert after.status == base.status
 
 
+def test_drift_execution_baseline_window_matches_pnl_window():
+    """Regression: the execution-drift baseline must be exactly the
+    baseline_n trades immediately before the recent window — the same
+    slice the expectancy/PF/winrate components use — not a wider
+    recent_n+baseline_n window that pulls in older, unrelated trades.
+
+    60 trades: the oldest 20 hold for 100 bars, the true 20-trade
+    baseline and the recent 20 both hold for 10 bars. The correct
+    baseline is holding-stable vs recent ⇒ execution_drift == 0. The
+    old (buggy) window averaged in the 100-bar trades ⇒ ~0.8.
+    """
+    t = pd.Timestamp("2024-06-01")
+    ledger = _ledger([0.01] * 60, bars=[100] * 20 + [10] * 20 + [10] * 20)
+    snap = drift_snapshot(ledger, "s", t)
+    assert snap.n_recent == 20 and snap.n_baseline == 20
+    assert snap.execution_drift == 0.0
+
+
 def test_severe_drift_hard_zeroes_book(frames, monkeypatch):
     import mql5bot.meta_portfolio as mp
     from mql5bot.meta_layer import MetaLayer, MetaPolicy

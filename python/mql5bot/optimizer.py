@@ -158,11 +158,15 @@ def walk_forward(
     :class:`~mql5bot.metrics.RobustFitnessConfig`; the default selection
     metric stays ``"sharpe"``.
 
-    RESEARCH POLICY (documented, enforced by the research protocol):
-    never optimise on the same OOS certification slice more than once per
-    (dataset_version, strategy_version) — one look, recorded in the run
-    manifest.  IS selection inside each window is exempt (it is
-    re-fit per window on that window's train interval only).
+    RESEARCH POLICY (documented; NOT enforced by this function): never
+    optimise on the same OOS certification slice more than once per
+    (dataset_version, strategy_version) — one look. ``walk_forward`` does
+    NOT itself register a look; the one-look ledger is the
+    :class:`~mql5bot.pipeline.OosRegistry` on the S5 certification path
+    (``pipeline.oos_stage``). Callers using this function as a final OOS
+    certification must route the look through that registry. IS selection
+    inside each window is exempt (it is re-fit per window on that window's
+    train interval only).
 
     Per-window output (``windows``): IS/OOS date spans, selected params
     plus a deterministic ``param_hash``, the declared ``strategy_version``

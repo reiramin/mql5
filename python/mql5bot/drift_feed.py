@@ -129,8 +129,14 @@ def drift_snapshot(trades: pd.DataFrame, strategy_id: str,
     wr_b = float((baseline > 0).mean())
     winrate_d = _clip01(abs(wr_r - wr_b) / 0.25)   # 25pp swing ⇒ 1.0
 
-    bars_r = _median_bars(t, recent_n, False)
-    bars_b = _median_bars(t, recent_n + baseline_n, True)
+    # execution-drift windows MUST match the expectancy/PF/winrate windows
+    # exactly: recent = last recent_n trades, baseline = the baseline_n
+    # trades immediately before them. (The previous helper skipped the
+    # module constant RECENT_N and selected recent_n+baseline_n baseline
+    # rows — e.g. 40 instead of 20 with defaults — diluting a real
+    # holding-period shift and UNDER-reporting execution drift.)
+    bars_r = _median_bars(t.iloc[-recent_n:])
+    bars_b = _median_bars(t.iloc[-(recent_n + baseline_n):-recent_n])
     execution_d = _clip01(abs(bars_r - bars_b) / max(bars_b, 1.0)) \
         if bars_r is not None and bars_b else 0.0
 
@@ -151,10 +157,10 @@ def drift_snapshot(trades: pd.DataFrame, strategy_id: str,
                                      "wr_recent": wr_r, "wr_base": wr_b})
 
 
-def _median_bars(t: pd.DataFrame, n: int, skip_recent: bool) -> float | None:
-    seg = t.iloc[-(n + RECENT_N if skip_recent else n):]
-    if skip_recent:
-        seg = seg.iloc[:-RECENT_N]
+def _median_bars(seg: pd.DataFrame) -> float | None:
+    """Median ``bars_held`` over an already-sliced trade segment. The
+    caller is responsible for selecting the window so it stays aligned
+    with the pnl windows used by the other drift components."""
     if not len(seg):
         return None
     bars = pd.to_numeric(seg["bars_held"], errors="coerce") \

@@ -86,7 +86,18 @@ def policy_weights(config: MetaConfig, specs, oos_stats, returns=None,
     """Final weights under the configured policy.  Both policies run
     through the SAME eligibility/normalization/constraint machinery —
     only the weighting policy differs."""
-    as_of = as_of or datetime.now(timezone.utc)
+    # Determinism: evaluate as of the DATA's own last timestamp when no
+    # as_of is supplied and the returns carry a DatetimeIndex, rather than
+    # wall-clock. as_of only affects time-sensitive eligibility
+    # (cooldown/stale), which policy_inputs does not set today — so this is
+    # behaviour-identical now, but makes the measurement path reproducible
+    # instead of latently wall-clock dependent.
+    if as_of is None:
+        if returns is not None and len(getattr(returns, "index", [])) and \
+                isinstance(returns.index, pd.DatetimeIndex):
+            as_of = returns.index[-1].to_pydatetime()
+        else:
+            as_of = datetime.now(timezone.utc)
     inputs = policy_inputs(specs)
     lay = MetaLayer(config)
     d = lay.decide(inputs, as_of=as_of, returns=returns,
@@ -233,7 +244,21 @@ def run_meta_oos(dev_df: pd.DataFrame, oos_df: pd.DataFrame,
     w_eq = policy_weights(MetaConfig(policy=MetaPolicy.EQUAL_WEIGHT),
                           specs, stats_dev, returns=r_dev)
 
-    # ---- ONE look at OOS
+    # ---- ONE look at OOS.
+    # Enforce the one-look BEFORE consuming the OOS slice: the identity
+    # depends only on (oos_df, policy id, meta-layer version), so a repeat
+    # look is refused without ever re-running the OOS backtests. (Previously
+    # the check ran only after the backtests, so a second call re-executed
+    # the whole OOS look before raising.)
+    identity = None
+    if registry is not None:
+        from .pipeline import oos_identity
+
+        identity = oos_identity(oos_df, META_POLICY_ID,
+                                dataset_tag=dataset_tag,
+                                strategy_version=META_LAYER_VERSION)
+        registry.check_identity(identity)  # raises OosOneLookViolation
+
     eq_oos, trades_oos, per_strategy = {}, 0, {}
     for spec in specs:
         res = run_backtest(oos_df, spec.engine_strategy,
@@ -247,7 +272,6 @@ def run_meta_oos(dev_df: pd.DataFrame, oos_df: pd.DataFrame,
             "oos_expectancy": float(pnl.mean()) if len(pnl) else 0.0,
             "oos_net": float(res.metrics.get("net_profit", 0.0)),
         }
-    datetime.now(timezone.utc)
     m_meta = policy_metrics(combine_equities(eq_oos, w_meta), w_meta,
                             trades_oos)
     m_eq = policy_metrics(combine_equities(eq_oos, w_eq), w_eq, trades_oos)
@@ -263,12 +287,6 @@ def run_meta_oos(dev_df: pd.DataFrame, oos_df: pd.DataFrame,
     }
 
     if registry is not None:
-        from .pipeline import oos_identity
-
-        identity = oos_identity(oos_df, META_POLICY_ID,
-                                dataset_tag=dataset_tag,
-                                strategy_version=META_LAYER_VERSION)
-        registry.check_identity(identity)
         registry.certify_identity(
             identity,
             params={"config_hash": frozen["meta_parameter_hash"],

@@ -263,9 +263,14 @@ def combinatorial_purged_cv(returns_matrix, n_splits: int = 6, *,
         raise ValueError("n_splits must be in [4, n_periods]")
     if embargo_bars < 0:
         raise ValueError("embargo_bars must be >= 0")
-    blocks = [np.arange(i, min(t, i + t // n_splits + (1 if i < t % n_splits else 0)))
-              for i in range(0, t, t // n_splits)]
-    blocks = [b for b in blocks if len(b) > 0]
+    # Contiguous, non-overlapping, exhaustive blocks. The previous
+    # hand-rolled stride/remainder arithmetic produced ``n_splits + 1``
+    # blocks with a duplicated boundary index whenever
+    # ``t % n_splits != 0`` (e.g. t=100,n=6 -> 7 blocks, index 16 in two
+    # blocks), leaking that bar across the train/test split of the same
+    # fold and understating PBO. ``np.array_split`` yields exactly
+    # ``n_splits`` disjoint blocks that cover ``[0, t)`` once.
+    blocks = [b for b in np.array_split(np.arange(t), n_splits) if len(b) > 0]
     s = len(blocks)
     if s < 4:
         raise ValueError("n_splits leaves too few non-empty blocks")
@@ -276,13 +281,20 @@ def combinatorial_purged_cv(returns_matrix, n_splits: int = 6, *,
     for train_blocks in combinations(range(s), train_size):
         test_blocks = [b for b in range(s) if b not in train_blocks]
         train_idx = np.concatenate([blocks[b] for b in train_blocks])
-        # embargo: drop training observations right before each test block
+        # embargo: drop training observations adjacent to each test block on
+        # BOTH sides. A train block that follows a test block is just as
+        # serially correlated with the test interval's trailing edge as one
+        # that precedes it; embargoing only the leading edge (the previous
+        # behaviour) leaked that adjacency into training.
         keep = np.ones(len(train_idx), dtype=bool)
-        for b in test_blocks:
-            cut_start = blocks[b][0]
-            if embargo_bars and cut_start > 0:
-                drop = (train_idx >= max(0, cut_start - embargo_bars)) & \
-                       (train_idx < cut_start)
+        if embargo_bars:
+            for b in test_blocks:
+                cut_start = int(blocks[b][0])
+                cut_end = int(blocks[b][-1]) + 1  # exclusive
+                drop = ((train_idx >= max(0, cut_start - embargo_bars)) &
+                        (train_idx < cut_start)) | \
+                       ((train_idx >= cut_end) &
+                        (train_idx < cut_end + embargo_bars))
                 keep &= ~drop
         train_idx = train_idx[keep]
         test_idx = np.concatenate([blocks[b] for b in test_blocks])

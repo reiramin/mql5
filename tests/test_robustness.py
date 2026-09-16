@@ -188,6 +188,22 @@ def test_cpcv_pbo_known_good_low_known_bad_high():
     assert probability_of_backtest_overshoot(rg) == rg["pbo"]
 
 
+def test_cpcv_blocks_are_disjoint_when_periods_not_multiple_of_splits():
+    """Regression: when ``n_periods % n_splits != 0`` the block partition
+    must still be exactly ``n_splits`` contiguous, non-overlapping blocks.
+
+    The previous stride/remainder construction produced ``n_splits + 1``
+    blocks with a duplicated boundary index (e.g. 100/6 -> 7 blocks, index
+    16 shared), leaking a bar across the train/test split of the same fold.
+    A duplicated block boundary would inflate the combination count from
+    C(6,3)=20 to C(7,3)=35 and report ``n_splits==7``.
+    """
+    m = _config_matrix(n_periods=100, seed=3)  # 100 % 6 == 4
+    r = combinatorial_purged_cv(m, n_splits=6)
+    assert r["n_splits"] == 6
+    assert r["n_combos"] == 20  # C(6,3), not C(7,3)=35
+
+
 def test_cpcv_deterministic_and_validates():
     m = _config_matrix(seed=5)
     a = combinatorial_purged_cv(m, n_splits=6, embargo_bars=5)

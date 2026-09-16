@@ -188,6 +188,27 @@ def test_checker_catches_each_invariant_violation():
     assert check_ml_invariants(orders, orders, advice, ctx) == []
 
 
+def test_checker_robust_to_duplicate_order_keys():
+    """A realistic order book can carry two orders on the same bar+side;
+    the guard must not crash on a non-unique order_key and must still
+    enforce that summed per-key exposure never grows."""
+    ctx = _ctx()
+    before = pd.DataFrame({
+        "entry_time": ["2024-01-01 00:00:00", "2024-01-01 00:00:00"],
+        "side": ["long", "long"], "lots": [0.3, 0.4],
+        "sl": [1.05, 1.05], "tp": [1.10, 1.10],
+    })
+    # same key, total lots reduced 0.7 -> 0.4: clean (reduce-only)
+    shrunk = before.copy()
+    shrunk["lots"] = [0.2, 0.2]
+    assert check_ml_invariants(before, shrunk, MLAdvice(), ctx) == []
+    # same key, total lots grown 0.7 -> 1.0: flagged, not a crash
+    grown = before.copy()
+    grown["lots"] = [0.5, 0.5]
+    v = check_ml_invariants(before, grown, MLAdvice(), ctx)
+    assert any("enlarged" in x for x in v)
+
+
 def test_invariant_registry_documented():
     from mql5bot.ml_interfaces import ML_INVARIANTS
 

@@ -280,10 +280,18 @@ def cost_stress_stage(df: pd.DataFrame, strategy: str,
                           **_stressed_costs(run_kwargs, factor))
         bm, sm = base.metrics, stressed.metrics
         trades_s = int(sm.get("trades", 0))
-        dd_b = float(bm.get("max_drawdown_pct", 0.0))
-        dd_s = float(sm.get("max_drawdown_pct", 0.0))
-        end_b = float(bm.get("end_equity", 0.0))
-        end_s = float(sm.get("end_equity", 0.0))
+        # compute_metrics reports max_drawdown_pct as None for degenerate /
+        # empty runs (metrics.py:74); the key is present, so .get() returns
+        # None and float(None) would raise mid-stage. Coerce None -> 0.0
+        # (a run with no defined drawdown fails the survival test on the
+        # end_equity / min_trades conditions anyway).
+        def _num(m: dict, key: str) -> float:
+            v = m.get(key, 0.0)
+            return float(v) if v is not None else 0.0
+        dd_b = _num(bm, "max_drawdown_pct")
+        dd_s = _num(sm, "max_drawdown_pct")
+        end_b = _num(bm, "end_equity")
+        end_s = _num(sm, "end_equity")
         dd_ok = dd_s >= 2.0 * min(dd_b, 0.0)  # never more than doubled
         survived = (end_s > float(run_kwargs.get("initial_capital", 10_000.0))
                     and trades_s >= min_trades
@@ -777,6 +785,13 @@ class OosRegistry:
     File schema v2 (``_schema``); v1 files (flat
     ``"dataset_version::strategy"`` keys) are migrated on load and keep
     their enforcement.
+
+    CONCURRENCY: enforcement assumes a SINGLE writer. ``check_identity``
+    and ``certify_identity`` read-modify-write the JSON file without a
+    lock, so two processes certifying the same identity concurrently
+    could both pass their check before either writes (a TOCTOU race). The
+    research protocol runs certification single-process; do not drive one
+    registry file from parallel workers.
     """
 
     path: str | Path

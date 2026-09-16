@@ -117,6 +117,41 @@ def test_attack_score_cannot_mint_risk_or_lots():
         AllocationWeight(99.0)
 
 
+# 17b — a strategy that FAILS its gate at rebalance must drop to exactly
+# zero, never be smoothed back up by the symmetric delta cap (§66/§78:
+# a strategy without valid certification gets exactly zero weight).
+def test_attack_failed_gate_not_resurrected_by_delta_cap():
+    gov = AllocationGovernor(GovernorBounds(max_strategy_delta=0.20),
+                             target_gross_max_pct=100.0)
+    # previously live at 0.5; now ineligible (gates fail). A symmetric
+    # delta cap would leave 0.5 - 0.20 = 0.30 of allocation.
+    out = gov.recommend(
+        [EligibilityRecord(strategy_id="fallen", lifecycle_state="LIVE",
+                           human_approved=True, gates_pass=False,
+                           kill_switch_ok=True, evidence_ok=True)],
+        {"fallen": 1.0}, previous_weights={"fallen": 0.5})
+    a = out["allocations"][0]
+    assert a["eligible"] is False
+    assert a["effective_weight"] == 0.0
+    assert out["gross_pct"] == 0.0
+
+
+# 17c — a caller-supplied decay/ramp multiplier > 1 must not inflate
+# exposure: multipliers are demote-only and clamped to [0, 1].
+def test_attack_supplied_multiplier_above_one_cannot_increase_exposure():
+    gov = AllocationGovernor(GovernorBounds(max_strategy_delta=10.0),
+                             target_gross_max_pct=20.0)
+    out = gov.recommend(
+        [EligibilityRecord(strategy_id="s", lifecycle_state="LIVE",
+                           human_approved=True, gates_pass=True,
+                           kill_switch_ok=True, evidence_ok=True)],
+        {"s": 1.0}, ramp={"s": 8.0}, decay_mult={"s": 5.0})
+    a = out["allocations"][0]
+    # single strategy is capped at the gross target band (0.20), never 1.5
+    assert a["effective_weight"] <= 0.20 + 1e-9
+    assert a["ramp_factor"] <= 1.0 and a["decay_multiplier"] <= 1.0
+
+
 # 18 — watchdog silencing: a raising alert channel must not stop
 # monitoring, and alerts resume after the rate limit.
 def test_attack_watchdog_channel_sabotage_is_fail_safe():

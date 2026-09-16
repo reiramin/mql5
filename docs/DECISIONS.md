@@ -9,6 +9,89 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-16 — Wave 2 research/ML/governance hardening: correctness fixes, no new authority
+
+**Scope.** Wave 2 finished the code-side research/intelligence/governance
+work reachable on Mac (no MT5 runtime). Full-repo audits of ML, meta,
+discovery, robustness/WFA/OOS, portfolio and a source-level security
+review. The authority model is UNCHANGED — no ML/LLM/meta/discovery path
+gained order authority; every fix only tightens correctness or the
+reduce-only/one-look/no-leakage guarantees. Wave-1 denomination decision
+stands unchanged (still owner-gated; parity report still PENDING all
+asset classes — see the Wave-1 entry below).
+
+**Fixes applied (each with a pinned regression test).**
+
+1. **CPCV block partition leakage** (`robustness.combinatorial_purged_cv`).
+   The hand-rolled stride/remainder block construction produced
+   `n_splits + 1` blocks with a duplicated boundary index whenever
+   `n_periods % n_splits != 0` (e.g. 100/6 → 7 blocks, index 16 in two
+   blocks), leaking a bar across the train/test split of the same fold and
+   understating PBO — which feeds `gate6_cpcv_pbo` and the discovery score.
+   Replaced with `np.array_split` (exactly `n_splits` disjoint blocks). The
+   CPCV embargo was also made TWO-SIDED (it previously purged training only
+   *before* each test block, leaving the trailing-edge adjacency of a
+   following train block un-embargoed).
+
+2. **Governor resurrected failed-gate strategies** (`discovery/governor.py`).
+   The symmetric per-strategy delta cap smoothed an ineligible strategy's
+   weight down to `prev − max_strategy_delta` instead of zero, so a strategy
+   that just failed its gate could keep non-zero allocation (violating
+   "no valid certification ⇒ exactly zero weight, every mode"). Ineligible
+   records are now forced to a HARD zero and exempted from the delta cap,
+   mirroring the `zero_reason` exemption in `meta_layer._apply_modes`.
+   Additionally, caller-supplied decay/ramp multipliers are clamped to
+   `[0, 1]` (demote-only by contract) and a single strategy is capped at the
+   gross target band — a hostile/buggy multiplier `> 1` can no longer inflate
+   exposure.
+
+3. **Drift execution-window misalignment** (`drift_feed._median_bars`). The
+   execution-drift baseline used a `recent_n + baseline_n` window (40 trades
+   with defaults) instead of the `baseline_n` window (20) that the
+   expectancy/PF/winrate components use, diluting a real holding-period shift
+   and UNDER-reporting execution drift (non-conservative). The bars windows
+   now slice identically to the pnl windows.
+
+4. **Meta-OOS one-look ordering** (`meta_oos.run_meta_oos`). The registry
+   `check_identity` ran only *after* the OOS backtests, so a repeat look
+   re-executed the whole OOS evaluation before raising. The check now runs
+   BEFORE the OOS slice is consumed. A dead wall-clock `datetime.now()` call
+   in that path was removed, and `policy_weights` now defaults `as_of` to the
+   data's own last timestamp (deterministic) instead of wall-clock.
+
+5. **`float(None)` crash in the cost-stress gate** (`pipeline.cost_stress_gate`).
+   `compute_metrics` reports `max_drawdown_pct=None` for degenerate runs;
+   `float(None)` would raise mid-stage. Now coerced to `0.0` (the run fails
+   the survival test on other conditions anyway).
+
+6. **ML risk-seam robustness** (`ml_interfaces.check_ml_invariants`). The
+   guard indexed by a non-unique `order_key` and crashed (`float(Series)`)
+   on a realistic book with two orders on the same bar/side. It now compares
+   summed per-key exposure (conservative, reduce-only), behaviour-identical
+   for unique keys.
+
+7. **Telemetry body cap** (`telemetry_bridge.do_POST`). The collector read
+   an unbounded `Content-Length` body before parsing; now capped at 1 MiB
+   (413 otherwise). Defense-in-depth on top of the Wave-1 loopback bind.
+
+8. **Docstring honesty.** `optimizer.walk_forward` no longer implies it
+   records a one-look (it does not — `OosRegistry` on the S5 path does), and
+   `OosRegistry` now documents its single-writer / TOCTOU assumption.
+
+**Validation.** Full deterministic suite: 1581 passed, 1 skipped, 0 failed
+(was 1576 passed / 1 skipped before the five new Wave-2 regression tests);
+ruff clean; `git diff --check` clean. No MT5 runtime, Strategy Tester, real
+tick, Gold, demo/live or owner evidence was run or fabricated on Mac.
+
+**Security review.** Source-level audit of `python/`, `factory/`, `tools/`,
+`scripts/`, `mql5/` found NO high/critical reachable vulnerabilities:
+subprocess is fixed-argv only, no `eval`/`exec`/`pickle`/`yaml.load`, no
+network dereferencing in the intake path (community text is treated strictly
+as sanitized DATA), no hardcoded secrets, servers loopback-bound, and the
+factory→execution, ML→order and UI→live authority controls are enforced
+server-side (evidence binding, human-approval actor prefixes, no order
+endpoint). The telemetry body cap (#7) was the only hardening applied.
+
 ## 2026-09-16 — Wave 1 code-side pass: tick-value denomination stays owner-gated; loopback-default network servers
 
 **Trigger.** Wave 1 asked whether the runtime double-converts stop-loss

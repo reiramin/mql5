@@ -31,6 +31,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 _DEFAULT_LOG = "results/telemetry.jsonl"
+# Maximum accepted POST body (telemetry events are small JSON blobs). Bounds
+# a local memory-exhaustion DoS even though the server defaults to loopback.
+MAX_BODY_BYTES = 1 << 20  # 1 MiB
 
 
 class Collector:
@@ -82,7 +85,18 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            self._send(b'{"error":"bad length"}', "application/json", 400)
+            return
+        # Bound the body before reading it into memory. A telemetry event is
+        # a small JSON blob; anything larger is malformed or hostile. Even on
+        # the default loopback bind this caps a local memory-exhaustion DoS.
+        if length < 0 or length > MAX_BODY_BYTES:
+            self._send(b'{"error":"payload too large"}',
+                       "application/json", 413)
+            return
         raw = self.rfile.read(length)
         try:
             payload = json.loads(raw or b"{}")

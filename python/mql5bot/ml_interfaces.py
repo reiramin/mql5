@@ -191,17 +191,26 @@ def check_ml_invariants(orders_before: pd.DataFrame,
         if not orders_after.empty:
             violations.append("ML created trades out of nothing")
         return violations
-    b = orders_before.set_index(list(order_key))
-    a = orders_after.set_index(list(order_key))
-    extra = a.index.difference(b.index)
+    keys = list(order_key)
+    # Group by key and compare TOTAL lots per key. order_key need not be
+    # unique (two orders on the same bar/side are legitimate); a per-row
+    # ``.loc[key]`` would return a Series and crash the guard on such a
+    # book. Comparing summed exposure per key is the conservative
+    # invariant — the merged position for a key can only shrink.
+    b_lots = orders_before.groupby(keys, sort=True)["lots"].sum()
+    a_lots = orders_after.groupby(keys, sort=True)["lots"].sum()
+    extra = a_lots.index.difference(b_lots.index)
     if len(extra):
         violations.append(f"ML created {len(extra)} uncontrolled trade(s): "
                           f"{sorted(map(str, extra))[:3]}...")
-    for key in a.index.intersection(b.index):
-        if float(a.loc[key, "lots"]) > float(b.loc[key, "lots"]) + 1e-12:
+    common = a_lots.index.intersection(b_lots.index)
+    for key in common:
+        if float(a_lots.loc[key]) > float(b_lots.loc[key]) + 1e-12:
             violations.append(f"ML enlarged trade {key!r}: "
-                              f"{float(b.loc[key, 'lots'])} -> "
-                              f"{float(a.loc[key, 'lots'])} lots")
+                              f"{float(b_lots.loc[key])} -> "
+                              f"{float(a_lots.loc[key])} lots")
+    b = orders_before.set_index(keys)
+    a = orders_after.set_index(keys)
     for col in ("sl", "tp", "stop_loss"):
         if col in b.columns and col in a.columns \
                 and b[col].isna().sum() == 0 and a[col].isna().sum() > 0:
