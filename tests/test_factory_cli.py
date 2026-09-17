@@ -36,9 +36,15 @@ def test_interpret_emits_draft_and_flags_review(ws, capsys):
     rc = main(["--db", _db(ws), "interpret", str(text)])
     out = json.loads(capsys.readouterr().out)
     assert out["draft"]["version"] == 0
+    # the strategy TEXT is understood with high confidence (0.8) …
     assert out["confidence"] == 0.8
-    assert out["needs_review"] is False
-    assert rc == 0
+    # … but the market was NOT specified, so review IS required: the
+    # interpreter never guesses symbol/timeframe (§6).
+    assert out["needs_review"] is True
+    assert any(a.get("kind") == "UNRESOLVED_MARKET"
+               for a in out["ambiguities"])
+    assert out["draft"]["market"] == {"symbol": "", "timeframe": ""}
+    assert rc == 1
 
 
 def test_interpret_needs_review_for_ambiguity(ws, capsys):
@@ -53,8 +59,10 @@ def test_interpret_needs_review_for_ambiguity(ws, capsys):
 
 def test_register_advance_status_roundtrip(ws, monkeypatch, capsys):
     tmp_path, text = ws
+    # interpret flags review (rc 1): the market is unresolved (§6) and
+    # must be chosen by the owner — this draft is stored at version 0.
     interp = main(["--db", _db(ws), "interpret", str(text)])
-    assert interp == 0
+    assert interp == 1
     draft = json.loads(capsys.readouterr().out)["draft"]
     draft["strategy_id"] = "ema_trend_demo"
     draft["version"] = 0

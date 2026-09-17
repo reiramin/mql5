@@ -56,8 +56,11 @@ PARAMS = {"sl_atr": 1.5, "tp_atr": 3.0}
 
 def fixture_document(strategy_id="ema_rsi_atr_fixture", version=1):
     interp = TemplateInterpreter()
+    # an executable version REQUIRES an explicit owner-chosen market (§6);
+    # the interpreter never guesses one from prose
     r = interp.interpret(ResearchMaterial("USER_TEXT", "fixture",
-                                          EN_TEXT))
+                                          EN_TEXT),
+                         market={"symbol": "EURUSD", "timeframe": "H1"})
     doc = r.draft
     doc["strategy_id"] = strategy_id
     doc["version"] = version
@@ -197,8 +200,10 @@ def test_en_fa_identical_signals_exits_sl_tp():
     assert fa.draft["indicators"] == en.draft["indicators"]
     assert en.draft["exit"]["sl"] == {"model": "atr", "mult": 1.5}
     assert en.draft["exit"]["tp"] == {"model": "atr", "mult": 3.0}
-    d_en = dict(en.draft, strategy_id="same_id", version=1)
-    d_fa = dict(fa.draft, strategy_id="same_id", version=1)
+    # executable version REQUIRES an explicit owner-chosen market (§6)
+    mk = {"symbol": "EURUSD", "timeframe": "H1"}
+    d_en = dict(en.draft, strategy_id="same_id", version=1, market=mk)
+    d_fa = dict(fa.draft, strategy_id="same_id", version=1, market=mk)
     s_en, s_fa = parse_spec(d_en), parse_spec(d_fa)
     df = generate_ohlc(days=240, seed=5)
     np.testing.assert_array_equal(
@@ -355,7 +360,8 @@ def test_negative_path_excellent_backtest_failing_oos(tmp_path):
     assert any(c["metric"] == "win_rate" and c["value"] == 0.9
                for c in claims)            # "90% win rate" captured
     assert all(c["note"].startswith("AUTHOR_CLAIM") for c in claims)
-    doc = dict(r.draft, strategy_id="overhyped_one", version=1)
+    doc = dict(r.draft, strategy_id="overhyped_one", version=1,
+               market={"symbol": "EURUSD", "timeframe": "H1"})
     spec = parse_spec(doc)
     sid = spec.strategy_id
     store.register_strategy(spec, created_by="community",

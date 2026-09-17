@@ -150,6 +150,8 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
     def create_campaign(request: Request, idea: str = Form(...),
                         source: str = Form(""),
                         dataset: str = Form("synthetic-default"),
+                        symbol: str = Form(""),
+                        timeframe: str = Form(""),
                         actor: str = Form(...)):
         """One-click research intake (§52/§54): idea + optional source +
         dataset → interpreted draft (deterministic template; LLM
@@ -159,11 +161,23 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
         from ..factory.models import DiscoveryCampaign
         if not idea.strip() or not actor.strip():
             raise HTTPException(422, "idea and actor are required")
+        # §6: the market is NEVER guessed. When a research runner is
+        # attached this campaign will build an EXECUTABLE research spec,
+        # so an explicit symbol + timeframe are required up front (fail
+        # closed). With no runner the campaign is only staged (PAUSED) and
+        # the market may be supplied later at execution wiring.
+        market = ({"symbol": symbol.strip(), "timeframe": timeframe.strip()}
+                  if symbol.strip() and timeframe.strip() else None)
+        if research_runner is not None and market is None:
+            raise HTTPException(
+                422, "symbol and timeframe are required to run research "
+                "(the market is never guessed from the idea — §6)")
         campaign_id = f"camp_{doc_hash({'idea': idea, 'ts_actor': actor})[:12]}"
         manifest = {"hypothesis": idea.strip()[:200],
                     "source_text_hash": doc_hash({"text": source})
                     if source.strip() else "",
                     "dataset": dataset,
+                    "market": market,
                     "budgets": {"stage1_single_indicator": 12,
                                 "stage2_two_factor": 24,
                                 "stage3_multi_factor": 12,

@@ -165,8 +165,16 @@ def normalize_spec(spec: dict) -> dict:
         "strategy_id": spec["strategy_id"],
         "version": int(spec["version"]),
         "market": {
+            # DRAFT (version 0) may leave the market UNRESOLVED — the
+            # interpreter never guesses symbol/timeframe from prose (§6).
+            # The empty string is the explicit "not chosen yet" sentinel
+            # and is preserved verbatim; schema.py forbids it for any
+            # executable version (> 0), so a guess can never reach a
+            # runtime. Non-empty values normalize as before.
             "symbol": str(market["symbol"]).upper(),
-            "timeframe": normalize_timeframe(market["timeframe"]),
+            "timeframe": (normalize_timeframe(market["timeframe"])
+                          if str(market.get("timeframe", "")).strip()
+                          else ""),
             "session": _norm_session(market.get("session")),
             "trading_days": (sorted(int(d) for d in
                                     market["trading_days"])

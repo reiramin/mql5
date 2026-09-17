@@ -163,9 +163,10 @@ def validate_condition(cond, path: str, *, depth: int = 0,
         key = "rising" if "rising" in cond else "falling"
         _keys(cond, {key, "n"}, path)
         validate_operand(cond[key], f"{path}.{key}")
-        n = cond.get("n", 2)
-        if isinstance(n, bool) or not isinstance(n, int) or n < 1:
-            _fail(f"{path}.n", f"{key} needs integer n >= 1")
+        # _as_int tolerates integral floats so the floatified canonical
+        # document re-validates (idempotency, gate §29.1 — same rule as
+        # period/time_bars); 3.0 passes as 3, 3.5 is rejected.
+        _as_int(cond.get("n", 2), f"{path}.n", f"{key} n", 1, 10**6)
     elif "within" in cond:
         _keys(cond, {"within", "low", "high"}, path)
         validate_operand(cond["within"], f"{path}.within")
@@ -322,14 +323,32 @@ def validate_spec(spec: dict) -> None:
     _check_type(market, dict, "market", "market")
     _keys(market, {"symbol", "timeframe", "session", "trading_days"},
           "market")
-    if not isinstance(market.get("symbol"), str) \
-            or not market.get("symbol"):
-        _fail("market.symbol", "market.symbol required")
-    tf = str(market.get("timeframe", "")).upper()
-    if tf not in TIMEFRAMES:
+    # DRAFT (version 0) may leave the market UNRESOLVED: the interpreter
+    # never guesses symbol/timeframe from prose (§6). The empty string is
+    # the explicit "not chosen yet" sentinel; parse.py records it as a
+    # blocking ambiguity so the draft can never execute or promote. An
+    # EXECUTABLE version (> 0) MUST specify both — so a guessed market can
+    # never silently reach a runtime.
+    is_draft = (ver == 0)
+    sym = market.get("symbol")
+    if not isinstance(sym, str):
+        _fail("market.symbol", "market.symbol must be a string")
+    if not sym:                              # empty = UNRESOLVED
+        if not is_draft:
+            _fail("market.symbol", "market.symbol required")
+    elif not sym.strip():
+        _fail("market.symbol", "market.symbol must not be blank")
+    tf_raw = market.get("timeframe", "")
+    if not isinstance(tf_raw, str):
+        _fail("market.timeframe", "market.timeframe must be a string")
+    tf = tf_raw.upper()
+    if not tf:                               # empty = UNRESOLVED
+        if not is_draft:
+            _fail("market.timeframe",
+                  "market.timeframe required for an executable version")
+    elif tf not in TIMEFRAMES:
         _fail("market.timeframe",
-              f"timeframe {market.get('timeframe')!r} not in "
-              f"{sorted(TIMEFRAMES)}")
+              f"timeframe {tf_raw!r} not in {sorted(TIMEFRAMES)}")
     days = market.get("trading_days")
     if days is not None:
         _check_type(days, (list,), "market.trading_days", "trading_days")
@@ -410,10 +429,10 @@ def validate_spec(spec: dict) -> None:
         for key in ("max_spread_points", "max_atr_pct"):
             if filters.get(key) is not None:
                 _number(filters[key], f"filters.{key}", key)
-        cb = filters.get("cooldown_bars", 0)
-        if isinstance(cb, bool) or not isinstance(cb, int) or cb < 0:
-            _fail("filters.cooldown_bars",
-                  "cooldown_bars must be a non-negative integer")
+        # _as_int tolerates integral floats so the floatified canonical
+        # document re-validates (idempotency, gate §29.1)
+        _as_int(filters.get("cooldown_bars", 0), "filters.cooldown_bars",
+                "cooldown_bars", 0, 10**6)
         if filters.get("session") is not None:
             sess = filters["session"]
             _check_type(sess, dict, "filters.session", "session filter")

@@ -203,6 +203,10 @@ def build_parser() -> argparse.ArgumentParser:
                         "research chain (never trades)")
     sp.add_argument("--idea", required=True)
     sp.add_argument("--data", required=True, help="OHLC CSV path")
+    sp.add_argument("--symbol", required=True,
+                    help="market symbol (§6: explicit, never guessed)")
+    sp.add_argument("--timeframe", required=True,
+                    help="market timeframe, e.g. H1 (§6: explicit)")
     sp.add_argument("--campaign", default="camp_cli")
     sp.add_argument("--long-only", action="store_true")
     sp.set_defaults(func=cmd_research)
@@ -221,6 +225,8 @@ def cmd_research(args) -> int:
     df = load_csv(args.data)
     result = svc.run_idea(args.idea, df, dataset_id=args.data,
                           campaign_id=args.campaign,
+                          market={"symbol": args.symbol,
+                                  "timeframe": args.timeframe},
                           long_only=args.long_only)
     chain = result["evidence_chain"]
     print(json.dumps({"outcome": result["outcome"],

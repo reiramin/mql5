@@ -150,3 +150,46 @@ with `PENDING_OWNER` fields, `real_tick_coverage.json`, `checklist.md`,
 `report_template.md`, `README.md` describing the 29-file layout). Fill the
 `PENDING_OWNER` fields from the owner's real `MT5_` evidence — never copy
 Python values.
+
+---
+
+## 8. New owner obligations — 2026-09 convergence pass
+
+The 2026-09 Mac pass added three items that require owner action and a
+**deliberate re-anchor** of the frozen source (they were NOT applied to
+`mql5/` — the anchor `227bf66` is still byte-identical to HEAD). Full
+context: `docs/AEGIS_CONVERGENCE_AUDIT_2026-09.md`.
+
+### 8a. RiskManager direction fix (bounded correctness)
+`owner_patches/RiskManager_296_direction.patch` corrects the inverted
+`OrderCalcMargin` side (`price < slPrice` → `price > slPrice`,
+`RiskManager.mqh:296`). It `git apply --check`s cleanly against the frozen
+source. Apply it as part of the re-anchor, recompile `-Strict`, and update
+`frozen_inputs.json` `source.commit` to the new snapshot (new manifest +
+provenance + explanation, mission §26/§32). Mac regression that pins the
+correct logic + patch: `tests/test_riskmanager_direction_patch.py`.
+
+### 8b. Generic DSL runtime — compile + integrate (central convergence)
+`mql5_dsl_runtime/` is the **OWNER-PENDING / UNCOMPILED** generic runtime
+(JSON reader, fail-closed bundle loader, recursive evaluator, parity
+runner) that consumes the executable bundle
+(`python/mql5bot/dsl/bundle.py`) so a strategy runs WITHOUT becoming one of
+the five enum families. Owner: review, compile `-Strict`, complete the two
+documented owner-completion points (canonical-JSON `bundle_hash` verify;
+manual DONCHIAN/HIGHEST/LOWEST + extended kinds), decide in-place vs peer
+module, and re-anchor. The five legacy engines stay intact.
+
+### 8c. DSL cross-engine parity legs (owner-run)
+For each fixture under `artifacts/dsl_parity/<name>/`: import `ohlc.csv` as
+an offline symbol, load `bundle.json` into the compiled generic runtime via
+`mql5_dsl_runtime/Scripts/DslParityRunner.mq5`, export the per-bar position
+vector, and compare to `expected_trace.json["positions"]` — **EXACT match**
+(logical values carry no tolerance). Only after these pass may any
+Python↔MQL5 parity claim be made; until then the MQL5 side is
+OWNER-PENDING and must not be reported as parity-proven.
+
+**Provenance rule.** Re-anchoring the frozen source (8a/8b) is an
+owner-authority action: it invalidates the prior compile-of-record and
+requires a fresh `-Strict` compile + a new `frozen_inputs.json`
+`source.commit` + manifest + explanation. Do not skip the re-anchor and do
+not fabricate any compile/tester/parity result.

@@ -11,10 +11,41 @@
 
 ---
 
-## CURRENT STATE (authoritative) — 2026-09-16, branch `master`
+## CURRENT STATE (authoritative) — 2026-09-17, branch `master`
 
 **Lane.** CODE-COMPLETE / RESEARCH-COMPLETE on Mac; RUNTIME-PENDING and
 OWNER-PENDING items remain Windows/owner responsibilities (see below).
+
+- **Final closure wave (2026-09-17) — research-service truthfulness + generic
+  DSL convergence.** Two Mac-side product-path closures, frozen `mql5/` anchor
+  `227bf66` untouched:
+  1. **No fabricated PASS.** `discovery/research_service.py` no longer injects
+     `pbo=0.0` / `positive_in_expected_regime=True` / portfolio zeros / score
+     `cpcv_pbo_evidence=0.1`. Every gate input is now MEASURED (PBO via
+     `robustness.combinatorial_purged_cv`, regime via
+     `discovery/research_metrics.regime_pf`, DSR via `robustness.psr`,
+     portfolio vs the actual book); an unmeasurable input stays UNSET so the
+     gate SKIPs (blocks). Evidence is bound to the SELECTED variant's own
+     `spec_hash`; a FAIL record can never promote. A marginal-edge grid search
+     now measures PBO≈1.0 and is correctly REJECTED (the discard is the design).
+     New module `discovery/research_metrics.py`; regression
+     `tests/test_research_service_truthful.py`. Details: `docs/DECISIONS.md`
+     2026-09-17.
+  2. **Generic DSL→MQL5 bridge** (executable bundle + fail-closed loader +
+     Python parity golden + staged generic MQL5 runtime), see the 2026-09-17
+     convergence entry below and `docs/AEGIS_CONVERGENCE_AUDIT_2026-09.md`.
+  3. **Truthful WFE + bundle-size hardening (continuation).** Gate-5
+     (`gate5_walk_forward`) no longer accepts `cv_pf − train_pf` (a
+     profit-factor delta): its input is now the CONTRACT walk-forward-
+     efficiency ratio (held-out return / IS return) computed by
+     `discovery/research_metrics.walk_forward_efficiency` over one rolling
+     window inside the IS region (the one-look OOS slice is untouched), the
+     same formula as `optimizer.walk_forward`; undefined ⇒ UNSET → gate-5
+     SKIPs. The mislabeled `is_pf` selection key is renamed `sel_pf`. The
+     bundle total-size limit (256 KiB) is now enforced on the in-memory
+     `load_bundle` path, and the staged MQL5 loader matches market timeframe
+     (not only symbol) with an honest MIRRORED/OWNER-PENDING header.
+     Gaps G7/G8 in `docs/AEGIS_CONVERGENCE_AUDIT_2026-09.md`.
 
 - **Waves 1 & 2 (code-side) complete.** Wave 1 established fresh owner-broker
   evidence scaffolding, independent `OrderCalcProfit` denomination probes,
@@ -31,13 +62,13 @@ OWNER-PENDING items remain Windows/owner responsibilities (see below).
   deterministic `as_of`, cost-stress `None` guard, ML risk-seam
   duplicate-key robustness, telemetry body cap, and docstring honesty.
   Full detail: `docs/DECISIONS.md` 2026-09-16 Wave-2 entry.
-- **Tests.** Full deterministic Python suite green: **1602 passed, 1
-  skipped, 0 failed** (was 1593/1; +9 regression tests in Wave 2.3 —
-  deterministic `_most_selected` tie-break, owner-gate python-only/null-mt5
-  reconciliation rejection, frozen-symbol identity enforcement, broker-parity
-  fail-closed exit code, sizer non-finite veto, Kelly hard-cap). Verified under
-  `PYTHONHASHSEED=12345` and cross-checked identical under seeds 1/777 on the
-  determinism-sensitive suites. `ruff check python/ tests/ tools/ factory/`
+- **Tests.** Full deterministic Python suite green: **1667 passed, 1
+  skipped, 0 failed** (post-closure-wave; adds the research-service
+  truthfulness, generic DSL bundle/parity, interpreter market no-guess,
+  indicator-status truthfulness, RiskManager-patch, and the G7 WFE / G8
+  bundle-size continuation tests on top of the 1602 Wave-2.3 baseline).
+  Verified under `PYTHONHASHSEED=12345` and cross-checked identical under
+  seeds 1/777 on the determinism-sensitive suites. `ruff check python/ tests/ tools/ factory/`
   clean (broadened from `python/ tests/`; the previously-documented `tools/`
   ruff debt is cleared); `git diff --check` clean. Prior waves: +17 regression
   tests across Waves 2–2.2 (five Wave 2, four Wave 2.1, eight Wave 2.2 pinning

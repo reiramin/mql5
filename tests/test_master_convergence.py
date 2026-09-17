@@ -44,6 +44,7 @@ def test_gold_strategy_full_chain_and_immutable_evidence():
                           journal=received.append)
     df = _df()
     result = svc.run_idea(IDEA, df, dataset_id="gold-synthetic",
+                          market={"symbol": "EURUSD", "timeframe": "H1"},
                           campaign_id="camp_gold")
     chain = result["evidence_chain"]
     # the gold chain is complete and self-hashed
@@ -72,6 +73,7 @@ def test_gold_chain_reproducible_same_inputs_same_hash():
         svc = ResearchService(store, gate_policy=POLICY,
                               gate_policy_version="fixture")
         return svc.run_idea(IDEA, _df(), dataset_id="gold",
+                            market={"symbol": "EURUSD", "timeframe": "H1"},
                             campaign_id="camp_gold")
     r1, r2 = run(), run()
     c1, c2 = r1["evidence_chain"], r2["evidence_chain"]
@@ -92,6 +94,7 @@ def test_negative_bad_oos_rejected_by_service():
                          start_price=float(up["close"].iloc[-1]),
                          start=up.index[-1] + pd.Timedelta(hours=1))
     result = svc.run_idea(IDEA, pd.concat([up, down]), long_only=True,
+                          market={"symbol": "EURUSD", "timeframe": "H1"},
                           dataset_id="reversal",
                           campaign_id="camp_neg")
     sid = result["evidence_chain"]["strategy_id"]
@@ -234,7 +237,8 @@ def test_console_runner_executes_research_and_marks_campaign(tmp_path):
     client = TestClient(create_app(
         store, research_runner=svc.console_runner(lambda ds: df)))
     r = client.post("/campaigns", data={
-        "idea": IDEA, "actor": "owner", "dataset": "gold-synthetic"},
+        "idea": IDEA, "actor": "owner", "dataset": "gold-synthetic",
+        "symbol": "EURUSD", "timeframe": "H1"},   # §6: explicit market
         follow_redirects=False)
     assert r.status_code == 303
     from mql5bot.factory.models import DiscoveryCampaign
@@ -299,6 +303,7 @@ def test_service_time_budget_stops_grid(monkeypatch):
     monkeypatch.setattr(time, "monotonic",
                         lambda: next(ticks, 10_000.0))
     result = svc.run_idea(IDEA, _df(800), campaign_id="camp_budget",
+                          market={"symbol": "EURUSD", "timeframe": "H1"},
                           time_budget_s=1)
     assert result["evidence_chain"]["time_budget_exceeded"] is True
     monkeypatch.setattr(time, "monotonic", real_monotonic)

@@ -84,7 +84,10 @@ def _run_research(store: FactoryStore, df: pd.DataFrame, *,
     # 1) interpretation (deterministic template; LLM optional by design)
     interp = TemplateInterpreter()
     material = ResearchMaterial("USER_TEXT", "acceptance", SOURCE)
-    r = interp.interpret(material)
+    # executable version REQUIRES an explicit owner-chosen market (§6):
+    # the interpreter never guesses symbol/timeframe from prose
+    r = interp.interpret(material,
+                         market={"symbol": "EURUSD", "timeframe": "H1"})
     doc = r.draft
     doc["strategy_id"] = SID
     doc["version"] = 1

@@ -9,6 +9,170 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-17 — Continuation: truthful gate-5 WFE + bundle-size fail-closed
+
+**Purpose.** Close two residual gaps found in a second independent audit of
+the closure wave. Mac-side only; frozen `mql5/` anchor `227bf66` untouched;
+no gate weakened.
+
+**G7 — gate-5 "walk-forward efficiency" was a misleading name.** The gate
+`gate5_walk_forward` (literally "walk-forward efficiency", `factory/gates.py`
+Gate-5) was fed `cv_pf − train_pf` from `discovery/research_service.py` — a
+profit-factor DELTA between two in-sample sub-slices, with no out-of-sample
+leg and no return ratio. The authoritative contract (`docs/WFA_CONTRACT.md`
+§6) defines WFE = `OOS_return / IS_return`, implemented in
+`optimizer.walk_forward` (`optimizer.py:291-295`). Per the mission's WFA-
+semantics P0 ("implement the correct WFE OR rename; never keep a misleading
+certification metric name") we chose to IMPLEMENT the correct metric rather
+than rename — this both fixes the name and completes the chain's WFA stage
+without weakening the gate.
+
+*Design.* A new canonical helper `discovery/research_metrics.walk_forward_efficiency`
+computes the contract ratio (`holdout_return / IS_return`) with the exact
+formula `optimizer.walk_forward` uses, applied to ONE rolling-origin window
+whose train and held-out slices are BOTH inside the research IS region — so
+the final one-look OOS certification slice (§19) is never touched and the
+measurement stays selection-safe. When the IS leg is non-positive the ratio
+is undefined and the helper returns `None`; the service then leaves the gate
+input UNSET so gate-5 SKIPs (blocks) rather than passing on an invented
+value. `optimizer.walk_forward` itself is NOT reusable directly on the DSL
+grid path (it drives registered engine strategies + param grids, not DSL
+`desired_positions` signals), so the single-window contract formula is
+applied in one place (`research_metrics`) to avoid a second WFA engine while
+keeping the numeric definition identical to the authoritative one. The
+mislabeled selection key `is_pf` (actually the CV-slice PF) is renamed
+`sel_pf`. Regression: `tests/test_research_service_truthful.py` (+3, incl. a
+source guard that `cv_pf - train_pf` never returns).
+
+**G8 — bundle total-size limit was file-path-only.** `validate_document_size`
+(256 KiB) was called only in `dsl/parse.py:load_document` (file reads); an
+already-parsed dict reaching `dsl/bundle.py:load_bundle` (or `parse_spec(dict)`)
+skipped it. A bundle is untrusted data, so `load_bundle` now validates
+`canon_json(envelope)` size FIRST and fails closed (`BundleError`) before any
+structural work. The staged MQL5 loader (`mql5_dsl_runtime/Include/DslBundle.mqh`,
+OWNER-PENDING/uncompiled) now also matches the market **timeframe** (Python
+compares symbol AND timeframe), and its header truthfully enumerates which
+refusals are MIRRORED vs OWNER-PENDING (bundle_hash re-derivation needs the
+canonical re-serializer — the one documented owner-completion point).
+Regression: `tests/test_dsl_bundle.py::test_oversized_bundle_is_rejected_on_in_memory_path`.
+
+---
+
+## 2026-09-17 — Final closure wave: research-service truthfulness (no fabricated PASS)
+
+**Purpose.** Close the mission's first P0 — the research service injected
+FABRICATED gate inputs that forced passes regardless of the strategy. Fixed
+Mac-side; frozen `mql5/` anchor `227bf66` untouched. New canonical module
+`python/mql5bot/discovery/research_metrics.py`; regression
+`tests/test_research_service_truthful.py`.
+
+**Fabricated metrics removed — every gate input is now MEASURED.**
+`discovery/research_service.py` used to hard-code `pbo=0.0`,
+`positive_in_expected_regime=True`, `max_correlation_with_book=0.0`,
+`marginal_heat_add=0.0`, and the score's `cpcv_pbo_evidence=0.1`. Because the
+gate engine is fail-closed (a missing input SKIPs → blocks), those constants
+were the ONLY thing manufacturing a pass on the searched grid. Now:
+- **PBO** is measured across the searched grid via
+  `robustness.combinatorial_purged_cv` (the service DOES select among variants,
+  so the search's overfitting is real — a marginal-edge grid measures PBO≈1.0
+  and is correctly rejected; the old `0.0` hid this). When the search is too
+  small to estimate (fewer than 2 configs / 8 periods) PBO is left UNSET →
+  gate-6 SKIPs, never a fake 0.0.
+- **`positive_in_expected_regime`** is measured by `research_metrics.regime_pf`
+  (profit factor of trades exiting inside a causal 200-SMA-rising regime),
+  the SAME calculation the certified E2E (`tests/test_factory_e2e.py`) uses.
+- **DSR leg** uses the canonical closed form `robustness.psr` on daily returns.
+- **Portfolio interaction** (`max_correlation_with_book`, `marginal_heat_add`)
+  is measured against the ACTUAL book; an empty book (a strategy researched in
+  isolation) is the honest 0.0, a non-empty book yields real correlation/heat.
+- **Score `cpcv_pbo_evidence`** is derived from the measured PBO (`1 − PBO`),
+  never a constant.
+
+**Candidate identity (§19).** The grid search is now a pre-registration
+SELECTION step (IS/CV metrics only); evidence is bound to the SELECTED
+variant's own `spec_hash` — never to a base spec that was not the one measured.
+The old code recorded every variant's evidence against the base hash.
+
+**One-look OOS / ACCEPT-REJECT.** Selection uses IS/CV only; the SELECTED
+candidate then takes exactly ONE OOS look (after selection, never feeding it).
+Promotion requires the full IS gate ladder to PASS *and* the OOS to confirm; a
+candidate failing any gate is recorded truthfully and REJECTED — the chain
+always renders an evidence-based verdict (the system discarding a weak strategy
+is the design, not a bug). A FAILED robustness/backtest record can never
+promote (store boundary §28.15, re-pinned).
+
+**WFE naming.** The `wfe` gate input is a walk-forward *profit-factor* metric
+(IS-internal CV_PF − train_PF in the service; OOS_PF − IS_PF in the E2E
+fixture, documented in `factory/gates.fixture.yaml`). It is NOT the
+return-ratio walk-forward efficiency of `optimizer.walk_forward`. The name is
+retained (it IS a walk-forward efficiency measure and is used consistently as
+the gate-5 key across the suite); the two conventions are recorded here rather
+than renamed, so the certification vocabulary stays stable. No gate weakened.
+
+**Anti-duplication.** The measured-metric helpers now live once in
+`discovery/research_metrics.py` (delegating heavy stats to `robustness`),
+instead of being copied between the service and the test fixtures.
+
+---
+
+## 2026-09-17 — Convergence pass: generic DSL execution, market truthfulness, indicator status
+
+**Purpose.** Close the central DSL→MQL5 convergence gap (§8) and the
+interpreter market-guess bug (§6), Mac-side, without touching the frozen
+`mql5/` anchor `227bf66` (chosen: staged / anchor-preserving). Full report:
+`docs/AEGIS_CONVERGENCE_AUDIT_2026-09.md`.
+
+**§6 — interpreter never guesses the market.** `factory/interpreter.py` used
+to hard-code `market={"symbol":"EURUSD","timeframe":"H1"}` while its own
+`assumptions[]` said the market must be owner-chosen. Fixed: the market is an
+explicit owner input or stays UNRESOLVED (empty) and is recorded as a blocking
+ambiguity. Schema is now version-aware — a v0 draft may carry an unresolved
+market, but an executable version (>0) MUST specify a real symbol + timeframe
+(`schema.py`), so a guess can never reach a runtime. Threaded through
+`normalize.py`/`parse.py`, `discovery/research_service.run_idea(market=…)`
+(fail-closed), the factory CLI (`--symbol/--timeframe`) and the API
+`/campaigns` (422 when a runner is attached and no market is given).
+Regression: `tests/test_interpreter_market.py` (+ updates to intake/e2e/cli/
+master_convergence/api tests to make the market explicit at the executable
+boundary).
+
+**§7.8 — indicator `mql5_status` truthfulness.** All 71 registry kinds
+defaulted to `mql5_status="parity-tested"`, but by the registry's own
+definition that requires an existing MQL5 port — false for 65+ kinds, and no
+owner MT5 parity exists (REALITY_GATE_BLOCKED). Fixed the default to the
+truthful `canonical-defined` (MQL5 pending owner compile; never parity-proven).
+Regression: `tests/test_indicator_mql5_status_truthful.py`.
+
+**§29.1 — normalized-document idempotency.** `normalize.py` floatifies numeric
+leaves but the schema strictly required int for `rising/falling` `n` and
+`filters.cooldown_bars`, so those normalized docs failed re-parse (breaking
+bundle carry + DB reconstruct for such specs). Fixed both schema checks to use
+`_as_int` (tolerant of integral floats, as `period`/`time_bars` already were).
+Regression in `tests/test_dsl_bundle.py`.
+
+**§8–§14 — generic execution, staged.** Added the immutable, hash-bound
+**executable bundle** (`python/mql5bot/dsl/bundle.py`) both runtimes read, with
+a fail-closed loader (unsupported version, hash mismatch, missing identity,
+ambiguity, contract drift, unsupported kind → refuse). Added the cross-engine
+**parity contract** (`python/mql5bot/dsl/parity.py`) + a 14-fixture golden set
+(`artifacts/dsl_parity/`, generator `tools/build_dsl_parity_golden.py`) proving
+the canonical `EMA20×EMA50 ∧ RSI14>55, SL 2ATR/TP 3ATR` runs generically —
+never mapped to one of the five enums. The generic **MQL5 runtime is STAGED**
+in `mql5_dsl_runtime/` (OWNER-PENDING/UNCOMPILED; JSON reader, loader,
+evaluator, parity runner) — it lives OUTSIDE `mql5/` so the frozen anchor stays
+byte-identical; the owner integrates + re-anchors.
+
+**§26 — RiskManager:296.** The inverted `OrderCalcMargin` direction fix ships
+as `owner_patches/RiskManager_296_direction.patch` (git-apply-clean, NOT
+applied to the frozen tree). Regression: `tests/test_riskmanager_direction_patch.py`.
+
+**Invariants preserved.** `git diff 227bf66 HEAD -- mql5/` still empty; five
+legacy engines intact; authority model unchanged; no gate weakened; no frozen
+gold/owner_mt5_gate artifact regenerated; no MT5/compile/parity evidence
+fabricated (all such claims remain OWNER-PENDING).
+
+---
+
 ## 2026-09-16 — Wave 2.3 final Mac release-candidate audit: determinism + fail-closed hardening
 
 **Purpose.** Independent adversarial re-audit of the whole tree (security,

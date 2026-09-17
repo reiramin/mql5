@@ -5,12 +5,23 @@ ranges, outputs, warmup and documentation status.  The DSL schema
 consumes this registry; adding an indicator never requires touching
 DSL architecture (mission §8: extensibility without rewrites).
 
-mql5_status:
-- "parity-tested"      Python implementation pinned by tests; MQL5 port
-                       exists in the repo and was digest-pinned.
+mql5_status (truthful, §7.8/§33):
 - "canonical-defined"  Canonical Aegis semantics defined here and in
-                       INDICATOR_UNIVERSE.md; MQL5 port pending owner
-                       compile (NEVER reported as parity-proven).
+                       INDICATOR_UNIVERSE.md; the Python implementation is
+                       pinned by tests, but the MQL5 port is PENDING OWNER
+                       COMPILE and is NEVER reported as parity-proven.
+- "parity-tested"      RESERVED for a kind whose MQL5 port has OWNER-
+                       VERIFIED runtime parity against the Python
+                       reference. This requires a real MetaEditor compile
+                       + Strategy-Tester evidence, which does not exist in
+                       this repo (state: REALITY_GATE_BLOCKED). Therefore
+                       NO kind currently carries this status.
+
+Correctness note (2026-09): a prior default marked ALL kinds
+"parity-tested", which over-claimed MQL5 parity that has never been
+established (65+ kinds have no MQL5 port at all; none have an owner
+compile). The truthful default is "canonical-defined" — see
+`tests/test_indicator_mql5_status_truthful.py`.
 """
 
 from __future__ import annotations
@@ -21,7 +32,9 @@ from . import trend_momentum as tm
 from . import volatility_volume_structure as vv
 from .contracts import IndicatorContract, IndicatorParam, P, _w  # noqa: F401
 
-BASE_PARITY = "parity-tested"
+# Truthful default: MQL5 port pending owner compile (never parity-proven).
+# "parity-tested" is owner-evidence-gated and currently applies to NO kind.
+BASE_PARITY = "canonical-defined"
 
 
 def _c(kind, category, params, outputs, warmup, fn, source,

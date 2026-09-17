@@ -16,8 +16,16 @@ Public API:
 
 from __future__ import annotations
 
+from .bundle import (
+                     BUNDLE_FORMAT_VERSION,
+                     RUNTIME_CONTRACT_VERSION,
+                     ExecutableBundle,
+                     build_bundle,
+                     load_bundle,
+)
 from .errors import (
                      AmbiguousParameter,
+                     BundleError,
                      DslError,
                      LimitExceeded,
                      NotExecutable,
@@ -54,14 +62,18 @@ from .schema import (
 )
 
 __all__ = [
+                     "BUNDLE_FORMAT_VERSION",
                      "MAX_CONDITION_NODES",
                      "MAX_DEPTH",
                      "MAX_DOC_BYTES",
                      "MAX_INDICATORS",
+                     "RUNTIME_CONTRACT_VERSION",
                      "SCHEMA_VERSION",
                      "AmbiguousParameter",
+                     "BundleError",
                      "DslError",
                      "EntrySpec",
+                     "ExecutableBundle",
                      "ExitSpec",
                      "Filters",
                      "IndicatorDef",
@@ -73,6 +85,7 @@ __all__ = [
                      "StrategySpec",
                      "UnknownReference",
                      "UnsupportedConstruct",
+                     "build_bundle",
                      "canon_json",
                      "compute_indicators",
                      "compute_spec_hash",
@@ -81,6 +94,7 @@ __all__ = [
                      "eval_operand",
                      "exit_params",
                      "lint_spec",
+                     "load_bundle",
                      "load_document",
                      "normalize_spec",
                      "parse_file",

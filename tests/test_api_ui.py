@@ -296,14 +296,36 @@ def test_research_runner_invoked_when_configured(tmp_path):
     store = FactoryStore(tmp_path / "rr.db")
     client = TestClient(create_app(store, research_runner=runner,
                                    campaign_query=list))
+    # a runner-attached campaign will build an executable research spec,
+    # so an explicit market is required (§6 — never guessed)
     r = client.post("/campaigns", data={
         "idea": "breakout retest", "source": "", "dataset": "d",
+        "symbol": "EURUSD", "timeframe": "H1",
         "actor": "owner"}, follow_redirects=False)
     assert r.status_code == 303
     assert calls and calls[0]["manifest"]["hypothesis"] == \
         "breakout retest"
+    assert calls[0]["manifest"]["market"] == \
+        {"symbol": "EURUSD", "timeframe": "H1"}
     with store.session() as sess:
         from mql5bot.factory.models import DiscoveryCampaign
         from sqlalchemy import select
         row = sess.scalars(select(DiscoveryCampaign)).one()
     assert row.status == "RUNNING"
+
+
+def test_research_campaign_without_market_is_rejected_when_runner_present(
+        tmp_path):
+    """§6 fail-closed: with a runner attached the campaign will build an
+    executable spec, so a missing market is refused up front (422) — the
+    market is never guessed from the idea, and no runner is invoked."""
+    calls = []
+    store = FactoryStore(tmp_path / "rr2.db")
+    client = TestClient(create_app(
+        store, research_runner=lambda p: calls.append(p),
+        campaign_query=list))
+    r = client.post("/campaigns", data={
+        "idea": "breakout retest", "actor": "owner"},
+        follow_redirects=False)
+    assert r.status_code == 422
+    assert not calls

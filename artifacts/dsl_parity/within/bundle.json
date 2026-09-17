@@ -1,0 +1,58 @@
+{
+  "bundle_format_version": "1.0",
+  "bundle_hash": "d94baae340264afa2a8ac26fb7e8983ad115e69a958a9e2a63e1cc4033571ee2",
+  "identity": {
+    "semantic_hash": "117d9fbb45d02ddf1bd1c905f651c581c77cb466fb7cab2ae80ed89e3a9c5a35",
+    "spec_hash": "5143c46582e76313d307f5191533e02f25dfb2440af8011fad0715f48eb69160",
+    "strategy_id": "within",
+    "strategy_version": 1
+  },
+  "indicator_contracts": [
+    {
+      "kind": "RSI",
+      "mql5_status": "canonical-defined",
+      "version": 1
+    }
+  ],
+  "market": {
+    "symbol": "EURUSD",
+    "timeframe": "H1"
+  },
+  "runtime_contract_version": "1.0",
+  "schema_version": "1.0",
+  "spec": {
+    "entry": {
+      "long": {
+        "high": 60.0,
+        "low": 40.0,
+        "within": {
+          "ind": "rsi"
+        }
+      },
+      "mode": "instant"
+    },
+    "exit": {
+      "sl": {
+        "model": "atr",
+        "mult": 2.0
+      }
+    },
+    "indicators": [
+      {
+        "applied": "close",
+        "id": "rsi",
+        "kind": "RSI",
+        "period": 14.0
+      }
+    ],
+    "market": {
+      "session": null,
+      "symbol": "EURUSD",
+      "timeframe": "H1",
+      "trading_days": null
+    },
+    "schema_version": "1.0",
+    "strategy_id": "within",
+    "version": 1
+  }
+}

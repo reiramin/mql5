@@ -83,7 +83,8 @@ class IStrategyInterpreter:
     name = "base"
 
     def interpret(self, material: ResearchMaterial,
-                  *, autonomous_research: bool = False) -> Interpretation:
+                  *, autonomous_research: bool = False,
+                  market: dict | None = None) -> Interpretation:
         raise NotImplementedError
 
 
@@ -93,7 +94,8 @@ class TemplateInterpreter(IStrategyInterpreter):
     name = "template-1.0"
 
     def interpret(self, material: ResearchMaterial, *,
-                  autonomous_research: bool = False) -> Interpretation:
+                  autonomous_research: bool = False,
+                  market: dict | None = None) -> Interpretation:
         # defense in depth: external text is DATA (mission §42/§67) —
         # size/binary refusals + injection attempts surfaced as data;
         # the sanitized text stays VERBATIM (provenance §13)
@@ -173,8 +175,27 @@ class TemplateInterpreter(IStrategyInterpreter):
         assumptions.append(
             "state entry mode with EMA-cross flip semantics unless "
             "review changes it")
-        assumptions.append("market.symbol/timeframe must be chosen by "
-                           "the owner (never guessed from text)")
+
+        # market resolution (§6): NEVER guessed from prose. An explicit
+        # owner selection (passed in) is preserved verbatim; otherwise the
+        # market stays UNRESOLVED (empty sentinel) and is recorded as a
+        # blocking ambiguity so the draft can never become an executable
+        # version until the owner supplies symbol + timeframe.
+        resolved_market = {"symbol": "", "timeframe": ""}
+        if market:
+            resolved_market = {
+                "symbol": str(market.get("symbol", "") or ""),
+                "timeframe": str(market.get("timeframe", "") or "")}
+        if not (resolved_market["symbol"] and resolved_market["timeframe"]):
+            assumptions.append(
+                "market.symbol/timeframe must be chosen by the owner "
+                "(never guessed from text)")
+            ambiguities.append({
+                "name": "market", "kind": "UNRESOLVED_MARKET",
+                "why": "symbol/timeframe are never inferred from the "
+                       "description (§6); supply both explicitly before "
+                       "creating an executable version",
+                "range": None})
 
         if recognized:
             short_cond = ({"cross": "BELOW", "a": {"ind": "ema_f"},
@@ -205,7 +226,7 @@ class TemplateInterpreter(IStrategyInterpreter):
             "name": material.title[:80],
             "description": (material.text or "")[:500],
             "source": material.provenance(),
-            "market": {"symbol": "EURUSD", "timeframe": "H1"},
+            "market": resolved_market,
             "indicators": indicators,
             "entry": entry,
             "exit": exit_doc,
@@ -213,10 +234,16 @@ class TemplateInterpreter(IStrategyInterpreter):
                          "requires_codegen": False,
                          "missing_features": []},
         }
+        # ``confidence`` measures how well the TEXT was understood. An
+        # unresolved market is an expected OWNER input (§6), not an
+        # interpretation failure, so it drives needs_review but never
+        # depresses interpretation confidence.
+        content_ambiguities = [a for a in ambiguities
+                               if a.get("kind") != "UNRESOLVED_MARKET"]
         return Interpretation(
             draft=draft, restatement=restatement,
             claims=extract_claims(text), ambiguities=ambiguities,
             unsupported=unsupported, assumptions=assumptions,
             injection_warnings=sec["injection_warnings"],
             confidence=0.0 if not recognized else
-            (0.4 if (ambiguities or unsupported) else 0.8))
+            (0.4 if (content_ambiguities or unsupported) else 0.8))

@@ -1,0 +1,113 @@
+{
+  "bundle_format_version": "1.0",
+  "bundle_hash": "5c0cec0c1cef7356f2e55eaff27e712601469c7cbe67b48bee13e3ede60d1da0",
+  "identity": {
+    "semantic_hash": "70d6457de03be2a5760835865e3bfc2d889a20ef16c95b7a862ba25c43de4ee8",
+    "spec_hash": "8eaf8e08cabfd2dc22376978756fbc4e560e93fc60270598b934b2af04169a1f",
+    "strategy_id": "canonical_ema_rsi_atr",
+    "strategy_version": 1
+  },
+  "indicator_contracts": [
+    {
+      "kind": "ATR",
+      "mql5_status": "canonical-defined",
+      "version": 1
+    },
+    {
+      "kind": "EMA",
+      "mql5_status": "canonical-defined",
+      "version": 1
+    },
+    {
+      "kind": "RSI",
+      "mql5_status": "canonical-defined",
+      "version": 1
+    }
+  ],
+  "market": {
+    "symbol": "EURUSD",
+    "timeframe": "H1"
+  },
+  "runtime_contract_version": "1.0",
+  "schema_version": "1.0",
+  "spec": {
+    "entry": {
+      "long": {
+        "and": [
+          {
+            "a": {
+              "ind": "ema_f"
+            },
+            "b": {
+              "ind": "ema_s"
+            },
+            "cross": "ABOVE"
+          },
+          {
+            "cmp": "GT",
+            "left": {
+              "ind": "rsi"
+            },
+            "right": {
+              "const": 55.0
+            }
+          }
+        ]
+      },
+      "mode": "state",
+      "short": {
+        "a": {
+          "ind": "ema_f"
+        },
+        "b": {
+          "ind": "ema_s"
+        },
+        "cross": "BELOW"
+      }
+    },
+    "exit": {
+      "sl": {
+        "model": "atr",
+        "mult": 2.0
+      },
+      "tp": {
+        "model": "atr",
+        "mult": 3.0
+      }
+    },
+    "indicators": [
+      {
+        "id": "atr",
+        "kind": "ATR",
+        "period": 14.0
+      },
+      {
+        "applied": "close",
+        "id": "ema_f",
+        "kind": "EMA",
+        "period": 20.0
+      },
+      {
+        "applied": "close",
+        "id": "ema_s",
+        "kind": "EMA",
+        "period": 50.0
+      },
+      {
+        "applied": "close",
+        "id": "rsi",
+        "kind": "RSI",
+        "period": 14.0
+      }
+    ],
+    "market": {
+      "session": null,
+      "symbol": "EURUSD",
+      "timeframe": "H1",
+      "trading_days": null
+    },
+    "schema_version": "1.0",
+    "strategy_id": "canonical_ema_rsi_atr",
+    "version": 1
+  }
+}

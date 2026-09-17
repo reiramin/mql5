@@ -55,3 +55,12 @@ class NotExecutable(DslError):
     filter needs a data series the caller did not provide)."""
 
     code = "NOT_EXECUTABLE"
+
+
+class BundleError(DslError):
+    """An executable bundle failed a fail-closed load check: malformed
+    envelope, unsupported bundle/runtime version, missing identity, hash
+    mismatch, unresolved ambiguity, or registry/contract drift.  The
+    MQL5 runtime loader enforces the SAME checks (mission §10)."""
+
+    code = "BUNDLE_ERROR"

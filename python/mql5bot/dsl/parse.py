@@ -324,6 +324,19 @@ def parse_spec(doc: dict, *, overrides: dict | None = None
         symbol=mk["symbol"], timeframe=mk["timeframe"],
         session=mk.get("session"),
         trading_days=tuple(mk.get("trading_days") or ()))
+    # An UNRESOLVED market (empty symbol/timeframe on a draft, §6) is a
+    # blocking ambiguity: it keeps ``spec.executable`` False and surfaces
+    # in review so the owner MUST choose a market — the interpreter never
+    # guesses one. Schema already forbids an empty market for version > 0.
+    market_ambiguities: list = []
+    if not mk["symbol"]:
+        market_ambiguities.append(
+            {"name": "market_symbol", "path": "market.symbol",
+             "range": None})
+    if not mk["timeframe"]:
+        market_ambiguities.append(
+            {"name": "market_timeframe", "path": "market.timeframe",
+             "range": None})
 
     return StrategySpec(
         strategy_id=normalized["strategy_id"],
@@ -344,7 +357,7 @@ def parse_spec(doc: dict, *, overrides: dict | None = None
         claims=tuple(normalized.get("claims", ())),
         metadata=normalized.get("metadata", {}),
         param_decls=dict(normalized.get("params", {})),
-        ambiguities=tuple(resolver.ambiguities),
+        ambiguities=tuple(resolver.ambiguities) + tuple(market_ambiguities),
         spec_hash=spec_hash(normalized),
         semantic_hash=semantic_hash(normalized),
         dedup_hash=dedup_hash(normalized))

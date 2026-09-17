@@ -59,8 +59,13 @@ def test_en_fa_normalize_to_equivalent_semantics():
     interp = TemplateInterpreter()
     r_en = interp.interpret(ResearchMaterial("USER_TEXT", "t", EN))
     r_fa = interp.interpret(ResearchMaterial("USER_TEXT", "t", FA))
-    d1 = parse_spec(dict(r_en.draft, strategy_id="same_id", version=1))
-    d2 = parse_spec(dict(r_fa.draft, strategy_id="same_id", version=1))
+    # promoting a draft to an executable version REQUIRES the owner to
+    # choose a market explicitly (§6 — never guessed from prose)
+    mk = {"symbol": "EURUSD", "timeframe": "H1"}
+    d1 = parse_spec(dict(r_en.draft, strategy_id="same_id", version=1,
+                         market=mk))
+    d2 = parse_spec(dict(r_fa.draft, strategy_id="same_id", version=1,
+                         market=mk))
     assert d1.dedup_hash == d2.dedup_hash
     assert d1.semantic_hash == d2.semantic_hash
 
@@ -155,7 +160,8 @@ def test_campaign_manifest_records_budget_and_selection_warning():
     c = _campaign()
     assert "research_selection_bias_warning" not in c.manifest()
     interp = TemplateInterpreter()
-    m = interp.interpret(ResearchMaterial("USER_TEXT", "t", EN))
+    m = interp.interpret(ResearchMaterial("USER_TEXT", "t", EN),
+                         market={"symbol": "EURUSD", "timeframe": "H1"})
     for note, period in (("fast=18", 18), ("fast=25", 25)):
         doc = json.loads(json.dumps(m.draft))
         doc["indicators"][0]["period"] = period
@@ -178,7 +184,8 @@ def test_campaign_manifest_hash_is_stable_and_sensitive():
     assert c1.manifest_hash() == c2.manifest_hash()
     c1.register_candidate(parse_spec(dict(
         TemplateInterpreter().interpret(
-            ResearchMaterial("USER_TEXT", "t", EN)).draft,
+            ResearchMaterial("USER_TEXT", "t", EN),
+            market={"symbol": "EURUSD", "timeframe": "H1"}).draft,
         strategy_id="cand_x", version=1)))
     assert c1.manifest_hash() != c2.manifest_hash()
 
@@ -186,7 +193,8 @@ def test_campaign_manifest_hash_is_stable_and_sensitive():
 def test_campaign_budget_is_enforced():
     c = _campaign()
     m = TemplateInterpreter().interpret(
-        ResearchMaterial("USER_TEXT", "t", EN))
+        ResearchMaterial("USER_TEXT", "t", EN),
+        market={"symbol": "EURUSD", "timeframe": "H1"})
     for i in range(5):
         doc = dict(m.draft, strategy_id=f"cand_{i}", version=1)
         c.register_candidate(parse_spec(doc))
@@ -198,7 +206,8 @@ def test_campaign_budget_is_enforced():
 
 def test_mutations_are_children_with_new_docs_never_parent_edits():
     interp = TemplateInterpreter()
-    r = interp.interpret(ResearchMaterial("USER_TEXT", "t", EN))
+    r = interp.interpret(ResearchMaterial("USER_TEXT", "t", EN),
+                         market={"symbol": "EURUSD", "timeframe": "H1"})
     parent = parse_spec(dict(r.draft, strategy_id="p_base", version=1))
     muts = parameter_mutations(parent, {"rsi_min": [50, 60],
                                         "period": [10, 25]},
@@ -216,6 +225,7 @@ def test_mutations_are_children_with_new_docs_never_parent_edits():
 
 def test_mutation_of_unknown_param_is_honest_noop():
     interp = TemplateInterpreter()
-    r = interp.interpret(ResearchMaterial("USER_TEXT", "t", EN))
+    r = interp.interpret(ResearchMaterial("USER_TEXT", "t", EN),
+                         market={"symbol": "EURUSD", "timeframe": "H1"})
     parent = parse_spec(dict(r.draft, strategy_id="p_base", version=1))
     assert parameter_mutations(parent, {"no_such": [1, 2]}) == []
