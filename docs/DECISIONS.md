@@ -9,6 +9,53 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-18 — Generic DSL runtime INTEGRATED into `mql5/` (anchor break)
+
+**Purpose.** Promote the staged generic DSL runtime from
+`mql5_dsl_runtime/` into the certified EA tree so a strategy runs as DATA
+(not one of the five enums) on the compile-of-record path, and land the
+Windows-observed integration on `master` as one commit.
+
+**What changed (all in `mql5/`, so the frozen anchor `227bf66` no longer
+equals HEAD — deliberate, see below).**
+- New includes `mql5/Include/Mql5Bot/Dsl{Json,Canon,Bundle,Indicators,
+  Runtime,Series,Execution}.mqh` and the batch parity runner
+  `mql5/Scripts/Mql5Bot/DslParityRunner.mq5`. The old `mql5_dsl_runtime/`
+  staging tree is reduced to a pointer README.
+- `DslBundle` does REAL `bundle_hash`/`spec_hash`/`semantic_hash`
+  re-derivation (canonical JSON + `CryptEncode` SHA-256) and refuses any
+  mismatch; a committed `artifacts/dsl_parity/tampered_bundle/` negative
+  fixture exercises the refusal on both engines.
+- Supported indicator kinds are trimmed to exactly what the committed
+  fixtures need — `EMA/RSI/ATR` + canonical `DONCHIAN/HIGHEST/LOWEST` —
+  pinned by `MQL5_STAGED_RUNTIME_KINDS`; everything else fails closed.
+  Filters implement `trading_days`/`session`/`cooldown`; `max_spread_points`
+  / `max_atr_pct` / `regime.forbidden` refuse (no verified fixture yet).
+- The parity runner consumes ONLY the committed `ohlc.csv` bytes (no
+  CopyRates / live history) and computes indicators with the SAME canonical
+  array ports the EA path uses (`DslSeries.mqh`), so seeding matches
+  `python/mql5bot/indicators.py` — not `iMA/iRSI/iATR`.
+- Tooling: `tools/compare_dsl_parity.py` (exact 14/14 comparator + tampered
+  refusal) and `tools/run_dsl_parity.ps1` (stage → `terminal64.exe
+  /config` startup-script → collect → sha256 manifest → comparator).
+- The RiskManager `OrderCalcMargin` direction fix (`price > slPrice`) is now
+  applied in-tree (was staged as an owner patch).
+- Repo hygiene: `.gitattributes` pins byte-exact artifacts (`artifacts/**`,
+  `*.csv`, `*.json` as `-text`; `*.mq5`/`*.mqh` as `eol=lf`) so manifests
+  hash identically on every OS; `.gitignore` `data/` → `/data/` so the
+  committed `tests/data/real/*` fixtures survive a fresh clone.
+
+**Anchor / provenance.** This breaks `git diff 227bf66 HEAD -- mql5/`
+(previously empty). The integration is **compile-observed on Windows, not
+compile-of-record**: `frozen_inputs.json` `source.commit` stays `227bf66`
+until the owner runs `tools/compile.ps1 -Strict` on this HEAD and
+`tools/run_dsl_parity.ps1` reports 14/14 EXACT, then re-anchors per the
+documented procedure (`docs/WINDOWS_OWNER_HANDOFF.md` §8, "Re-anchor
+procedure"). No parity/tester/certification claim is made here; the golds,
+manifests and five-engine semantics are unchanged by this integration.
+
+---
+
 ## 2026-09-17 — Continuation: truthful gate-5 WFE + bundle-size fail-closed
 
 **Purpose.** Close two residual gaps found in a second independent audit of

@@ -168,8 +168,9 @@ def fixtures() -> list[tuple]:
 
 def _write(path: Path, text: str) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    return hashlib.sha256(text.encode()).hexdigest()
+    payload = text.encode("utf-8")
+    path.write_bytes(payload)
+    return hashlib.sha256(payload).hexdigest()
 
 
 def main() -> int:
@@ -228,11 +229,15 @@ Python-side reference for cross-engine parity. Each `<name>/` holds:
 - `expected_trace.json` — the Python parity trace
 
 ## Owner MQL5 parity procedure (OWNER-PENDING — never faked on Mac)
-1. Compile the generic runtime (`mql5_dsl_runtime/`) in MetaEditor.
-2. For each fixture: import `ohlc.csv`, load `bundle.json`, run the
-   runtime over the bars, export the per-bar desired-position vector.
-3. Compare to `expected_trace.json["positions"]` — EXACT match required
-   (logical values carry no tolerance). Report discrepancies bar-indexed.
+1. Compile the integrated runtime (`mql5/Scripts/Mql5Bot/DslParityRunner.mq5`
+   + `mql5/Include/Mql5Bot/Dsl*.mqh`) with `tools/compile.ps1 -Strict`.
+2. Run `tools/run_dsl_parity.ps1`: it copies each `ohlc.csv`+`bundle.json`
+   into the terminal Files dir, runs the batch runner over the committed
+   bytes, and writes `dsl_parity_out/<name>.json` per fixture.
+3. `tools/compare_dsl_parity.py` compares each output to
+   `expected_trace.json` — EXACT match required (logical values carry no
+   tolerance); it prints the first bar-indexed divergence and exits 0 only
+   at 14/14 EXACT with the `tampered_bundle` negative REFUSED.
 
 `manifest.json` binds every file's sha256 + `position_hash`. Regenerate
 with `python tools/build_dsl_parity_golden.py`; a changed digest is a

@@ -8,8 +8,9 @@ __pycache__/
 dist/
 build/
 
-# Generated data / results
-data/
+# Generated data / results (root-level only — committed test fixtures
+# like tests/data/real/ must NOT be ignored: a fresh clone has to pass)
+/data/
 results/
 reports/
 *.log

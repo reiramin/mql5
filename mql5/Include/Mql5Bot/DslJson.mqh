@@ -35,6 +35,9 @@ struct SDslJsonNode
    string            key;        // set when the parent is an object
    string            str;        // DSL_JSON_STRING
    double            num;        // DSL_JSON_NUMBER
+   string            raw;        // DSL_JSON_NUMBER: the exact lexical
+                                 // token (canonical re-serialization
+                                 // hashes THIS, never a re-format)
    bool              boolean;    // DSL_JSON_BOOL
    int               firstChild; // index into pool, or -1
    int               nextSibling;// index into pool, or -1
@@ -60,6 +63,7 @@ private:
       m_pool[m_count].key         = "";
       m_pool[m_count].str         = "";
       m_pool[m_count].num         = 0.0;
+      m_pool[m_count].raw         = "";
       m_pool[m_count].boolean     = false;
       m_pool[m_count].firstChild  = -1;
       m_pool[m_count].nextSibling = -1;
@@ -162,7 +166,8 @@ private:
         }
       if(m_pos == start) { m_error="bad value"; return -1; }
       int n = NewNode(DSL_JSON_NUMBER); if(n<0) return -1;
-      m_pool[n].num = StringToDouble(StringSubstr(m_src, start, m_pos-start));
+      m_pool[n].raw = StringSubstr(m_src, start, m_pos-start);
+      m_pool[n].num = StringToDouble(m_pool[n].raw);
       return n;
      }
 
@@ -242,6 +247,8 @@ public:
      { return (idx<0)?DSL_JSON_NULL:m_pool[idx].type; }
    double            Num(int idx) const { return (idx<0)?0.0:m_pool[idx].num; }
    string            Str(int idx) const { return (idx<0)?"":m_pool[idx].str; }
+   string            Raw(int idx) const { return (idx<0)?"":m_pool[idx].raw; }
+   string            Key(int idx) const { return (idx<0)?"":m_pool[idx].key; }
    bool              Bool(int idx) const { return (idx<0)?false:m_pool[idx].boolean; }
 
    // object member lookup by key

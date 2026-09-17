@@ -19,9 +19,9 @@ produced or simulated on Mac. Everything below is **owner/Windows work**.
 |---|---|
 | Repository | `https://github.com/reiramin/mql5` |
 | Branch | `master` |
-| **Compile target (frozen anchor)** | commit `227bf665654b2d2491c89c226dcff735570b915a` — pinned by `artifacts/owner_mt5_gate/frozen_inputs.json` (`source.commit`) |
-| Docs/tests tip | `origin/master` HEAD (Wave-2.1 freeze — the commit that adds this file) |
-| MQL5 source equivalence | `git diff 227bf665654b2d2491c89c226dcff735570b915a origin/master -- mql5/` is **empty** — the EA/scripts are byte-identical between the frozen anchor and the current tip, so compiling either yields the same `.ex5`. Waves 1–2 changed only Python, docs and the owner-gate metadata. |
+| **Compile target (frozen anchor)** | commit `227bf665654b2d2491c89c226dcff735570b915a` — pinned by `artifacts/owner_mt5_gate/frozen_inputs.json` (`source.commit`). This anchor pins the **five-enum EA compile-of-record only**; it PREDATES the integrated DSL runtime (section 8). |
+| Docs/tests tip | `origin/master` HEAD (the integration commit that adds the generic DSL runtime under `mql5/`) |
+| MQL5 source equivalence | `git diff 227bf66 HEAD -- mql5/` is **NO LONGER empty**: the integration wave added the generic DSL runtime and parity runner into `mql5/Include/Mql5Bot/` and `mql5/Scripts/Mql5Bot/` and corrected the `RiskManager` margin-side bug (section 8). The frozen anchor therefore no longer describes HEAD; the owner must **re-anchor** (section 8, "Re-anchor procedure") after a fresh `-Strict` compile. Until that compile exists, `frozen_inputs.json` `source.commit` stays at `227bf66` and the integrated runtime is **compile-observed, NOT compile-of-record**. |
 
 **Before anything:** checkout the frozen anchor, then verify every hash in
 `artifacts/owner_mt5_gate/frozen_inputs.json` (gold_1 / gold_2 fixture,
@@ -153,43 +153,79 @@ Python values.
 
 ---
 
-## 8. New owner obligations — 2026-09 convergence pass
+## 8. New owner obligations — DSL runtime INTEGRATED (owner re-anchor due)
 
-The 2026-09 Mac pass added three items that require owner action and a
-**deliberate re-anchor** of the frozen source (they were NOT applied to
-`mql5/` — the anchor `227bf66` is still byte-identical to HEAD). Full
-context: `docs/AEGIS_CONVERGENCE_AUDIT_2026-09.md`.
+The integration wave applied — directly to `mql5/` — the two items the
+2026-09 convergence pass had staged. `mql5/` is therefore no longer
+byte-identical to the anchor `227bf66`, and the owner must re-anchor after
+a real compile. Full context: `docs/AEGIS_CONVERGENCE_AUDIT_2026-09.md`.
 
-### 8a. RiskManager direction fix (bounded correctness)
-`owner_patches/RiskManager_296_direction.patch` corrects the inverted
-`OrderCalcMargin` side (`price < slPrice` → `price > slPrice`,
-`RiskManager.mqh:296`). It `git apply --check`s cleanly against the frozen
-source. Apply it as part of the re-anchor, recompile `-Strict`, and update
-`frozen_inputs.json` `source.commit` to the new snapshot (new manifest +
-provenance + explanation, mission §26/§32). Mac regression that pins the
-correct logic + patch: `tests/test_riskmanager_direction_patch.py`.
+### 8a. RiskManager direction fix (bounded correctness) — APPLIED
+The inverted `OrderCalcMargin` side (`price < slPrice` → `price > slPrice`)
+is now fixed in-tree at `mql5/Include/Mql5Bot/RiskManager.mqh`. Mac
+regression pinning the correct logic: `tests/test_riskmanager_direction_patch.py`.
 
-### 8b. Generic DSL runtime — compile + integrate (central convergence)
-`mql5_dsl_runtime/` is the **OWNER-PENDING / UNCOMPILED** generic runtime
-(JSON reader, fail-closed bundle loader, recursive evaluator, parity
-runner) that consumes the executable bundle
-(`python/mql5bot/dsl/bundle.py`) so a strategy runs WITHOUT becoming one of
-the five enum families. Owner: review, compile `-Strict`, complete the two
-documented owner-completion points (canonical-JSON `bundle_hash` verify;
-manual DONCHIAN/HIGHEST/LOWEST + extended kinds), decide in-place vs peer
-module, and re-anchor. The five legacy engines stay intact.
+### 8b. Generic DSL runtime — INTEGRATED (central convergence)
+The generic runtime now lives under `mql5/`, not the old staging tree:
+- `mql5/Include/Mql5Bot/DslJson.mqh` — bounded JSON reader (raw number
+  tokens for canonical re-hash)
+- `mql5/Include/Mql5Bot/DslCanon.mqh` — canonical JSON + SHA-256 (mirror
+  of `normalize.canon_json`)
+- `mql5/Include/Mql5Bot/DslBundle.mqh` — fail-closed loader with REAL
+  `bundle_hash`/`spec_hash`/`semantic_hash` re-derivation and contract pins
+- `mql5/Include/Mql5Bot/DslIndicators.mqh` — canonical array ports of the
+  kinds the fixtures use (EMA/RSI/ATR + DONCHIAN/HIGHEST/LOWEST)
+- `mql5/Include/Mql5Bot/DslRuntime.mqh` — recursive evaluator + implemented
+  filters (trading_days, session, cooldown; the rest fail closed)
+- `mql5/Include/Mql5Bot/DslSeries.mqh` — the single canonical series builder
+- `mql5/Include/Mql5Bot/DslExecution.mqh` — EA adapter (`InpDslBundleFile`)
+- `mql5/Scripts/Mql5Bot/DslParityRunner.mq5` — batch parity runner
 
-### 8c. DSL cross-engine parity legs (owner-run)
-For each fixture under `artifacts/dsl_parity/<name>/`: import `ohlc.csv` as
-an offline symbol, load `bundle.json` into the compiled generic runtime via
-`mql5_dsl_runtime/Scripts/DslParityRunner.mq5`, export the per-bar position
-vector, and compare to `expected_trace.json["positions"]` — **EXACT match**
-(logical values carry no tolerance). Only after these pass may any
-Python↔MQL5 parity claim be made; until then the MQL5 side is
+It consumes the SAME executable bundle (`python/mql5bot/dsl/bundle.py`) so a
+strategy runs WITHOUT becoming one of the five enum families. The five
+legacy engines are untouched. Supported indicator kinds are deliberately
+MINIMAL (exactly the committed fixtures + canonical channels); every other
+kind is REFUSED, pinned lockstep by `tests/test_mql5_dsl_runtime_source.py`
+against `MQL5_STAGED_RUNTIME_KINDS`.
+
+### 8c. DSL cross-engine parity legs (owner-run) — one command
+Run `tools/run_dsl_parity.ps1` on Windows (after `tools/compile.ps1
+-Strict` builds `DslParityRunner.ex5`). It verifies + copies every
+committed fixture into `MQL5\Files\Mql5Bot\dsl_parity\<name>\`, launches
+`terminal64.exe /config:<ini>` with `[StartUp] Script=Mql5Bot\DslParityRunner`
++ `ShutdownTerminal=1`, copies `dsl_parity_out\*.json` back to
+`evidence\dsl_parity\<stamp>\` with a sha256 manifest, and runs
+`tools/compare_dsl_parity.py` (exit 0 only when 14/14 EXACT AND the
+`tampered_bundle` negative was REFUSED). The runner reads ONLY the committed
+`ohlc.csv` bytes — no CopyRates, no live history. Only after 14/14 EXACT may
+any Python↔MQL5 parity claim be made; until then the MQL5 side is
 OWNER-PENDING and must not be reported as parity-proven.
 
-**Provenance rule.** Re-anchoring the frozen source (8a/8b) is an
-owner-authority action: it invalidates the prior compile-of-record and
-requires a fresh `-Strict` compile + a new `frozen_inputs.json`
-`source.commit` + manifest + explanation. Do not skip the re-anchor and do
-not fabricate any compile/tester/parity result.
+### Re-anchor procedure (frozen_inputs.json `source.commit`)
+Re-anchoring is an **owner-authority** action that invalidates the prior
+compile-of-record. Do it exactly once, deliberately, after the runtime is
+real on Windows — never on Mac, never speculatively:
+
+1. On Windows, checkout the integration HEAD and run
+   `tools/compile.ps1 -Strict`. Record the run: `0 errors / 0 warnings`
+   across all four targets, with the MetaEditor log AND the per-target
+   `.ex5` SHA-256 (see `logs_owner/`). A non-zero exit is `SOFTWARE_FAIL` —
+   STOP, do not re-anchor.
+2. Run `tools/run_dsl_parity.ps1` and confirm the comparator prints
+   `14/14 fixtures EXACT` and `tampered_bundle (refused: bundle_hash
+   mismatch)`. A single divergence STOPS the re-anchor.
+3. Only with both in hand, update `artifacts/owner_mt5_gate/frozen_inputs.json`
+   `source.commit` to the integration commit hash, and append a `source.note`
+   entry recording: the prior anchor (`227bf66`), the reason (DSL runtime
+   integration + RiskManager margin-side fix), the `-Strict` compile log
+   reference, and the parity evidence stamp (`evidence/dsl_parity/<stamp>/`).
+   Regenerate the owner-gate manifest so every hash re-binds to the new
+   snapshot. Add a dated `docs/DECISIONS.md` entry.
+4. Until step 3 lands **with the owner's real Windows compile**, the
+   integrated runtime is `compile-observed` only. Do NOT claim it is the
+   compile-of-record, and do NOT fabricate any compile/tester/parity result.
+
+**Provenance rule.** The gold fixtures, manifests, five-engine semantics and
+certification protocol are pinned UNCHANGED by the re-anchor
+(`git diff <old-anchor> <new-anchor> -- artifacts/gold artifacts/gold_2`
+must stay empty); the re-anchor is source-provenance-only.

@@ -1,0 +1,7 @@
+Strict compile run: 20260917-201954 UTC
+MetaEditor: 5.0.0.6184
+
+64ee5f824e4b6b55327df10125866d173f85484053392590279e53647e0bdb7e  MQL5/Experts/Mql5Bot/Mql5Bot.ex5
+9ef3fa6c5b58ea94be09c2bbc27c171f716a5d2ed1f7e69eedab2ece611613ce  MQL5/Scripts/Mql5Bot/DslParityRunner.ex5
+375cfb1fc3df2c6ad12b9c52840468bfb972b27e7dda27ba63e6a0e04026ce90  MQL5/Scripts/Mql5Bot/Mql5BotDownloadData.ex5
+03544b8ae044777011f961db091dd2bfccc16007493c282c58bddecc5afc2ea0  MQL5/Scripts/Mql5Bot/Mql5BotExportSymbolSpec.ex5

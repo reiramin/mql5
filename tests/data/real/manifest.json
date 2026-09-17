@@ -1,0 +1,19 @@
+{
+  "sources": {
+    "vix_daily": {
+      "file": "vix_daily.csv",
+      "sha256": "b91b8a234897c35c182a1db0b8caa44edf573db6fbf3f0a746686531b74361a6",
+      "repo": "datasets/finance-vix",
+      "path": "data/vix-daily.csv",
+      "note": "CBOE VIX daily OHLC, real, 1990-01-02 .. present"
+    }
+  },
+  "unavailable": {
+    "EURUSD": "market-data provider unreachable (sandbox egress allowlist: github.com only)",
+    "GBPUSD": "market-data provider unreachable (sandbox egress)",
+    "USDJPY": "market-data provider unreachable (sandbox egress)",
+    "XAUUSD": "market-data provider unreachable (sandbox egress)",
+    "INDEX_CFD": "market-data provider unreachable (sandbox egress)",
+    "CRYPTO": "market-data provider unreachable (sandbox egress)"
+  }
+}

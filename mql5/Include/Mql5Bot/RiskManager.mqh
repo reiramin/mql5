@@ -293,7 +293,11 @@ public:
         }
 
       //---- margin check (query, never assume — SPEC §3.3) ---------------
-      long dir = (price < slPrice) ? POSITION_TYPE_LONG : POSITION_TYPE_SHORT;
+      // LONG stops sit BELOW entry (price > slPrice); SHORT stops sit
+      // ABOVE (price < slPrice). Infer the side from that geometry so
+      // OrderCalcMargin queries the correct side on asymmetric-margin
+      // instruments (fix 2026-09; was inverted `price < slPrice`).
+      long dir = (price > slPrice) ? POSITION_TYPE_LONG : POSITION_TYPE_SHORT;
       double margin = 0.0;
       if(!OrderCalcMargin((dir == POSITION_TYPE_LONG) ? ORDER_TYPE_BUY
                                                       : ORDER_TYPE_SELL,

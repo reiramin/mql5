@@ -1,0 +1,10 @@
+# Byte-exact artifacts on every OS: parity fixtures, manifests and any
+# hashed evidence must check out with the EXACT committed bytes (a CRLF
+# checkout on Windows silently changes every sha256 the manifests pin).
+artifacts/** -text
+*.csv -text
+*.json -text
+
+# MQL5 sources are authored and hashed as LF; MetaEditor compiles LF fine.
+*.mq5 text eol=lf
+*.mqh text eol=lf

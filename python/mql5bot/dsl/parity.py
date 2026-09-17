@@ -10,10 +10,13 @@ must agree on bar-for-bar:
     exit_geometry  SL/TP/trailing/breakeven parameters (spec constants)
     position_hash  sha256 of the position vector — a compact equality key
 
-The Python DSL runtime produces this trace here.  The MQL5 generic
-runtime (``mql5_dsl_runtime/``, owner-compiled) must produce a
-byte-identical ``positions`` vector and the same ``events`` for the same
-fixture + bundle; :func:`compare_traces` renders the verdict.
+The Python DSL runtime produces this trace here.  The integrated MQL5
+generic runtime (``mql5/Include/Mql5Bot/Dsl*.mqh`` +
+``mql5/Scripts/Mql5Bot/DslParityRunner.mq5``, owner-compiled) must
+produce a byte-identical ``positions`` vector and the same ``events``
+for the same fixture + bundle; :func:`compare_traces` renders the
+verdict, and ``tools/compare_dsl_parity.py`` renders it over a full
+owner run.
 
 DESIGN NOTE — what parity covers.  The generic-runtime contract is the
 SIGNAL and its geometry: the desired-position series and the exit

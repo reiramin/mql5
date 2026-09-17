@@ -40,6 +40,7 @@
 #include <Mql5Bot/PositionGuard.mqh>
 #include <Mql5Bot/SlGuard.mqh>
 #include <Mql5Bot/SignalEngine.mqh>
+#include <Mql5Bot/DslExecution.mqh>
 #include <Mql5Bot/Telemetry.mqh>
 
 //+------------------------------------------------------------------+
@@ -47,6 +48,8 @@
 //+------------------------------------------------------------------+
 input group "=== Strategy ==="
 input ENUM_MQL5BOT_STRATEGY InpStrategy      = STRAT_EMA_CROSSOVER;  // Strategy
+input string                  InpDslBundleFile = "";                 // Certified executable DSL bundle (optional)
+input int                     InpDslBars      = 500;                  // Closed bars used by the DSL runtime
 input int                     InpFastEma     = 10;                   // EMA fast period
 input int                     InpSlowEma     = 30;                   // EMA slow period
 input int                     InpRsiPeriod   = 14;                   // RSI period
@@ -130,6 +133,12 @@ string          g_strategyId    = "ema_crossover";
 ENUM_MQL5BOT_STRATEGY g_strategy = STRAT_EMA_CROSSOVER;
 SBotParams      g_params;
 SBotSignal      g_lastSignal;
+CDslJson        g_dslJson;
+CDslBundleLoader g_dslLoader;
+CDslRuntime     g_dslRuntime;
+SDslExitGeometry g_dslGeometry;
+int             g_dslPositions[];
+bool            g_dslEnabled    = false;
 
 datetime        g_lastBarTime   = 0;
 datetime        g_lastHeartbeat = 0;
@@ -172,6 +181,47 @@ string TfToString(ENUM_TIMEFRAMES tf)
       case PERIOD_MN1: return "MN1";
       default:         return "?";
      }
+  }
+
+bool ReadDslBundleText(const string path,string &out)
+  {
+   int h=FileOpen(path,FILE_READ|FILE_TXT|FILE_ANSI);
+   if(h==INVALID_HANDLE){out="";return false;}
+   out="";
+   while(!FileIsEnding(h)) out+=FileReadString(h)+"\n";
+   FileClose(h);
+   return true;
+  }
+
+bool RefreshDslSignal()
+  {
+   if(!g_dslEnabled) return false;
+   CDslRuntime fresh;
+   if(!DslBuildSeries(g_dslJson,g_dslLoader.Spec(),g_symbol,g_tf,InpDslBars,fresh))
+     {
+      g_log.Error("DSL series build failed: "+fresh.Error());
+      return false;
+     }
+   fresh.Bind(&g_dslJson,g_dslLoader.Spec());
+   int positions[];
+   if(!fresh.DesiredPositions(positions))
+     {
+      g_log.Error("DSL position evaluation failed: "+fresh.Error());
+      return false;
+     }
+   int n=ArraySize(positions);
+   if(n<2) return false;
+   int position=positions[n-2];
+   double entry=(position>0)?SymbolInfoDouble(g_symbol,SYMBOL_ASK):SymbolInfoDouble(g_symbol,SYMBOL_BID);
+   double atr=g_guard.ATR(g_symbol,g_tf,1);
+   SBotSignal signal;
+   if(!DslSignalFromPosition(position,entry,atr,g_dslGeometry,signal))
+     {
+      ZeroMemory(g_lastSignal);
+      return true;
+     }
+   g_lastSignal=signal;
+   return true;
   }
 
 string StrategyIdFromEnum(ENUM_MQL5BOT_STRATEGY s)
@@ -380,6 +430,11 @@ int OnInit()
   {
    g_strategy = InpStrategy;
    g_strategyId = StrategyIdFromEnum(g_strategy);
+   if(InpDslBars < 32)
+     {
+      Print("[mql5bot] INIT_PARAMETERS_INCORRECT: InpDslBars must be >= 32");
+      return INIT_PARAMETERS_INCORRECT;
+     }
 
    //--- input validation (SPEC §8.A: INIT_PARAMETERS_INCORRECT) -------
    if(InpSlAtr <= 0.0 || InpTpAtr <= 0.0)
@@ -473,6 +528,37 @@ int OnInit()
    //--- signal engine
    if(!g_signal.Init(g_symbol, g_tf, g_params))
       return INIT_FAILED;
+
+   //--- optional generic DSL execution surface. A supplied bundle is
+   //    fail-closed and produces SBotSignal; it never reaches orders
+   //    except through the existing RiskManager/TradeManager chain.
+   if(InpDslBundleFile != "")
+     {
+      string bundleText;
+      if(!ReadDslBundleText(InpDslBundleFile,bundleText) || !g_dslJson.Parse(bundleText) ||
+         !g_dslLoader.Load(g_dslJson))
+        {
+         Print("[mql5bot] DSL bundle refused: ",g_dslJson.Error()," ",g_dslLoader.Error());
+         return INIT_FAILED;
+        }
+      int root=g_dslJson.Root;
+      int ident=g_dslJson.Member(root,"identity");
+      g_strategyId=g_dslJson.GetStr(ident,"strategy_id","dsl");
+      if(!DslBuildSeries(g_dslJson,g_dslLoader.Spec(),g_symbol,g_tf,InpDslBars,g_dslRuntime))
+        {
+         Print("[mql5bot] DSL series build failed: ",g_dslRuntime.Error());
+         return INIT_FAILED;
+        }
+      g_dslRuntime.Bind(&g_dslJson,g_dslLoader.Spec());
+      if(!g_dslRuntime.DesiredPositions(g_dslPositions))
+        {
+         Print("[mql5bot] DSL evaluation failed: ",g_dslRuntime.Error());
+         return INIT_FAILED;
+        }
+      g_dslGeometry=g_dslRuntime.ExitGeometry();
+      g_dslEnabled=true;
+      g_log.Info("generic DSL execution enabled: "+g_strategyId);
+     }
 
    //--- position guard (ATR for management + adoption fallback)
    if(!g_guard.Init(g_symbol, g_tf, InpTrailAtr, InpBreakevenAtr,
@@ -799,7 +885,12 @@ void OnNewBar()
    if(!g_session.IsTradingTime(TimeCurrent()))
       return;
 
-   g_lastSignal = g_signal.Evaluate(g_strategy);
+   if(g_dslEnabled)
+     {
+      if(!RefreshDslSignal()) return;
+     }
+   else
+      g_lastSignal = g_signal.Evaluate(g_strategy);
    if(!g_lastSignal.valid)
       return;
 

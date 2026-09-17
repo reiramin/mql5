@@ -272,6 +272,17 @@ REGISTRY: dict[str, tuple[IndicatorContract, object]] = dict([
 # the 9 baseline kinds keep their hand-written runtime path (parity!)
 BASELINE_KINDS = {"EMA", "SMA", "RSI", "ATR", "BBANDS", "MACD",
                   "DONCHIAN", "HIGHEST", "LOWEST"}
+
+# The kinds the INTEGRATED MQL5 generic runtime can execute today:
+# exactly what the committed parity fixtures exercise (EMA/RSI/ATR)
+# plus the canonical channel kinds (DONCHIAN/HIGHEST/LOWEST).  MUST
+# stay in lockstep with DslSupportedKinds() in
+# mql5/Include/Mql5Bot/DslBundle.mqh (pinned by
+# tests/test_mql5_dsl_runtime_source.py).  A kind outside this set is
+# REFUSED by the MQL5 loader until it ships WITH a verified parity
+# fixture — never approximated.
+MQL5_STAGED_RUNTIME_KINDS = frozenset(
+    {"EMA", "RSI", "ATR", "DONCHIAN", "HIGHEST", "LOWEST"})
 EXTENDED_KINDS = frozenset(
     k for k, (_, fn) in REGISTRY.items() if fn is not None)
 ALL_KINDS = frozenset(REGISTRY)

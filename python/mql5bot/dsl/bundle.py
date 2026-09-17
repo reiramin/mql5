@@ -10,7 +10,7 @@ hash-bound envelope — the *executable bundle* — that BOTH runtimes read:
             │
      ┌──────┴───────┐
      ▼              ▼
- Python loader   MQL5 generic runtime (mql5_dsl_runtime/, owner-compiled)
+ Python loader   MQL5 generic runtime (mql5/Include/Mql5Bot/Dsl*.mqh)
  load_bundle()   DslBundle loader — enforces the SAME fail-closed checks
 
 The envelope binds decision-changing identity so a runtime can refuse to
