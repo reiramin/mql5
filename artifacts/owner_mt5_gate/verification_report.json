@@ -1,0 +1,261 @@
+{
+  "archive_manifest": {
+    "reasons": [
+      "archive manifest missing"
+    ],
+    "state": "MISSING"
+  },
+  "artifacts": {
+    "archive_manifest": {
+      "path": "archive_manifest.json",
+      "state": "MISSING"
+    },
+    "compile_log": {
+      "path": "compile/compile.log",
+      "state": "MISSING"
+    },
+    "compile_metadata": {
+      "path": "compile/compile_metadata.json",
+      "state": "MISSING"
+    },
+    "environment": {
+      "path": "environment.json",
+      "state": "MISSING"
+    },
+    "ex5": {
+      "path": "compile/Mql5Bot.ex5",
+      "state": "MISSING"
+    },
+    "hedging": {
+      "path": "safety/hedging.json",
+      "state": "MISSING"
+    },
+    "netting": {
+      "path": "safety/netting.json",
+      "state": "MISSING"
+    },
+    "parsed_gold1_every_tick": {
+      "path": "parsed/gold1_every_tick.json",
+      "state": "MISSING"
+    },
+    "parsed_gold1_m1_ohlc": {
+      "path": "parsed/gold1_m1_ohlc.json",
+      "state": "MISSING"
+    },
+    "parsed_gold1_real_ticks": {
+      "path": "parsed/gold1_real_ticks.json",
+      "state": "MISSING"
+    },
+    "parsed_gold2_every_tick": {
+      "path": "parsed/gold2_every_tick.json",
+      "state": "MISSING"
+    },
+    "parsed_gold2_m1_ohlc": {
+      "path": "parsed/gold2_m1_ohlc.json",
+      "state": "MISSING"
+    },
+    "parsed_gold2_real_ticks": {
+      "path": "parsed/gold2_real_ticks.json",
+      "state": "MISSING"
+    },
+    "raw_gold1_every_tick": {
+      "path": "gold1/every_tick.htm",
+      "state": "MISSING"
+    },
+    "raw_gold1_m1_ohlc": {
+      "path": "gold1/m1_ohlc.htm",
+      "state": "MISSING"
+    },
+    "raw_gold1_real_ticks": {
+      "path": "gold1/real_ticks.htm",
+      "state": "MISSING"
+    },
+    "raw_gold2_every_tick": {
+      "path": "gold2/every_tick.htm",
+      "state": "MISSING"
+    },
+    "raw_gold2_m1_ohlc": {
+      "path": "gold2/m1_ohlc.htm",
+      "state": "MISSING"
+    },
+    "raw_gold2_real_ticks": {
+      "path": "gold2/real_ticks.htm",
+      "state": "MISSING"
+    },
+    "real_tick_coverage": {
+      "path": "real_tick_coverage.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "reconciliation_gold1": {
+      "path": "reconciliation/gold1.json",
+      "state": "MISSING"
+    },
+    "reconciliation_gold2": {
+      "path": "reconciliation/gold2.json",
+      "state": "MISSING"
+    },
+    "safety_kill_switch": {
+      "path": "safety/kill_switch.json",
+      "state": "MISSING"
+    },
+    "safety_lost_response": {
+      "path": "safety/lost_response.json",
+      "state": "MISSING"
+    },
+    "safety_meta_reduce": {
+      "path": "safety/meta_reduce.json",
+      "state": "MISSING"
+    },
+    "safety_restart": {
+      "path": "safety/restart.json",
+      "state": "MISSING"
+    },
+    "safety_risk_veto": {
+      "path": "safety/risk_veto.json",
+      "state": "MISSING"
+    },
+    "safety_sl_verify": {
+      "path": "safety/sl_verify.json",
+      "state": "MISSING"
+    },
+    "symbolspec": {
+      "path": "symbolspec/symbolspec.json",
+      "state": "MISSING"
+    }
+  },
+  "compile": {
+    "checks": {},
+    "reasons": [
+      "compile_log missing"
+    ],
+    "state": "MISSING"
+  },
+  "environment": {
+    "reasons": [
+      "environment metadata missing"
+    ],
+    "state": "MISSING"
+  },
+  "first_divergence": {
+    "gold1": null,
+    "gold2": null
+  },
+  "frozen_source_commit": "227bf665654b2d2491c89c226dcff735570b915a",
+  "gold": {
+    "gold1": {
+      "reasons": [
+        "gold1 reconciliation missing"
+      ],
+      "state": "MISSING"
+    },
+    "gold2": {
+      "reasons": [
+        "gold2 reconciliation missing"
+      ],
+      "state": "MISSING"
+    }
+  },
+  "missing": [
+    "archive_manifest",
+    "compile_log",
+    "compile_metadata",
+    "environment",
+    "ex5",
+    "hedging",
+    "netting",
+    "parsed_gold1_every_tick",
+    "parsed_gold1_m1_ohlc",
+    "parsed_gold1_real_ticks",
+    "parsed_gold2_every_tick",
+    "parsed_gold2_m1_ohlc",
+    "parsed_gold2_real_ticks",
+    "raw_gold1_every_tick",
+    "raw_gold1_m1_ohlc",
+    "raw_gold1_real_ticks",
+    "raw_gold2_every_tick",
+    "raw_gold2_m1_ohlc",
+    "raw_gold2_real_ticks",
+    "reconciliation_gold1",
+    "reconciliation_gold2",
+    "safety_kill_switch",
+    "safety_lost_response",
+    "safety_meta_reduce",
+    "safety_restart",
+    "safety_risk_veto",
+    "safety_sl_verify",
+    "symbolspec"
+  ],
+  "model_identities": {},
+  "real_tick_coverage": {
+    "coverage": "REAL_TICK_COVERAGE_UNKNOWN",
+    "reasons": [
+      "coverage record incomplete: ['actual_model_from_report', 'requested_interval', 'actual_interval', 'broker', 'symbol']"
+    ],
+    "state": "INVALID"
+  },
+  "reasons": [
+    "missing artifacts: ['archive_manifest', 'compile_log', 'compile_metadata', 'environment', 'ex5', 'hedging', 'netting', 'parsed_gold1_every_tick', 'parsed_gold1_m1_ohlc', 'parsed_gold1_real_ticks', 'parsed_gold2_every_tick', 'parsed_gold2_m1_ohlc', 'parsed_gold2_real_ticks', 'raw_gold1_every_tick', 'raw_gold1_m1_ohlc', 'raw_gold1_real_ticks', 'raw_gold2_every_tick', 'raw_gold2_m1_ohlc', 'raw_gold2_real_ticks', 'reconciliation_gold1', 'reconciliation_gold2', 'safety_kill_switch', 'safety_lost_response', 'safety_meta_reduce', 'safety_restart', 'safety_risk_veto', 'safety_sl_verify', 'symbolspec']",
+    "compile evidence MISSING: ['compile_log missing']",
+    "symbolspec MISSING: ['symbolspec missing']",
+    "reconciliation missing for: ['gold1', 'gold2']",
+    "safety evidence missing: ['kill_switch', 'risk_veto', 'meta_reduce', 'sl_verify', 'lost_response', 'restart', 'netting', 'hedging']"
+  ],
+  "safety": {
+    "hedging": {
+      "reasons": [
+        "hedging evidence missing"
+      ],
+      "state": "MISSING"
+    },
+    "kill_switch": {
+      "reasons": [
+        "kill_switch evidence missing"
+      ],
+      "state": "MISSING"
+    },
+    "lost_response": {
+      "reasons": [
+        "lost_response evidence missing"
+      ],
+      "state": "MISSING"
+    },
+    "meta_reduce": {
+      "reasons": [
+        "meta_reduce evidence missing"
+      ],
+      "state": "MISSING"
+    },
+    "netting": {
+      "reasons": [
+        "netting evidence missing"
+      ],
+      "state": "MISSING"
+    },
+    "restart": {
+      "reasons": [
+        "restart evidence missing"
+      ],
+      "state": "MISSING"
+    },
+    "risk_veto": {
+      "reasons": [
+        "risk_veto evidence missing"
+      ],
+      "state": "MISSING"
+    },
+    "sl_verify": {
+      "reasons": [
+        "sl_verify evidence missing"
+      ],
+      "state": "MISSING"
+    }
+  },
+  "symbolspec": {
+    "reasons": [
+      "symbolspec missing"
+    ],
+    "state": "MISSING"
+  },
+  "verdict": "NOT_VERIFIED_RECONCILIATION_MISSING",
+  "verifier": "mql5bot.owner_gate"
+}

@@ -40,7 +40,7 @@ from .normalize import _num, dedup_hash, normalize_spec, semantic_hash, spec_has
 
 
 def load_document(path: str | Path) -> dict:
-    raw = Path(path).read_text()
+    raw = Path(path).read_text(encoding="utf-8")
     schema_mod.validate_document_size(raw)
     try:
         doc = json.loads(raw)
