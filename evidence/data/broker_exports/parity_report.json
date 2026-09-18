@@ -1,0 +1,731 @@
+{
+  "n_exports": 4,
+  "coverage": {
+    "FX": "exported: EURUSD",
+    "METAL": "exported: XAUEUR",
+    "INDEX_CFD": "exported: US30",
+    "CRYPTO": "exported: BTC"
+  },
+  "rows": [
+    {
+      "symbol": "BTC",
+      "field": "digits",
+      "owner": 2,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "point",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "tick_size",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "tick_value_profit",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "tick_value_loss",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "contract_size",
+      "owner": 1.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "volume_min",
+      "owner": 1.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "volume_max",
+      "owner": 1000000.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "volume_step",
+      "owner": 1.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "volume_limit",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "stops_level_points",
+      "owner": 5,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "freeze_level_points",
+      "owner": 0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "currency_profit",
+      "owner": "USD",
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "trade_mode",
+      "owner": 4,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "filling_mode_mask",
+      "owner": 1,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "order_mode",
+      "owner": 127,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "expiration_mode_mask",
+      "owner": 15,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "margin_initial",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "margin_maintenance",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "BTC",
+      "field": "sizer.behaviour",
+      "owner": "PENDING",
+      "python": "account/profit denomination hypotheses are ambiguous",
+      "status": "PENDING",
+      "detail": "denomination is not independently established"
+    },
+    {
+      "symbol": "BTC",
+      "field": "tick_value_denomination",
+      "owner": "UNVERIFIED",
+      "python": "account/profit denomination hypotheses are ambiguous",
+      "status": "PENDING",
+      "detail": "independent OrderCalcProfit witness"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "digits",
+      "owner": 5,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "point",
+      "owner": 1e-05,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "tick_size",
+      "owner": 1e-05,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "tick_value_profit",
+      "owner": 0.86661120355,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "tick_value_loss",
+      "owner": 0.866618713765,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "contract_size",
+      "owner": 100000.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "volume_min",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "volume_max",
+      "owner": 500.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "volume_step",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "volume_limit",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "stops_level_points",
+      "owner": 0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "freeze_level_points",
+      "owner": 0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "currency_profit",
+      "owner": "USD",
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "trade_mode",
+      "owner": 4,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "filling_mode_mask",
+      "owner": 1,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "order_mode",
+      "owner": 127,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "expiration_mode_mask",
+      "owner": 15,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "margin_initial",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "margin_maintenance",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "sizer.round_to_tick",
+      "owner": 1.0,
+      "python": 1.0,
+      "status": "MATCH",
+      "detail": "on-grid price is idempotent under round_to_tick"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "sizer.normalize_volume(floor)",
+      "owner": 0.014,
+      "python": 0.01,
+      "status": "MATCH",
+      "detail": "never rounds up"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "sizer.loss_per_lot",
+      "owner": 21.685,
+      "python": 21.665467844125,
+      "status": "MATCH",
+      "detail": "ticks\u00d7tick_value_loss (owner tick value, printed precision; 1% denomination band)"
+    },
+    {
+      "symbol": "EURUSD",
+      "field": "tick_value_denomination",
+      "owner": "ACCOUNT_CURRENCY",
+      "python": "tick values agree with independent OrderCalcProfit witness",
+      "status": "MATCH",
+      "detail": "independent OrderCalcProfit witness"
+    },
+    {
+      "symbol": "US30",
+      "field": "digits",
+      "owner": 2,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "point",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "tick_size",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "tick_value_profit",
+      "owner": 0.008665135826,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "tick_value_loss",
+      "owner": 0.008665210911,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "contract_size",
+      "owner": 1.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "volume_min",
+      "owner": 0.1,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "volume_max",
+      "owner": 250.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "volume_step",
+      "owner": 0.1,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "volume_limit",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "stops_level_points",
+      "owner": 0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "freeze_level_points",
+      "owner": 0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "currency_profit",
+      "owner": "USD",
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "trade_mode",
+      "owner": 0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "filling_mode_mask",
+      "owner": 2,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "order_mode",
+      "owner": 127,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "expiration_mode_mask",
+      "owner": 15,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "margin_initial",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "margin_maintenance",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "US30",
+      "field": "sizer.round_to_tick",
+      "owner": 1000.0,
+      "python": 1000.0,
+      "status": "MATCH",
+      "detail": "on-grid price is idempotent under round_to_tick"
+    },
+    {
+      "symbol": "US30",
+      "field": "sizer.normalize_volume(floor)",
+      "owner": 0.14,
+      "python": 0.1,
+      "status": "MATCH",
+      "detail": "never rounds up"
+    },
+    {
+      "symbol": "US30",
+      "field": "sizer.loss_per_lot",
+      "owner": 0.0087,
+      "python": 0.008665210911,
+      "status": "MATCH",
+      "detail": "ticks\u00d7tick_value_loss (owner tick value, printed precision; 1% denomination band)"
+    },
+    {
+      "symbol": "US30",
+      "field": "tick_value_denomination",
+      "owner": "ACCOUNT_CURRENCY",
+      "python": "tick values agree with independent OrderCalcProfit witness",
+      "status": "MATCH",
+      "detail": "independent OrderCalcProfit witness"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "digits",
+      "owner": 2,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "point",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "tick_size",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "tick_value_profit",
+      "owner": 1.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "tick_value_loss",
+      "owner": 1.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "contract_size",
+      "owner": 100.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "volume_min",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "volume_max",
+      "owner": 100.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "volume_step",
+      "owner": 0.01,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "volume_limit",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "stops_level_points",
+      "owner": 0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "freeze_level_points",
+      "owner": 0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "currency_profit",
+      "owner": "EUR",
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "trade_mode",
+      "owner": 4,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "filling_mode_mask",
+      "owner": 3,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "order_mode",
+      "owner": 127,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "expiration_mode_mask",
+      "owner": 15,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "margin_initial",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "margin_maintenance",
+      "owner": 0.0,
+      "python": "n/a (runtime-queried)",
+      "status": "N_A",
+      "detail": "no Python field; runtime query is authority"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "sizer.round_to_tick",
+      "owner": 1000.0,
+      "python": 1000.0,
+      "status": "MATCH",
+      "detail": "on-grid price is idempotent under round_to_tick"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "sizer.normalize_volume(floor)",
+      "owner": 0.014,
+      "python": 0.01,
+      "status": "MATCH",
+      "detail": "never rounds up"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "sizer.loss_per_lot",
+      "owner": 1.0,
+      "python": 1.0,
+      "status": "MATCH",
+      "detail": "ticks\u00d7tick_value_loss (owner tick value, printed precision; 1% denomination band)"
+    },
+    {
+      "symbol": "XAUEUR",
+      "field": "tick_value_denomination",
+      "owner": "ACCOUNT_CURRENCY",
+      "python": "tick values agree with independent OrderCalcProfit witness",
+      "status": "MATCH",
+      "detail": "independent OrderCalcProfit witness"
+    }
+  ]
+}

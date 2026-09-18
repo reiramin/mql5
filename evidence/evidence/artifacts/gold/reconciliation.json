@@ -1,0 +1,475 @@
+{
+  "fields": [
+    "signal_time",
+    "strategy_id",
+    "symbol",
+    "side",
+    "risk_approved",
+    "meta_weight",
+    "requested_lots",
+    "broker_normalized_lots",
+    "fill_volume",
+    "entry_price",
+    "sl",
+    "tp",
+    "position_identifier",
+    "exit_time",
+    "exit_price",
+    "realized_pnl"
+  ],
+  "manifest_hash": "4bb1420387eb3cd6245fcdcba1518c123f5d6a69b3abf6b89a7766b2cf0e278e",
+  "note": "Python\u2194DSL proven here; MQL5/MT5 legs require the owner terminal protocol (docs/AEGIS_REALITY_GATE_AUDIT.md \u00a7owner-protocol; docs/MT5_ROUNDTRIP.md).",
+  "python_vs_dsl": "MATCHED",
+  "python_vs_mql5": "PENDING_OWNER",
+  "python_vs_mt5_tester": "PENDING_OWNER",
+  "trades": [
+    {
+      "dsl": {
+        "entry_fill": 1.10012,
+        "exit_price": 1.10238,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-02T07:00:00",
+        "lots": 0.7,
+        "pnl": 148.4,
+        "side": "long",
+        "signal_time": "2024-01-02T06:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.10012,
+        "exit_price": 1.10238,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-02T07:00:00",
+        "lots": 0.7,
+        "pnl": 148.4,
+        "side": "long",
+        "signal_time": "2024-01-02T06:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T06:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.10222,
+        "exit_price": 1.10502,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-02T10:00:00",
+        "lots": 0.57,
+        "pnl": 151.62,
+        "side": "long",
+        "signal_time": "2024-01-02T08:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.10222,
+        "exit_price": 1.10502,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-02T10:00:00",
+        "lots": 0.57,
+        "pnl": 151.62,
+        "side": "long",
+        "signal_time": "2024-01-02T08:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T08:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.10552,
+        "exit_price": 1.10904,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-02T13:00:00",
+        "lots": 0.46,
+        "pnl": 155.48,
+        "side": "long",
+        "signal_time": "2024-01-02T11:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.10552,
+        "exit_price": 1.10904,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-02T13:00:00",
+        "lots": 0.46,
+        "pnl": 155.48,
+        "side": "long",
+        "signal_time": "2024-01-02T11:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T11:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.10882,
+        "exit_price": 1.11291,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-02T17:00:00",
+        "lots": 0.4,
+        "pnl": 158.0,
+        "side": "long",
+        "signal_time": "2024-01-02T14:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.10882,
+        "exit_price": 1.11291,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-02T17:00:00",
+        "lots": 0.4,
+        "pnl": 158.0,
+        "side": "long",
+        "signal_time": "2024-01-02T14:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T14:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.11322,
+        "exit_price": 1.11791,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-02T22:00:00",
+        "lots": 0.36,
+        "pnl": 163.8,
+        "side": "long",
+        "signal_time": "2024-01-02T18:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.11322,
+        "exit_price": 1.11791,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-02T22:00:00",
+        "lots": 0.36,
+        "pnl": 163.8,
+        "side": "long",
+        "signal_time": "2024-01-02T18:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T18:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.11872,
+        "exit_price": 1.12394,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-03T03:00:00",
+        "lots": 0.33,
+        "pnl": 167.64,
+        "side": "long",
+        "signal_time": "2024-01-02T23:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.11872,
+        "exit_price": 1.12394,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-03T03:00:00",
+        "lots": 0.33,
+        "pnl": 167.64,
+        "side": "long",
+        "signal_time": "2024-01-02T23:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "long",
+      "signal_time": "2024-01-02T23:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.12422,
+        "exit_price": 1.12072,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-03T08:00:00",
+        "lots": 0.31,
+        "pnl": -112.84,
+        "side": "long",
+        "signal_time": "2024-01-03T04:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.12422,
+        "exit_price": 1.12072,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-03T08:00:00",
+        "lots": 0.31,
+        "pnl": -112.84,
+        "side": "long",
+        "signal_time": "2024-01-03T04:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T04:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.11752,
+        "exit_price": 1.11252,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-03T09:00:00",
+        "lots": 0.21,
+        "pnl": -107.94,
+        "side": "long",
+        "signal_time": "2024-01-03T09:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.11752,
+        "exit_price": 1.11252,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-03T09:00:00",
+        "lots": 0.21,
+        "pnl": -107.94,
+        "side": "long",
+        "signal_time": "2024-01-03T09:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T09:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.11252,
+        "exit_price": 1.10689,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-03T11:00:00",
+        "lots": 0.19,
+        "pnl": -109.63,
+        "side": "long",
+        "signal_time": "2024-01-03T10:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.11252,
+        "exit_price": 1.10689,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-03T11:00:00",
+        "lots": 0.19,
+        "pnl": -109.63,
+        "side": "long",
+        "signal_time": "2024-01-03T10:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T10:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.10621,
+        "exit_price": 1.10012,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-03T16:00:00",
+        "lots": 0.17,
+        "pnl": -105.91,
+        "side": "long",
+        "signal_time": "2024-01-03T12:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.10621,
+        "exit_price": 1.10012,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-03T16:00:00",
+        "lots": 0.17,
+        "pnl": -105.91,
+        "side": "long",
+        "signal_time": "2024-01-03T12:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "long",
+      "signal_time": "2024-01-03T12:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09968,
+        "exit_price": 1.09074,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-03T23:00:00",
+        "lots": 0.18,
+        "pnl": 158.4,
+        "side": "short",
+        "signal_time": "2024-01-03T17:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09968,
+        "exit_price": 1.09074,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-03T23:00:00",
+        "lots": 0.18,
+        "pnl": 158.4,
+        "side": "short",
+        "signal_time": "2024-01-03T17:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "short",
+      "signal_time": "2024-01-03T17:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09058,
+        "exit_price": 1.08234,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-04T05:00:00",
+        "lots": 0.2,
+        "pnl": 162.0,
+        "side": "short",
+        "signal_time": "2024-01-04T00:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09058,
+        "exit_price": 1.08234,
+        "exit_reason": "take_profit",
+        "exit_time": "2024-01-04T05:00:00",
+        "lots": 0.2,
+        "pnl": 162.0,
+        "side": "short",
+        "signal_time": "2024-01-04T00:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "short",
+      "signal_time": "2024-01-04T00:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.08408,
+        "exit_price": 1.09118,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-04T06:00:00",
+        "lots": 0.15,
+        "pnl": -108.6,
+        "side": "short",
+        "signal_time": "2024-01-04T06:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.08408,
+        "exit_price": 1.09118,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-04T06:00:00",
+        "lots": 0.15,
+        "pnl": -108.6,
+        "side": "short",
+        "signal_time": "2024-01-04T06:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "short",
+      "signal_time": "2024-01-04T06:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.08408,
+        "exit_price": 1.09443,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-04T14:00:00",
+        "lots": 0.1,
+        "pnl": -104.9,
+        "side": "short",
+        "signal_time": "2024-01-04T07:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.08408,
+        "exit_price": 1.09443,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-04T14:00:00",
+        "lots": 0.1,
+        "pnl": -104.9,
+        "side": "short",
+        "signal_time": "2024-01-04T07:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "short",
+      "signal_time": "2024-01-04T07:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.09528,
+        "exit_price": 1.10313,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-04T20:00:00",
+        "lots": 0.13,
+        "pnl": -103.87,
+        "side": "short",
+        "signal_time": "2024-01-04T15:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.09528,
+        "exit_price": 1.10313,
+        "exit_reason": "stop_loss",
+        "exit_time": "2024-01-04T20:00:00",
+        "lots": 0.13,
+        "pnl": -103.87,
+        "side": "short",
+        "signal_time": "2024-01-04T15:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "short",
+      "signal_time": "2024-01-04T15:00:00"
+    },
+    {
+      "dsl": {
+        "entry_fill": 1.10371,
+        "exit_price": 1.10928,
+        "exit_reason": "end_of_data",
+        "exit_time": "2024-01-05T23:00:00",
+        "lots": 0.15,
+        "pnl": 81.45,
+        "side": "long",
+        "signal_time": "2024-01-04T21:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "mt5": null,
+      "mt5_status": "PENDING_OWNER",
+      "python": {
+        "entry_fill": 1.10371,
+        "exit_price": 1.10928,
+        "exit_reason": "end_of_data",
+        "exit_time": "2024-01-05T23:00:00",
+        "lots": 0.15,
+        "pnl": 81.45,
+        "side": "long",
+        "signal_time": "2024-01-04T21:00:00",
+        "strategy_id": "ema_crossover_ref"
+      },
+      "side": "long",
+      "signal_time": "2024-01-04T21:00:00"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+dist/
+build/
+
+# Generated data / results (root-level only — committed test fixtures
+# like tests/data/real/ must NOT be ignored: a fresh clone has to pass)
+/data/
+results/
+reports/
+*.log
+
+# MetaTrader compiled artifacts
+mql5/**/*.ex5
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local agent/session config (never part of the repo)
+.claude/

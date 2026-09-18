@@ -1,0 +1,39 @@
+Owner patch — RiskManager.mqh:296 inverted OrderCalcMargin direction
+=====================================================================
+STATUS: OWNER-PENDING. NOT applied to the frozen mql5/ tree (anchor
+227bf66); applying it is an owner-authority re-anchor step (new
+source.commit + manifest + provenance, mission §26/§32). Prepared on Mac;
+NOT compiled here.
+
+Bug (confirmed by source review; PROGRESS.md 2026-09-16): a LONG stop sits
+BELOW entry (price > slPrice), a SHORT stop ABOVE (price < slPrice), so the
+direction inferred for the OrderCalcMargin side-selection was INVERTED.
+
+Impact (bounded): nil on symmetric-margin FX; on instruments with
+asymmetric long/short margin the wrong side is queried, so required margin
+— and thus margin-scaled volume — can be computed against the wrong side.
+Never bypasses the SL; never affects symmetric symbols.
+
+Apply from the repo root (on the checkout being re-anchored):
+    git apply owner_patches/RiskManager_296_direction.patch
+
+Regression: tests/test_riskmanager_direction_patch.py pins the correct
+direction logic and verifies this patch flips `<` to `>` at line 296.
+--- 8< --- unified diff below --- 8< ---
+diff --git a/mql5/Include/Mql5Bot/RiskManager.mqh b/mql5/Include/Mql5Bot/RiskManager.mqh
+index 1b5dfed..4b430eb 100644
+--- a/mql5/Include/Mql5Bot/RiskManager.mqh
++++ b/mql5/Include/Mql5Bot/RiskManager.mqh
+@@ -293,7 +293,11 @@ public:
+         }
+ 
+       //---- margin check (query, never assume — SPEC §3.3) ---------------
+-      long dir = (price < slPrice) ? POSITION_TYPE_LONG : POSITION_TYPE_SHORT;
++      // LONG stops sit BELOW entry (price > slPrice); SHORT stops sit
++      // ABOVE (price < slPrice). Infer the side from that geometry so
++      // OrderCalcMargin queries the correct side on asymmetric-margin
++      // instruments (fix 2026-09; was inverted `price < slPrice`).
++      long dir = (price > slPrice) ? POSITION_TYPE_LONG : POSITION_TYPE_SHORT;
+       double margin = 0.0;
+       if(!OrderCalcMargin((dir == POSITION_TYPE_LONG) ? ORDER_TYPE_BUY
+                                                       : ORDER_TYPE_SELL,

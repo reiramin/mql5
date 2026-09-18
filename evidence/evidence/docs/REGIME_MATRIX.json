@@ -1,0 +1,158 @@
+{
+  "generated_at": "2026-09-05T16:47:54.931476+00:00",
+  "frozen_config": {
+    "days": 300,
+    "seeds": {
+      "fx": 5,
+      "au": 12
+    },
+    "every_days": 12,
+    "min_history": 480,
+    "books": [
+      "boll@EURUSD",
+      "ema@EURUSD",
+      "macd@XAUUSD"
+    ]
+  },
+  "rebalances": 24,
+  "labels_live": {
+    "EURUSD": {
+      "LOW_VOL": 3,
+      "TRANSITION": 9,
+      "HIGH_VOL": 6,
+      "RANGE": 6
+    },
+    "XAUUSD": {
+      "TRANSITION": 8,
+      "LOW_VOL": 4,
+      "RANGE": 9,
+      "HIGH_VOL": 2,
+      "TREND_UP": 1
+    }
+  },
+  "per_regime": {
+    "HIGH_VOL": {
+      "trades": 29,
+      "pnl_sum": -14.36,
+      "pnl_mean": -0.5,
+      "hit_rate": 0.5172,
+      "mean_weight": 0.5134,
+      "books": [
+        "boll@EURUSD",
+        "ema@EURUSD"
+      ]
+    },
+    "LOW_VOL": {
+      "trades": 204,
+      "pnl_sum": -2192.83,
+      "pnl_mean": -10.75,
+      "hit_rate": 0.2647,
+      "mean_weight": 0.4306,
+      "books": [
+        "boll@EURUSD",
+        "ema@EURUSD",
+        "macd@XAUUSD"
+      ]
+    },
+    "RANGE": {
+      "trades": 278,
+      "pnl_sum": -3157.19,
+      "pnl_mean": -11.36,
+      "hit_rate": 0.1007,
+      "mean_weight": 0.7179,
+      "books": [
+        "boll@EURUSD",
+        "ema@EURUSD",
+        "macd@XAUUSD"
+      ]
+    },
+    "TRANSITION": {
+      "trades": 319,
+      "pnl_sum": -3639.43,
+      "pnl_mean": -11.41,
+      "hit_rate": 0.2006,
+      "mean_weight": 0.6016,
+      "books": [
+        "boll@EURUSD",
+        "ema@EURUSD",
+        "macd@XAUUSD"
+      ]
+    }
+  },
+  "manifest": {
+    "git_commit": "068cd08",
+    "engine_version": "1.0.0",
+    "cost_version": "1.0.0",
+    "meta_version": "1.0.0",
+    "contract_version": "1.1.1",
+    "regime_version": "asof-1.1",
+    "drift_version": "asof-1.0",
+    "certification_protocol": "2.0.0",
+    "config_hash": "3808da3ff7366e18",
+    "random_seed": 0,
+    "rebalance_schedule_hash": "572eb83a3bb8946f070013f5e85b403e67109108b99825b26b59efd928a7e0f2",
+    "mode": "netting",
+    "initial_capital": 10000.0,
+    "risk_percent": 1.0,
+    "every_days": 12,
+    "min_history_bars": 480,
+    "instruments": [
+      {
+        "strategy_id": "boll@EURUSD",
+        "symbol": "EURUSD",
+        "dataset_sha256": "7aa8270f88ece7084889e87cb46a852d78820ca07164a4b980ca438cd95fcca4",
+        "spec": {
+          "point": 1e-05,
+          "tick_size": 1e-05,
+          "tick_value_loss": 1.0,
+          "contract_size": 100000.0,
+          "volume_min": 0.01,
+          "volume_max": 100.0,
+          "volume_step": 0.01,
+          "stops_level_points": 0.0,
+          "currency_profit": "USD",
+          "currency_deposit": "USD"
+        },
+        "conversion": 1.0
+      },
+      {
+        "strategy_id": "ema@EURUSD",
+        "symbol": "EURUSD",
+        "dataset_sha256": "7aa8270f88ece7084889e87cb46a852d78820ca07164a4b980ca438cd95fcca4",
+        "spec": {
+          "point": 1e-05,
+          "tick_size": 1e-05,
+          "tick_value_loss": 1.0,
+          "contract_size": 100000.0,
+          "volume_min": 0.01,
+          "volume_max": 100.0,
+          "volume_step": 0.01,
+          "stops_level_points": 0.0,
+          "currency_profit": "USD",
+          "currency_deposit": "USD"
+        },
+        "conversion": 1.0
+      },
+      {
+        "strategy_id": "macd@XAUUSD",
+        "symbol": "XAUUSD",
+        "dataset_sha256": "9ee450840ed1cb551d4c6f591acc16fa518abd3a641b41a2070981b0d0c8bacb",
+        "spec": {
+          "point": 0.01,
+          "tick_size": 0.01,
+          "tick_value_loss": 100.0,
+          "contract_size": 10000.0,
+          "volume_min": 0.1,
+          "volume_max": 100.0,
+          "volume_step": 0.1,
+          "stops_level_points": 0.0,
+          "currency_profit": "USD",
+          "currency_deposit": "USD"
+        },
+        "conversion": 1.0
+      }
+    ],
+    "ineligible": []
+  },
+  "no_tuning_rule": "configuration frozen before results; this measurement must not feed back into any strategy/regime/drift parameter"
+}

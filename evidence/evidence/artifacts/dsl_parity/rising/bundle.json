@@ -1,0 +1,57 @@
+{
+  "bundle_format_version": "1.0",
+  "bundle_hash": "20e7d2683705d7953939b776e1f3be0226ccc5a7cc2b2532e02d630f5c646fd4",
+  "identity": {
+    "semantic_hash": "ef86685e2af07da4ea3a93f1fd19f5d7139708985a44899de869e4a7978f0c8e",
+    "spec_hash": "7a33820c87f0c245466424a2b73b1686cdbd0cb0881066a3a53caa919ed57ea4",
+    "strategy_id": "rising",
+    "strategy_version": 1
+  },
+  "indicator_contracts": [
+    {
+      "kind": "EMA",
+      "mql5_status": "canonical-defined",
+      "version": 1
+    }
+  ],
+  "market": {
+    "symbol": "EURUSD",
+    "timeframe": "H1"
+  },
+  "runtime_contract_version": "1.0",
+  "schema_version": "1.0",
+  "spec": {
+    "entry": {
+      "long": {
+        "n": 3.0,
+        "rising": {
+          "ind": "ema_f"
+        }
+      },
+      "mode": "instant"
+    },
+    "exit": {
+      "sl": {
+        "model": "atr",
+        "mult": 2.0
+      }
+    },
+    "indicators": [
+      {
+        "applied": "close",
+        "id": "ema_f",
+        "kind": "EMA",
+        "period": 20.0
+      }
+    ],
+    "market": {
+      "session": null,
+      "symbol": "EURUSD",
+      "timeframe": "H1",
+      "trading_days": null
+    },
+    "schema_version": "1.0",
+    "strategy_id": "rising",
+    "version": 1
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "schema": "mql5bot.broker_export/1",
+  "exported_at": "2026.09.15 20:47:06 GMT",
+  "account_login": 112386337,
+  "account_currency": "EUR",
+  "account_margin_mode": 2,
+  "server": "MetaQuotes-Demo",
+  "symbol":
+  {
+    "name": "BTC",
+    "path": "Nasdaq\\ETF\\BTC",
+    "digits": 2,
+    "point": 0.010000000000,
+    "tick_size": 0.010000000000,
+    "tick_value_profit": 0.010000000000,
+    "tick_value_loss": 0.010000000000,
+    "contract_size": 1.000000000000,
+    "volume_min": 1.000000000000,
+    "volume_max": 1000000.000000000000,
+    "volume_step": 1.000000000000,
+    "volume_limit": 0.000000000000,
+    "stops_level_points": 5,
+    "freeze_level_points": 0,
+    "spread_points": 13,
+    "trade_mode": 4,
+    "filling_mode_mask": 1,
+    "order_mode": 127,
+    "expiration_mode_mask": 15,
+    "currency_profit": "USD",
+    "currency_base": "USD",
+    "currency_margin": "USD",
+    "margin_initial": 0.000000000000,
+    "margin_maintenance": 0.000000000000,
+    "swap_long": 0.000000000000,
+    "swap_short": 0.000000000000,
+    "swap_mode": 0,
+    "margin_probe":
+    {
+      "ok": true,
+      "price": 33.445000000000,
+      "buy_1lot": 28.980000000000,
+      "sell_1lot": 28.980000000000
+    },
+    "denomination_probe":
+    {
+      "ok": true,
+      "reason": "",
+      "last_error": 0,
+      "source": "OrderCalcProfit",
+      "calc_mode": 32,
+      "account_leverage": 100,
+      "account_currency": "EUR",
+      "currency_profit": "USD",
+      "currency_margin": "USD",
+      "currency_base": "USD",
+      "bid": 33.380000000000,
+      "ask": 33.510000000000,
+      "tick_size_at_probe": 0.010000000000,
+      "probe_ticks": 100,
+      "lot_size": 1.0,
+      "move": 1.000000000000,
+      "buy_loss_profit": -0.870000000000,
+      "sell_gain_profit": 0.870000000000,
+      "tick_value_loss_at_probe": 0.010000000000,
+      "tick_value_profit_at_probe": 0.010000000000
+    }
+  }
+}

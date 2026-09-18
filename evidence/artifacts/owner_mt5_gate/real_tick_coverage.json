@@ -1,0 +1,21 @@
+{
+  "_comment": "Real-tick coverage record (canonical step 7). Official MT5 semantics: missing tick history makes the tester generate ticks in Every-tick mode. FULL requires positive proof for the WHOLE interval; UNKNOWN is the honest default.",
+  "leg": "PENDING_OWNER",
+  "requested_model": "Every tick based on real ticks",
+  "actual_model_from_report": "PENDING_OWNER",
+  "terminal_model_identifier": "PENDING_OWNER",
+  "requested_interval": "PENDING_OWNER",
+  "actual_interval": "PENDING_OWNER",
+  "broker": "PENDING_OWNER",
+  "symbol": "PENDING_OWNER",
+  "real_tick_availability_evidence": {
+    "_comment": "file binding {path, sha256}; path INSIDE this package; compute with tools/owner_evidence_bind.py bind <journal>; a path or prose string is NOT evidence",
+    "path": "PENDING_OWNER",
+    "sha256": "PENDING_OWNER"
+  },
+  "coverage": "REAL_TICK_COVERAGE_UNKNOWN",
+  "fallback_intervals": [],
+  "tester_build": "PENDING_OWNER",
+  "terminal_build": "PENDING_OWNER",
+  "notes": "PENDING_OWNER"
+}

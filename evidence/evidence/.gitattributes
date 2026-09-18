@@ -1,0 +1,17 @@
+# Byte-exact artifacts on every OS: parity fixtures, manifests and any
+# hashed evidence must check out with the EXACT committed bytes (a CRLF
+# checkout on Windows silently changes every sha256 the manifests pin).
+artifacts/** -text
+*.csv -text
+*.json -text
+# owner compile/run logs are byte-exact evidence — never line-ending-normalized
+*.log -text
+logs_owner/** -text
+
+# MQL5 sources are authored and hashed as LF; MetaEditor compiles LF fine.
+*.mq5 text eol=lf
+*.mqh text eol=lf
+
+# Python sources are authored and hashed as LF (build_dsl_parity_golden.py
+# and every parity fixture are byte-generated with "\n" only).
+*.py text eol=lf

@@ -1,0 +1,1 @@
+{"error":"bundle_hash mismatch (tampered or mis-encoded): stored 464d3c09bde48de3677bd1218dd75494da018fd1db371d5e34a6ad05e1e0e094 != computed e1d2aa9b5f0d17574a3d05179b054e40655580a0e0231db186122852d2a832b1","fixture":"tampered_bundle","refused":true}

@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis.local/schemas/strategy.schema.json",
+  "title": "Aegis Strategy DSL",
+  "description": "Canonical, deterministic strategy specification. Strategies are DATA: they describe signals and stop GEOMETRY only. They never authorize position risk (Risk Engine) and never place orders (Execution). The authoritative validator is mql5bot.dsl.schema; this document mirrors it for humans and external tools.",
+  "type": "object",
+  "required": ["schema_version", "strategy_id", "version", "market", "indicators", "entry", "exit"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "strategy_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$"},
+    "version": {"type": "integer", "minimum": 0, "description": "0 = DRAFT (ambiguous, never executable); published versions start at 1"},
+    "name": {"type": "string", "maxLength": 200},
+    "description": {"type": "string", "maxLength": 4000},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {"enum": ["HUMAN", "COMMUNITY", "TRADINGVIEW", "ARTICLE", "PAPER", "BOOK", "USER_TEXT", "USER_VOICE", "AI_GENERATED", "MUTATION_OF_EXISTING", "RESEARCH_DISCOVERY"]},
+        "url": {"type": ["string", "null"], "maxLength": 2000},
+        "author": {"type": ["string", "null"], "maxLength": 200},
+        "platform": {"type": ["string", "null"], "maxLength": 100},
+        "retrieved_at": {"type": ["string", "null"], "maxLength": 40},
+        "license_note": {"type": ["string", "null"], "maxLength": 500},
+        "reference": {"type": ["string", "null"], "maxLength": 500},
+        "notes": {"type": ["string", "null"], "maxLength": 4000}
+      }
+    },
+    "hypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "statement": {"type": "string", "maxLength": 2000},
+        "expected_regime": {"type": ["string", "null"], "maxLength": 60},
+        "expected_failure_regime": {"type": ["string", "null"], "maxLength": 60},
+        "expected_holding_bars": {"type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}},
+        "expected_trade_frequency": {"type": ["string", "null"], "maxLength": 40},
+        "risk_assumptions": {"type": ["string", "null"], "maxLength": 2000}
+      }
+    },
+    "claims": {
+      "description": "Author/community claims. Stored as AUTHOR_CLAIM; never merged into Aegis measurements.",
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": ["metric", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "metric": {"type": "string", "maxLength": 60},
+          "value": {"type": ["number", "string"]},
+          "unit": {"type": ["string", "null"], "maxLength": 30},
+          "note": {"type": ["string", "null"], "maxLength": 1000},
+          "source_url": {"type": ["string", "null"], "maxLength": 2000}
+        }
+      }
+    },
+    "market": {
+      "type": "object",
+      "required": ["symbol", "timeframe"],
+      "additionalProperties": false,
+      "properties": {
+        "symbol": {"type": "string", "maxLength": 30},
+        "timeframe": {"type": "string", "maxLength": 6},
+        "session": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "start": {"type": "string", "pattern": "^\\d{2}:\\d{2}$"},
+            "end": {"type": "string", "pattern": "^\\d{2}:\\d{2}$"},
+            "tz": {"type": "string", "maxLength": 40}
+          }
+        },
+        "trading_days": {"type": ["array", "null"], "minItems": 1, "maxItems": 7, "items": {"type": "integer", "minimum": 0, "maximum": 6}}
+      }
+    },
+    "indicators": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$"},
+          "kind": {"enum": ["EMA", "SMA", "RSI", "ATR", "BBANDS", "MACD", "DONCHIAN", "HIGHEST", "LOWEST"]},
+          "period": {"type": "integer", "minimum": 1, "maximum": 5000},
+          "applied": {"enum": ["open", "high", "low", "close"]},
+          "shift": {"type": "integer", "minimum": 0, "maximum": 1000},
+          "dev": {"type": "number", "exclusiveMinimum": 0},
+          "fast": {"type": "integer", "minimum": 1},
+          "slow": {"type": "integer", "minimum": 1},
+          "signal": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"enum": ["state", "instant"]},
+        "long": {"$ref": "#/$defs/condition"},
+        "short": {"$ref": "#/$defs/condition"},
+        "exit_long": {"$ref": "#/$defs/nullable_condition"},
+        "exit_short": {"$ref": "#/$defs/nullable_condition"},
+        "max_entries_per_bar": {"type": "integer", "minimum": 1, "maximum": 1}
+      }
+    },
+    "exit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sl": {"$ref": "#/$defs/stop_model"},
+        "tp": {"$ref": "#/$defs/stop_model"},
+        "trail_atr": {"type": "number", "minimum": 0},
+        "breakeven_atr": {"type": "number", "minimum": 0},
+        "time_bars": {"type": ["integer", "null"], "minimum": 1},
+        "reversal": {"type": "boolean"}
+      }
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_spread_points": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "max_atr_pct": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "cooldown_bars": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "session": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "start": {"type": "string", "pattern": "^\\d{2}:\\d{2}$"},
+            "end": {"type": "string", "pattern": "^\\d{2}:\\d{2}$"},
+            "tz": {"type": "string", "maxLength": 40}
+          }
+        },
+        "regime": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowed": {"type": "array", "maxItems": 16, "items": {"type": "string", "maxLength": 20}},
+            "preferred": {"type": "array", "maxItems": 16, "items": {"type": "string", "maxLength": 20}},
+            "forbidden": {"type": "array", "maxItems": 16, "items": {"type": "string", "maxLength": 20}}
+          }
+        },
+        "news": {"description": "reserved; must be null in schema 1.0 (external feed)", "type": "null"},
+        "correlation": {"description": "reserved; must be null in schema 1.0 (portfolio-layer concern)", "type": "null"}
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "note": {"type": ["string", "null"], "maxLength": 1000}
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "regime_tags": {"type": "array", "maxItems": 16, "items": {"type": "string", "maxLength": 30}},
+        "explanation": {"type": ["string", "null"], "maxLength": 4000},
+        "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "author_notes": {"type": ["string", "null"], "maxLength": 4000},
+        "requires_codegen": {"type": "boolean"},
+        "missing_features": {"type": "array", "maxItems": 50, "items": {"type": "string", "maxLength": 100}}
+      }
+    },
+    "params": {
+      "description": "Typed, bounded parameter declarations referenced by conditions via {\"param\": name}.",
+      "type": "object",
+      "maxProperties": 64,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type", "default"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {"enum": ["number", "integer"]},
+          "default": {"type": "number"},
+          "min": {"type": "number"},
+          "max": {"type": "number"},
+          "step": {"type": "number", "exclusiveMinimum": 0},
+          "description": {"type": "string", "maxLength": 300}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "operand": {
+      "description": "Numeric series or scalar at a closed bar.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ind": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$"},
+        "price": {"enum": ["open", "high", "low", "close"]},
+        "const": {"type": "number"},
+        "param": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$"},
+        "ambiguous": {"type": "string", "maxLength": 60},
+        "range": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number"}},
+        "add": {"type": "array", "minItems": 2, "maxItems": 2, "$ref": "#/$defs/operand_or_ref"},
+        "sub": {"type": "array", "minItems": 2, "maxItems": 2, "$ref": "#/$defs/operand_or_ref"},
+        "mul": {"type": "array", "minItems": 2, "maxItems": 2, "$ref": "#/$defs/operand_or_ref"},
+        "div": {"type": "array", "minItems": 2, "maxItems": 2, "$ref": "#/$defs/operand_or_ref"}
+      }
+    },
+    "operand_or_ref": {
+      "description": "operand (recursive; enforced structurally by the validator)",
+      "type": "object"
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "and": {"type": "array", "minItems": 1, "maxItems": 64},
+        "or": {"type": "array", "minItems": 1, "maxItems": 64},
+        "not": {"type": "object"},
+        "left": {"$ref": "#/$defs/operand_or_ref"},
+        "cmp": {"enum": ["GT", "GE", "LT", "LE", "EQ", "NE"]},
+        "right": {"$ref": "#/$defs/operand_or_ref"},
+        "cross": {"enum": ["ABOVE", "BELOW"]},
+        "a": {"$ref": "#/$defs/operand_or_ref"},
+        "b": {"$ref": "#/$defs/operand_or_ref"},
+        "rising": {"$ref": "#/$defs/operand_or_ref"},
+        "falling": {"$ref": "#/$defs/operand_or_ref"},
+        "n": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "within": {"$ref": "#/$defs/operand_or_ref"},
+        "low": {"type": "number"},
+        "high": {"type": "number"}
+      }
+    },
+    "nullable_condition": {"type": ["object", "null"]},
+    "stop_model": {
+      "type": ["object", "null"],
+      "required": ["model"],
+      "additionalProperties": false,
+      "properties": {
+        "model": {"enum": ["atr", "points", "percent"]},
+        "mult": {"type": "number", "exclusiveMinimum": 0},
+        "points": {"type": "number", "exclusiveMinimum": 0},
+        "pct": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

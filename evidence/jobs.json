@@ -1,0 +1,41 @@
+{
+  "defaults": {
+    "ea": "Experts\\Mql5Bot\\Mql5Bot.ex5",
+    "model": 1,
+    "date_from": "2020.01.01",
+    "date_to": "2024.01.01",
+    "deposit": 10000.0,
+    "currency": "USD",
+    "leverage": 100
+  },
+  "jobs": [
+    {
+      "symbol": "EURUSD",
+      "timeframe": "H1",
+      "inputs": {
+        "InpStrategy": 0
+      }
+    },
+    {
+      "symbol": "EURUSD",
+      "timeframe": "M1",
+      "inputs": {
+        "InpStrategy": 0
+      }
+    },
+    {
+      "symbol": "EURUSD",
+      "timeframe": "H1",
+      "inputs": {
+        "InpStrategy": 1
+      }
+    },
+    {
+      "symbol": "EURUSD",
+      "timeframe": "M1",
+      "inputs": {
+        "InpStrategy": 1
+      }
+    }
+  ]
+}

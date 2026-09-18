@@ -1,0 +1,13 @@
+; mql5bot preset — Donchian breakout (turtle channel)
+; Defaults mirror python/mql5bot/strategies.py STRATEGIES["donchian_breakout"]
+InpStrategy=2
+InpDonchianPeriod=20
+InpSlAtr=2.0
+InpTpAtr=5.0
+InpRiskPercent=1.0
+InpMaxLots=10.0
+InpTrailAtr=3.0
+InpBreakevenAtr=0.0
+InpPartialAtr=0.0
+InpAllowShort=true
+InpMagic=20240904

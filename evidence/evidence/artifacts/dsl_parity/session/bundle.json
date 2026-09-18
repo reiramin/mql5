@@ -1,0 +1,82 @@
+{
+  "bundle_format_version": "1.0",
+  "bundle_hash": "e9c6ccb703dab45ea783ce4e707a0f9163876b4527d29aba0823de94208e7cdb",
+  "identity": {
+    "semantic_hash": "be0b5e85353b85d9609791df6241300ecfad32a1f2925c8530a590feb9fea123",
+    "spec_hash": "9eab31f4171a7dd983f1f8821f31e9e1b4d6e879c517d6b82039c973f8d4644c",
+    "strategy_id": "session",
+    "strategy_version": 1
+  },
+  "indicator_contracts": [
+    {
+      "kind": "EMA",
+      "mql5_status": "canonical-defined",
+      "version": 1
+    }
+  ],
+  "market": {
+    "symbol": "EURUSD",
+    "timeframe": "H1"
+  },
+  "runtime_contract_version": "1.0",
+  "schema_version": "1.0",
+  "spec": {
+    "entry": {
+      "long": {
+        "a": {
+          "ind": "ema_f"
+        },
+        "b": {
+          "ind": "ema_s"
+        },
+        "cross": "ABOVE"
+      },
+      "mode": "state",
+      "short": {
+        "a": {
+          "ind": "ema_f"
+        },
+        "b": {
+          "ind": "ema_s"
+        },
+        "cross": "BELOW"
+      }
+    },
+    "exit": {
+      "sl": {
+        "model": "atr",
+        "mult": 2.0
+      }
+    },
+    "filters": {
+      "session": {
+        "end": "16:00",
+        "start": "08:00",
+        "tz": "UTC"
+      }
+    },
+    "indicators": [
+      {
+        "applied": "close",
+        "id": "ema_f",
+        "kind": "EMA",
+        "period": 20.0
+      },
+      {
+        "applied": "close",
+        "id": "ema_s",
+        "kind": "EMA",
+        "period": 50.0
+      }
+    ],
+    "market": {
+      "session": null,
+      "symbol": "EURUSD",
+      "timeframe": "H1",
+      "trading_days": null
+    },
+    "schema_version": "1.0",
+    "strategy_id": "session",
+    "version": 1
+  }
+}

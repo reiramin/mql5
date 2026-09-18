@@ -1,0 +1,193 @@
+{
+  "fixtures": {
+    "arithmetic": {
+      "bars": 300,
+      "bundle_hash": "6b186a367e81437b7eee0d7770491f167f13a2f2145a5805f5755122228874a9",
+      "files": {
+        "bundle.json": "b98d79739fc4f3ceae7e3ec6a20124a7927a0259c85f30a6bb2a56bd88b99866",
+        "expected_trace.json": "5176eca615a67510e2891294f291dd35b37066be7630147c5b36cb44c3385656",
+        "ohlc.csv": "2096a18399c6d0e9ae525e50f47e81e30dc82cfe96f352ee078fbf5b53ab2ae0"
+      },
+      "note": "fast > slow + 0.5",
+      "position_hash": "df17b444b30f9abc22052690662b5e2e692229653a135de68953ce34f1cb399d",
+      "seed": 8,
+      "spec_hash": "92552aab87f1ef55efab461ace89f121cee5cf6e472f04da6c169d01ac62b28b"
+    },
+    "canonical_ema_rsi_atr": {
+      "bars": 400,
+      "bundle_hash": "5c0cec0c1cef7356f2e55eaff27e712601469c7cbe67b48bee13e3ede60d1da0",
+      "files": {
+        "bundle.json": "fcde6b69463ed27ef14b86232fe49bd32f941d5b935cdda7f056b5788285de56",
+        "expected_trace.json": "06fbd8d7368948b1069183e997804871a304afb784b505855450b24740bf662d",
+        "ohlc.csv": "96ad8c1629f0abf6a8e6bf6201b6fcc0c756e53b47c9fbb7a43e7b578556c719"
+      },
+      "note": "BUY when EMA20 crosses above EMA50 AND RSI14>55; SL 2ATR TP 3ATR",
+      "position_hash": "45b35a378797144c80c52e9349cae9196aff5d3becd658e9e849b43d5d630a02",
+      "seed": 3,
+      "spec_hash": "8eaf8e08cabfd2dc22376978756fbc4e560e93fc60270598b934b2af04169a1f"
+    },
+    "cooldown": {
+      "bars": 300,
+      "bundle_hash": "23ea82d88c6ae9767238d0caa10baab8d2440546c135475ebee6b83bb0c2ee5a",
+      "files": {
+        "bundle.json": "f18567b03af4912f94bd15e8935d75193187d823fac2da6a0f955daf6ace0f06",
+        "expected_trace.json": "3efff7b90974183131198be3222c49e9c3e93c206751e5e2b44e010dfedc168b",
+        "ohlc.csv": "9103b5945f35e711d0d066771f0ff3f9b350fb946783584b00d477a5bf33d270"
+      },
+      "note": "5-bar cooldown",
+      "position_hash": "6f5c5e139e09a9e77313342bf61f40a63f6eddebda677bd5e3294e34129fa8b2",
+      "seed": 14,
+      "spec_hash": "d8fc5919a9beab026b13ab53e8f84ab5864fd7218136de3d99e2e3478966c959"
+    },
+    "ema_cross": {
+      "bars": 300,
+      "bundle_hash": "5cac00df5d6a3d7c3eadf0f7e8c7d87534c2727bd0d82e64f8318d06a32f615f",
+      "files": {
+        "bundle.json": "ce6182f2b213ebc3ded825c59c26cdc1e046ce4e3d49e5397e79bcbd817579e6",
+        "expected_trace.json": "80cd8fa7520558258812f96e667e6700bab163ed2579dba660dfb4c372d2a480",
+        "ohlc.csv": "d1dc656b1847ef491d9d582d98da6f3552709c5b301e0626d9ac65f37d51009e"
+      },
+      "note": "EMA20 crosses EMA50 above/below",
+      "position_hash": "7aa8f9a93b0b3ab7e59195cff60bfbcf11b1b7ef17fad97eb2c2bf0e3c444f50",
+      "seed": 2,
+      "spec_hash": "e392219d749612f06674cffcde842d3c3ba012345ac92fa84b666d53cd54d612"
+    },
+    "ema_gt": {
+      "bars": 300,
+      "bundle_hash": "464d3c09bde48de3677bd1218dd75494da018fd1db371d5e34a6ad05e1e0e094",
+      "files": {
+        "bundle.json": "318c8d6ae89c3cc3ecd4d235616a2d03849768d85ac5e6a69708947ad837f2f9",
+        "expected_trace.json": "6c79713408a5a9bd654847cb11fff912f8a76e030d81bb2aa701fb9f8496a522",
+        "ohlc.csv": "021434218fb2b37dedac50bf6a7579847ffc03a9f7737407354cb893731aa6df"
+      },
+      "note": "EMA20 > EMA50 (instant)",
+      "position_hash": "80de3d11c4c52ba724c00457fd040ddc9f6ef8093f4f59bfac8cf880668f1ef5",
+      "seed": 1,
+      "spec_hash": "debbbcb35c0b98715bc66d6c9b2e336989c1047d52d8f9afef2e3845a32e50f5"
+    },
+    "not_rule": {
+      "bars": 300,
+      "bundle_hash": "93a6601f42ae881ddbe024c116fb6da51d47ca14d07902afb49def6438089896",
+      "files": {
+        "bundle.json": "927798e6d6b1215ed992dcd2ae684abaf49a90ad42e8f73660f4f245a3a71346",
+        "expected_trace.json": "56b7a9f4456cbb9a3f594c6336cfa0645ba72f13353be6f6fcb2604e71b67a71",
+        "ohlc.csv": "4d503b76673578d107fa53983561c1e33f8528adf1e89e29811992a5bfd7d973"
+      },
+      "note": "NOT (fast < slow)",
+      "position_hash": "0db31aac509728ebd7fc7c6e65f124415b7957db60ea5ce2db01df6cec89eb69",
+      "seed": 5,
+      "spec_hash": "02f8ad42d28fa1b796082383461d5bcec27ad579ed5e1394d93709b44b304acc"
+    },
+    "or_rule": {
+      "bars": 300,
+      "bundle_hash": "5a6439428715a763e5ba242557b9226760356ba23ee31fb0f600329d17803ba0",
+      "files": {
+        "bundle.json": "79578e30eaeec5c3f4aa9a3307c7e69fa0be2e5de001f17a3a2906d6149f0228",
+        "expected_trace.json": "ecdedf60890e656f8a2a5bdd8a5c9839f360a69d915a222dd7daf9687b4360ed",
+        "ohlc.csv": "3b5fdd52096dc5a0a6ac863b66f4bc063eca28c8888d6015f1062dd3f8739ad6"
+      },
+      "note": "OR of two conditions",
+      "position_hash": "b48ee22635a55b67c7eafea17b829bb75849d6ee5723e2c8cd5d40ca0e200514",
+      "seed": 4,
+      "spec_hash": "77973c96cb75fb2b24463781cf7c4620276a0a422a512fb76bbbb3412c258a24"
+    },
+    "percent_stop": {
+      "bars": 300,
+      "bundle_hash": "eb7244a5cad94cb3630fe42e8ca5958dbe06b3f8202edbd469fec5d8093e5371",
+      "files": {
+        "bundle.json": "8c9e370342771fed37ed2b6ef9a65435305625ef260775ec8df82fe1e5f99777",
+        "expected_trace.json": "81a6ec5fa9ef3a56b8d51517ce2c42325aa20458e828990a56f3e0716f199794",
+        "ohlc.csv": "7f8a8909780aa0795445ff851762ecb63db70a96faf193d1fc60bb4e9c71750f"
+      },
+      "note": "percent SL/TP geometry",
+      "position_hash": "975bd57a43bbb735d6dd5dbe783054aeabd69211784be0c7c8f88777a9213588",
+      "seed": 10,
+      "spec_hash": "54dd9de897aa4712fdd3bd2caa94e068e1a2bc0b820185a0ca4a06aa88edcda3"
+    },
+    "point_stop": {
+      "bars": 300,
+      "bundle_hash": "dbd6f291f6602d6cb6a918c55c17e6a861642d18edee7a22926260614c9a0e68",
+      "files": {
+        "bundle.json": "daaf347d51eab380d94deaa37ff78565ac652d6d2349beee827a57875c92af60",
+        "expected_trace.json": "66fa2f9138902a83589db7be0f0f07aeb6deb827828cb733eda1cc0f92dad39d",
+        "ohlc.csv": "a42923568c166ad8ae83e6acd1dbd0adb94e0b295bcf60142cc410ff9497a94c"
+      },
+      "note": "point SL/TP geometry",
+      "position_hash": "fc2d4a1443b0ecfc8b064d04f47571824a34895e8d8b93a6724e0770c20ce4f6",
+      "seed": 9,
+      "spec_hash": "49c3129cd02862da1216526dc76b8116abf6d055b2aedf2c4b087cdc43dad1eb"
+    },
+    "rising": {
+      "bars": 300,
+      "bundle_hash": "20e7d2683705d7953939b776e1f3be0226ccc5a7cc2b2532e02d630f5c646fd4",
+      "files": {
+        "bundle.json": "f24416597aa121bfc51544194037f5d56f963f98ba712678d2216f5cfe39baf4",
+        "expected_trace.json": "a392a21357a0f9597512ee3e6e4c6d4f529f5ced1ca382ad4f7568a8b19b421d",
+        "ohlc.csv": "3218fa57eef4ddd84bba4e17d4c6cb4bf263af2a2414dc6c38ce594618041c6b"
+      },
+      "note": "EMA rising over 3 bars",
+      "position_hash": "000c65474e34f1683f7c6dd1445738c13d8ae2d15b56601c4b2a88a786512409",
+      "seed": 6,
+      "spec_hash": "7a33820c87f0c245466424a2b73b1686cdbd0cb0881066a3a53caa919ed57ea4"
+    },
+    "session": {
+      "bars": 300,
+      "bundle_hash": "e9c6ccb703dab45ea783ce4e707a0f9163876b4527d29aba0823de94208e7cdb",
+      "files": {
+        "bundle.json": "44e58431d7272341af1a0dd3c87265d25475b9778b8fbe63493bf86a9cd08ad3",
+        "expected_trace.json": "13c787f0783bd5a625726108113c1b28ffd002db290f425075758891e735f7d7",
+        "ohlc.csv": "6505eaab33566c7a0222f81d0a2b45109fe8fd9ee42d07926f97c936bf78e569"
+      },
+      "note": "session 08-16",
+      "position_hash": "468395519a2faa5463f9ee80ffcbf3354d89ae482897f9420517f98e7c5a928e",
+      "seed": 12,
+      "spec_hash": "9eab31f4171a7dd983f1f8821f31e9e1b4d6e879c517d6b82039c973f8d4644c"
+    },
+    "trading_days": {
+      "bars": 300,
+      "bundle_hash": "fade4d9930d7957f53f206e0a561017d3d7525e7ace73022a2dfdc8b6da15d8d",
+      "files": {
+        "bundle.json": "696f645ed2c59b27bf93b1f4fc41bcda8592e1ca3ab2727f596f095d6f254f06",
+        "expected_trace.json": "1ada1d75a48c014bd5c3fda17f865561da3dfe8105c548bc6b61fe84f4329a29",
+        "ohlc.csv": "101b722dfdd44f2b7b6fd935d5fcb82002604222a33b5fc4a47d858414b9d80e"
+      },
+      "note": "Mon-Fri only",
+      "position_hash": "9212ec5ca09f68b429338c1cb689ff63eb824cd08a769fe4f35cc627285998c8",
+      "seed": 13,
+      "spec_hash": "aace766102c658778ee0a352e5fc2a6667318d385a08a20ff380cb49c3c38728"
+    },
+    "trail_be_time": {
+      "bars": 300,
+      "bundle_hash": "7415513f5f5059c7b38b4be703e35ae658672213b05906f788f77cc1e31c8583",
+      "files": {
+        "bundle.json": "39aba3e58fa9e90c7e951ff1b79c4c7873a0c14b8a64225c3d3cfe0242cd1336",
+        "expected_trace.json": "5e110568fbc191459cca5f42b80b2f90e4aa4fec17876f0e70995f8730d37201",
+        "ohlc.csv": "20ff782cfca1b1ba9cbd8bd4b89fb228db9e526ae0a58a3be47b203a08af9088"
+      },
+      "note": "trailing + breakeven + time exit geometry",
+      "position_hash": "b002a6cc45bd18c23a23733a32be17593c53c9f8110ead7c8e5a2329b3f73a94",
+      "seed": 11,
+      "spec_hash": "932844edaae03827d6d01fe3a6a2a7923736e43f543041053c8395f21d51f367"
+    },
+    "within": {
+      "bars": 300,
+      "bundle_hash": "d94baae340264afa2a8ac26fb7e8983ad115e69a958a9e2a63e1cc4033571ee2",
+      "files": {
+        "bundle.json": "53be1e520b0be7e3518766d4502f461d852f7cd2c60d3c3b2af6bba6f8ea221a",
+        "expected_trace.json": "70cbbf14b2f518b691e0747a66d6b666c6d5b5294e41dceb092f9a83898b67a6",
+        "ohlc.csv": "e3152ee5c97235c22432548706d99aafd492e7ec4ba34d67718b9c9179f5170e"
+      },
+      "note": "RSI within [40,60]",
+      "position_hash": "02bfe1388aca5ec17c3bd09a2d5844eeeb3ab7f749e1e2916c979080e38ca260",
+      "seed": 7,
+      "spec_hash": "5143c46582e76313d307f5191533e02f25dfb2440af8011fad0715f48eb69160"
+    }
+  },
+  "refusals": {
+    "ambiguous": "a spec with an unresolved {ambiguous:} value is not bundlable (build_bundle refuses; runtime never runs it)",
+    "hash_mismatch": "a tampered spec/identity fails the bundle_hash check",
+    "malformed_bundle": "a non-object / missing-identity envelope is refused",
+    "unknown_indicator": "a bundle whose spec references an unregistered indicator kind is refused by load_bundle"
+  },
+  "runtime_contract_version": "1.0"
+}

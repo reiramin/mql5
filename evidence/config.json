@@ -1,0 +1,28 @@
+{
+  "strategy": "ema_crossover",
+  "ea": "Experts\\Mql5Bot\\Mql5Bot.ex5",
+  "symbol": "EURUSD",
+  "timeframe": "H1",
+  "deposit": 10000.0,
+  "currency": "USD",
+  "leverage": 100,
+  "ea_inputs": {
+    "InpStrategy": 0,
+    "InpFastEma": 10,
+    "InpSlowEma": 30,
+    "InpRsiPeriod": 14
+  },
+  "min_trades": 100,
+  "spread_floor_pips": 0.0,
+  "slippage_tiers_pips": [
+    0.5,
+    1.0,
+    2.0,
+    3.0
+  ],
+  "degradation_band_pct": [
+    30.0,
+    50.0
+  ],
+  "manifest_id": "S5-CERT-20260918"
+}

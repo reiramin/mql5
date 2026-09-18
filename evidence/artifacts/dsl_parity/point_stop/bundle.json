@@ -1,0 +1,79 @@
+{
+  "bundle_format_version": "1.0",
+  "bundle_hash": "dbd6f291f6602d6cb6a918c55c17e6a861642d18edee7a22926260614c9a0e68",
+  "identity": {
+    "semantic_hash": "834e0955215567a944796432a6f4c5f651dca091a317161d7dbe7403b729e3ce",
+    "spec_hash": "49c3129cd02862da1216526dc76b8116abf6d055b2aedf2c4b087cdc43dad1eb",
+    "strategy_id": "point_stop",
+    "strategy_version": 1
+  },
+  "indicator_contracts": [
+    {
+      "kind": "EMA",
+      "mql5_status": "canonical-defined",
+      "version": 1
+    }
+  ],
+  "market": {
+    "symbol": "EURUSD",
+    "timeframe": "H1"
+  },
+  "runtime_contract_version": "1.0",
+  "schema_version": "1.0",
+  "spec": {
+    "entry": {
+      "long": {
+        "a": {
+          "ind": "ema_f"
+        },
+        "b": {
+          "ind": "ema_s"
+        },
+        "cross": "ABOVE"
+      },
+      "mode": "state",
+      "short": {
+        "a": {
+          "ind": "ema_f"
+        },
+        "b": {
+          "ind": "ema_s"
+        },
+        "cross": "BELOW"
+      }
+    },
+    "exit": {
+      "sl": {
+        "model": "points",
+        "points": 200.0
+      },
+      "tp": {
+        "model": "points",
+        "points": 400.0
+      }
+    },
+    "indicators": [
+      {
+        "applied": "close",
+        "id": "ema_f",
+        "kind": "EMA",
+        "period": 20.0
+      },
+      {
+        "applied": "close",
+        "id": "ema_s",
+        "kind": "EMA",
+        "period": 50.0
+      }
+    ],
+    "market": {
+      "session": null,
+      "symbol": "EURUSD",
+      "timeframe": "H1",
+      "trading_days": null
+    },
+    "schema_version": "1.0",
+    "strategy_id": "point_stop",
+    "version": 1
+  }
+}

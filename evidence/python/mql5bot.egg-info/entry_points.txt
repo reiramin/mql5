@@ -1,0 +1,2 @@
+[console_scripts]
+mql5bot = mql5bot.cli:main

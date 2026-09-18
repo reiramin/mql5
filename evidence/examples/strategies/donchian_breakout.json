@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "strategy_id": "donchian_breakout_ref",
+  "version": 1,
+  "name": "Donchian breakout (reference migration)",
+  "description": "Turtle channel: long when close exceeds the prior N-bar high, short when it falls below the prior N-bar low; position persists until the opposite break.",
+  "source": {
+    "type": "HUMAN",
+    "reference": "mql5bot.strategies.donchian_breakout"
+  },
+  "hypothesis": {
+    "statement": "Breakouts from the N-bar channel extend.",
+    "expected_regime": "TREND",
+    "expected_failure_regime": "RANGE",
+    "expected_holding_bars": [
+      10,
+      200
+    ],
+    "expected_trade_frequency": "low",
+    "risk_assumptions": "Wide ATR stop; whipsaw in ranges is the cost."
+  },
+  "market": {
+    "symbol": "XAUUSD",
+    "timeframe": "H1"
+  },
+  "indicators": [
+    {
+      "id": "chan",
+      "kind": "DONCHIAN",
+      "period": 20
+    }
+  ],
+  "entry": {
+    "mode": "state",
+    "long": {
+      "left": {
+        "price": "close"
+      },
+      "cmp": "GT",
+      "right": {
+        "ind": "chan__upper"
+      }
+    },
+    "short": {
+      "left": {
+        "price": "close"
+      },
+      "cmp": "LT",
+      "right": {
+        "ind": "chan__lower"
+      }
+    }
+  },
+  "exit": {
+    "sl": {
+      "model": "atr",
+      "mult": 2.0
+    },
+    "tp": {
+      "model": "atr",
+      "mult": 5.0
+    }
+  },
+  "filters": {},
+  "risk": {
+    "note": "Stops constrain trade geometry only; position risk is authorized solely by the Aegis Risk Engine."
+  },
+  "metadata": {
+    "regime_tags": [
+      "breakout",
+      "trend"
+    ],
+    "requires_codegen": false,
+    "missing_features": []
+  }
+}

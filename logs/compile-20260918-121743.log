@@ -1,0 +1,250 @@
+﻿# AEGIS compile run 20260918-121743 (UTC)
+# host: DESKTOP-G5R13SV  user: ramin
+# script: C:\Users\ramin\Desktop\mql5\mql5_gate_20260918-051621\tools\compile.ps1
+# repo root: C:\Users\ramin\Desktop\mql5\mql5_gate_20260918-051621
+# strict: True   skipInstall: False
+# ps: 5.1.19041.3031
+# metaeditor: C:\Program Files\MetaTrader 5\metaeditor64.exe
+# metaeditor version: 5.0.0.6184
+# data folder: C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075
+# installed: Include\Mql5Bot\Allocation.mqh
+# installed: Include\Mql5Bot\Config.mqh
+# installed: Include\Mql5Bot\DslBundle.mqh
+# installed: Include\Mql5Bot\DslCanon.mqh
+# installed: Include\Mql5Bot\DslExecution.mqh
+# installed: Include\Mql5Bot\DslIndicators.mqh
+# installed: Include\Mql5Bot\DslJson.mqh
+# installed: Include\Mql5Bot\DslRuntime.mqh
+# installed: Include\Mql5Bot\DslSeries.mqh
+# installed: Include\Mql5Bot\Logger.mqh
+# installed: Include\Mql5Bot\MagicMap.mqh
+# installed: Include\Mql5Bot\PositionGuard.mqh
+# installed: Include\Mql5Bot\RetryQueue.mqh
+# installed: Include\Mql5Bot\RiskManager.mqh
+# installed: Include\Mql5Bot\Session.mqh
+# installed: Include\Mql5Bot\SignalEngine.mqh
+# installed: Include\Mql5Bot\SlGuard.mqh
+# installed: Include\Mql5Bot\StateStore.mqh
+# installed: Include\Mql5Bot\SymbolSpec.mqh
+# installed: Include\Mql5Bot\Telemetry.mqh
+# installed: Include\Mql5Bot\TradeManager.mqh
+# installed: Experts\Mql5Bot\Mql5Bot.mq5
+# installed: Scripts\Mql5Bot\DslParityRunner.mq5
+# installed: Scripts\Mql5Bot\Mql5BotDownloadData.mq5
+# installed: Scripts\Mql5Bot\Mql5BotExportSymbolSpec.mq5
+# installed: Presets\Mql5Bot\bollinger_reversal.set
+# installed: Presets\Mql5Bot\donchian_breakout.set
+# installed: Presets\Mql5Bot\ema_crossover.set
+# installed: Presets\Mql5Bot\macd_momentum.set
+# installed: Presets\Mql5Bot\rsi_reversal.set
+
+# compiling: C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5
+[compile] Mql5Bot.mq5 : PASS (exit 1, ex5 fresh=True)
+----- compiler log (Mql5Bot.mq5) -----
+
+
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: compiling C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\Config.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\Logger.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\Allocation.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\Session.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\SymbolSpec.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\StateStore.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\MagicMap.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\RiskManager.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\RetryQueue.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\TradeManager.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\PositionGuard.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\SlGuard.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\SignalEngine.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslExecution.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslExecution.mqh : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslJson.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslExecution.mqh : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslBundle.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslBundle.mqh : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslCanon.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslExecution.mqh : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslSeries.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslSeries.mqh : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslIndicators.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslSeries.mqh : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslRuntime.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\Mql5Bot\Mql5Bot.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\Telemetry.mqh
+ : information: generating code
+ : information: generating code 3%
+ : information: generating code 6%
+ : information: generating code 9%
+ : information: generating code 12%
+ : information: generating code 15%
+ : information: generating code 18%
+ : information: generating code 21%
+ : information: generating code 24%
+ : information: generating code 27%
+ : information: generating code 30%
+ : information: generating code 33%
+ : information: generating code 36%
+ : information: generating code 39%
+ : information: generating code 42%
+ : information: generating code 45%
+ : information: generating code 48%
+ : information: generating code 51%
+ : information: generating code 54%
+ : information: generating code 57%
+ : information: generating code 60%
+ : information: generating code 63%
+ : information: generating code 66%
+ : information: generating code 69%
+ : information: generating code 72%
+ : information: generating code 75%
+ : information: generating code 78%
+ : information: generating code 81%
+ : information: generating code 84%
+ : information: generating code 87%
+ : information: generating code 90%
+ : information: generating code 93%
+ : information: generating code 95%
+ : information: generating code 100%
+ : information: code generated
+Result: 0 errors, 0 warnings, 3859 ms elapsed, cpu='X64 Regular'
+
+
+# compiling: C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\DslParityRunner.mq5
+[compile] DslParityRunner.mq5 : PASS (exit 1, ex5 fresh=True)
+----- compiler log (DslParityRunner.mq5) -----
+
+
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\DslParityRunner.mq5 : information: compiling C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\DslParityRunner.mq5
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\DslParityRunner.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslJson.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\DslParityRunner.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslCanon.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\DslParityRunner.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslBundle.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\DslParityRunner.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslIndicators.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\DslParityRunner.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslRuntime.mqh
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\DslParityRunner.mq5 : information: including C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Include\Mql5Bot\DslSeries.mqh
+ : information: generating code
+ : information: generating code 3%
+ : information: generating code 6%
+ : information: generating code 9%
+ : information: generating code 12%
+ : information: generating code 15%
+ : information: generating code 18%
+ : information: generating code 21%
+ : information: generating code 24%
+ : information: generating code 27%
+ : information: generating code 30%
+ : information: generating code 33%
+ : information: generating code 36%
+ : information: generating code 39%
+ : information: generating code 42%
+ : information: generating code 45%
+ : information: generating code 48%
+ : information: generating code 51%
+ : information: generating code 54%
+ : information: generating code 57%
+ : information: generating code 60%
+ : information: generating code 63%
+ : information: generating code 66%
+ : information: generating code 69%
+ : information: generating code 72%
+ : information: generating code 75%
+ : information: generating code 78%
+ : information: generating code 81%
+ : information: generating code 84%
+ : information: generating code 87%
+ : information: generating code 90%
+ : information: generating code 93%
+ : information: generating code 95%
+ : information: generating code 100%
+ : information: code generated
+Result: 0 errors, 0 warnings, 2415 ms elapsed, cpu='X64 Regular'
+
+
+# compiling: C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\Mql5BotDownloadData.mq5
+[compile] Mql5BotDownloadData.mq5 : PASS (exit 1, ex5 fresh=True)
+----- compiler log (Mql5BotDownloadData.mq5) -----
+
+
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\Mql5BotDownloadData.mq5 : information: compiling C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\Mql5BotDownloadData.mq5
+ : information: generating code
+ : information: generating code 3%
+ : information: generating code 6%
+ : information: generating code 9%
+ : information: generating code 12%
+ : information: generating code 15%
+ : information: generating code 18%
+ : information: generating code 21%
+ : information: generating code 24%
+ : information: generating code 27%
+ : information: generating code 30%
+ : information: generating code 33%
+ : information: generating code 36%
+ : information: generating code 39%
+ : information: generating code 42%
+ : information: generating code 45%
+ : information: generating code 48%
+ : information: generating code 51%
+ : information: generating code 54%
+ : information: generating code 57%
+ : information: generating code 60%
+ : information: generating code 63%
+ : information: generating code 66%
+ : information: generating code 69%
+ : information: generating code 72%
+ : information: generating code 75%
+ : information: generating code 78%
+ : information: generating code 81%
+ : information: generating code 84%
+ : information: generating code 87%
+ : information: generating code 90%
+ : information: generating code 93%
+ : information: generating code 95%
+ : information: generating code 100%
+ : information: code generated
+Result: 0 errors, 0 warnings, 508 ms elapsed, cpu='X64 Regular'
+
+
+# compiling: C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\Mql5BotExportSymbolSpec.mq5
+[compile] Mql5BotExportSymbolSpec.mq5 : PASS (exit 1, ex5 fresh=True)
+----- compiler log (Mql5BotExportSymbolSpec.mq5) -----
+
+
+C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\Mql5BotExportSymbolSpec.mq5 : information: compiling C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Scripts\Mql5Bot\Mql5BotExportSymbolSpec.mq5
+ : information: generating code
+ : information: generating code 3%
+ : information: generating code 6%
+ : information: generating code 9%
+ : information: generating code 12%
+ : information: generating code 15%
+ : information: generating code 18%
+ : information: generating code 21%
+ : information: generating code 24%
+ : information: generating code 27%
+ : information: generating code 30%
+ : information: generating code 33%
+ : information: generating code 36%
+ : information: generating code 39%
+ : information: generating code 42%
+ : information: generating code 45%
+ : information: generating code 48%
+ : information: generating code 51%
+ : information: generating code 54%
+ : information: generating code 57%
+ : information: generating code 60%
+ : information: generating code 63%
+ : information: generating code 66%
+ : information: generating code 69%
+ : information: generating code 72%
+ : information: generating code 75%
+ : information: generating code 78%
+ : information: generating code 81%
+ : information: generating code 84%
+ : information: generating code 87%
+ : information: generating code 90%
+ : information: generating code 93%
+ : information: generating code 95%
+ : information: generating code 100%
+ : information: code generated
+Result: 0 errors, 0 warnings, 743 ms elapsed, cpu='X64 Regular'
+
+
+===== summary =====
+[compile] RESULT: PASS -- 4 file(s) compiled clean
+  Mql5Bot.mq5  ex5=EC315463908AD68D740C4D4D72C0E70FE7400D70EBBF3749E24F847DE2777309
+  DslParityRunner.mq5  ex5=790B78C7E0B3548BB2CBCC0705D772F2D8344350C8CC88835F0242B35A596F14
+  Mql5BotDownloadData.mq5  ex5=7710FB07288B3650FE42AAA93D79AB4D8B1207F2FD2DF93089F909BB48E47A35
+  Mql5BotExportSymbolSpec.mq5  ex5=477B4CEB21CA5861160CB61305A3BBA0AA5DC540A4AE019365E585A2270F4AEC
+# combined log: C:\Users\ramin\Desktop\mql5\mql5_gate_20260918-051621\logs\compile-20260918-121743.log

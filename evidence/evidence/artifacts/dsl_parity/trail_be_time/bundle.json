@@ -1,0 +1,78 @@
+{
+  "bundle_format_version": "1.0",
+  "bundle_hash": "7415513f5f5059c7b38b4be703e35ae658672213b05906f788f77cc1e31c8583",
+  "identity": {
+    "semantic_hash": "0d6ffd6c5b852a1bb36fbc2eb5ee3fa5f840af6953166cd20e54a9c6962078f8",
+    "spec_hash": "932844edaae03827d6d01fe3a6a2a7923736e43f543041053c8395f21d51f367",
+    "strategy_id": "trail_be_time",
+    "strategy_version": 1
+  },
+  "indicator_contracts": [
+    {
+      "kind": "EMA",
+      "mql5_status": "canonical-defined",
+      "version": 1
+    }
+  ],
+  "market": {
+    "symbol": "EURUSD",
+    "timeframe": "H1"
+  },
+  "runtime_contract_version": "1.0",
+  "schema_version": "1.0",
+  "spec": {
+    "entry": {
+      "long": {
+        "a": {
+          "ind": "ema_f"
+        },
+        "b": {
+          "ind": "ema_s"
+        },
+        "cross": "ABOVE"
+      },
+      "mode": "state",
+      "short": {
+        "a": {
+          "ind": "ema_f"
+        },
+        "b": {
+          "ind": "ema_s"
+        },
+        "cross": "BELOW"
+      }
+    },
+    "exit": {
+      "breakeven_atr": 1.0,
+      "sl": {
+        "model": "atr",
+        "mult": 2.0
+      },
+      "time_bars": 24.0,
+      "trail_atr": 1.5
+    },
+    "indicators": [
+      {
+        "applied": "close",
+        "id": "ema_f",
+        "kind": "EMA",
+        "period": 20.0
+      },
+      {
+        "applied": "close",
+        "id": "ema_s",
+        "kind": "EMA",
+        "period": 50.0
+      }
+    ],
+    "market": {
+      "session": null,
+      "symbol": "EURUSD",
+      "timeframe": "H1",
+      "trading_days": null
+    },
+    "schema_version": "1.0",
+    "strategy_id": "trail_be_time",
+    "version": 1
+  }
+}

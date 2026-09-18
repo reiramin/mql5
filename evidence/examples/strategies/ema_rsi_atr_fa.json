@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "strategy_id": "ema_rsi_atr_fa",
+  "version": 1,
+  "name": "EMA-RSI-ATR (مثال فارسی)",
+  "description": "وقتی EMA20 بالای EMA50 کراس کرد و RSI بالای 55 بود خرید کن؛ حد ضرر 1.5 ATR و تارگت 3 ATR.",
+  "source": {
+    "type": "USER_TEXT",
+    "reference": "owner description (FA)",
+    "notes": "Persian intake normalizes to the same canonical semantics as the English example."
+  },
+  "hypothesis": {
+    "statement": "همگرایی EMA با تایید RSI روند را دریافت می‌کند.",
+    "expected_regime": "TREND_UP",
+    "expected_failure_regime": "RANGE"
+  },
+  "market": {
+    "symbol": "EURUSD",
+    "timeframe": "H1"
+  },
+  "indicators": [
+    {
+      "id": "ema_f",
+      "kind": "EMA",
+      "period": 20,
+      "applied": "close"
+    },
+    {
+      "id": "ema_s",
+      "kind": "EMA",
+      "period": 50,
+      "applied": "close"
+    },
+    {
+      "id": "rsi_m",
+      "kind": "RSI",
+      "period": 14,
+      "applied": "close"
+    }
+  ],
+  "entry": {
+    "mode": "state",
+    "long": {
+      "and": [
+        {
+          "cross": "ABOVE",
+          "a": {
+            "ind": "ema_f"
+          },
+          "b": {
+            "ind": "ema_s"
+          }
+        },
+        {
+          "left": {
+            "ind": "rsi_m"
+          },
+          "cmp": "GT",
+          "right": {
+            "const": 55
+          }
+        }
+      ]
+    },
+    "short": {
+      "cross": "BELOW",
+      "a": {
+        "ind": "ema_f"
+      },
+      "b": {
+        "ind": "ema_s"
+      }
+    }
+  },
+  "exit": {
+    "sl": {
+      "model": "atr",
+      "mult": 1.5
+    },
+    "tp": {
+      "model": "atr",
+      "mult": 3.0
+    }
+  },
+  "filters": {},
+  "risk": {
+    "note": "Stops constrain trade geometry only; position risk is authorized solely by the Aegis Risk Engine."
+  },
+  "metadata": {
+    "regime_tags": [
+      "trend"
+    ],
+    "requires_codegen": false,
+    "missing_features": []
+  }
+}
