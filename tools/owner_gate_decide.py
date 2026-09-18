@@ -58,6 +58,10 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("classify", help="mismatch class of a field")
     p.add_argument("field")
 
+    p = sub.add_parser("clone-preflight",
+                       help="refuse by name if a fresh-clone target exists")
+    p.add_argument("dir", help="the intended clone/working-copy directory")
+
     args = ap.parse_args(argv)
     repo = Path(args.repo).resolve()
 
@@ -89,6 +93,9 @@ def main(argv: list[str] | None = None) -> int:
                               "classification": gs.classify_field(args.field)},
                              indent=2, sort_keys=True))
             return 0
+
+        if args.cmd == "clone-preflight":
+            return _emit(gs.clone_target_status(args.dir))
     except (OSError, ValueError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2

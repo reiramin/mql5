@@ -173,12 +173,165 @@ def test_run_self_protection_reports_first_named_failure(repo: Path):
     assert res["checks"][0]["ok"] is True  # untampered passed first
 
 
-def test_run_self_protection_on_live_repo_aborts_head_mismatch():
-    """The real repo is mid re-anchor (frozen pins 227bf66, HEAD is the
-    4257f1e line): self-protection MUST abort, never silently pass."""
-    res = gs.run_self_protection(REPO)
+def test_live_repo_head_relates_to_anchor_not_a_hard_abort():
+    """After the 2026-09-18 re-anchor the frozen anchor (a85cba3) is a real
+    commit on master, and HEAD is that commit or a descendant of it. The
+    head-relation check must therefore PASS (exact or ahead-of-anchor) --
+    the stale-anchor hard abort is gone. It never silently accepts an older
+    or diverged HEAD; that is covered by the ancestry tests below."""
+    frozen = json.loads((REPO / gs.FROZEN_REL).read_text(encoding="utf-8"))
+    res = gs.verify_head_matches_frozen(REPO, frozen)
+    assert res["ok"], res
+    assert res["reason"] in (gs.SELF_PROTECT_OK,
+                             gs.SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR)
+
+
+# ---------------------------------------------------------------------------
+# stage A -- HEAD/anchor ANCESTRY semantics (re-anchor fix): a newer clean
+# commit passes; an older, diverged or unknown-anchor HEAD fails.
+# ---------------------------------------------------------------------------
+
+def test_head_newer_than_anchor_passes_with_note(repo: Path):
+    # anchor = the current commit; add a NEWER descendant commit as HEAD
+    anchor = _git(repo, "rev-parse", "HEAD").strip()
+    (repo / "note.txt").write_text("newer\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "newer clean commit")
+    frozen = {"source": {"commit": anchor}}
+    res = gs.verify_head_matches_frozen(repo, frozen)
+    assert res["ok"], res
+    assert res["reason"] == gs.SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR
+    assert res["anchor"] == anchor and res["head"] != anchor
+
+
+def test_head_older_than_anchor_fails(repo: Path):
+    older = _git(repo, "rev-parse", "HEAD").strip()
+    (repo / "note.txt").write_text("newer\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "newer")
+    newer = _git(repo, "rev-parse", "HEAD").strip()
+    _git(repo, "checkout", "-q", older)  # HEAD now OLDER than the anchor
+    frozen = {"source": {"commit": newer}}
+    res = gs.verify_head_matches_frozen(repo, frozen)
     assert not res["ok"]
     assert res["reason"] == gs.SELF_PROTECT_HEAD_MISMATCH
+    assert "OLDER" in res["detail"]
+
+
+def test_head_diverged_from_anchor_fails(repo: Path):
+    base = _git(repo, "rev-parse", "HEAD").strip()
+    _git(repo, "checkout", "-q", "-b", "anchor_branch")
+    (repo / "a.txt").write_text("a\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "a")
+    anchor = _git(repo, "rev-parse", "HEAD").strip()
+    _git(repo, "checkout", "-q", base)
+    _git(repo, "checkout", "-q", "-b", "head_branch")
+    (repo / "b.txt").write_text("b\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "b")
+    frozen = {"source": {"commit": anchor}}  # no ancestry to HEAD
+    res = gs.verify_head_matches_frozen(repo, frozen)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_HEAD_MISMATCH
+    assert "diverged" in res["detail"]
+
+
+def test_head_unknown_anchor_fails(repo: Path):
+    frozen = {"source": {"commit": "0" * 40}}  # anchor absent from this clone
+    res = gs.verify_head_matches_frozen(repo, frozen)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_HEAD_MISMATCH
+    assert "not present in this clone" in res["detail"]
+
+
+def test_run_self_protection_passes_when_head_descends_from_anchor(repo: Path):
+    """Full stage-A run: re-anchor the committed frozen_inputs to the current
+    commit, then land a newer clean commit. HEAD descends from the anchor and
+    every frozen artifact is byte-identical -> the WHOLE self-protection
+    PASSES with a NOTE. Proves a legitimate newer commit is not a hard abort
+    (the exact stage-0 bug this replaces)."""
+    anchor = _git(repo, "rev-parse", "HEAD").strip()
+    fp = repo / gs.FROZEN_REL
+    doc = json.loads(fp.read_text())
+    doc["source"]["commit"] = anchor  # anchor = the PARENT of the next commit
+    fp.write_text(json.dumps(doc, indent=2) + "\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "re-anchor to self, add newer commit")
+    res = gs.run_self_protection(repo)
+    assert res["ok"], res
+    assert res["reason"] == gs.SELF_PROTECT_OK
+    assert any("newer than" in n for n in res["notes"]), res["notes"]
+
+
+def test_run_self_protection_still_aborts_on_dirty_tree(repo: Path):
+    # even at the exact anchor, an uncommitted edit fails closed (unchanged)
+    anchor = _git(repo, "rev-parse", "HEAD").strip()
+    fp = repo / gs.FROZEN_REL
+    doc = json.loads(fp.read_text())
+    doc["source"]["commit"] = anchor
+    fp.write_text(json.dumps(doc, indent=2) + "\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "re-anchor")
+    (repo / "artifacts" / "gold" / "manifest.json").write_text(
+        (repo / "artifacts" / "gold" / "manifest.json").read_text() + "\n")
+    res = gs.run_self_protection(repo)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_DIRTY_TREE
+
+
+def test_run_self_protection_still_aborts_on_tampered_frozen_artifact(repo: Path):
+    # a changed frozen artifact fails closed even when HEAD descends cleanly
+    anchor = _git(repo, "rev-parse", "HEAD").strip()
+    fx = repo / "artifacts" / "gold" / "gold_fixture.csv"
+    data = bytearray(fx.read_bytes())
+    data[-2] ^= 0x01
+    fx.write_bytes(bytes(data))
+    fp = repo / gs.FROZEN_REL
+    doc = json.loads(fp.read_text())
+    doc["source"]["commit"] = anchor
+    fp.write_text(json.dumps(doc, indent=2) + "\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "re-anchor + tamper fixture")
+    res = gs.run_self_protection(repo)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_FROZEN_HASH_MISMATCH
+
+
+# ---------------------------------------------------------------------------
+# stage A -- fresh-clone target preflight (the real-world snag: the intended
+# clone directory already exists -> name it and exit, never move it by hand)
+# ---------------------------------------------------------------------------
+
+def test_clone_target_missing_is_safe(tmp_path: Path):
+    res = gs.clone_target_status(tmp_path / "fresh")
+    assert res["ok"] and res["reason"] == gs.SELF_PROTECT_OK
+
+
+def test_clone_target_empty_dir_is_safe(tmp_path: Path):
+    d = tmp_path / "empty"
+    d.mkdir()
+    res = gs.clone_target_status(d)
+    assert res["ok"]
+
+
+def test_clone_target_nonempty_dir_refused_by_name(tmp_path: Path):
+    d = tmp_path / "mql5bot"
+    d.mkdir()
+    (d / ".git").mkdir()  # a stale prior clone
+    res = gs.clone_target_status(d)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_CLONE_TARGET_EXISTS
+    assert "mql5bot" in res["detail"]  # named, not a bare "already exists"
+    assert str(d) == res["path"]
+
+
+def test_clone_target_existing_file_refused(tmp_path: Path):
+    f = tmp_path / "mql5bot"
+    f.write_text("x")
+    res = gs.clone_target_status(f)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_CLONE_TARGET_EXISTS
 
 
 # ---------------------------------------------------------------------------
@@ -428,6 +581,23 @@ def test_ps1_stage3_applies_the_btc_pending_scope_rule():
     src = _ps1()
     assert "broker-scope" in src
     assert "pending_excluded_crypto" in src
+
+
+def test_ps1_guards_an_existing_clone_target():
+    src = _ps1()
+    # the fresh-clone preflight is delegated to committed Python and is opt-in
+    assert "-CloneInto" in src or "CloneInto" in src
+    assert "clone-preflight" in src
+
+
+def test_ps1_surfaces_the_head_ahead_of_anchor_note():
+    src = _ps1()
+    # a newer descendant HEAD is a PASS-with-NOTE, not an abort: the .ps1 must
+    # read the decision's notes and print them, and must no longer hard-assert
+    # "HEAD==frozen" as its only pass reason
+    assert "notes" in src
+    assert "NOTE" in src
+    assert "HEAD==frozen, tree clean" not in src
 
 
 # ---------------------------------------------------------------------------

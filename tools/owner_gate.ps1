@@ -39,7 +39,12 @@ param(
     [string]$DataFolder = "",
     [switch]$Portable,
     [string]$SymbolSpecExport = "",
-    [int]$TimeoutSec = 3600
+    [int]$TimeoutSec = 3600,
+    # Optional: the directory the owner intends to be a FRESH clean-room clone.
+    # If it already exists (non-empty), the gate names it and exits cleanly
+    # instead of letting a later `git clone` fail deep in its own machinery and
+    # leaving the owner to move directories by hand.
+    [string]$CloneInto = ""
 )
 
 Set-StrictMode -Version 2.0
@@ -171,11 +176,31 @@ Write-Host "[owner-gate] evidence dir: $Evidence"
 # =====================================================================
 # STAGE A -- self-protection (abort with a NAMED reason)
 # =====================================================================
+# 0. optional fresh-clone preflight: if the owner named a clone target that
+#    already exists, say so BY NAME and stop -- never leave a `git clone` to
+#    fail deep in its own machinery, never move the owner's directory for them.
+if ($CloneInto) {
+    $cp = Invoke-Decide @("clone-preflight", $CloneInto)
+    if (-not $cp.ok) {
+        $reason = if ($cp.data) { "{0}: {1}" -f $cp.data.reason, $cp.data.detail } else { "SELF_PROTECT_CLONE_TARGET_EXISTS: $CloneInto" }
+        Record-Stage 0 "self_protection" "FAIL" $reason @((New-Artifact $cp.raw)) | Out-Null
+        Finish-Gate "self_protection"
+    }
+    Write-Host ("[owner-gate] clone target OK: {0}" -f ($cp.data.detail)) -ForegroundColor Green
+}
+
 $sp = Invoke-Decide @("self-protection")
 if (-not $sp.ok) {
     $reason = if ($sp.data) { "{0}: {1}" -f $sp.data.reason, $sp.data.detail } else { "self-protection could not run" }
     Record-Stage 0 "self_protection" "FAIL" $reason @((New-Artifact $sp.raw)) | Out-Null
     Finish-Gate "self_protection"
+}
+# non-fatal self-protection NOTES (e.g. HEAD is a newer commit that descends
+# from the frozen anchor after a re-anchor) -- a PASS the operator should see.
+$spNotes = ""
+if ($sp.data -and ($sp.data.PSObject.Properties.Name -contains "notes") -and $sp.data.notes) {
+    $spNotes = ($sp.data.notes -join "; ")
+    Write-Host ("[owner-gate] NOTE: {0}" -f $spNotes) -ForegroundColor Cyan
 }
 # locate the toolchain (Windows only); missing exe is a named abort
 $TerminalPath = Find-Exe "terminal64.exe" $TerminalPath "MQL5BOT_TERMINAL"
@@ -193,7 +218,9 @@ if (-not $DataFolder -or -not (Test-Path -LiteralPath (Join-Path $DataFolder "MQ
     Record-Stage 0 "self_protection" "FAIL" "SELF_PROTECT_DATA_FOLDER: MT5 data folder unknown or has no MQL5\ (pass -DataFolder or set MQL5BOT_DATA_FOLDER)" @() | Out-Null
     Finish-Gate "self_protection"
 }
-Record-Stage 0 "self_protection" "PASS" "HEAD==frozen, tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located" @((New-Artifact $sp.raw)) | Out-Null
+$spPass = "HEAD relates to the frozen anchor (== or newer descendant), tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located"
+if ($spNotes) { $spPass = "{0}. NOTE: {1}" -f $spPass, $spNotes }
+Record-Stage 0 "self_protection" "PASS" $spPass @((New-Artifact $sp.raw)) | Out-Null
 
 # =====================================================================
 # STAGE 1 -- strict compile (decision from the LOG, not the exit code)

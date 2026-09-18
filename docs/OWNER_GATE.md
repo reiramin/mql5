@@ -29,12 +29,20 @@ All output lands under `evidence\owner_gate\<UTC>\`, append-only: one
 
 ## Stages (stop at the first FAIL)
 
-- **A. Self-protection** — aborts with a NAMED reason unless: `HEAD` equals
-  the frozen `source.commit`; the working tree is clean; `core.autocrlf` is
-  not `true`/`input`; `frozen_inputs.json` is byte-identical to its committed
-  blob (no hand-written record); every frozen hash matches the committed
-  bytes; the dsl-parity manifest binds and all 42 files verify; and
-  `terminal64.exe` / `metaeditor64.exe` are located.
+- **A. Self-protection** — aborts with a NAMED reason unless: `HEAD` relates
+  to the frozen `source.commit` acceptably (it equals the anchor, or is a
+  clean **descendant** of it — a legitimate newer commit, recorded as a NOTE,
+  never a hard abort; an **older**, **diverged**, or **unknown** anchor
+  fails); the working tree is clean; `core.autocrlf` is not `true`/`input`;
+  `frozen_inputs.json` is byte-identical to its committed blob (no
+  hand-written record); every frozen hash matches the committed bytes; the
+  dsl-parity manifest binds and all 42 files verify; and `terminal64.exe` /
+  `metaeditor64.exe` are located. What is certified is that the frozen
+  ARTIFACTS are byte-unchanged and the tree is clean, not that `HEAD` is one
+  historical SHA. Optionally, pass `-CloneInto <dir>` and the gate refuses by
+  name up front if that fresh-clone directory already exists, rather than
+  letting a later `git clone` fail and leaving you to move directories by
+  hand.
 - **1. Strict compile** — runs `compile.ps1 -Strict`, decodes the LOG
   BOM-aware (owner logs are UTF-16 or UTF-8-BOM), and requires `0 errors, 0
   warnings` with every compiled target the repo ships reported clean. The
@@ -78,10 +86,19 @@ them.
 
 ## Re-anchor note
 
-The frozen record and `HEAD` are governed by an owner-authority re-anchor
-(see `artifacts/owner_mt5_gate/frozen_inputs.json` `source.note`). While they
-disagree, stage A aborts with `SELF_PROTECT_HEAD_MISMATCH` — by design. The
-owner performs the re-anchor; the gate never does.
+The frozen record is governed by an owner-authority re-anchor (see
+`artifacts/owner_mt5_gate/frozen_inputs.json` `source.note` and the
+`docs/DECISIONS.md` 2026-09-18 entry). The anchor is now `a85cba3` — the
+227bf66 anchor predated the generic DSL runtime, the reserved-word compile
+fix and the P0-1 sizing fix (`4257f1e`), so it could never be the commit to
+run. Stage A no longer requires `HEAD` to equal the anchor: a clean `HEAD`
+that **descends** from the anchor, with every frozen artifact byte-identical,
+PASSES with a recorded NOTE (`SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR`). Only an
+**older** HEAD, a **diverged** HEAD, an **unknown** anchor, a changed frozen
+artifact, a dirty tree, or `core.autocrlf=true/input` fails
+(`SELF_PROTECT_HEAD_MISMATCH` / `SELF_PROTECT_FROZEN_HASH_MISMATCH` /
+`SELF_PROTECT_DIRTY_TREE` / `SELF_PROTECT_AUTOCRLF_NOT_FALSE`). The owner
+performs any re-anchor; the gate never writes `frozen_inputs.json`.
 
 ## Verifying the decision engine on any host
 

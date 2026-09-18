@@ -48,11 +48,17 @@ except ImportError:  # pragma: no cover - owner_gate always importable in-repo
 SELF_PROTECT_OK = "SELF_PROTECT_OK"
 SELF_PROTECT_FROZEN_INPUTS_TAMPERED = "SELF_PROTECT_FROZEN_INPUTS_TAMPERED"
 SELF_PROTECT_HEAD_MISMATCH = "SELF_PROTECT_HEAD_MISMATCH"
+# HEAD is a legitimate NEWER commit that descends from the frozen anchor and
+# every frozen artifact still matches: a PASS with a recorded NOTE, never an
+# abort. (Re-anchor semantics: what is certified is the frozen ARTIFACTS being
+# byte-unchanged and the tree clean, not that HEAD equals one historical SHA.)
+SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR = "SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR"
 SELF_PROTECT_DIRTY_TREE = "SELF_PROTECT_DIRTY_TREE"
 SELF_PROTECT_AUTOCRLF_NOT_FALSE = "SELF_PROTECT_AUTOCRLF_NOT_FALSE"
 SELF_PROTECT_FROZEN_HASH_MISMATCH = "SELF_PROTECT_FROZEN_HASH_MISMATCH"
 SELF_PROTECT_DSL_PARITY_BINDING = "SELF_PROTECT_DSL_PARITY_BINDING"
 SELF_PROTECT_FROZEN_INPUTS_UNREADABLE = "SELF_PROTECT_FROZEN_INPUTS_UNREADABLE"
+SELF_PROTECT_CLONE_TARGET_EXISTS = "SELF_PROTECT_CLONE_TARGET_EXISTS"
 
 FROZEN_REL = "artifacts/owner_mt5_gate/frozen_inputs.json"
 DSL_MANIFEST_REL = "artifacts/dsl_parity/manifest.json"
@@ -325,18 +331,68 @@ def verify_frozen_inputs_untampered(repo: Path | str, runner=None) -> dict:
 
 def verify_head_matches_frozen(repo: Path | str, frozen: dict,
                                runner=None) -> dict:
+    """Relate HEAD to the frozen anchor by ANCESTRY, not string equality.
+
+    What certification actually rests on is that the frozen ARTIFACTS are
+    byte-unchanged (``verify_frozen_hashes``) and the tree is clean, not that
+    HEAD equals one historical SHA. So:
+
+      * HEAD == anchor .................... PASS (exact, strongest case)
+      * anchor is an ancestor of HEAD ..... PASS with a NOTE (HEAD is a
+        legitimate NEWER commit; the frozen artifacts are what is verified)
+      * HEAD is an ancestor of the anchor . FAIL (HEAD is OLDER than the
+        anchor -- the anchor names a newer commit)
+      * neither is an ancestor of the other FAIL (diverged history)
+      * anchor absent from this clone ..... FAIL (cannot prove descent)
+      * no source.commit .................. FAIL
+
+    A newer clean commit is therefore NOT a hard abort (the stage-0 bug this
+    replaces): only a genuinely wrong tree -- older, diverged, or unknown
+    anchor -- fails.
+    """
     repo = Path(repo)
     head = _git(repo, ["rev-parse", "HEAD"], runner).stdout.strip()
     want = str(frozen.get("source", {}).get("commit", "")).strip()
     if not want:
         return {"ok": False, "reason": SELF_PROTECT_HEAD_MISMATCH,
-                "detail": "frozen_inputs has no source.commit"}
-    if head.lower() != want.lower():
+                "detail": "frozen_inputs has no source.commit",
+                "head": head, "anchor": ""}
+    if head.lower() == want.lower():
+        return {"ok": True, "reason": SELF_PROTECT_OK, "detail": head,
+                "head": head, "anchor": head}
+    # The anchor must be a real commit IN THIS clone or ancestry is unknowable
+    # (a squashed/foreign SHA can never be trusted to relate to HEAD).
+    verify = _git(repo, ["rev-parse", "--verify", "--quiet",
+                         want + "^{commit}"], runner)
+    anchor_full = verify.stdout.strip()
+    if verify.returncode != 0 or not anchor_full:
         return {"ok": False, "reason": SELF_PROTECT_HEAD_MISMATCH,
-                "detail": f"HEAD {head} != frozen source.commit {want} "
-                          "(check out the frozen commit, or the owner must "
-                          "re-anchor frozen_inputs.json first)"}
-    return {"ok": True, "reason": SELF_PROTECT_OK, "detail": head}
+                "detail": f"HEAD {head} != frozen source.commit {want}, and "
+                          f"the anchor {want} is not present in this clone "
+                          "(cannot prove HEAD descends from it; re-clone the "
+                          "anchored history or re-anchor frozen_inputs.json)",
+                "head": head, "anchor": want}
+    if _git(repo, ["merge-base", "--is-ancestor", want, "HEAD"],
+            runner).returncode == 0:
+        # anchor is reachable from HEAD -> HEAD is a legitimate newer commit
+        return {"ok": True, "reason": SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR,
+                "detail": f"HEAD {head} is newer than and descends from the "
+                          f"frozen anchor {anchor_full}; the frozen artifacts "
+                          "(verified separately) are what is certified, not "
+                          "the SHA",
+                "head": head, "anchor": anchor_full}
+    if _git(repo, ["merge-base", "--is-ancestor", "HEAD", want],
+            runner).returncode == 0:
+        return {"ok": False, "reason": SELF_PROTECT_HEAD_MISMATCH,
+                "detail": f"HEAD {head} is OLDER than the frozen anchor "
+                          f"{anchor_full} (the anchor names a newer commit; "
+                          "check out the anchor or a descendant of it)",
+                "head": head, "anchor": anchor_full}
+    return {"ok": False, "reason": SELF_PROTECT_HEAD_MISMATCH,
+            "detail": f"HEAD {head} and the frozen anchor {anchor_full} have "
+                      "diverged (no ancestor/descendant relation; wrong branch "
+                      "or rewritten history)",
+            "head": head, "anchor": anchor_full}
 
 
 def verify_clean_tree(repo: Path | str, runner=None) -> dict:
@@ -445,6 +501,47 @@ def verify_dsl_parity_binding(repo: Path | str) -> dict:
             "detail": f"{bound} bound files verified"}
 
 
+def clone_target_status(path: Path | str) -> dict:
+    """Decide whether ``path`` is safe to be a fresh clone target.
+
+    The owner's real-world snag: the gate is meant to run from a clean-room
+    checkout, but if the intended clone directory already exists ``git clone``
+    fails deep in its own machinery ("destination path already exists and is
+    not an empty directory"), leaving the owner to move directories by hand.
+    This names the offending path up front so the .ps1 can refuse cleanly.
+
+    ok  -> the path is absent, or an empty directory (git clone would succeed)
+    not -> the path already exists with content (a file, or a non-empty dir)
+    """
+    p = Path(path)
+    full = str(p if p.is_absolute() else p.resolve())
+    if not p.exists():
+        return {"ok": True, "reason": SELF_PROTECT_OK,
+                "detail": f"clone target {full} does not exist (safe to clone)",
+                "path": full}
+    if p.is_dir():
+        try:
+            empty = not any(p.iterdir())
+        except OSError as exc:
+            return {"ok": False, "reason": SELF_PROTECT_CLONE_TARGET_EXISTS,
+                    "detail": f"clone target {full} is unreadable: {exc}",
+                    "path": full}
+        if empty:
+            return {"ok": True, "reason": SELF_PROTECT_OK,
+                    "detail": f"clone target {full} is an empty directory "
+                              "(safe to clone)",
+                    "path": full}
+        return {"ok": False, "reason": SELF_PROTECT_CLONE_TARGET_EXISTS,
+                "detail": f"clone target {full} already exists and is not "
+                          "empty; remove it or choose another target directory "
+                          "(the gate will not move or overwrite it for you)",
+                "path": full}
+    return {"ok": False, "reason": SELF_PROTECT_CLONE_TARGET_EXISTS,
+            "detail": f"clone target {full} already exists as a file; remove "
+                      "it or choose another target directory",
+            "path": full}
+
+
 def run_self_protection(repo: Path | str, runner=None) -> dict:
     """Run every stage-A check in order and stop reporting at the first
     failure's named reason. Checks are computed append-only (all recorded)
@@ -477,27 +574,36 @@ def run_self_protection(repo: Path | str, runner=None) -> dict:
             checks.append({"name": name, **fn()})
 
     first_fail = next((c for c in checks if not c["ok"]), None)
+    # non-fatal notes: an OK check whose reason is not plain SELF_PROTECT_OK is
+    # a PASS the operator should still SEE (e.g. HEAD ahead of the anchor after
+    # a re-anchor). The gate does not abort on these; it records + prints them.
+    notes = [c["detail"] for c in checks
+             if c["ok"] and c.get("reason") not in (SELF_PROTECT_OK, None)]
     return {
         "ok": first_fail is None,
         "reason": SELF_PROTECT_OK if first_fail is None
         else first_fail["reason"],
         "failed_check": None if first_fail is None else first_fail["name"],
         "detail": "" if first_fail is None else first_fail.get("detail", ""),
+        "notes": notes,
         "checks": checks,
     }
 
 
 __all__ = [
     "SELF_PROTECT_AUTOCRLF_NOT_FALSE",
+    "SELF_PROTECT_CLONE_TARGET_EXISTS",
     "SELF_PROTECT_DIRTY_TREE",
     "SELF_PROTECT_DSL_PARITY_BINDING",
     "SELF_PROTECT_FROZEN_HASH_MISMATCH",
     "SELF_PROTECT_FROZEN_INPUTS_TAMPERED",
     "SELF_PROTECT_FROZEN_INPUTS_UNREADABLE",
+    "SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR",
     "SELF_PROTECT_HEAD_MISMATCH",
     "SELF_PROTECT_OK",
     "broker_parity_scope",
     "classify_field",
+    "clone_target_status",
     "dataset_hash_of_csv",
     "decode_bom_aware",
     "expected_compile_targets",

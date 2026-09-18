@@ -9,6 +9,64 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-18 — Re-anchor frozen source to `a85cba3` + ancestry-based stage 0
+
+**Trigger.** The owner gate stopped at stage 0 with
+`SELF_PROTECT_HEAD_MISMATCH: HEAD a85cba3 != frozen source.commit 227bf66`.
+The check was right to exist but wrong as written, and the anchor was stale:
+`227bf66` predates the generic DSL runtime (`92b3102`), the reserved-word
+compile fix and the P0-1 sizing fix (`4257f1e`), so it can never be the
+commit the owner runs.
+
+**1 — Re-anchor (provenance only).** `artifacts/owner_mt5_gate/frozen_inputs.json`
+`source.commit` moves `227bf66` → `a85cba3`. The `source.note` keeps the full
+anchor history (`781bea4 → 54613aa → 52cbaa5 → 227bf66 → a85cba3`) and appends
+the reason: **superseded by newer work**, authorised by the owner-observed
+strict compile 0 errors / 0 warnings on `4257f1e` plus 14/14 DSL parity
+(EXACT + tampered refused), both recorded on branch `windows/evidence-4257f1e`.
+Every fixture / config / dataset / manifest / spec hash below the anchor stays
+pinned UNCHANGED — this re-anchors provenance only, never an artifact
+(`git diff <anchor> HEAD -- artifacts/gold artifacts/gold_2` is empty).
+
+**2 — Stage-0 semantics: relate HEAD to the anchor by ANCESTRY, not string
+equality** (`gate_selfcheck.verify_head_matches_frozen`). What certification
+rests on is that the frozen ARTIFACTS are byte-unchanged and the tree is
+clean, not that `HEAD` equals one historical SHA. New rules:
+
+- `HEAD == anchor` → PASS (exact).
+- anchor is an ancestor of `HEAD` (a clean newer commit) → PASS with a
+  recorded NOTE (`SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR`); the run records both
+  `head` and `anchor` and prints the note, and does **not** abort.
+- any frozen artifact hash mismatch → FAIL (`SELF_PROTECT_FROZEN_HASH_MISMATCH`,
+  unchanged).
+- dirty tree / `core.autocrlf=true|input` / missing binaries → FAIL (unchanged).
+- `HEAD` older than the anchor, diverged from it, or an anchor absent from
+  the clone → FAIL (`SELF_PROTECT_HEAD_MISMATCH`, with a precise `detail`).
+
+Regressions (`tests/test_owner_gate_ps1.py`, all non-vacuous): a newer clean
+commit passes with the note (`test_head_newer_than_anchor_passes_with_note`,
+`test_run_self_protection_passes_when_head_descends_from_anchor`); an older
+HEAD fails (`test_head_older_than_anchor_fails`); a diverged HEAD fails
+(`test_head_diverged_from_anchor_fails`); an unknown anchor fails
+(`test_head_unknown_anchor_fails`); a tampered frozen artifact still fails
+closed even when HEAD descends cleanly
+(`test_run_self_protection_still_aborts_on_tampered_frozen_artifact`); a dirty
+tree still fails (`test_run_self_protection_still_aborts_on_dirty_tree`).
+
+**3 — Fresh-clone target preflight** (`gate_selfcheck.clone_target_status`,
+`owner_gate_decide.py clone-preflight`, `owner_gate.ps1 -CloneInto`). The
+owner's real-world snag: the intended clean-room clone directory already
+existed, so `git clone` failed deep in its own machinery and left the owner
+to move directories by hand. `owner_gate.ps1 -CloneInto <dir>` now refuses by
+name up front (`SELF_PROTECT_CLONE_TARGET_EXISTS`, naming the full path) when
+the target exists non-empty, and treats an absent or empty directory as safe.
+Regressions: `test_clone_target_missing_is_safe`, `_empty_dir_is_safe`,
+`_nonempty_dir_refused_by_name`, `_existing_file_refused`.
+
+No MT5 / tester / compile / broker / certification claim is made here — this
+is verifier and provenance correctness only; the outcomes above are produced
+only when the owner runs the gate on a real terminal.
+
 ## 2026-09-18 — Audit-and-close wave: sizing denomination + DSL hardening
 
 **Supersedes** the 2026-09-16 "Wave 1 — tick-value denomination stays
