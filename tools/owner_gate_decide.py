@@ -66,6 +66,20 @@ def main(argv: list[str] | None = None) -> int:
                        help="stage 4: importer result must be non-vacuous")
     p.add_argument("result", help="path to the importer <symbol>.json")
 
+    p = sub.add_parser("stage4-outcome",
+                       help="stage 4: decide the three-way import outcome "
+                            "(never-launched / ran-no-json / refused)")
+    p.add_argument("--symbol", required=True)
+    p.add_argument("--launched", required=True,
+                   help="true|false: did the terminal process start")
+    p.add_argument("--result", default="",
+                   help="path the gate told the importer to write (may be "
+                        "absent if the importer never wrote it)")
+    p.add_argument("--manifest-hash", default="",
+                   help="the manifest dataset_hash to match on success")
+    p.add_argument("--log-excerpt", default="",
+                   help="path to a saved terminal-log excerpt, if any")
+
     args = ap.parse_args(argv)
     repo = Path(args.repo).resolve()
 
@@ -111,6 +125,26 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"ok": verdict["populated"], **verdict},
                              indent=2, sort_keys=True))
             return 0 if verdict["populated"] else 1
+
+        if args.cmd == "stage4-outcome":
+            launched = str(args.launched).strip().lower() in ("true", "1", "yes")
+            doc = None
+            json_present = False
+            if args.result and Path(args.result).is_file():
+                try:
+                    doc = json.loads(Path(args.result).read_text(encoding="utf-8"))
+                    json_present = True
+                except ValueError:
+                    # a file that will not parse is NOT a usable JSON output
+                    json_present = False
+            log_present = bool(args.log_excerpt) and Path(args.log_excerpt).is_file()
+            verdict = gs.classify_stage4_outcome(
+                launched=launched, json_present=json_present, doc=doc,
+                manifest_hash=(args.manifest_hash or None), symbol=args.symbol,
+                log_excerpt_present=log_present)
+            print(json.dumps({"ok": verdict["ok"], **verdict},
+                             indent=2, sort_keys=True))
+            return 0 if verdict["ok"] else 1
     except (OSError, ValueError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2

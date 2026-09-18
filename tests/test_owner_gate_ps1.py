@@ -757,6 +757,45 @@ def test_importer_refusal_record_is_populated_not_vacuous():
     assert "void WriteRefusal(" not in src
 
 
+def test_importer_writes_to_the_explicit_gate_path_not_a_guess():
+    src = _importer()
+    # the output path comes from InpOutFile (the EXACT path the gate passes),
+    # only falling back to the guessed default for a manual run
+    assert "input string InpOutFile" in src
+    assert "StringLen(InpOutFile) > 0" in src
+    assert "? InpOutFile" in src
+
+
+def test_importer_removes_stale_symbol_idempotently_and_fails_closed():
+    src = _importer()
+    # a stale custom symbol is deleted AND verified gone before create; a
+    # failed delete REFUSES at symbol_state rather than 5304-colliding
+    assert "DropCustomSymbolChecked" in src
+    assert "SymbolExist(still present after delete)" in src
+    assert "ERR_CUSTOM_SYMBOL_EXIST (5304)" in src
+    # the create refusal explains 5304 explicitly
+    assert "5304 = ERR_CUSTOM_SYMBOL_EXIST" in src
+    # the delete-verify helper deselects (5306-safe) then deletes then checks
+    di = src.index("bool DropCustomSymbolChecked")
+    assert src.index("SymbolSelect(sym, false)", di) < src.index("CustomSymbolDelete(sym)", di)
+    assert src.index("CustomSymbolDelete(sym)", di) < src.index("SymbolExist(sym, isCustom)", di)
+
+
+def test_importer_documents_twice_in_a_row_determinism():
+    src = _importer()
+    # the idempotency requirement is stated in the script's own docs
+    assert "TWICE IN A ROW MUST PRODUCE IDENTICAL RESULTS" in src
+
+
+def test_importer_enforces_the_name_path_pair_rule():
+    src = _importer()
+    # the last element of the group must not equal the name (MT5 would treat
+    # it as the symbol, not a folder); the rule is documented and enforced
+    assert "GroupPathOkForName" in src
+    assert "last element of group" in src
+    assert "unique across the ENTIRE symbol hierarchy" in src
+
+
 # ---------------------------------------------------------------------------
 # stage 4 -- import diagnostic classifier (the err=5306 blind-spot mirror).
 # The importer cannot run on Mac (no MT5); its refusal-record contract is
@@ -852,16 +891,190 @@ def test_import_diagnostic_decide_cli_roundtrips(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
+# stage 4 -- the MISREPORT fix: three-way outcome classifier. A gate that
+# blames "terminal did not run" when the importer actually ran and refused is
+# worse than one that fails; these tests pin the three cases apart.
+# ---------------------------------------------------------------------------
+
+def _early_create_refusal_doc() -> dict:
+    """What the importer writes on the reported failure: it created the symbol
+    on a prior run, that run died, and this run hit ERR_CUSTOM_SYMBOL_EXIST at
+    create. The record is written FIRST thing on that early exit path."""
+    return {
+        "error": "CustomSymbolCreate failed for group Mql5Bot\\gold "
+                 "(last_error 5304 = ERR_CUSTOM_SYMBOL_EXIST means a prior "
+                 "symbol survived deletion)",
+        "failed_call": "", "failed_property": "", "failed_source": "",
+        "failed_value": "", "last_error": 5304, "properties": [],
+        "refused": True, "stage": "create_symbol", "symbol": "GOLD1_EURUSD",
+    }
+
+
+def test_stage4_early_refusal_is_case3_populated_not_case1(tmp_path: Path):
+    """The exact ground-truth mismatch this round fixes: the importer refused
+    early (create_symbol / 5304) and WROTE a populated JSON; the gate must
+    report case 3 (refused, reason verbatim), NOT case 1 (never launched) and
+    NOT case 2 (no JSON). Non-vacuous: the file is on disk, is populated, and
+    the classifier surfaces the 5304 reason."""
+    out = tmp_path / "GOLD1_EURUSD.json"
+    out.write_text(json.dumps(_early_create_refusal_doc()), encoding="utf-8")
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    # the JSON the importer wrote is attached + populated (usable observability)
+    assert out.is_file() and out.stat().st_size > 0
+    assert gs.import_diagnostic_populated(doc)["populated"] is True
+    # the gate's decision, given "launched + json present":
+    v = gs.classify_stage4_outcome(launched=True, json_present=True, doc=doc,
+                                   manifest_hash="b" * 64, symbol="GOLD1_EURUSD")
+    assert v["case"] == gs.STAGE4_CASE_REFUSED
+    assert v["case"] != gs.STAGE4_CASE_NOT_LAUNCHED
+    assert not v["ok"]
+    # the refusal reason is surfaced VERBATIM (the 5304 fact, the stage)
+    assert "5304" in v["message"]
+    assert "create_symbol" in v["message"]
+    assert "ERR_CUSTOM_SYMBOL_EXIST" in v["message"]
+
+
+def test_stage4_case1_terminal_never_launched():
+    v = gs.classify_stage4_outcome(launched=False, json_present=False,
+                                   doc=None, manifest_hash="b" * 64,
+                                   symbol="GOLD1_EURUSD")
+    assert v["case"] == gs.STAGE4_CASE_NOT_LAUNCHED
+    assert not v["ok"]
+    assert "never launched" in v["message"]
+
+
+def test_stage4_case2_ran_but_no_json_notes_log_backstop():
+    # ran, no JSON, and a log excerpt WAS saved -> case 2, points at the log
+    v = gs.classify_stage4_outcome(launched=True, json_present=False,
+                                   doc=None, manifest_hash="b" * 64,
+                                   symbol="GOLD1_EURUSD",
+                                   log_excerpt_present=True)
+    assert v["case"] == gs.STAGE4_CASE_NO_JSON
+    assert not v["ok"]
+    assert "terminal-log excerpt" in v["message"]
+    # ran, no JSON, and NOT even a log line found -> still case 2, says so
+    v2 = gs.classify_stage4_outcome(launched=True, json_present=False,
+                                    doc=None, manifest_hash="b" * 64,
+                                    symbol="GOLD1_EURUSD",
+                                    log_excerpt_present=False)
+    assert v2["case"] == gs.STAGE4_CASE_NO_JSON
+    assert "no Mql5BotImportFixture lines" in v2["message"]
+
+
+def test_stage4_faithful_import_is_the_only_pass():
+    doc = {"fixture_file_sha256": "a" * 64, "last_error": 0,
+           "manifest_dataset_hash": "b" * 64, "n_bars": 500, "properties": [],
+           "refused": False, "roundtrip_sha256": "b" * 64,
+           "stage": "complete", "symbol": "GOLD1_EURUSD", "timeframe": "H1"}
+    v = gs.classify_stage4_outcome(launched=True, json_present=True, doc=doc,
+                                   manifest_hash="b" * 64, symbol="GOLD1_EURUSD")
+    assert v["case"] == gs.STAGE4_CASE_PASS and v["ok"]
+
+
+def test_stage4_success_with_wrong_hash_fails_closed():
+    doc = {"last_error": 0, "n_bars": 5, "properties": [], "refused": False,
+           "roundtrip_sha256": "d" * 64, "stage": "complete",
+           "symbol": "GOLD1_EURUSD"}
+    v = gs.classify_stage4_outcome(launched=True, json_present=True, doc=doc,
+                                   manifest_hash="b" * 64, symbol="GOLD1_EURUSD")
+    assert v["case"] == gs.STAGE4_CASE_HASH_MISMATCH and not v["ok"]
+
+
+def test_stage4_outcome_decide_cli_reports_case3_for_early_refusal(tmp_path: Path):
+    """End-to-end through the CLI the .ps1 shells to: an on-disk early-refusal
+    JSON with launched=true is classified case 3 (refused), exit 1, message
+    carrying the verbatim 5304 reason -- never 'terminal never launched'."""
+    import subprocess as sp
+    import sys
+    result = tmp_path / "GOLD1_EURUSD.json"
+    result.write_text(json.dumps(_early_create_refusal_doc()), encoding="utf-8")
+    decide = REPO / "tools" / "owner_gate_decide.py"
+    cp = sp.run([sys.executable, str(decide), "--repo", str(REPO),
+                 "stage4-outcome", "--symbol", "GOLD1_EURUSD",
+                 "--launched", "true", "--result", str(result),
+                 "--manifest-hash", "b" * 64],
+                capture_output=True, text=True, check=False)
+    payload = json.loads(cp.stdout)
+    assert payload["case"] == gs.STAGE4_CASE_REFUSED
+    assert payload["ok"] is False and cp.returncode == 1
+    assert "5304" in payload["message"]
+    assert "never launched" not in payload["message"]
+
+
+def test_stage4_outcome_decide_cli_case1_when_missing_result(tmp_path: Path):
+    # launched=false and no result file -> case 1 (never launched)
+    import subprocess as sp
+    import sys
+    decide = REPO / "tools" / "owner_gate_decide.py"
+    cp = sp.run([sys.executable, str(decide), "--repo", str(REPO),
+                 "stage4-outcome", "--symbol", "GOLD1_EURUSD",
+                 "--launched", "false",
+                 "--result", str(tmp_path / "absent.json"),
+                 "--manifest-hash", "b" * 64],
+                capture_output=True, text=True, check=False)
+    payload = json.loads(cp.stdout)
+    assert payload["case"] == gs.STAGE4_CASE_NOT_LAUNCHED
+    assert cp.returncode == 1
+
+
+def test_stage4_outcome_decide_cli_case2_launched_but_result_absent(tmp_path: Path):
+    # launched=true but the result path is absent -> case 2 (ran, no JSON)
+    import subprocess as sp
+    import sys
+    decide = REPO / "tools" / "owner_gate_decide.py"
+    cp = sp.run([sys.executable, str(decide), "--repo", str(REPO),
+                 "stage4-outcome", "--symbol", "GOLD1_EURUSD",
+                 "--launched", "true",
+                 "--result", str(tmp_path / "absent.json"),
+                 "--manifest-hash", "b" * 64],
+                capture_output=True, text=True, check=False)
+    payload = json.loads(cp.stdout)
+    assert payload["case"] == gs.STAGE4_CASE_NO_JSON
+    assert cp.returncode == 1
+
+
+# ---------------------------------------------------------------------------
 # tools/owner_gate.ps1 -- stage 4 attaches the diagnostic on pass OR fail
 # ---------------------------------------------------------------------------
 
-def test_ps1_stage4_delegates_import_diagnostic_and_attaches_on_pass_or_fail():
+def test_ps1_stage4_delegates_outcome_and_attaches_on_pass_or_fail():
     src = _ps1()
-    # the diagnostic classification is delegated to committed Python
-    assert "import-diagnostic" in src
+    # the three-way outcome decision is delegated to committed Python
+    assert "stage4-outcome" in src
     # the importer result is attached to stage_4 before the pass/fail branch
     assert "$stage4art.Add((New-Artifact $resCopy))" in src
-    # a missing output JSON is now RECORDED, never a silent break
-    assert "importer produced no output JSON" in src
-    # a PASS whose diagnostic is not populated fails closed (regression guard)
-    assert "import diagnostic not populated" in src
+    # the result is only attached when it actually exists (no crash on absence)
+    assert "if (Test-Path -LiteralPath $resultJson)" in src
+
+
+def test_ps1_stage4_passes_symbol_and_explicit_output_path_via_preset():
+    src = _ps1()
+    # the gate must tell the importer WHICH gold and EXACTLY where to write --
+    # never the script's compiled-in GOLD_EURUSD default. It does this with a
+    # *.set preset referenced by ScriptParameters in the startup ini.
+    assert "ScriptParameters=" in src
+    assert "MQL5\\Presets" in src
+    assert "InpSymbolName=" in src
+    assert "InpOutFile=" in src
+    # the path the gate reads back is the SAME $outRel it passed to the importer
+    assert "$outRel" in src
+    assert "$resultJson = Join-Path $DataFolder" in src
+
+
+def test_ps1_stage4_greps_terminal_log_when_no_json():
+    src = _ps1()
+    # backstop: no JSON -> grep the MT5 log for the importer's own lines and
+    # attach them, so the cause lands in the evidence dir either way
+    assert "Save-ImporterLog" in src
+    assert "Mql5BotImportFixture" in src
+    assert "--log-excerpt" in src
+    # the old misreport ("terminal did not run the script") on a mere
+    # name/path mismatch is GONE -- the decision is the Python three-case one
+    assert "terminal did not run the script" not in src
+
+
+def test_ps1_stage4_distinguishes_launch_from_ran_no_output():
+    src = _ps1()
+    # the launcher reports launch status so the gate can tell case 1 from case 2
+    assert ".launched" in src
+    assert "Invoke-TerminalScript" in src

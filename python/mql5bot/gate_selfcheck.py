@@ -345,6 +345,81 @@ def import_diagnostic_populated(doc: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# stage 4: three-way import-outcome classifier (the MISREPORT fix)
+# ---------------------------------------------------------------------------
+# The gate must never again claim "terminal did not run" when the importer
+# actually ran and refused. These three cases carry DISTINCT messages so the
+# operator can tell them apart at a glance, and the decision lives here (not
+# in the .ps1). The .ps1 does the I/O (launch, look for the JSON, grep the
+# terminal log) and passes the observed facts in; this function decides.
+STAGE4_CASE_NOT_LAUNCHED = "terminal_never_launched"
+STAGE4_CASE_NO_JSON = "terminal_ran_no_json"
+STAGE4_CASE_REFUSED = "json_refused"
+STAGE4_CASE_HASH_MISMATCH = "roundtrip_hash_mismatch"
+STAGE4_CASE_NOT_POPULATED = "diagnostic_not_populated"
+STAGE4_CASE_PASS = "import_ok"
+
+
+def classify_stage4_outcome(*, launched: bool, json_present: bool,
+                            doc: dict | None, manifest_hash: str | None,
+                            symbol: str,
+                            log_excerpt_present: bool = False) -> dict:
+    """Decide the stage-4 outcome from what the .ps1 observed.
+
+    Returns {"case": <STAGE4_CASE_*>, "ok": bool, "message": str, ...}. ``ok``
+    is True only for a faithful import; every other case is a fail-closed FAIL
+    with a message that names WHICH of the three cases occurred:
+
+      (1) terminal never launched  -> STAGE4_CASE_NOT_LAUNCHED
+      (2) terminal ran, no JSON     -> STAGE4_CASE_NO_JSON (log excerpt noted)
+      (3) JSON present + REFUSED     -> STAGE4_CASE_REFUSED, refusal reason
+                                        surfaced VERBATIM from the record
+
+    A JSON that is present and NOT refused is validated against the manifest
+    hash and the populated-diagnostic guard, mirroring the .ps1's old inline
+    branch so the whole pass/fail decision is testable off-terminal.
+    """
+    if not launched:
+        return {"case": STAGE4_CASE_NOT_LAUNCHED, "ok": False,
+                "message": f"{symbol}: terminal never launched (the MT5 "
+                           f"terminal process could not be started)"}
+    if not json_present:
+        tail = ("see the attached terminal-log excerpt"
+                if log_excerpt_present
+                else "no Mql5BotImportFixture lines were found in the MT5 logs "
+                     "either")
+        return {"case": STAGE4_CASE_NO_JSON, "ok": False,
+                "message": f"{symbol}: terminal ran but produced no output "
+                           f"JSON at the path the gate passed; {tail}"}
+    # JSON is present: classify its content.
+    doc = doc if isinstance(doc, dict) else {}
+    verdict = import_diagnostic_populated(doc)
+    if verdict["refused"]:
+        err = doc.get("error", "") or "(refusal record carries no error text)"
+        stage = doc.get("stage", "?") or "?"
+        last_error = doc.get("last_error")
+        return {"case": STAGE4_CASE_REFUSED, "ok": False,
+                "populated": verdict["populated"],
+                "failed_property": verdict.get("failed_property"),
+                "reason": verdict["reason"],
+                "message": f"{symbol}: importer REFUSED at stage '{stage}' "
+                           f"(last_error={last_error}): {err}"}
+    # a success record must be populated AND round-trip to the manifest hash
+    if not verdict["populated"]:
+        return {"case": STAGE4_CASE_NOT_POPULATED, "ok": False,
+                "message": f"{symbol}: import diagnostic not populated "
+                           f"({verdict['reason']})"}
+    rt = doc.get("roundtrip_sha256")
+    if manifest_hash and rt != manifest_hash:
+        return {"case": STAGE4_CASE_HASH_MISMATCH, "ok": False,
+                "message": f"{symbol}: round-trip dataset hash {rt} != "
+                           f"manifest dataset_hash {manifest_hash}"}
+    return {"case": STAGE4_CASE_PASS, "ok": True,
+            "message": f"{symbol}: imported; round-trip dataset hash == "
+                       f"manifest"}
+
+
+# ---------------------------------------------------------------------------
 # stage A: self-protection
 # ---------------------------------------------------------------------------
 

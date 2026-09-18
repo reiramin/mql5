@@ -32,9 +32,30 @@
 //|  + "_") satisfies this. The script validates the name and REFUSES  |
 //|  before creating anything if it does not. The custom-symbol path   |
 //|  is InpSymbolGroup ("Mql5Bot\\gold"), which places it under        |
-//|  Custom\Mql5Bot\gold and cannot collide with a broker symbol; if   |
+//|  Custom\Mql5Bot\gold and cannot collide with a broker symbol; if  |
 //|  a NON-custom (broker) symbol of the same name already exists the  |
 //|  script REFUSES rather than shadow it.                            |
+//|                                                                  |
+//|  MT5 NAME/PATH RULE (documented + enforced): custom-symbol names   |
+//|  are unique across the ENTIRE symbol hierarchy, so SymbolExist is  |
+//|  a GLOBAL existence check (not per-folder). Also, CustomSymbolCreate|
+//|  treats a symbol_path whose LAST element equals the symbol name as  |
+//|  the symbol itself rather than a folder; the script therefore       |
+//|  REFUSES when the last element of InpSymbolGroup equals             |
+//|  InpSymbolName (an ambiguous name/group pair) before creating.     |
+//|                                                                  |
+//|  IDEMPOTENCY (err=5304 ERR_CUSTOM_SYMBOL_EXIST): a prior run that   |
+//|  created the symbol and then failed at a later stage can leave the  |
+//|  custom symbol behind; a bare CustomSymbolCreate then fails with    |
+//|  5304. This script resolves the symbol STATE fail-closed BEFORE     |
+//|  creating: SymbolExist first; if it exists AND is custom, deselect  |
+//|  + CustomSymbolDelete + VERIFY it is gone, then create fresh; if    |
+//|  the delete fails, name the failing call and its _LastError and     |
+//|  REFUSE (never charge into a create that will 5304); if it exists   |
+//|  but is NOT custom, refuse (broker symbol) untouched. RUNNING THE   |
+//|  GATE TWICE IN A ROW MUST PRODUCE IDENTICAL RESULTS -- a clean       |
+//|  second run either succeeds identically or refuses at symbol_state  |
+//|  with the same named reason.                                       |
 //|                                                                  |
 //|  err=5306 FAMILY (custom-symbol STATE / VALUE errors, 53xx):       |
 //|   - STATE: a symbol SELECTED in Market Watch cannot be deleted     |
@@ -52,8 +73,11 @@
 //|     skipped -- a skipped property means the symbol is not the      |
 //|     certified one, so any failure REFUSES.                        |
 //|                                                                  |
-//|  OBSERVABILITY: EVERY outcome writes a JSON diagnostic to          |
-//|  MQL5\Files\<InpOutDir>\<symbol>.json -- especially a refusal,     |
+//|  OBSERVABILITY: EVERY outcome writes a JSON diagnostic. The output |
+//|  path is taken from InpOutFile -- the EXACT path the gate passes    |
+//|  in (never a default the script guesses); a manual run without      |
+//|  InpOutFile falls back to <InpOutDir>\<symbol>.json. The JSON is    |
+//|  written on EVERY exit path -- especially every early refusal,      |
 //|  which previously wrote nothing usable. The record carries:       |
 //|   {"refused":bool,"symbol":...,"stage":...,"last_error":int,      |
 //|    "failed_call":...,"failed_property":<enum name>,               |
@@ -76,7 +100,8 @@ input string InpManifest    = "Mql5Bot\\gold_import\\manifest.json";    // gold 
 input string InpSymbolSpec  = "Mql5Bot\\broker_exports\\EURUSD.json";   // stage-3 SymbolSpec export
 input string InpSymbolName  = "GOLD_EURUSD";                             // custom symbol to create/update
 input string InpSymbolGroup = "Mql5Bot\\gold";                          // custom-symbol group
-input string InpOutDir      = "Mql5Bot\\gold_import_out";               // result JSON dir
+input string InpOutDir      = "Mql5Bot\\gold_import_out";               // result JSON dir (fallback only)
+input string InpOutFile     = "";                                       // EXACT result JSON path the gate passes (under MQL5\Files); empty => InpOutDir\<symbol>.json
 
 //+------------------------------------------------------------------+
 //| raw-byte file IO (relative to MQL5\Files) - byte-deterministic    |
@@ -196,14 +221,43 @@ void RefuseAt(const string outPath, const string symbol, const string stage,
   }
 
 //+------------------------------------------------------------------+
-//| deselect + drop a custom symbol (5306-safe: a SELECTED symbol     |
-//| cannot be deleted, so deselect first)                            |
+//| deselect + drop a custom symbol and VERIFY it is gone.            |
+//| A SELECTED symbol cannot be deleted (5306), so deselect first.    |
+//| Returns true ONLY when SymbolExist reports the name is no longer  |
+//| present (so a following CustomSymbolCreate cannot 5304). On       |
+//| failure, whichCall names the call that failed and lastErr is its  |
+//| _LastError -- the caller REFUSES with that fact rather than       |
+//| colliding with ERR_CUSTOM_SYMBOL_EXIST.                          |
 //+------------------------------------------------------------------+
-void DropSymbol(const string sym)
+bool DropCustomSymbolChecked(const string sym, string &whichCall, int &lastErr)
   {
-   SymbolSelect(sym, false);
-   CustomRatesDelete(sym, 0, LONG_MAX);
-   CustomSymbolDelete(sym);
+   whichCall = ""; lastErr = 0;
+   SymbolSelect(sym, false);                 // 5306-safe: deselect before delete
+   CustomRatesDelete(sym, 0, LONG_MAX);      // clear any bars (no-op if none)
+   ResetLastError();
+   if(!CustomSymbolDelete(sym))
+     { whichCall = "CustomSymbolDelete"; lastErr = GetLastError(); return false; }
+   bool isCustom = false;
+   ResetLastError();
+   if(SymbolExist(sym, isCustom))            // it MUST actually be gone now
+     { whichCall = "SymbolExist(still present after delete)";
+       lastErr = GetLastError(); return false; }
+   return true;
+  }
+
+//+------------------------------------------------------------------+
+//| best-effort cleanup after a POST-create refusal. Never blocks the |
+//| refusal; returns a human suffix noting any leftover so the record |
+//| stays honest. A leftover is self-healed by the pre-create,        |
+//| verified drop on the next run (idempotency).                     |
+//+------------------------------------------------------------------+
+string CleanupAfterFail(const string sym)
+  {
+   string wc = ""; int le = 0;
+   if(DropCustomSymbolChecked(sym, wc, le)) return "";
+   return " [cleanup: "+wc+" left "+sym+" behind (last_error="+
+          IntegerToString(le)+"); next run removes it deterministically "
+          "before creating]";
   }
 
 //+------------------------------------------------------------------+
@@ -223,6 +277,27 @@ bool ValidCustomSymbolName(const string s)
       if(!ok) return false;
      }
    return true;
+  }
+
+//+------------------------------------------------------------------+
+//| MT5 name/path rule: CustomSymbolCreate treats a symbol_path whose |
+//| LAST element equals the symbol name as the symbol itself, not a   |
+//| folder. So the last element of the group must NOT equal the name  |
+//| (e.g. group "Mql5Bot\gold" + name "GOLD_EURUSD" is fine;          |
+//| "Mql5Bot\gold\GOLD_EURUSD" as a GROUP would be ambiguous). Names  |
+//| are compared case-insensitively (MT5 symbol names are not case-   |
+//| sensitive). Returns true when the pair is unambiguous.           |
+//+------------------------------------------------------------------+
+bool GroupPathOkForName(const string grp, const string sym)
+  {
+   string parts[];
+   int n = StringSplit(grp, '\\', parts);
+   if(n <= 0) return true;               // empty/relative group: no last folder
+   string last = parts[n-1];
+   StringToUpper(last);
+   string s = sym;
+   StringToUpper(s);
+   return (last != s);
   }
 
 //+------------------------------------------------------------------+
@@ -336,13 +411,25 @@ bool ReqStr(CDslJson &json, const int obj, const string key, string &out,
 void OnStart()
   {
    string sym     = InpSymbolName;
-   string outPath = InpOutDir + "\\" + sym + ".json";
+   // OBSERVABILITY: write to the EXACT path the gate passes (InpOutFile).
+   // Only a manual run (no gate) falls back to the guessed default.
+   string outPath = (StringLen(InpOutFile) > 0)
+                    ? InpOutFile
+                    : (InpOutDir + "\\" + sym + ".json");
 
    // ---- 0. custom-symbol NAME must satisfy MT5's rules ------------
    if(!ValidCustomSymbolName(sym))
      { RefuseAt(outPath, sym, "name_check",
                 "symbol name violates MT5 custom-symbol rules (Latin "
                 "letters/digits and only . _ & #, <=31 chars): "+sym, 0);
+       return; }
+   // the last element of the group path must not equal the name, or MT5
+   // would treat the path's tail as the symbol itself (name/path rule)
+   if(!GroupPathOkForName(InpSymbolGroup, sym))
+     { RefuseAt(outPath, sym, "name_check",
+                "ambiguous name/group pair: the last element of group '"+
+                InpSymbolGroup+"' equals the symbol name '"+sym+"'; MT5 "
+                "would treat it as the symbol, not a folder", 0);
        return; }
 
    // ---- 1. read the committed fixture CSV as raw bytes -----------
@@ -448,10 +535,15 @@ void OnStart()
      { RefuseAt(outPath, sym, "parse_fixture", "malformed fixture csv", 0);
        return; }
 
-   // ---- 2b. resolve symbol STATE deterministically (err=5306 guard)-
-   // A broker (non-custom) symbol of the same name must never be shadowed.
-   // A selected symbol cannot be deleted or mutated, so we always deselect
-   // first, then recreate the custom symbol from clean.
+   // ---- 2b. resolve symbol STATE deterministically & IDEMPOTENTLY -
+   // SymbolExist is a GLOBAL check (names are unique across the whole
+   // hierarchy). A broker (non-custom) symbol of the same name must never
+   // be shadowed. A stale custom symbol from a prior FAILED run makes a
+   // bare create 5304 (ERR_CUSTOM_SYMBOL_EXIST): delete it, VERIFY it is
+   // gone, and REFUSE fail-closed if the delete fails -- never charge into
+   // a create that will 5304. Running twice in a row is therefore
+   // deterministic (identical success, or the same named symbol_state
+   // refusal).
    bool isCustom=false;
    if(SymbolExist(sym, isCustom))
      {
@@ -460,8 +552,14 @@ void OnStart()
                    "a NON-custom (broker) symbol named "+sym+
                    " already exists; refusing to shadow a broker symbol", 0);
           return; }
-      // stale custom symbol from a prior run: drop it deterministically
-      DropSymbol(sym);
+      // stale custom symbol from a prior run: drop it AND verify it is gone
+      string wc=""; int le=0;
+      if(!DropCustomSymbolChecked(sym, wc, le))
+        { RefuseAt(outPath, sym, "symbol_state",
+                   "a stale custom symbol named "+sym+" from a prior run "
+                   "could not be removed ("+wc+" failed); refusing rather "
+                   "than colliding with ERR_CUSTOM_SYMBOL_EXIST (5304)", le);
+          return; }
      }
    else
      {
@@ -472,8 +570,9 @@ void OnStart()
    ResetLastError();
    if(!CustomSymbolCreate(sym, InpSymbolGroup))
      { RefuseAt(outPath, sym, "create_symbol",
-                "CustomSymbolCreate failed for group "+InpSymbolGroup,
-                GetLastError());
+                "CustomSymbolCreate failed for group "+InpSymbolGroup+
+                " (last_error 5304 = ERR_CUSTOM_SYMBOL_EXIST means a prior "
+                "symbol survived deletion)", GetLastError());
        return; }
    // the symbol is freshly created and NOT selected in Market Watch, so it
    // is safe to set every property. We select it only after bars are written.
@@ -517,10 +616,10 @@ void OnStart()
                      ccyMargin, "SymbolSpec("+InpSymbolSpec+").symbol.currency_margin");
    if(!sok)
      { int err = GetLastError();
-       DropSymbol(sym);
+       string suffix = CleanupAfterFail(sym);
        RefuseAt(outPath, sym, "set_properties",
                 g_failCall+"("+g_failEnum+"="+g_failValue+" from "+g_failSource+
-                ") failed", err);
+                ") failed"+suffix, err);
        return; }
 
    // ---- 3. write the bars via CustomRatesUpdate -------------------
@@ -540,17 +639,18 @@ void OnStart()
    ResetLastError();
    if(CustomRatesUpdate(sym, rates) < 0)
      { int err = GetLastError();
-       DropSymbol(sym);
-       RefuseAt(outPath, sym, "write_bars", "CustomRatesUpdate failed", err);
+       string suffix = CleanupAfterFail(sym);
+       RefuseAt(outPath, sym, "write_bars",
+                "CustomRatesUpdate failed"+suffix, err);
        return; }
 
    // ---- select the symbol ONLY now: after every property is set and
    //      the bars are written (a selected symbol cannot be mutated) --
    if(!SymbolSelect(sym, true))
      { int err = GetLastError();
-       DropSymbol(sym);
+       string suffix = CleanupAfterFail(sym);
        RefuseAt(outPath, sym, "select_symbol",
-                "SymbolSelect(true) failed after import", err);
+                "SymbolSelect(true) failed after import"+suffix, err);
        return; }
 
    // ---- read them back at the fixture timeframe (explicit sym/tf) --
@@ -558,11 +658,11 @@ void OnStart()
    int got = CopyRates(sym, tf, 0, nBars, back);
    if(got != nBars)
      { int err = GetLastError();
-       DropSymbol(sym);
+       string suffix = CleanupAfterFail(sym);
        RefuseAt(outPath, sym, "readback",
                 "readback bar count "+IntegerToString(got)+
                 " != "+IntegerToString(nBars)+
-                " (timeframe generation perturbed the fixture)", err);
+                " (timeframe generation perturbed the fixture)"+suffix, err);
        return; }
    ArraySetAsSeries(back, false);
 
@@ -585,11 +685,11 @@ void OnStart()
                                  rt_close, rt_vol, got);
    string roundtripSha = DslSha256Hex(rebuilt);
    if(roundtripSha != datasetHash)
-     { DropSymbol(sym);
+     { string suffix = CleanupAfterFail(sym);
        RefuseAt(outPath, sym, "roundtrip",
                 "roundtrip dataset hash "+roundtripSha+
                 " != manifest dataset_hash "+datasetHash+
-                " (custom symbol does not faithfully hold the fixture)", 0);
+                " (custom symbol does not faithfully hold the fixture)"+suffix, 0);
        return; }
 
    // ---- success: the custom symbol provably equals the fixture ----

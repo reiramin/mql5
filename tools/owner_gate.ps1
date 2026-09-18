@@ -162,19 +162,62 @@ function Find-Exe([string]$name, [string]$explicit, [string]$envVar) {
     return ""
 }
 
-# launch a compiled script via a startup ini (mirrors run_dsl_parity.ps1)
-function Invoke-TerminalScript([string]$scriptRel, [string]$label) {
+# launch a compiled script via a startup ini (mirrors run_dsl_parity.ps1).
+# $presetName, when set, is a *.set file in MQL5\Presets carrying the script
+# inputs (symbol name, explicit output path, ...) -- this is how the gate tells
+# the importer WHICH gold it is and EXACTLY where to write its JSON, instead of
+# relying on the script's compiled-in defaults. Returns launch status so the
+# caller can tell "never launched" from "ran but produced nothing".
+function Invoke-TerminalScript([string]$scriptRel, [string]$label, [string]$presetName = "") {
     $iniPath = Join-Path $Evidence ($label + ".ini")
-    $ini = @("[StartUp]", "Script=$scriptRel", "ShutdownTerminal=1") -join "`r`n"
-    [IO.File]::WriteAllText($iniPath, $ini + "`r`n", [Text.Encoding]::ASCII)
+    $iniLines = @("[StartUp]", "Script=$scriptRel")
+    if ($presetName) { $iniLines += "ScriptParameters=$presetName" }
+    $iniLines += "ShutdownTerminal=1"
+    [IO.File]::WriteAllText($iniPath, ($iniLines -join "`r`n") + "`r`n", [Text.Encoding]::ASCII)
     $argList = @("/config:$iniPath")
     if ($Portable) { $argList += "/portable" }
-    $proc = Start-Process -FilePath $TerminalPath -ArgumentList $argList -PassThru
+    try {
+        $proc = Start-Process -FilePath $TerminalPath -ArgumentList $argList -PassThru
+    } catch {
+        return [pscustomobject]@{ launched = $false; exited = $false }
+    }
+    if (-not $proc) { return [pscustomobject]@{ launched = $false; exited = $false } }
+    $exited = $true
     if (-not $proc.WaitForExit($TimeoutSec * 1000)) {
         try { $proc.Kill() } catch { }
-        return $false
+        $exited = $false
     }
-    return $true
+    return [pscustomobject]@{ launched = $true; exited = $exited }
+}
+
+# backstop for stage 4: when the importer wrote no JSON, grep the MT5 logs for
+# its own Print lines (prefixed "Mql5BotImportFixture" / "[import]") so the
+# cause lands in the evidence dir regardless. Writes an excerpt file and
+# returns its artifact (always -- an empty excerpt still records "nothing
+# found", which is itself evidence).
+function Save-ImporterLog([string]$name) {
+    $dirs = @((Join-Path $DataFolder "MQL5\Logs"), (Join-Path $DataFolder "logs"))
+    $lines = New-Object System.Collections.ArrayList
+    foreach ($d in $dirs) {
+        if (-not (Test-Path -LiteralPath $d)) { continue }
+        Get-ChildItem -LiteralPath $d -Filter "*.log" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 3 |
+            ForEach-Object {
+                try {
+                    Select-String -LiteralPath $_.FullName `
+                        -Pattern "Mql5BotImportFixture", "\[import\]" `
+                        -ErrorAction SilentlyContinue |
+                        ForEach-Object { [void]$lines.Add(("{0}: {1}" -f (Split-Path -Leaf $_.Path), $_.Line.Trim())) }
+                } catch { }
+            }
+    }
+    $out = Join-Path $Evidence ("import_" + $name + "_terminal_log.txt")
+    if ($lines.Count -eq 0) {
+        [IO.File]::WriteAllText($out, ("(no Mql5BotImportFixture lines found in MT5 logs under " + $DataFolder + ")`r`n"), [Text.Encoding]::ASCII)
+    } else {
+        [IO.File]::WriteAllText($out, (($lines -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)
+    }
+    return (New-Artifact $out)
 }
 
 # create the append-only evidence root now (deferred from startup): every
@@ -320,52 +363,76 @@ $golds = @(
 )
 $filesImport = Join-Path $DataFolder "MQL5\Files\Mql5Bot\gold_import"
 $importOut = Join-Path $DataFolder "MQL5\Files\Mql5Bot\gold_import_out"
+$presetsDir = Join-Path $DataFolder "MQL5\Presets"
 foreach ($g in $golds) {
     New-Item -ItemType Directory -Force -Path $filesImport | Out-Null
     if (Test-Path -LiteralPath $importOut) { Remove-Item -LiteralPath $importOut -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $importOut | Out-Null
+    New-Item -ItemType Directory -Force -Path $presetsDir | Out-Null
     Copy-Item -LiteralPath (Join-Path $RepoRoot $g.fixture) -Destination (Join-Path $filesImport "gold_fixture.csv") -Force
     Copy-Item -LiteralPath (Join-Path $RepoRoot $g.manifest) -Destination (Join-Path $filesImport "manifest.json") -Force
     if (Test-Path -LiteralPath $SymbolSpecExport) {
         New-Item -ItemType Directory -Force -Path (Join-Path $DataFolder "MQL5\Files\Mql5Bot\broker_exports") | Out-Null
         Copy-Item -LiteralPath $SymbolSpecExport -Destination (Join-Path $DataFolder "MQL5\Files\Mql5Bot\broker_exports\EURUSD.json") -Force
     }
+    # The gate tells the importer WHICH gold it is and EXACTLY where to write
+    # its JSON via a *.set preset -- never the script's compiled-in default
+    # (that default is GOLD_EURUSD and would collide across the two golds and
+    # write to a path the gate is not watching). $outRel is the ONE path the
+    # importer writes and the gate reads back.
+    $outRel = "Mql5Bot\gold_import_out\" + $g.name + ".json"
+    $setName = "mql5bot_import_" + $g.name + ".set"
+    $setLines = @(
+        "InpFixtureCsv=Mql5Bot\gold_import\gold_fixture.csv",
+        "InpManifest=Mql5Bot\gold_import\manifest.json",
+        "InpSymbolSpec=Mql5Bot\broker_exports\EURUSD.json",
+        "InpSymbolName=" + $g.name,
+        "InpSymbolGroup=Mql5Bot\gold",
+        "InpOutDir=Mql5Bot\gold_import_out",
+        "InpOutFile=" + $outRel
+    )
+    [IO.File]::WriteAllText((Join-Path $presetsDir $setName), (($setLines -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)
+    # archive the EXACT params the gate passed as evidence
+    $setEvidence = Join-Path $Evidence ("import_" + $g.name + ".set")
+    Copy-Item -LiteralPath (Join-Path $presetsDir $setName) -Destination $setEvidence -Force
+    [void]$stage4art.Add((New-Artifact $setEvidence))
+
     # NOTE: the importer refuses (creates nothing) unless the staged fixture
     # sha256 equals the manifest dataset_hash and the CustomRatesUpdate
-    # round-trip re-derives that same hash.
-    if (-not (Invoke-TerminalScript "Mql5Bot\Mql5BotImportFixture" ("import_" + $g.name))) {
-        $stage4ok = $false
-        Record-Stage 4 "fixture_import" "FAIL" ("terminal timed out importing {0}" -f $g.name) @($stage4art) | Out-Null
-        Finish-Gate "fixture_import"
-    }
-    $resultJson = Join-Path $importOut ($g.name + ".json")
-    if (-not (Test-Path -LiteralPath $resultJson)) {
-        # the importer writes a JSON on EVERY outcome (even a refusal); a
-        # missing file means the terminal never ran the script or it crashed.
-        $stage4ok = $false
-        Record-Stage 4 "fixture_import" "FAIL" ("{0}: importer produced no output JSON (terminal did not run the script)" -f $g.name) @($stage4art) | Out-Null
-        Finish-Gate "fixture_import"
-    }
-    # attach the importer diagnostic to stage_4.json whether it passes or fails
-    $resCopy = Join-Path $Evidence ("import_" + $g.name + ".json")
-    Copy-Item -LiteralPath $resultJson -Destination $resCopy -Force
-    [void]$stage4art.Add((New-Artifact $resCopy))
-    # classify the diagnostic in committed Python: a refusal MUST name the
-    # failing property / stage / last_error (never a vacuous refusal again)
-    $diag = Invoke-Decide @("import-diagnostic", $resCopy)
-    $res = Get-Content -LiteralPath $resCopy -Raw | ConvertFrom-Json
+    # round-trip re-derives that same hash. It writes its JSON to $outRel on
+    # EVERY exit path, including every early refusal.
     $man = Get-Content -LiteralPath (Join-Path $RepoRoot $g.manifest) -Raw | ConvertFrom-Json
-    if ($res.refused -ne $false -or $res.roundtrip_sha256 -ne $man.dataset_hash) {
-        $stage4ok = $false
-        $why = if ($diag.data -and $diag.data.reason) { $diag.data.reason } else { "import refused or dataset hash mismatch" }
-        Record-Stage 4 "fixture_import" "FAIL" ("{0}: {1} (roundtrip {2}, manifest {3})" -f $g.name, $why, $res.roundtrip_sha256, $man.dataset_hash) @($stage4art) | Out-Null
-        Finish-Gate "fixture_import"
+    $resultJson = Join-Path $DataFolder ("MQL5\Files\" + $outRel)
+    $run = Invoke-TerminalScript "Mql5Bot\Mql5BotImportFixture" ("import_" + $g.name) $setName
+
+    # Three cases, DISTINCT messages (decided in committed Python, never the
+    # .ps1): (1) terminal never launched, (2) terminal ran but no JSON, (3)
+    # JSON present -- refused (reason surfaced verbatim) or a faithful import.
+    # Backstop: when no JSON appeared, grep the MT5 log for the importer's own
+    # lines so the cause is in the evidence dir either way.
+    $logExcerptPath = ""
+    if ($run.launched -and -not (Test-Path -LiteralPath $resultJson)) {
+        $logArt = Save-ImporterLog $g.name
+        if ($logArt) { [void]$stage4art.Add($logArt); $logExcerptPath = $logArt.path }
     }
-    if (-not $diag.data.populated) {
-        # defence in depth: a PASS whose diagnostic is not populated means the
-        # importer regressed to a blind result -- fail closed.
+    # attach the importer diagnostic to stage_4.json whenever it exists (pass,
+    # fail, or refusal) -- before the pass/fail branch so it is never lost
+    if (Test-Path -LiteralPath $resultJson) {
+        $resCopy = Join-Path $Evidence ("import_" + $g.name + ".json")
+        Copy-Item -LiteralPath $resultJson -Destination $resCopy -Force
+        [void]$stage4art.Add((New-Artifact $resCopy))
+    }
+    $oc = Invoke-Decide @("stage4-outcome",
+        "--symbol", $g.name,
+        "--launched", ($run.launched.ToString().ToLower()),
+        "--result", $resultJson,
+        "--manifest-hash", $man.dataset_hash,
+        "--log-excerpt", $logExcerptPath)
+    if (-not $oc.ok) {
         $stage4ok = $false
-        Record-Stage 4 "fixture_import" "FAIL" ("{0}: import diagnostic not populated ({1})" -f $g.name, $diag.data.reason) @($stage4art) | Out-Null
+        $msg = if ($oc.data -and $oc.data.message) { $oc.data.message } else { ("{0}: stage-4 import failed" -f $g.name) }
+        $case = if ($oc.data -and $oc.data.case) { $oc.data.case } else { "unknown" }
+        Record-Stage 4 "fixture_import" "FAIL" ("[{0}] {1}" -f $case, $msg) @($stage4art) | Out-Null
         Finish-Gate "fixture_import"
     }
 }
