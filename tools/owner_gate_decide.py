@@ -138,10 +138,21 @@ def main(argv: list[str] | None = None) -> int:
                     # a file that will not parse is NOT a usable JSON output
                     json_present = False
             log_present = bool(args.log_excerpt) and Path(args.log_excerpt).is_file()
+            # fold the excerpt's first lines into the decision message so a
+            # stage-4 failure is diagnosable from the gate console alone
+            log_head = None
+            if log_present:
+                try:
+                    raw = _read_bytes(args.log_excerpt)
+                    log_head = "\n".join(
+                        gs.decode_bom_aware(raw).splitlines()[:10]) or None
+                except OSError:
+                    log_head = None
             verdict = gs.classify_stage4_outcome(
                 launched=launched, json_present=json_present, doc=doc,
                 manifest_hash=(args.manifest_hash or None), symbol=args.symbol,
-                log_excerpt_present=log_present)
+                log_excerpt_present=log_present,
+                log_excerpt_head=log_head)
             print(json.dumps({"ok": verdict["ok"], **verdict},
                              indent=2, sort_keys=True))
             return 0 if verdict["ok"] else 1

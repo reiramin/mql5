@@ -73,10 +73,20 @@
 //|     skipped -- a skipped property means the symbol is not the      |
 //|     certified one, so any failure REFUSES.                        |
 //|                                                                  |
-//|  OBSERVABILITY: EVERY outcome writes a JSON diagnostic. The output |
-//|  path is taken from InpOutFile -- the EXACT path the gate passes    |
-//|  in (never a default the script guesses); a manual run without      |
-//|  InpOutFile falls back to <InpOutDir>\<symbol>.json. The JSON is    |
+//|  OBSERVABILITY: the FIRST action of OnStart is a Print() banner    |
+//|  naming EVERY resolved input and the relative+absolute output path |
+//|  ("[import] STARTUP ..."), so the gate's terminal-log backstop     |
+//|  names the cause even when no JSON is ever written (sandbox        |
+//|  refusal, undelivered parameters...). EVERY outcome writes a JSON  |
+//|  diagnostic. The output path is taken from InpOutFile -- the EXACT  |
+//|  path the gate passes in (never a default the script guesses); a    |
+//|  manual run without InpOutFile falls back to                        |
+//|  <InpOutDir>\<symbol>.json. MQL5 SANDBOX: FileOpen resolves ONLY    |
+//|  RELATIVE paths under MQL5\Files, so an absolute InpOutFile could   |
+//|  never be written; it is detected up front, Printed loudly, and     |
+//|  replaced by the relative fallback so the diagnostic still lands    |
+//|  where the sandbox allows. Every FileOpen failure Prints the path   |
+//|  and _LastError to the terminal log. The JSON is                    |
 //|  written on EVERY exit path -- especially every early refusal,      |
 //|  which previously wrote nothing usable. The record carries:       |
 //|   {"refused":bool,"symbol":...,"stage":...,"last_error":int,      |
@@ -108,8 +118,14 @@ input string InpOutFile     = "";                                       // EXACT
 //+------------------------------------------------------------------+
 bool ReadFileBytes(const string path, uchar &bytes[])
   {
+   ResetLastError();
    int h = FileOpen(path, FILE_READ|FILE_BIN);
-   if(h==INVALID_HANDLE) return false;
+   if(h==INVALID_HANDLE)
+     {
+      Print("[import] FileOpen(READ) FAILED path=", path,
+            " last_error=", GetLastError());
+      return false;
+     }
    int size = (int)FileSize(h);
    ArrayResize(bytes, size);
    if(size>0) FileReadArray(h, bytes, 0, size);
@@ -129,8 +145,14 @@ bool WriteTextLF(const string path, const string text)
    uchar bytes[];
    int n = StringToCharArray(text, bytes, 0, WHOLE_ARRAY, CP_UTF8);
    if(n>0) ArrayResize(bytes, n-1);          // drop trailing '\0'
+   ResetLastError();
    int h = FileOpen(path, FILE_WRITE|FILE_BIN);
-   if(h==INVALID_HANDLE) return false;
+   if(h==INVALID_HANDLE)
+     {
+      Print("[import] FileOpen(WRITE) FAILED path=", path,
+            " last_error=", GetLastError());
+      return false;
+     }
    if(ArraySize(bytes)>0) FileWriteArray(h, bytes, 0, ArraySize(bytes));
    FileClose(h);
    return true;
@@ -406,16 +428,56 @@ bool ReqStr(CDslJson &json, const int obj, const string key, string &out,
   }
 
 //+------------------------------------------------------------------+
+//| MQL5 FILE SANDBOX: FileOpen resolves ONLY relative paths under    |
+//| MQL5\Files (this script never uses FILE_COMMON). An absolute path |
+//| (drive letter or leading slash) is refused by the sandbox and     |
+//| nothing gets written -- exactly the "terminal ran, no JSON"        |
+//| symptom. Detect it up front so the terminal log names the cause.  |
+//+------------------------------------------------------------------+
+bool LooksAbsolutePath(const string p)
+  {
+   if(StringLen(p)==0) return false;
+   if(StringFind(p, ":")>=0) return true;      // drive letter (C:\...)
+   ushort c0 = StringGetCharacter(p, 0);
+   return (c0=='\\' || c0=='/');               // rooted / UNC
+  }
+
+//+------------------------------------------------------------------+
 //| main import                                                      |
 //+------------------------------------------------------------------+
 void OnStart()
   {
+   // PROOF, not hope: the FIRST action is a Print() naming EVERY resolved
+   // input, so the gate's terminal-log backstop shows exactly which inputs
+   // this run got (compiled-in defaults vs the gate's .set) and where it
+   // will write -- even when no JSON is ever produced.
+   Print("[import] STARTUP fixture_csv=", InpFixtureCsv,
+         " manifest=", InpManifest,
+         " symbol_spec=", InpSymbolSpec);
+   Print("[import] STARTUP symbol=", InpSymbolName,
+         " group=", InpSymbolGroup,
+         " out_dir=", InpOutDir,
+         " out_file=", InpOutFile);
+
    string sym     = InpSymbolName;
    // OBSERVABILITY: write to the EXACT path the gate passes (InpOutFile).
    // Only a manual run (no gate) falls back to the guessed default.
    string outPath = (StringLen(InpOutFile) > 0)
                     ? InpOutFile
                     : (InpOutDir + "\\" + sym + ".json");
+   // SANDBOX GUARD: an absolute InpOutFile can never be written (FileOpen
+   // refuses it); say so loudly and fall back to the relative default so the
+   // diagnostic JSON still lands under MQL5\Files where the sandbox allows.
+   if(LooksAbsolutePath(outPath))
+     {
+      Print("[import] SANDBOX: out path '", outPath, "' is absolute; MQL5 ",
+            "FileOpen only writes RELATIVE paths under MQL5\\Files -- ",
+            "falling back to ", InpOutDir, "\\", sym, ".json");
+      outPath = InpOutDir + "\\" + sym + ".json";
+     }
+   Print("[import] STARTUP out_rel=", outPath,
+         " out_abs=", TerminalInfoString(TERMINAL_DATA_PATH),
+         "\\MQL5\\Files\\", outPath);
 
    // ---- 0. custom-symbol NAME must satisfy MT5's rules ------------
    if(!ValidCustomSymbolName(sym))

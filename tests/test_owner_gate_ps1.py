@@ -1078,3 +1078,134 @@ def test_ps1_stage4_distinguishes_launch_from_ran_no_output():
     # the launcher reports launch status so the gate can tell case 1 from case 2
     assert ".launched" in src
     assert "Invoke-TerminalScript" in src
+
+
+# ---------------------------------------------------------------------------
+# STAGE 4 ROUND 3 -- terminal_ran_no_json root causes closed on our side:
+# (A) MQL5\Files sandbox pattern + sha-audited evidence copy, (B) preset
+# delivery per the MT5 startup docs, (C) proof-Prints before any I/O,
+# (D) the excerpt head surfaced in the gate's own console/reason.
+# ---------------------------------------------------------------------------
+
+def test_importer_first_action_is_the_startup_print_banner():
+    # C) the FIRST action of OnStart is a Print() naming the fixture, EVERY
+    # resolved input, and the relative+absolute output path -- so the
+    # terminal-log backstop names the cause even when no JSON is written
+    src = _importer()
+    body = src[src.index("void OnStart()"):]
+    assert body.index("[import] STARTUP") < body.index("ReadFileBytes(")
+    for named in ("fixture_csv=", " manifest=", " symbol_spec=", " symbol=",
+                  " group=", " out_dir=", " out_file=", " out_rel=",
+                  " out_abs="):
+        assert named in body, f"startup banner must name {named!r}"
+    # the absolute output path is derived from the terminal's own data path
+    assert "TERMINAL_DATA_PATH" in body
+
+
+def test_importer_guards_the_files_sandbox_against_absolute_paths():
+    # A) an MQL5 script can only write RELATIVE paths under MQL5\Files; an
+    # absolute out path is detected up front, Printed loudly, and replaced by
+    # the relative fallback so a diagnostic still lands where FileOpen allows
+    src = _importer()
+    assert "bool LooksAbsolutePath(" in src
+    assert "LooksAbsolutePath(outPath)" in src
+    assert "falling back to" in src
+    # the guard runs BEFORE the resolved-path banner line
+    body = src[src.index("void OnStart()"):]
+    assert body.index("LooksAbsolutePath(outPath)") < body.index("out_rel=")
+
+
+def test_importer_prints_path_and_last_error_on_fileopen_failure():
+    # A) a refused FileOpen must name the path and _LastError in the terminal
+    # log (read AND write side), so the backstop excerpt shows the cause
+    src = _importer()
+    assert "FileOpen(READ) FAILED path=" in src
+    assert "FileOpen(WRITE) FAILED path=" in src
+    assert src.count('" last_error=", GetLastError())') >= 2
+
+
+def test_ps1_stages_the_preset_where_startup_reads_it_and_in_utf16():
+    # B) verified against the MT5 "Configuration at Startup" help:
+    # ScriptParameters is a bare file name resolved in MQL5\Presets of the
+    # data directory -- and the terminal's own .set encoding is UTF-16LE
+    src = _ps1()
+    assert "Configuration at Startup" in src
+    assert "MQL5\\presets" in src or "MQL5\\Presets" in src
+    preset_writes = [l for l in src.splitlines()
+                     if "Join-Path $presetsDir $setName" in l
+                     and "WriteAllText" in l]
+    assert preset_writes, "the gate must stage the .set into MQL5\\Presets"
+    for line in preset_writes:
+        assert "[Text.Encoding]::Unicode" in line, \
+            "the staged .set must be UTF-16LE (the terminal's own encoding)"
+
+
+def test_ps1_records_sha256_before_and_after_the_evidence_copy():
+    # A) the gate copies the importer's JSON out of MQL5\Files into evidence\
+    # recording sha256 before AND after, attaching both records
+    src = _ps1()
+    assert "$shaBefore = Get-Sha256 $resultJson" in src
+    assert "$shaAfter = Get-Sha256 $resCopy" in src
+    assert "path = $resultJson; sha256 = $shaBefore" in src
+    assert "$stage4art.Add((New-Artifact $resCopy))" in src
+
+
+def test_ps1_surfaces_the_excerpt_head_inline_and_spots_stray_outputs():
+    src = _ps1()
+    # D) the first ~10 excerpt lines go to the gate's own console
+    assert "-TotalCount 10" in src
+    assert "log excerpt head" in src
+    # B) a defaults run writes to the importer's DEFAULT path: any stray JSON
+    # in the import-out dir is copied to evidence and named in the excerpt
+    assert "stray import-out JSON" in src
+    assert "Save-ImporterLog $g.name $extra" in src
+
+
+def test_stage4_no_json_message_carries_the_excerpt_head():
+    head = ("20250918.log: Mql5BotImportFixture (BTCUSD,H1) [import] STARTUP "
+            "symbol=GOLD_EURUSD group=Mql5Bot\\gold out_file=\n"
+            "20250918.log: [import] FileOpen(WRITE) FAILED path=x "
+            "last_error=5002")
+    v = gs.classify_stage4_outcome(launched=True, json_present=False, doc=None,
+                                   manifest_hash="b" * 64,
+                                   symbol="GOLD1_EURUSD",
+                                   log_excerpt_present=True,
+                                   log_excerpt_head=head)
+    assert v["case"] == gs.STAGE4_CASE_NO_JSON
+    assert "excerpt begins:" in v["message"]
+    assert "symbol=GOLD_EURUSD" in v["message"]
+    assert "last_error=5002" in v["message"]
+    # without a head the old message shape is preserved
+    v2 = gs.classify_stage4_outcome(launched=True, json_present=False,
+                                    doc=None, manifest_hash="b" * 64,
+                                    symbol="GOLD1_EURUSD",
+                                    log_excerpt_present=True)
+    assert "excerpt begins:" not in v2["message"]
+    assert "terminal-log excerpt" in v2["message"]
+
+
+def test_stage4_outcome_decide_cli_folds_excerpt_head_into_message(tmp_path: Path):
+    # end-to-end through the CLI the .ps1 shells to: the excerpt's first ~10
+    # lines land in the decision message (and so in the stage reason), making
+    # the failure diagnosable from the gate console alone
+    import subprocess as sp
+    import sys
+    excerpt = tmp_path / "import_GOLD1_EURUSD_terminal_log.txt"
+    lines = (["log: [import] STARTUP symbol=GOLD_EURUSD out_file="]
+             + [f"log: filler line {i}" for i in range(2, 15)])
+    excerpt.write_text("\r\n".join(lines) + "\r\n", encoding="ascii")
+    decide = REPO / "tools" / "owner_gate_decide.py"
+    cp = sp.run([sys.executable, str(decide), "--repo", str(REPO),
+                 "stage4-outcome", "--symbol", "GOLD1_EURUSD",
+                 "--launched", "true",
+                 "--result", str(tmp_path / "absent.json"),
+                 "--manifest-hash", "b" * 64,
+                 "--log-excerpt", str(excerpt)],
+                capture_output=True, text=True, check=False)
+    payload = json.loads(cp.stdout)
+    assert payload["case"] == gs.STAGE4_CASE_NO_JSON
+    assert cp.returncode == 1
+    assert "excerpt begins:" in payload["message"]
+    assert "symbol=GOLD_EURUSD" in payload["message"]
+    # only the first ~10 lines are folded in
+    assert "filler line 12" not in payload["message"]

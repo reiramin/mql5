@@ -191,11 +191,14 @@ function Invoke-TerminalScript([string]$scriptRel, [string]$label, [string]$pres
 }
 
 # backstop for stage 4: when the importer wrote no JSON, grep the MT5 logs for
-# its own Print lines (prefixed "Mql5BotImportFixture" / "[import]") so the
-# cause lands in the evidence dir regardless. Writes an excerpt file and
-# returns its artifact (always -- an empty excerpt still records "nothing
-# found", which is itself evidence).
-function Save-ImporterLog([string]$name) {
+# its own Print lines (prefixed "Mql5BotImportFixture" / "[import]" -- the
+# importer's FIRST action is a "[import] STARTUP ..." banner naming every
+# resolved input, so these lines prove WHICH inputs the run actually got) so
+# the cause lands in the evidence dir regardless. $extraLines (e.g. stray
+# default-path outputs the gate spotted) are written FIRST. Writes an excerpt
+# file and returns its artifact (always -- an empty excerpt still records
+# "nothing found", which is itself evidence).
+function Save-ImporterLog([string]$name, $extraLines = $null) {
     $dirs = @((Join-Path $DataFolder "MQL5\Logs"), (Join-Path $DataFolder "logs"))
     $lines = New-Object System.Collections.ArrayList
     foreach ($d in $dirs) {
@@ -211,12 +214,17 @@ function Save-ImporterLog([string]$name) {
                 } catch { }
             }
     }
-    $out = Join-Path $Evidence ("import_" + $name + "_terminal_log.txt")
-    if ($lines.Count -eq 0) {
-        [IO.File]::WriteAllText($out, ("(no Mql5BotImportFixture lines found in MT5 logs under " + $DataFolder + ")`r`n"), [Text.Encoding]::ASCII)
-    } else {
-        [IO.File]::WriteAllText($out, (($lines -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)
+    $all = New-Object System.Collections.ArrayList
+    if ($extraLines) {
+        foreach ($x in @($extraLines)) { if ($x) { [void]$all.Add([string]$x) } }
     }
+    if ($lines.Count -eq 0) {
+        [void]$all.Add("(no Mql5BotImportFixture lines found in MT5 logs under " + $DataFolder + ")")
+    } else {
+        foreach ($l in $lines) { [void]$all.Add($l) }
+    }
+    $out = Join-Path $Evidence ("import_" + $name + "_terminal_log.txt")
+    [IO.File]::WriteAllText($out, (($all -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)
     return (New-Artifact $out)
 }
 
@@ -391,8 +399,18 @@ foreach ($g in $golds) {
         "InpOutDir=Mql5Bot\gold_import_out",
         "InpOutFile=" + $outRel
     )
-    [IO.File]::WriteAllText((Join-Path $presetsDir $setName), (($setLines -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)
-    # archive the EXACT params the gate passed as evidence
+    # PARAMETER DELIVERY (verified against the MT5 "Configuration at Startup"
+    # help, terminal/help/start_advanced/start): [StartUp] ScriptParameters is
+    # a bare FILE NAME resolved in MQL5\Presets of the platform data directory
+    # ("The file must be located in the folder MQL5\presets") -- a .set staged
+    # anywhere else is IGNORED and the script runs with its compiled-in
+    # DEFAULTS, writing to its default path: the exact "terminal ran but no
+    # JSON at the gate's path" symptom. The docs leave the file ENCODING
+    # unstated; the terminal itself saves .set files as UTF-16LE, so stage in
+    # that encoding (the one format the terminal provably reads back).
+    [IO.File]::WriteAllText((Join-Path $presetsDir $setName), (($setLines -join "`r`n") + "`r`n"), [Text.Encoding]::Unicode)
+    # archive the EXACT params the gate passed as evidence (byte copy of the
+    # staged preset, so the artifact sha256 pins what the terminal was given)
     $setEvidence = Join-Path $Evidence ("import_" + $g.name + ".set")
     Copy-Item -LiteralPath (Join-Path $presetsDir $setName) -Destination $setEvidence -Force
     [void]$stage4art.Add((New-Artifact $setEvidence))
@@ -412,14 +430,44 @@ foreach ($g in $golds) {
     # lines so the cause is in the evidence dir either way.
     $logExcerptPath = ""
     if ($run.launched -and -not (Test-Path -LiteralPath $resultJson)) {
-        $logArt = Save-ImporterLog $g.name
+        # parameter-delivery proof: a run whose .set was NOT delivered uses the
+        # compiled-in defaults and writes to the importer's DEFAULT path, so
+        # any stray JSON in the import-out dir is named evidence of that cause
+        # (it is copied into evidence\ and listed at the TOP of the excerpt).
+        $extra = New-Object System.Collections.ArrayList
+        $strays = @(Get-ChildItem -LiteralPath $importOut -Filter "*.json" -ErrorAction SilentlyContinue)
+        foreach ($s in $strays) {
+            [void]$extra.Add(("stray import-out JSON (importer ran with NON-gate inputs?): " + $s.FullName))
+            $strayCopy = Join-Path $Evidence ("import_" + $g.name + "_stray_" + $s.Name)
+            Copy-Item -LiteralPath $s.FullName -Destination $strayCopy -Force
+            [void]$stage4art.Add((New-Artifact $strayCopy))
+        }
+        $logArt = Save-ImporterLog $g.name $extra
         if ($logArt) { [void]$stage4art.Add($logArt); $logExcerptPath = $logArt.path }
+        # surface the excerpt head INLINE: a stage-4 failure must be
+        # diagnosable from the gate's own console output alone
+        if ($logExcerptPath -and (Test-Path -LiteralPath $logExcerptPath)) {
+            Write-Host ("[owner-gate] stage-4 log excerpt head ({0}):" -f (Split-Path -Leaf $logExcerptPath)) -ForegroundColor Yellow
+            Get-Content -LiteralPath $logExcerptPath -TotalCount 10 -ErrorAction SilentlyContinue |
+                ForEach-Object { Write-Host ("    | " + $_) -ForegroundColor Yellow }
+        }
     }
     # attach the importer diagnostic to stage_4.json whenever it exists (pass,
-    # fail, or refusal) -- before the pass/fail branch so it is never lost
+    # fail, or refusal) -- before the pass/fail branch so it is never lost.
+    # SANDBOX PATTERN (same as DslParityRunner): the importer wrote INSIDE
+    # MQL5\Files; the gate copies that file into evidence\ and records the
+    # sha256 BEFORE and AFTER the copy, attaching BOTH, so a mangled copy can
+    # never masquerade as the importer's output.
     if (Test-Path -LiteralPath $resultJson) {
+        $shaBefore = Get-Sha256 $resultJson
         $resCopy = Join-Path $Evidence ("import_" + $g.name + ".json")
         Copy-Item -LiteralPath $resultJson -Destination $resCopy -Force
+        $shaAfter = Get-Sha256 $resCopy
+        Write-Host ("[owner-gate] import JSON sha256 before copy {0} / after copy {1}" -f $shaBefore, $shaAfter)
+        if ($shaBefore -ne $shaAfter) {
+            Write-Host ("[owner-gate] WARNING: evidence copy of {0} differs from the MQL5\Files original" -f $resultJson) -ForegroundColor Yellow
+        }
+        [void]$stage4art.Add([ordered]@{ path = $resultJson; sha256 = $shaBefore })
         [void]$stage4art.Add((New-Artifact $resCopy))
     }
     $oc = Invoke-Decide @("stage4-outcome",

@@ -363,7 +363,8 @@ STAGE4_CASE_PASS = "import_ok"
 def classify_stage4_outcome(*, launched: bool, json_present: bool,
                             doc: dict | None, manifest_hash: str | None,
                             symbol: str,
-                            log_excerpt_present: bool = False) -> dict:
+                            log_excerpt_present: bool = False,
+                            log_excerpt_head: str | None = None) -> dict:
     """Decide the stage-4 outcome from what the .ps1 observed.
 
     Returns {"case": <STAGE4_CASE_*>, "ok": bool, "message": str, ...}. ``ok``
@@ -371,7 +372,11 @@ def classify_stage4_outcome(*, launched: bool, json_present: bool,
     with a message that names WHICH of the three cases occurred:
 
       (1) terminal never launched  -> STAGE4_CASE_NOT_LAUNCHED
-      (2) terminal ran, no JSON     -> STAGE4_CASE_NO_JSON (log excerpt noted)
+      (2) terminal ran, no JSON     -> STAGE4_CASE_NO_JSON (log excerpt noted;
+                                        when ``log_excerpt_head`` carries the
+                                        excerpt's first lines they are folded
+                                        into the message, so the cause is
+                                        readable from the gate console alone)
       (3) JSON present + REFUSED     -> STAGE4_CASE_REFUSED, refusal reason
                                         surfaced VERBATIM from the record
 
@@ -388,6 +393,12 @@ def classify_stage4_outcome(*, launched: bool, json_present: bool,
                 if log_excerpt_present
                 else "no Mql5BotImportFixture lines were found in the MT5 logs "
                      "either")
+        if log_excerpt_present and log_excerpt_head:
+            head = " / ".join(
+                ln.strip() for ln in log_excerpt_head.splitlines()[:10]
+                if ln.strip())
+            if head:
+                tail += f"; excerpt begins: {head}"
         return {"case": STAGE4_CASE_NO_JSON, "ok": False,
                 "message": f"{symbol}: terminal ran but produced no output "
                            f"JSON at the path the gate passed; {tail}"}
