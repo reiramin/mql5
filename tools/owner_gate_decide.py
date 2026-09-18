@@ -62,6 +62,10 @@ def main(argv: list[str] | None = None) -> int:
                        help="refuse by name if a fresh-clone target exists")
     p.add_argument("dir", help="the intended clone/working-copy directory")
 
+    p = sub.add_parser("import-diagnostic",
+                       help="stage 4: importer result must be non-vacuous")
+    p.add_argument("result", help="path to the importer <symbol>.json")
+
     args = ap.parse_args(argv)
     repo = Path(args.repo).resolve()
 
@@ -96,6 +100,17 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.cmd == "clone-preflight":
             return _emit(gs.clone_target_status(args.dir))
+
+        if args.cmd == "import-diagnostic":
+            doc = json.loads(Path(args.result).read_text(encoding="utf-8"))
+            verdict = gs.import_diagnostic_populated(doc)
+            # "ok" tracks whether the diagnostic is usable (populated), NOT the
+            # stage pass/fail -- the .ps1 decides pass/fail from refused/hash
+            # and uses this only to surface a human reason and fail closed on a
+            # regression to a vacuous refusal.
+            print(json.dumps({"ok": verdict["populated"], **verdict},
+                             indent=2, sort_keys=True))
+            return 0 if verdict["populated"] else 1
     except (OSError, ValueError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2

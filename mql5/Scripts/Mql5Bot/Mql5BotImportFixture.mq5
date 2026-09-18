@@ -19,24 +19,51 @@
 //|  invented properties: every symbol property comes from the        |
 //|  manifest or the SymbolSpec export, and a missing one REFUSES.    |
 //|                                                                  |
-//|  Contract (mirrors the DSL-parity pattern that already works):    |
-//|   1. read the fixture CSV as raw bytes; sha256 == manifest        |
-//|      dataset_hash, else refuse (a converted frame is not the      |
-//|      fixture).                                                    |
-//|   2. create/update a custom symbol; set every property from the   |
-//|      manifest broker_spec, filling currency_base/currency_margin  |
-//|      from the SymbolSpec export; a missing property refuses and    |
-//|      creates nothing.                                             |
-//|   3. write the bars via CustomRatesUpdate, read them back, and     |
-//|      re-serialize to the EXACT pandas float_format="%.10f" / LF    |
-//|      CSV byte stream; its sha256 must again equal the manifest     |
-//|      dataset_hash. Any mismatch REFUSES and deletes the symbol -   |
-//|      the import never half-lands.                                 |
-//|   Output MQL5\Files\<InpOutDir>\<symbol>.json:                    |
-//|     {"refused":false,"symbol":...,"n_bars":...,                   |
-//|      "manifest_dataset_hash":...,"fixture_file_sha256":...,       |
-//|      "roundtrip_sha256":...,"timeframe":...}                      |
-//|   or {"error":...,"symbol":...,"refused":true} on any refusal.    |
+//|  CHART-INDEPENDENT: the symbol and timeframe are taken ONLY from  |
+//|  the inputs (InpSymbolName) and the manifest ("timeframe"). The    |
+//|  script never reads the attached chart's predefined symbol/period  |
+//|  variables nor the chart symbol/period query functions; it         |
+//|  behaves identically no matter which chart it is dropped on (the   |
+//|  owner gate runs it from a BTC,H1 chart).                         |
+//|                                                                  |
+//|  SYMBOL NAME (GOLD_EURUSD): MT5 restricts custom-symbol names to   |
+//|  Latin letters/digits and the punctuation ". _ & #" only, <=32    |
+//|  chars incl. the terminating 0. "GOLD_EURUSD" (11 chars, letters   |
+//|  + "_") satisfies this. The script validates the name and REFUSES  |
+//|  before creating anything if it does not. The custom-symbol path   |
+//|  is InpSymbolGroup ("Mql5Bot\\gold"), which places it under        |
+//|  Custom\Mql5Bot\gold and cannot collide with a broker symbol; if   |
+//|  a NON-custom (broker) symbol of the same name already exists the  |
+//|  script REFUSES rather than shadow it.                            |
+//|                                                                  |
+//|  err=5306 FAMILY (custom-symbol STATE / VALUE errors, 53xx):       |
+//|   - STATE: a symbol SELECTED in Market Watch cannot be deleted     |
+//|     (5306) or have its properties changed. The script therefore    |
+//|     deselects the symbol (SymbolSelect(sym,false)) BEFORE any      |
+//|     delete or CustomSymbolSet*, and selects it (SymbolSelect(...,  |
+//|     true)) only AFTER every property is set and the bars written.  |
+//|     A stale prior custom symbol is detected (SymbolExist w/        |
+//|     is_custom) and recreated deterministically.                   |
+//|   - VALUE: a property value from the SymbolSpec/manifest may be    |
+//|     out of the range MT5 accepts (5308). Properties are set ONE    |
+//|     AT A TIME; the return of EACH call is checked and, on failure, |
+//|     the diagnostic names the property, its enum, its value, its    |
+//|     source field and _LastError. A property is never silently      |
+//|     skipped -- a skipped property means the symbol is not the      |
+//|     certified one, so any failure REFUSES.                        |
+//|                                                                  |
+//|  OBSERVABILITY: EVERY outcome writes a JSON diagnostic to          |
+//|  MQL5\Files\<InpOutDir>\<symbol>.json -- especially a refusal,     |
+//|  which previously wrote nothing usable. The record carries:       |
+//|   {"refused":bool,"symbol":...,"stage":...,"last_error":int,      |
+//|    "failed_call":...,"failed_property":<enum name>,               |
+//|    "failed_value":...,"failed_source":<manifest/spec field>,      |
+//|    "properties":[{"enum","value","source","ok","last_error"}...], |
+//|    "error":...}                                                   |
+//|  On success it ALSO carries the faithful-import fields:           |
+//|    fixture_file_sha256, manifest_dataset_hash, n_bars,            |
+//|    roundtrip_sha256, timeframe. The gate attaches this file to     |
+//|    stage_4.json whether the import passes or fails.               |
 //+------------------------------------------------------------------+
 #property script_show_inputs
 #property strict
@@ -85,17 +112,117 @@ bool WriteTextLF(const string path, const string text)
   }
 
 //+------------------------------------------------------------------+
-//| refusal: write nothing but the refusal record, create no symbol  |
+//| running per-property diagnostic (never refuse silently)           |
 //+------------------------------------------------------------------+
-void WriteRefusal(const string outPath, const string symbol,
-                  const string why)
+string g_propsJson = "";   // JSON array body of every property attempted
+int    g_propCount = 0;
+string g_failCall  = "";   // which CustomSymbolSet* failed
+string g_failEnum  = "";   // the exact property enum name
+string g_failValue = "";   // the value passed
+string g_failSource= "";   // which field of which manifest/spec export
+
+void AppendProp(const string enumName, const string valueStr,
+                const string source, const bool ok, const int err)
   {
-   string doc = "{\"error\":" + DslCanonEscape(why) +
+   if(g_propCount>0) g_propsJson += ",";
+   g_propsJson += "{\"enum\":"       + DslCanonEscape(enumName) +
+                  ",\"value\":"      + DslCanonEscape(valueStr) +
+                  ",\"source\":"     + DslCanonEscape(source) +
+                  ",\"ok\":"         + (ok ? "true" : "false") +
+                  ",\"last_error\":" + IntegerToString(err) + "}";
+   g_propCount++;
+  }
+
+// set ONE property, checking its own return; record it either way
+bool SetI(const string sym, const ENUM_SYMBOL_INFO_INTEGER id,
+          const string enumName, const long v, const string source)
+  {
+   ResetLastError();
+   bool ok = CustomSymbolSetInteger(sym, id, v);
+   int  err = GetLastError();
+   AppendProp(enumName, IntegerToString(v), source, ok, err);
+   if(!ok) { g_failCall="CustomSymbolSetInteger"; g_failEnum=enumName;
+             g_failValue=IntegerToString(v); g_failSource=source; }
+   return ok;
+  }
+
+bool SetD(const string sym, const ENUM_SYMBOL_INFO_DOUBLE id,
+          const string enumName, const double v, const string source)
+  {
+   ResetLastError();
+   bool ok = CustomSymbolSetDouble(sym, id, v);
+   int  err = GetLastError();
+   AppendProp(enumName, DoubleToString(v, 10), source, ok, err);
+   if(!ok) { g_failCall="CustomSymbolSetDouble"; g_failEnum=enumName;
+             g_failValue=DoubleToString(v, 10); g_failSource=source; }
+   return ok;
+  }
+
+bool SetS(const string sym, const ENUM_SYMBOL_INFO_STRING id,
+          const string enumName, const string v, const string source)
+  {
+   ResetLastError();
+   bool ok = CustomSymbolSetString(sym, id, v);
+   int  err = GetLastError();
+   AppendProp(enumName, v, source, ok, err);
+   if(!ok) { g_failCall="CustomSymbolSetString"; g_failEnum=enumName;
+             g_failValue=v; g_failSource=source; }
+   return ok;
+  }
+
+//+------------------------------------------------------------------+
+//| diagnostic writer: EVERY outcome writes a populated JSON here.    |
+//| refusal record carries the failing property/value/source/enum    |
+//| and _LastError so the gate is never blind again.                 |
+//+------------------------------------------------------------------+
+void RefuseAt(const string outPath, const string symbol, const string stage,
+              const string why, const int lastErr)
+  {
+   string props = "[" + g_propsJson + "]";
+   string doc = "{\"error\":"          + DslCanonEscape(why) +
+                ",\"failed_call\":"     + DslCanonEscape(g_failCall) +
+                ",\"failed_property\":" + DslCanonEscape(g_failEnum) +
+                ",\"failed_source\":"   + DslCanonEscape(g_failSource) +
+                ",\"failed_value\":"    + DslCanonEscape(g_failValue) +
+                ",\"last_error\":"      + IntegerToString(lastErr) +
+                ",\"properties\":"      + props +
                 ",\"refused\":true" +
-                ",\"symbol\":" + DslCanonEscape(symbol) + "}\n";
+                ",\"stage\":"           + DslCanonEscape(stage) +
+                ",\"symbol\":"          + DslCanonEscape(symbol) + "}\n";
    if(!WriteTextLF(outPath, doc))
       Print("[import] cannot write ", outPath);
-   Print("[import] ", symbol, " REFUSED: ", why);
+   Print("[import] ", symbol, " REFUSED [", stage, "]: ", why,
+         " (last_error=", lastErr, ")");
+  }
+
+//+------------------------------------------------------------------+
+//| deselect + drop a custom symbol (5306-safe: a SELECTED symbol     |
+//| cannot be deleted, so deselect first)                            |
+//+------------------------------------------------------------------+
+void DropSymbol(const string sym)
+  {
+   SymbolSelect(sym, false);
+   CustomRatesDelete(sym, 0, LONG_MAX);
+   CustomSymbolDelete(sym);
+  }
+
+//+------------------------------------------------------------------+
+//| custom-symbol name rule: Latin letters/digits and only . _ & #    |
+//| (<=32 chars incl. the terminating 0, so <=31 usable chars)       |
+//+------------------------------------------------------------------+
+bool ValidCustomSymbolName(const string s)
+  {
+   int n = StringLen(s);
+   if(n<=0 || n>31) return false;
+   for(int i=0;i<n;i++)
+     {
+      ushort c = StringGetCharacter(s, i);
+      bool ok = (c>='A' && c<='Z') || (c>='a' && c<='z') ||
+                (c>='0' && c<='9') ||
+                c=='.' || c=='_' || c=='&' || c=='#';
+      if(!ok) return false;
+     }
+   return true;
   }
 
 //+------------------------------------------------------------------+
@@ -211,41 +338,55 @@ void OnStart()
    string sym     = InpSymbolName;
    string outPath = InpOutDir + "\\" + sym + ".json";
 
+   // ---- 0. custom-symbol NAME must satisfy MT5's rules ------------
+   if(!ValidCustomSymbolName(sym))
+     { RefuseAt(outPath, sym, "name_check",
+                "symbol name violates MT5 custom-symbol rules (Latin "
+                "letters/digits and only . _ & #, <=31 chars): "+sym, 0);
+       return; }
+
    // ---- 1. read the committed fixture CSV as raw bytes -----------
    uchar csvBytes[];
    if(!ReadFileBytes(InpFixtureCsv, csvBytes))
-     { WriteRefusal(outPath, sym, "cannot read fixture csv: "+InpFixtureCsv);
+     { RefuseAt(outPath, sym, "read_fixture",
+                "cannot read fixture csv: "+InpFixtureCsv, GetLastError());
        return; }
    string fixtureSha = DslSha256HexBytes(csvBytes);
 
    // ---- read + parse the gold manifest (broker_spec + dataset_hash)
    uchar manBytes[];
    if(!ReadFileBytes(InpManifest, manBytes))
-     { WriteRefusal(outPath, sym, "cannot read manifest: "+InpManifest);
+     { RefuseAt(outPath, sym, "read_manifest",
+                "cannot read manifest: "+InpManifest, GetLastError());
        return; }
    CDslJson man;
    if(!man.Parse(BytesToText(manBytes)))
-     { WriteRefusal(outPath, sym, "manifest JSON parse error: "+man.Error());
+     { RefuseAt(outPath, sym, "parse_manifest",
+                "manifest JSON parse error: "+man.Error(), 0);
        return; }
    int mroot = man.Root;
    int bspec = man.Member(mroot, "broker_spec");
    if(bspec < 0)
-     { WriteRefusal(outPath, sym, "manifest has no broker_spec"); return; }
+     { RefuseAt(outPath, sym, "parse_manifest", "manifest has no broker_spec", 0);
+       return; }
 
    string datasetHash = man.GetStr(mroot, "dataset_hash", "");
    if(datasetHash == "")
-     { WriteRefusal(outPath, sym, "manifest has no dataset_hash"); return; }
+     { RefuseAt(outPath, sym, "parse_manifest", "manifest has no dataset_hash", 0);
+       return; }
    string tfStr = man.GetStr(mroot, "timeframe", "");
    ENUM_TIMEFRAMES tf;
    if(!TimeframeFromString(tfStr, tf))
-     { WriteRefusal(outPath, sym, "manifest timeframe unusable: "+tfStr);
+     { RefuseAt(outPath, sym, "parse_manifest",
+                "manifest timeframe unusable: "+tfStr, 0);
        return; }
 
    // the staged fixture MUST be the frozen one, byte-for-byte
    if(fixtureSha != datasetHash)
-     { WriteRefusal(outPath, sym, "fixture csv sha256 "+fixtureSha+
-                    " != manifest dataset_hash "+datasetHash+
-                    " (converted/foreign frame, not the frozen fixture)");
+     { RefuseAt(outPath, sym, "fixture_hash",
+                "fixture csv sha256 "+fixtureSha+
+                " != manifest dataset_hash "+datasetHash+
+                " (converted/foreign frame, not the frozen fixture)", 0);
        return; }
 
    // ---- read the stage-3 SymbolSpec export (for base/margin ccy) --
@@ -280,8 +421,8 @@ void OnStart()
    ok = ok && ReqNum(man, bspec, "freeze_level_points", freezeLevel, missing);
    ok = ok && ReqStr(man, bspec, "currency_profit", ccyProfit, missing);
    if(!ok)
-     { WriteRefusal(outPath, sym,
-                    "manifest broker_spec missing property: "+missing);
+     { RefuseAt(outPath, sym, "collect_properties",
+                "manifest broker_spec missing property: "+missing, 0);
        return; }
 
    // currency_base/currency_margin are not in the manifest broker_spec;
@@ -293,10 +434,10 @@ void OnStart()
       ccyMargin = spec.GetStr(sspec, "currency_margin", "");
      }
    if(ccyBase == "" || ccyMargin == "")
-     { WriteRefusal(outPath, sym,
-                    "currency_base/currency_margin absent from the "
-                    "SymbolSpec export ("+InpSymbolSpec+") and not in the "
-                    "manifest - refusing rather than inventing them");
+     { RefuseAt(outPath, sym, "collect_properties",
+                "currency_base/currency_margin absent from the "
+                "SymbolSpec export ("+InpSymbolSpec+") and not in the "
+                "manifest - refusing rather than inventing them", 0);
        return; }
 
    // ---- parse the fixture bars ------------------------------------
@@ -304,37 +445,83 @@ void OnStart()
    int nBars=0;
    if(!ParseFixtureCsv(BytesToText(csvBytes), times, open, high, low, close,
                        volume, nBars))
-     { WriteRefusal(outPath, sym, "malformed fixture csv"); return; }
+     { RefuseAt(outPath, sym, "parse_fixture", "malformed fixture csv", 0);
+       return; }
 
-   // ---- 2b. create the custom symbol and set every property -------
-   // clean any prior instance so a stale symbol cannot masquerade
-   CustomRatesDelete(sym, 0, LONG_MAX);
-   CustomSymbolDelete(sym);
+   // ---- 2b. resolve symbol STATE deterministically (err=5306 guard)-
+   // A broker (non-custom) symbol of the same name must never be shadowed.
+   // A selected symbol cannot be deleted or mutated, so we always deselect
+   // first, then recreate the custom symbol from clean.
+   bool isCustom=false;
+   if(SymbolExist(sym, isCustom))
+     {
+      if(!isCustom)
+        { RefuseAt(outPath, sym, "symbol_state",
+                   "a NON-custom (broker) symbol named "+sym+
+                   " already exists; refusing to shadow a broker symbol", 0);
+          return; }
+      // stale custom symbol from a prior run: drop it deterministically
+      DropSymbol(sym);
+     }
+   else
+     {
+      // even if SymbolExist says no, ensure it is not lingering selected
+      SymbolSelect(sym, false);
+     }
+
+   ResetLastError();
    if(!CustomSymbolCreate(sym, InpSymbolGroup))
-     { WriteRefusal(outPath, sym, "CustomSymbolCreate failed, err="+
-                    IntegerToString(GetLastError())); return; }
+     { RefuseAt(outPath, sym, "create_symbol",
+                "CustomSymbolCreate failed for group "+InpSymbolGroup,
+                GetLastError());
+       return; }
+   // the symbol is freshly created and NOT selected in Market Watch, so it
+   // is safe to set every property. We select it only after bars are written.
 
+   // ---- 2c. set every property ONE AT A TIME, checking each -------
    bool sok = true;
-   sok = sok && CustomSymbolSetInteger(sym, SYMBOL_DIGITS, (long)digits);
-   sok = sok && CustomSymbolSetDouble(sym, SYMBOL_POINT, point);
-   sok = sok && CustomSymbolSetDouble(sym, SYMBOL_TRADE_TICK_SIZE, tickSize);
-   sok = sok && CustomSymbolSetDouble(sym, SYMBOL_TRADE_TICK_VALUE, tickValProfit);
-   sok = sok && CustomSymbolSetDouble(sym, SYMBOL_TRADE_TICK_VALUE_PROFIT, tickValProfit);
-   sok = sok && CustomSymbolSetDouble(sym, SYMBOL_TRADE_TICK_VALUE_LOSS, tickValLoss);
-   sok = sok && CustomSymbolSetDouble(sym, SYMBOL_TRADE_CONTRACT_SIZE, contractSize);
-   sok = sok && CustomSymbolSetDouble(sym, SYMBOL_VOLUME_MIN, volMin);
-   sok = sok && CustomSymbolSetDouble(sym, SYMBOL_VOLUME_MAX, volMax);
-   sok = sok && CustomSymbolSetDouble(sym, SYMBOL_VOLUME_STEP, volStep);
-   sok = sok && CustomSymbolSetDouble(sym, SYMBOL_VOLUME_LIMIT, volLimit);
-   sok = sok && CustomSymbolSetInteger(sym, SYMBOL_TRADE_STOPS_LEVEL, (long)stopsLevel);
-   sok = sok && CustomSymbolSetInteger(sym, SYMBOL_TRADE_FREEZE_LEVEL, (long)freezeLevel);
-   sok = sok && CustomSymbolSetString(sym, SYMBOL_CURRENCY_PROFIT, ccyProfit);
-   sok = sok && CustomSymbolSetString(sym, SYMBOL_CURRENCY_BASE, ccyBase);
-   sok = sok && CustomSymbolSetString(sym, SYMBOL_CURRENCY_MARGIN, ccyMargin);
+   sok = sok && SetI(sym, SYMBOL_DIGITS, "SYMBOL_DIGITS", (long)digits,
+                     "manifest.broker_spec.digits");
+   sok = sok && SetD(sym, SYMBOL_POINT, "SYMBOL_POINT", point,
+                     "manifest.broker_spec.point");
+   sok = sok && SetD(sym, SYMBOL_TRADE_TICK_SIZE, "SYMBOL_TRADE_TICK_SIZE",
+                     tickSize, "manifest.broker_spec.tick_size");
+   sok = sok && SetD(sym, SYMBOL_TRADE_TICK_VALUE, "SYMBOL_TRADE_TICK_VALUE",
+                     tickValProfit, "manifest.broker_spec.tick_value_profit");
+   sok = sok && SetD(sym, SYMBOL_TRADE_TICK_VALUE_PROFIT,
+                     "SYMBOL_TRADE_TICK_VALUE_PROFIT", tickValProfit,
+                     "manifest.broker_spec.tick_value_profit");
+   sok = sok && SetD(sym, SYMBOL_TRADE_TICK_VALUE_LOSS,
+                     "SYMBOL_TRADE_TICK_VALUE_LOSS", tickValLoss,
+                     "manifest.broker_spec.tick_value_loss");
+   sok = sok && SetD(sym, SYMBOL_TRADE_CONTRACT_SIZE,
+                     "SYMBOL_TRADE_CONTRACT_SIZE", contractSize,
+                     "manifest.broker_spec.contract_size");
+   sok = sok && SetD(sym, SYMBOL_VOLUME_MIN, "SYMBOL_VOLUME_MIN", volMin,
+                     "manifest.broker_spec.volume_min");
+   sok = sok && SetD(sym, SYMBOL_VOLUME_MAX, "SYMBOL_VOLUME_MAX", volMax,
+                     "manifest.broker_spec.volume_max");
+   sok = sok && SetD(sym, SYMBOL_VOLUME_STEP, "SYMBOL_VOLUME_STEP", volStep,
+                     "manifest.broker_spec.volume_step");
+   sok = sok && SetD(sym, SYMBOL_VOLUME_LIMIT, "SYMBOL_VOLUME_LIMIT", volLimit,
+                     "manifest.broker_spec.volume_limit");
+   sok = sok && SetI(sym, SYMBOL_TRADE_STOPS_LEVEL, "SYMBOL_TRADE_STOPS_LEVEL",
+                     (long)stopsLevel, "manifest.broker_spec.stops_level_points");
+   sok = sok && SetI(sym, SYMBOL_TRADE_FREEZE_LEVEL, "SYMBOL_TRADE_FREEZE_LEVEL",
+                     (long)freezeLevel, "manifest.broker_spec.freeze_level_points");
+   sok = sok && SetS(sym, SYMBOL_CURRENCY_PROFIT, "SYMBOL_CURRENCY_PROFIT",
+                     ccyProfit, "manifest.broker_spec.currency_profit");
+   sok = sok && SetS(sym, SYMBOL_CURRENCY_BASE, "SYMBOL_CURRENCY_BASE",
+                     ccyBase, "SymbolSpec("+InpSymbolSpec+").symbol.currency_base");
+   sok = sok && SetS(sym, SYMBOL_CURRENCY_MARGIN, "SYMBOL_CURRENCY_MARGIN",
+                     ccyMargin, "SymbolSpec("+InpSymbolSpec+").symbol.currency_margin");
    if(!sok)
-     { CustomSymbolDelete(sym);
-       WriteRefusal(outPath, sym, "CustomSymbolSet* failed, err="+
-                    IntegerToString(GetLastError())); return; }
+     { int err = GetLastError();
+       DropSymbol(sym);
+       RefuseAt(outPath, sym, "set_properties",
+                g_failCall+"("+g_failEnum+"="+g_failValue+" from "+g_failSource+
+                ") failed", err);
+       return; }
 
    // ---- 3. write the bars via CustomRatesUpdate -------------------
    MqlRates rates[];
@@ -350,19 +537,32 @@ void OnStart()
       rates[i].real_volume  = 0;
       rates[i].spread       = 0;
      }
+   ResetLastError();
    if(CustomRatesUpdate(sym, rates) < 0)
-     { CustomSymbolDelete(sym);
-       WriteRefusal(outPath, sym, "CustomRatesUpdate failed, err="+
-                    IntegerToString(GetLastError())); return; }
+     { int err = GetLastError();
+       DropSymbol(sym);
+       RefuseAt(outPath, sym, "write_bars", "CustomRatesUpdate failed", err);
+       return; }
 
-   // ---- read them back at the fixture timeframe -------------------
+   // ---- select the symbol ONLY now: after every property is set and
+   //      the bars are written (a selected symbol cannot be mutated) --
+   if(!SymbolSelect(sym, true))
+     { int err = GetLastError();
+       DropSymbol(sym);
+       RefuseAt(outPath, sym, "select_symbol",
+                "SymbolSelect(true) failed after import", err);
+       return; }
+
+   // ---- read them back at the fixture timeframe (explicit sym/tf) --
    MqlRates back[];
    int got = CopyRates(sym, tf, 0, nBars, back);
    if(got != nBars)
-     { CustomSymbolDelete(sym);
-       WriteRefusal(outPath, sym, "readback bar count "+IntegerToString(got)+
-                    " != "+IntegerToString(nBars)+
-                    " (timeframe generation perturbed the fixture)");
+     { int err = GetLastError();
+       DropSymbol(sym);
+       RefuseAt(outPath, sym, "readback",
+                "readback bar count "+IntegerToString(got)+
+                " != "+IntegerToString(nBars)+
+                " (timeframe generation perturbed the fixture)", err);
        return; }
    ArraySetAsSeries(back, false);
 
@@ -385,18 +585,25 @@ void OnStart()
                                  rt_close, rt_vol, got);
    string roundtripSha = DslSha256Hex(rebuilt);
    if(roundtripSha != datasetHash)
-     { CustomSymbolDelete(sym);
-       WriteRefusal(outPath, sym, "roundtrip dataset hash "+roundtripSha+
-                    " != manifest dataset_hash "+datasetHash+
-                    " (custom symbol does not faithfully hold the fixture)");
+     { DropSymbol(sym);
+       RefuseAt(outPath, sym, "roundtrip",
+                "roundtrip dataset hash "+roundtripSha+
+                " != manifest dataset_hash "+datasetHash+
+                " (custom symbol does not faithfully hold the fixture)", 0);
        return; }
 
    // ---- success: the custom symbol provably equals the fixture ----
+   // the diagnostic block (properties/last_error/stage) is carried on the
+   // success record too, so the gate attaches identical observability data
+   // whether stage 4 passes or fails.
    string doc = "{\"fixture_file_sha256\":" + DslCanonEscape(fixtureSha) +
+                ",\"last_error\":0" +
                 ",\"manifest_dataset_hash\":" + DslCanonEscape(datasetHash) +
                 ",\"n_bars\":" + IntegerToString(got) +
+                ",\"properties\":[" + g_propsJson + "]" +
                 ",\"refused\":false" +
                 ",\"roundtrip_sha256\":" + DslCanonEscape(roundtripSha) +
+                ",\"stage\":\"complete\"" +
                 ",\"symbol\":" + DslCanonEscape(sym) +
                 ",\"timeframe\":" + DslCanonEscape(tfStr) + "}\n";
    if(!WriteTextLF(outPath, doc))

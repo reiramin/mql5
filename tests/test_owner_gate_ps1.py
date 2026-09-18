@@ -692,3 +692,176 @@ def test_importer_does_not_pull_live_history():
     # there must be no chart / iBars / SymbolInfo live-history pull
     assert src.count("CopyRates(") == 1
     assert "iClose" not in src and "iOpen" not in src
+
+
+# ---------------------------------------------------------------------------
+# Mql5BotImportFixture.mq5 -- STAGE 4 FIX contract (err=5306 family)
+# ---------------------------------------------------------------------------
+
+def test_importer_is_chart_independent():
+    # it must take symbol/timeframe ONLY from inputs + manifest, never read
+    # the attached chart implicitly (the gate runs it from a BTC,H1 chart)
+    src = _importer()
+    for implicit in ("_Symbol", "_Period", "ChartSymbol(", "ChartPeriod(",
+                     "Symbol()", "Period()"):
+        assert implicit not in src, f"importer must not read {implicit!r}"
+    assert "InpSymbolName" in src            # symbol from the input
+    assert "TimeframeFromString" in src      # timeframe from the manifest
+
+
+def test_importer_validates_the_custom_symbol_name():
+    src = _importer()
+    assert "ValidCustomSymbolName" in src
+    # the exact MT5 rule set: Latin letters/digits and only . _ & #
+    assert "c=='.' || c=='_' || c=='&' || c=='#'" in src
+    assert "name_check" in src               # a bad name refuses with a stage
+
+
+def test_importer_handles_5306_symbol_state_before_mutating():
+    src = _importer()
+    # a selected symbol cannot be deleted (5306) or have properties changed:
+    # deselect before any delete/set, select ONLY after bars are written
+    assert "SymbolSelect(sym, false)" in src
+    assert "SymbolSelect(sym, true)" in src
+    # a stale prior custom symbol is detected and recreated deterministically
+    assert "SymbolExist(sym, isCustom)" in src
+    # a broker (non-custom) symbol of the same name is never shadowed
+    assert "refusing to shadow a broker symbol" in src
+    # the select-after-import comes AFTER CustomRatesUpdate in source order
+    assert src.index("CustomRatesUpdate(sym") < src.index("SymbolSelect(sym, true)")
+
+
+def test_importer_sets_each_property_one_at_a_time_with_named_diagnostic():
+    src = _importer()
+    # per-property setters that check each return and record enum/value/source
+    for setter in ("bool SetI(", "bool SetD(", "bool SetS("):
+        assert setter in src
+    # the running per-property diagnostic and its keys
+    for key in ('\\"enum\\":', '\\"value\\":', '\\"source\\":',
+                '\\"ok\\":', '\\"last_error\\":'):
+        assert key in src, f"property record must carry {key}"
+    # a value is sourced by name from the manifest / SymbolSpec export
+    assert "manifest.broker_spec.volume_min" in src
+    assert "symbol.currency_base" in src
+
+
+def test_importer_refusal_record_is_populated_not_vacuous():
+    src = _importer()
+    # the refusal writer names the failing call/property/value/source + error
+    for key in ('\\"failed_call\\":', '\\"failed_property\\":',
+                '\\"failed_source\\":', '\\"failed_value\\":',
+                '\\"last_error\\":', '\\"stage\\":', '\\"properties\\":'):
+        assert key in src, f"refusal record must carry {key}"
+    # the old vacuous refusal writer is gone (RefuseAt replaces WriteRefusal)
+    assert "RefuseAt(" in src
+    assert "void WriteRefusal(" not in src
+
+
+# ---------------------------------------------------------------------------
+# stage 4 -- import diagnostic classifier (the err=5306 blind-spot mirror).
+# The importer cannot run on Mac (no MT5); its refusal-record contract is
+# tested here by simulating the JSON a failing property WRITES and asserting
+# the gate reads a populated, property-named diagnostic from it.
+# ---------------------------------------------------------------------------
+
+def _property_refusal_doc() -> dict:
+    """The record Mql5BotImportFixture writes when a CustomSymbolSet* call
+    fails on an out-of-range value (err=5308 in the 5306 family)."""
+    return {
+        "error": "CustomSymbolSetDouble(SYMBOL_VOLUME_MIN=0.0100000000 from "
+                 "manifest.broker_spec.volume_min) failed",
+        "failed_call": "CustomSymbolSetDouble",
+        "failed_property": "SYMBOL_VOLUME_MIN",
+        "failed_source": "manifest.broker_spec.volume_min",
+        "failed_value": "0.0100000000",
+        "last_error": 5308,
+        "properties": [
+            {"enum": "SYMBOL_DIGITS", "value": "5",
+             "source": "manifest.broker_spec.digits", "ok": True,
+             "last_error": 0},
+            {"enum": "SYMBOL_VOLUME_MIN", "value": "0.0100000000",
+             "source": "manifest.broker_spec.volume_min", "ok": False,
+             "last_error": 5308},
+        ],
+        "refused": True,
+        "stage": "set_properties",
+        "symbol": "GOLD_EURUSD",
+    }
+
+
+def test_import_refusal_writes_populated_json_with_property_name(tmp_path: Path):
+    # simulate the importer refusing on a failing property: the JSON it writes
+    # must appear on disk and name the offending property
+    out = tmp_path / "GOLD_EURUSD.json"
+    out.write_text(json.dumps(_property_refusal_doc()), encoding="utf-8")
+    assert out.is_file()
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    verdict = gs.import_diagnostic_populated(doc)
+    assert verdict["populated"], verdict
+    assert verdict["refused"] is True
+    assert verdict["failed_property"] == "SYMBOL_VOLUME_MIN"
+    # the property name is visibly present in the file the gate attaches
+    assert "SYMBOL_VOLUME_MIN" in out.read_text(encoding="utf-8")
+    assert "5308" in verdict["reason"]
+
+
+def test_import_old_vacuous_refusal_is_flagged_not_populated():
+    # the pre-fix record: err=5306 and nothing else -> the stage-4 blind spot
+    doc = {"error": "CustomSymbolSet* failed, err=5306",
+           "refused": True, "symbol": "GOLD_EURUSD"}
+    verdict = gs.import_diagnostic_populated(doc)
+    assert not verdict["populated"]
+    assert "last_error" in verdict["reason"]
+
+
+def test_import_property_refusal_without_name_is_flagged():
+    # a property-stage refusal that fails to name the failing property is a
+    # regression and must not count as populated
+    doc = _property_refusal_doc()
+    doc["failed_property"] = ""
+    verdict = gs.import_diagnostic_populated(doc)
+    assert not verdict["populated"]
+    assert "failed_property" in verdict["reason"]
+
+
+def test_import_success_record_is_populated():
+    doc = {"fixture_file_sha256": "a" * 64, "last_error": 0,
+           "manifest_dataset_hash": "b" * 64, "n_bars": 500,
+           "properties": [], "refused": False,
+           "roundtrip_sha256": "b" * 64, "stage": "complete",
+           "symbol": "GOLD_EURUSD", "timeframe": "H1"}
+    verdict = gs.import_diagnostic_populated(doc)
+    assert verdict["populated"] and not verdict["refused"]
+
+
+def test_import_diagnostic_decide_cli_roundtrips(tmp_path: Path):
+    # the .ps1 shells to owner_gate_decide.py import-diagnostic; a populated
+    # refusal exits 1 (usable) with the reason, a vacuous one also exits 1 but
+    # flags populated=false so the gate can fail closed on regression
+    import subprocess as sp
+    import sys
+    result = tmp_path / "GOLD_EURUSD.json"
+    result.write_text(json.dumps(_property_refusal_doc()), encoding="utf-8")
+    decide = REPO / "tools" / "owner_gate_decide.py"
+    cp = sp.run([sys.executable, str(decide), "--repo", str(REPO),
+                 "import-diagnostic", str(result)],
+                capture_output=True, text=True, check=False)
+    payload = json.loads(cp.stdout)
+    assert payload["populated"] is True
+    assert payload["failed_property"] == "SYMBOL_VOLUME_MIN"
+
+
+# ---------------------------------------------------------------------------
+# tools/owner_gate.ps1 -- stage 4 attaches the diagnostic on pass OR fail
+# ---------------------------------------------------------------------------
+
+def test_ps1_stage4_delegates_import_diagnostic_and_attaches_on_pass_or_fail():
+    src = _ps1()
+    # the diagnostic classification is delegated to committed Python
+    assert "import-diagnostic" in src
+    # the importer result is attached to stage_4 before the pass/fail branch
+    assert "$stage4art.Add((New-Artifact $resCopy))" in src
+    # a missing output JSON is now RECORDED, never a silent break
+    assert "importer produced no output JSON" in src
+    # a PASS whose diagnostic is not populated fails closed (regression guard)
+    assert "import diagnostic not populated" in src

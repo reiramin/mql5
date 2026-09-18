@@ -284,6 +284,67 @@ def dataset_hash_of_csv(path: Path | str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# stage 4: importer diagnostic must be non-vacuous (the err=5306 blind spot)
+# ---------------------------------------------------------------------------
+# The defect the fix closes: Mql5BotImportFixture.mq5 refused
+# ("CustomSymbolSet* failed, err=5306") and wrote a record with no property
+# name, no _LastError, no stage -- the gate had exactly one useless line to go
+# on. Every importer outcome must now write a POPULATED JSON: a refusal names
+# the stage + last_error, and a property-stage refusal additionally names the
+# failing property. This mirror lets the Mac-tested gate CLASSIFY an importer
+# result and fail closed if it ever regresses to a vacuous refusal.
+
+def import_diagnostic_populated(doc: dict) -> dict:
+    """Classify an Mql5BotImportFixture result JSON.
+
+    Returns {"populated": bool, "refused": bool,
+             "failed_property": str|None, "reason": str}.
+
+    A result is *populated* (usable observability) when:
+      - it carries a ``last_error`` field (present on every new outcome), and
+      - a refusal carries a non-empty ``error`` message, and
+      - a refusal at the ``set_properties`` stage additionally names the
+        ``failed_property`` (which CustomSymbolSet* call failed), and
+      - a success carries the round-trip hash it claims to have proven.
+
+    The old vacuous refusal ({"error","refused","symbol"}) has no
+    ``last_error`` and is therefore flagged NOT populated -- the exact blind
+    spot this fix removes.
+    """
+    if not isinstance(doc, dict):
+        return {"populated": False, "refused": False, "failed_property": None,
+                "reason": "importer result is not a JSON object"}
+    refused = bool(doc.get("refused", False))
+    if "last_error" not in doc:
+        return {"populated": False, "refused": refused, "failed_property": None,
+                "reason": "importer result carries no last_error field "
+                          "(vacuous refusal -- the stage-4 blind spot)"}
+    stage = doc.get("stage", "") or ""
+    if refused:
+        err_msg = doc.get("error", "") or ""
+        if not err_msg:
+            return {"populated": False, "refused": True,
+                    "failed_property": None,
+                    "reason": "refusal carries no error message"}
+        failed = doc.get("failed_property") or None
+        if stage == "set_properties" and not failed:
+            return {"populated": False, "refused": True,
+                    "failed_property": None,
+                    "reason": "property-stage refusal names no failed_property"}
+        return {"populated": True, "refused": True, "failed_property": failed,
+                "reason": f"refused at {stage or '?'}: {err_msg} "
+                          f"(last_error={doc.get('last_error')})"}
+    # success path
+    if not doc.get("roundtrip_sha256"):
+        return {"populated": False, "refused": False, "failed_property": None,
+                "reason": "success result lacks roundtrip_sha256"}
+    n_bars = int(doc.get("n_bars", 0) or 0)
+    return {"populated": True, "refused": False, "failed_property": None,
+            "reason": f"import succeeded; round-trip hash present "
+                      f"({n_bars} bars)"}
+
+
+# ---------------------------------------------------------------------------
 # stage A: self-protection
 # ---------------------------------------------------------------------------
 

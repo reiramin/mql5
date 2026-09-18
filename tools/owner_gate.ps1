@@ -340,17 +340,32 @@ foreach ($g in $golds) {
     }
     $resultJson = Join-Path $importOut ($g.name + ".json")
     if (-not (Test-Path -LiteralPath $resultJson)) {
+        # the importer writes a JSON on EVERY outcome (even a refusal); a
+        # missing file means the terminal never ran the script or it crashed.
         $stage4ok = $false
-        break
+        Record-Stage 4 "fixture_import" "FAIL" ("{0}: importer produced no output JSON (terminal did not run the script)" -f $g.name) @($stage4art) | Out-Null
+        Finish-Gate "fixture_import"
     }
+    # attach the importer diagnostic to stage_4.json whether it passes or fails
     $resCopy = Join-Path $Evidence ("import_" + $g.name + ".json")
     Copy-Item -LiteralPath $resultJson -Destination $resCopy -Force
     [void]$stage4art.Add((New-Artifact $resCopy))
+    # classify the diagnostic in committed Python: a refusal MUST name the
+    # failing property / stage / last_error (never a vacuous refusal again)
+    $diag = Invoke-Decide @("import-diagnostic", $resCopy)
     $res = Get-Content -LiteralPath $resCopy -Raw | ConvertFrom-Json
     $man = Get-Content -LiteralPath (Join-Path $RepoRoot $g.manifest) -Raw | ConvertFrom-Json
     if ($res.refused -ne $false -or $res.roundtrip_sha256 -ne $man.dataset_hash) {
         $stage4ok = $false
-        Record-Stage 4 "fixture_import" "FAIL" ("{0}: import refused or dataset hash mismatch (got {1}, manifest {2})" -f $g.name, $res.roundtrip_sha256, $man.dataset_hash) @($stage4art) | Out-Null
+        $why = if ($diag.data -and $diag.data.reason) { $diag.data.reason } else { "import refused or dataset hash mismatch" }
+        Record-Stage 4 "fixture_import" "FAIL" ("{0}: {1} (roundtrip {2}, manifest {3})" -f $g.name, $why, $res.roundtrip_sha256, $man.dataset_hash) @($stage4art) | Out-Null
+        Finish-Gate "fixture_import"
+    }
+    if (-not $diag.data.populated) {
+        # defence in depth: a PASS whose diagnostic is not populated means the
+        # importer regressed to a blind result -- fail closed.
+        $stage4ok = $false
+        Record-Stage 4 "fixture_import" "FAIL" ("{0}: import diagnostic not populated ({1})" -f $g.name, $diag.data.reason) @($stage4art) | Out-Null
         Finish-Gate "fixture_import"
     }
 }
