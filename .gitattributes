@@ -7,6 +7,9 @@ artifacts/** -text
 # owner compile/run logs are byte-exact evidence — never line-ending-normalized
 *.log -text
 logs_owner/** -text
+# owner-gate calibration fixtures are byte-exact (a UTF-16 compare report and
+# the BOM'd compile log must decode identically on every OS)
+tests/data/owner_gate/** -text
 
 # MQL5 sources are authored and hashed as LF; MetaEditor compiles LF fine.
 *.mq5 text eol=lf

@@ -1,0 +1,480 @@
+"""owner_gate.ps1 decision-engine red team (stage A + stages 1-3 parse).
+
+owner_gate.ps1 cannot run on this host (no PowerShell), so every DECISION
+it makes lives in committed Python (mql5bot.gate_selfcheck) and is tested
+here against real git repos and the real calibration artifacts. A green
+test proves the gate FAILS CLOSED: a dirty tree, wrong HEAD, tampered
+fixture hash or hand-written frozen_inputs can never pass self-protection,
+and a non-clean compile / broken parity / broker MISMATCH can never pass a
+stage. These are VERIFIER self-tests, never MT5/tester/gold claims.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+from mql5bot import gate_selfcheck as gs
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+# ---------------------------------------------------------------------------
+# helpers: a throwaway git repo carrying the real frozen artifacts
+# ---------------------------------------------------------------------------
+
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(["git", "-C", str(repo), *args],
+                          capture_output=True, text=True, check=True).stdout
+
+
+def _init_repo(tmp: Path) -> Path:
+    repo = tmp / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.email", "t@t")
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "core.autocrlf", "false")
+    return repo
+
+
+def _copy(src: Path, dst: Path) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_bytes(src.read_bytes())
+
+
+def _stage_artifacts(repo: Path) -> None:
+    """Copy the real gold + dsl_parity + frozen files so every hash matches."""
+    for rel in (
+        "artifacts/owner_mt5_gate/frozen_inputs.json",
+        "artifacts/gold/gold_fixture.csv",
+        "artifacts/gold/manifest.json",
+        "artifacts/gold/expected_execution.json",
+        "artifacts/gold_2/gold2_fixture.csv",
+        "artifacts/gold_2/manifest.json",
+        "artifacts/gold_2/expected_execution.json",
+        "artifacts/gold_2/dsl_trace.json",
+        "artifacts/gold_2/python_trace.json",
+        "artifacts/gold_2/reconciliation.json",
+    ):
+        _copy(REPO / rel, repo / rel)
+    dsl = REPO / "artifacts" / "dsl_parity"
+    for p in dsl.rglob("*"):
+        if p.is_file():
+            _copy(p, repo / "artifacts" / "dsl_parity" / p.relative_to(dsl))
+
+
+@pytest.fixture()
+def repo(tmp_path: Path) -> Path:
+    r = _init_repo(tmp_path)
+    _stage_artifacts(r)
+    _git(r, "add", "-A")
+    _git(r, "commit", "-q", "-m", "artifacts")
+    return r
+
+
+def _frozen(repo: Path) -> dict:
+    return json.loads((repo / gs.FROZEN_REL).read_text(encoding="utf-8"))
+
+
+# ---------------------------------------------------------------------------
+# stage A -- self-protection, one failing attack per required scenario
+# ---------------------------------------------------------------------------
+
+def test_self_protection_fails_on_dirty_tree(repo: Path):
+    # dirty a file that is NOT frozen_inputs, so the dirty-tree reason wins
+    (repo / "artifacts" / "gold" / "manifest.json").write_text(
+        (repo / "artifacts" / "gold" / "manifest.json").read_text() + "\n")
+    # frozen_hashes would also trip, but clean_tree is checked first and is
+    # the honest reason for an uncommitted edit
+    res = gs.verify_clean_tree(repo)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_DIRTY_TREE
+    assert "manifest.json" in res["detail"]
+
+
+def test_self_protection_fails_on_wrong_head(repo: Path):
+    frozen = _frozen(repo)
+    frozen["source"]["commit"] = "0" * 40  # not the tmp repo HEAD
+    res = gs.verify_head_matches_frozen(repo, frozen)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_HEAD_MISMATCH
+    assert "0000000000000000000000000000000000000000" in res["detail"]
+
+
+def test_self_protection_passes_head_when_it_matches(repo: Path):
+    head = _git(repo, "rev-parse", "HEAD").strip()
+    frozen = {"source": {"commit": head}}
+    res = gs.verify_head_matches_frozen(repo, frozen)
+    assert res["ok"] and res["reason"] == gs.SELF_PROTECT_OK
+
+
+def test_self_protection_fails_on_tampered_fixture_hash(repo: Path):
+    # flip one byte of the gold fixture -> its sha256 no longer matches the
+    # frozen pin. Re-commit so the tree is clean (isolating the hash check).
+    fx = repo / "artifacts" / "gold" / "gold_fixture.csv"
+    data = bytearray(fx.read_bytes())
+    data[-2] ^= 0x01
+    fx.write_bytes(bytes(data))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "tamper")
+    res = gs.verify_frozen_hashes(repo, _frozen(repo))
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_FROZEN_HASH_MISMATCH
+    assert "gold_fixture.csv" in res["detail"]
+
+
+def test_self_protection_fails_on_handwritten_frozen_inputs(repo: Path):
+    # a frozen_inputs.json that differs from its committed HEAD blob is a
+    # hand-written record -> refused, and the gate never trusts it
+    wt = repo / gs.FROZEN_REL
+    doc = json.loads(wt.read_text())
+    doc["gold_1"]["fixture_sha256"] = "f" * 64  # relax a pin by hand
+    wt.write_text(json.dumps(doc, indent=2))
+    res = gs.verify_frozen_inputs_untampered(repo)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_FROZEN_INPUTS_TAMPERED
+
+
+def test_self_protection_untampered_frozen_passes(repo: Path):
+    res = gs.verify_frozen_inputs_untampered(repo)
+    assert res["ok"] and res["reason"] == gs.SELF_PROTECT_OK
+
+
+def test_self_protection_fails_on_autocrlf_true(repo: Path):
+    _git(repo, "config", "core.autocrlf", "true")
+    res = gs.verify_autocrlf_false(repo)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_AUTOCRLF_NOT_FALSE
+
+
+def test_self_protection_fails_on_dsl_binding_corruption(repo: Path):
+    ok = gs.verify_dsl_parity_binding(repo)
+    assert ok["ok"], ok  # baseline: 42 bound files verify
+    assert "42" in ok["detail"]
+    # corrupt one bound file
+    victim = repo / "artifacts" / "dsl_parity" / "ema_gt" / "ohlc.csv"
+    victim.write_bytes(victim.read_bytes() + b"x")
+    bad = gs.verify_dsl_parity_binding(repo)
+    assert not bad["ok"]
+    assert bad["reason"] == gs.SELF_PROTECT_DSL_PARITY_BINDING
+
+
+def test_run_self_protection_reports_first_named_failure(repo: Path):
+    # wrong HEAD (frozen names a foreign commit) -> the run aborts with the
+    # head-mismatch reason, having first cleared the untamper check
+    res = gs.run_self_protection(repo)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_HEAD_MISMATCH
+    names = [c["name"] for c in res["checks"]]
+    assert names[0] == "frozen_inputs_untampered"
+    assert res["checks"][0]["ok"] is True  # untampered passed first
+
+
+def test_run_self_protection_on_live_repo_aborts_head_mismatch():
+    """The real repo is mid re-anchor (frozen pins 227bf66, HEAD is the
+    4257f1e line): self-protection MUST abort, never silently pass."""
+    res = gs.run_self_protection(REPO)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_HEAD_MISMATCH
+
+
+# ---------------------------------------------------------------------------
+# stage 1 -- strict compile log parse (BOM-aware; from the LOG)
+# ---------------------------------------------------------------------------
+_TARGETS = ["Mql5Bot.mq5", "DslParityRunner.mq5", "Mql5BotDownloadData.mq5",
+            "Mql5BotExportSymbolSpec.mq5"]
+
+
+def _clean_log() -> str:
+    lines = ["# AEGIS compile run"]
+    for t in _TARGETS:
+        lines.append(f"[compile] {t} : PASS (exit 1, ex5 fresh=True)")
+        lines.append("Result: 0 errors, 0 warnings, 500 ms elapsed, cpu='X64'")
+    lines.append(f"[compile] RESULT: PASS -- {len(_TARGETS)} file(s) compiled clean")
+    return "\n".join(lines) + "\n"
+
+
+def test_compile_clean_log_passes():
+    r = gs.parse_compile_log(_clean_log(), _TARGETS)
+    assert r["ok"], r["reasons"]
+    assert r["clean_summaries"] == len(_TARGETS)
+
+
+def test_compile_utf16_bom_decodes_and_passes():
+    raw = _clean_log().encode("utf-16")  # BOM'd UTF-16, like some owner logs
+    r = gs.parse_compile_log(gs.decode_bom_aware(raw), _TARGETS)
+    assert r["ok"], r["reasons"]
+
+
+def test_compile_utf8_bom_decodes():
+    raw = _clean_log().encode("utf-8-sig")
+    assert "RESULT: PASS" in gs.decode_bom_aware(raw)
+
+
+def test_compile_fails_on_warning_summary():
+    log = _clean_log().replace("0 warnings", "1 warnings", 1)
+    r = gs.parse_compile_log(log, _TARGETS)
+    assert not r["ok"]
+    assert any("non-zero" in x for x in r["reasons"])
+
+
+def test_compile_fails_on_missing_target():
+    r = gs.parse_compile_log(_clean_log(), _TARGETS + ["Mql5BotImportFixture.mq5"])
+    assert not r["ok"]
+    assert any("Mql5BotImportFixture.mq5" in x for x in r["reasons"])
+
+
+def test_compile_fails_on_empty_log():
+    r = gs.parse_compile_log("", _TARGETS)
+    assert not r["ok"]
+
+
+def test_compile_accepts_real_metaeditor_error_paren_form():
+    # MetaEditor's real summary is "N errors, M warnings"; the fixture form
+    # "N error(s), M warning(s)" must also parse as dirty when non-zero
+    log = ("[compile] Mql5Bot.mq5 : FAIL (exit 2)\n"
+           "Mql5Bot.mq5 - 1 error(s), 0 warning(s)\n"
+           "[compile] RESULT: FAIL -- errors in: Mql5Bot.mq5\n")
+    r = gs.parse_compile_log(log, ["Mql5Bot.mq5"])
+    assert not r["ok"]
+
+
+# ---------------------------------------------------------------------------
+# stage 2 -- dsl parity compare report
+# ---------------------------------------------------------------------------
+
+def test_dsl_full_parity_passes():
+    text = ("EXACT arithmetic\n" * 1) + "14/14 fixtures EXACT\n" \
+        + "EXACT tampered_bundle (refused: bundle_hash mismatch)\n"
+    r = gs.parse_dsl_compare_report(text)
+    assert r["ok"], r["reasons"]
+    assert r["exact"] == 14 and r["total"] == 14
+
+
+def test_dsl_fails_when_not_all_exact():
+    text = "13/14 fixtures EXACT -- PARITY NOT PROVEN\n" \
+        + "EXACT tampered_bundle (refused: bundle_hash mismatch)\n"
+    r = gs.parse_dsl_compare_report(text)
+    assert not r["ok"]
+
+
+def test_dsl_fails_when_tamper_not_refused():
+    text = "14/14 fixtures EXACT\n"  # no tampered-refused line
+    r = gs.parse_dsl_compare_report(text)
+    assert not r["ok"]
+    assert any("tampered" in x for x in r["reasons"])
+
+
+def test_dsl_parses_real_calibration_report():
+    # the committed calibration report is UTF-16; decode + parse it
+    path = REPO / "tests" / "data" / "owner_gate" / "compare_report_utf16.txt"
+    if not path.is_file():
+        pytest.skip("calibration compare report fixture not present")
+    r = gs.parse_dsl_compare_report(gs.read_text_bom_aware(path))
+    assert r["ok"] and r["exact"] == 14
+
+
+# ---------------------------------------------------------------------------
+# stage 3 -- broker parity scope rule
+# ---------------------------------------------------------------------------
+
+def test_broker_mismatch_aborts():
+    report = {"rows": [{"symbol": "EURUSD", "field": "point",
+                        "status": "MISMATCH"}]}
+    r = gs.broker_parity_scope(report)
+    assert not r["ok"]
+    assert r["mismatch"]
+
+
+def test_broker_crypto_pending_excluded_not_a_pass_blocker():
+    report = {"rows": [
+        {"symbol": "EURUSD", "field": "point", "status": "MATCH"},
+        {"symbol": "BTC", "field": "sizer.behaviour", "status": "PENDING"},
+        {"symbol": "BTC", "field": "tick_value_denomination", "status": "PENDING"},
+    ]}
+    r = gs.broker_parity_scope(report)
+    assert r["ok"], r["reasons"]
+    assert ["BTC", "sizer.behaviour"] in [list(x) for x in r["pending_excluded_crypto"]]
+    assert not r["pending_in_scope"]
+
+
+def test_broker_in_scope_pending_blocks():
+    report = {"rows": [
+        {"symbol": "EURUSD", "field": "point", "status": "MATCH"},
+        {"symbol": "XAUEUR", "field": "tick_value_denomination", "status": "PENDING"},
+    ]}
+    r = gs.broker_parity_scope(report)
+    assert not r["ok"]
+    assert ["XAUEUR", "tick_value_denomination"] in [list(x) for x in r["pending_in_scope"]]
+
+
+def test_broker_no_matches_is_not_a_pass():
+    r = gs.broker_parity_scope({"rows": []})
+    assert not r["ok"]
+
+
+def test_broker_parses_real_calibration_report():
+    path = REPO / "tests" / "data" / "owner_gate" / "parity_report.json"
+    if not path.is_file():
+        pytest.skip("calibration parity report fixture not present")
+    report = json.loads(path.read_text(encoding="utf-8"))
+    r = gs.broker_parity_scope(report)
+    assert r["ok"], r["reasons"]
+    assert r["match_count"] >= 1
+    assert not r["mismatch"]
+
+
+# ---------------------------------------------------------------------------
+# stage 4 -- dataset hash derivation matches the frozen pins
+# ---------------------------------------------------------------------------
+
+def test_dataset_hash_matches_frozen_pins():
+    frozen = json.loads(
+        (REPO / gs.FROZEN_REL).read_text(encoding="utf-8"))
+    assert gs.dataset_hash_of_csv(REPO / "artifacts/gold/gold_fixture.csv") \
+        == frozen["gold_1"]["dataset_hash_from_manifest"]
+    assert gs.dataset_hash_of_csv(REPO / "artifacts/gold_2/gold2_fixture.csv") \
+        == frozen["gold_2"]["dataset_hash_from_manifest"]
+
+
+# ---------------------------------------------------------------------------
+# mismatch classification (task G: sizing/risk divergence is EXPECTED)
+# ---------------------------------------------------------------------------
+
+def test_sizing_and_risk_fields_classify_as_expected_classes():
+    assert gs.classify_field("volume") == "SIZING_MISMATCH"
+    assert gs.classify_field("requested_lots") == "SIZING_MISMATCH"
+    assert gs.classify_field("risk_approved") == "RISK_MISMATCH"
+
+
+def test_real_calibration_compile_log_parses_clean_bom_aware():
+    # the committed calibration log is stored UTF-16 (the encoding the task
+    # warns compile.ps1/MetaEditor emit); the BOM-aware decoder must handle
+    # it and read the 4 clean targets from the LOG
+    path = REPO / "tests" / "data" / "owner_gate" / "compile-calibration.log"
+    if not path.is_file():
+        pytest.skip("calibration compile log fixture not present")
+    text = gs.read_text_bom_aware(path)
+    targets = ["Mql5Bot.mq5", "DslParityRunner.mq5",
+               "Mql5BotDownloadData.mq5", "Mql5BotExportSymbolSpec.mq5"]
+    r = gs.parse_compile_log(text, targets)
+    assert r["ok"], r["reasons"]
+    assert r["clean_summaries"] == 4
+
+
+def test_expected_compile_targets_tracks_the_source_tree():
+    # the calibration compiled 4; adding the fixture importer makes it 5 -
+    # the gate must expect exactly what the repo ships, never a magic number
+    targets = gs.expected_compile_targets(REPO)
+    assert "Mql5Bot.mq5" in targets
+    assert "Mql5BotImportFixture.mq5" in targets
+    assert len(targets) == 5
+
+
+# ---------------------------------------------------------------------------
+# tools/owner_gate.ps1 -- static contract (cannot execute here; no PowerShell)
+# ---------------------------------------------------------------------------
+def _ps1() -> str:
+    return (REPO / "tools" / "owner_gate.ps1").read_text(encoding="utf-8")
+
+
+def test_ps1_is_pure_ascii():
+    raw = (REPO / "tools" / "owner_gate.ps1").read_bytes()
+    assert not [b for b in raw if b > 0x7F], "owner_gate.ps1 must stay ASCII"
+
+
+def test_ps1_delegates_every_decision_to_committed_python():
+    src = _ps1()
+    for cmd in ("self-protection", "parse-compile", "parse-dsl",
+                "broker-scope"):
+        assert cmd in src, f"ps1 must delegate {cmd!r} to owner_gate_decide"
+    assert "owner_gate_decide" in src
+
+
+def test_ps1_emits_machine_readable_gate_result_and_stage_files():
+    src = _ps1()
+    assert "GATE_RESULT=" in src
+    assert "stage_{0}.json" in src
+    assert "gate_summary.json" in src
+    assert "first_blocking" in src
+
+
+def test_ps1_honours_the_hard_rules():
+    src = _ps1()
+    # never WRITES frozen_inputs: it only ever reads it as an argument path
+    assert "Out-File" in src  # it does write evidence...
+    # ...but frozen_inputs appears only as a --frozen input, never a write
+    for line in src.splitlines():
+        if "frozen_inputs.json" in line:
+            assert ("Out-File" not in line and "WriteAllText" not in line
+                    and "Set-Content" not in line), \
+                f"ps1 must never write frozen_inputs.json: {line.strip()}"
+    # never amends / force-pushes / commits
+    for banned in ("commit --amend", "push --force", "push -f", "git commit"):
+        assert banned not in src, f"ps1 must not run: {banned}"
+
+
+def test_ps1_records_expected_sizing_divergence_without_patching():
+    src = _ps1()
+    assert "DIVERGENCE_EXPECTED" in src
+    assert "SIZING_MISMATCH" in src and "RISK_MISMATCH" in src
+    assert "NEVER revert" in src or "never revert" in src.lower()
+
+
+def test_ps1_stage3_applies_the_btc_pending_scope_rule():
+    src = _ps1()
+    assert "broker-scope" in src
+    assert "pending_excluded_crypto" in src
+
+
+# ---------------------------------------------------------------------------
+# Mql5BotImportFixture.mq5 -- static contract (source-only; owner compiles)
+# ---------------------------------------------------------------------------
+def _importer() -> str:
+    return (REPO / "mql5" / "Scripts" / "Mql5Bot"
+            / "Mql5BotImportFixture.mq5").read_text(encoding="utf-8")
+
+
+def test_importer_is_ascii_and_lf():
+    raw = (REPO / "mql5" / "Scripts" / "Mql5Bot"
+           / "Mql5BotImportFixture.mq5").read_bytes()
+    assert not [b for b in raw if b > 0x7F], "importer must stay ASCII"
+    assert b"\r\n" not in raw, "importer must be LF-only"
+
+
+def test_importer_uses_custom_symbol_api_the_repo_previously_lacked():
+    src = _importer()
+    for api in ("CustomSymbolCreate", "CustomRatesUpdate",
+                "CustomSymbolSetDouble", "CustomSymbolSetString"):
+        assert api in src, f"importer must call {api}"
+
+
+def test_importer_refuses_and_creates_nothing_on_hash_or_property_gaps():
+    src = _importer()
+    # fixture bytes must equal the manifest dataset_hash before anything
+    assert "fixture csv sha256" in src
+    # round-trip hash must re-derive the manifest dataset_hash
+    assert "roundtrip dataset hash" in src
+    # a missing property refuses rather than inventing a value
+    assert "missing property" in src
+    assert "inventing" in src
+    # on any post-create refusal it deletes the symbol (never half-lands)
+    assert "CustomSymbolDelete" in src
+
+
+def test_importer_reads_properties_from_manifest_and_symbolspec_only():
+    src = _importer()
+    assert "broker_spec" in src           # manifest source of properties
+    assert "currency_base" in src and "currency_margin" in src
+    assert "SymbolSpec export" in src     # base/margin ccy from stage 3
+
+
+def test_importer_does_not_pull_live_history():
+    src = _importer()
+    # the only CopyRates is the post-write readback of the custom symbol;
+    # there must be no chart / iBars / SymbolInfo live-history pull
+    assert src.count("CopyRates(") == 1
+    assert "iClose" not in src and "iOpen" not in src
