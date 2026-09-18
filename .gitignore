@@ -15,6 +15,13 @@ results/
 reports/
 *.log
 
+# owner_gate.ps1 append-only run output. The gate creates
+# evidence/owner_gate/<UTC>/ on every run; without this entry its own output
+# would make the working tree dirty and the stage-0 clean-tree self-check
+# would block the gate against itself. Excluding it here (a committed,
+# durable rule) keeps the exclusion out of the checker as a special case.
+/evidence/
+
 # MetaTrader compiled artifacts
 mql5/**/*.ex5
 

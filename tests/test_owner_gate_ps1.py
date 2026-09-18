@@ -70,6 +70,9 @@ def _stage_artifacts(repo: Path) -> None:
 def repo(tmp_path: Path) -> Path:
     r = _init_repo(tmp_path)
     _stage_artifacts(r)
+    # mirror the real repo: the gate's own output root is gitignored, so a run
+    # that creates evidence/owner_gate/<UTC>/ never dirties the tree it checks.
+    (r / ".gitignore").write_text("/evidence/\n")
     _git(r, "add", "-A")
     _git(r, "commit", "-q", "-m", "artifacts")
     return r
@@ -278,6 +281,47 @@ def test_run_self_protection_still_aborts_on_dirty_tree(repo: Path):
     res = gs.run_self_protection(repo)
     assert not res["ok"]
     assert res["reason"] == gs.SELF_PROTECT_DIRTY_TREE
+
+
+def test_clean_checkout_with_evidence_dir_passes_stage0(repo: Path):
+    """The stage-0 self-block regression: the gate creates
+    evidence/owner_gate/<UTC>/ on every run, then its own clean-tree check used
+    to see `?? evidence/` and abort SELF_PROTECT_DIRTY_TREE. With evidence/
+    gitignored, a clean checkout that already carries gate output still passes
+    stage 0."""
+    anchor = _git(repo, "rev-parse", "HEAD").strip()
+    fp = repo / gs.FROZEN_REL
+    doc = json.loads(fp.read_text())
+    doc["source"]["commit"] = anchor
+    fp.write_text(json.dumps(doc, indent=2) + "\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "re-anchor to self")
+    # simulate a prior (and the current) gate run's append-only output
+    run_dir = repo / "evidence" / "owner_gate" / "20260919-000000"
+    run_dir.mkdir(parents=True)
+    (run_dir / "stage_0.json").write_text('{"stage": 0}\n')
+    (run_dir / "gate_summary.json").write_text('{"gate_result": "certified"}\n')
+    # the gate output is invisible to the clean-tree check...
+    assert gs.verify_clean_tree(repo)["ok"], "evidence/ must not dirty the tree"
+    # ...and the whole stage-0 self-protection passes
+    res = gs.run_self_protection(repo)
+    assert res["ok"], res
+    assert res["reason"] == gs.SELF_PROTECT_OK
+
+
+def test_modified_tracked_file_still_fails_stage0_with_evidence_present(
+        repo: Path):
+    """The gitignore exclusion must not blunt the real check: a genuinely
+    dirty TRACKED file still fails closed, even with an (ignored) evidence dir
+    sitting alongside it."""
+    (repo / "evidence" / "owner_gate" / "20260919-000000").mkdir(parents=True)
+    (repo / "artifacts" / "gold" / "manifest.json").write_text(
+        (repo / "artifacts" / "gold" / "manifest.json").read_text() + "\n")
+    res = gs.verify_clean_tree(repo)
+    assert not res["ok"]
+    assert res["reason"] == gs.SELF_PROTECT_DIRTY_TREE
+    assert "manifest.json" in res["detail"]
+    assert "evidence/" not in res["detail"]  # the ignored dir never appears
 
 
 def test_run_self_protection_still_aborts_on_tampered_frozen_artifact(repo: Path):

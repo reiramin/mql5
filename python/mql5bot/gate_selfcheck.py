@@ -397,7 +397,15 @@ def verify_head_matches_frozen(repo: Path | str, frozen: dict,
 
 def verify_clean_tree(repo: Path | str, runner=None) -> dict:
     repo = Path(repo)
-    porcelain = _git(repo, ["status", "--porcelain"], runner).stdout
+    # --untracked-files=normal is passed explicitly so a global
+    # status.showUntrackedFiles=no config can never silently weaken this check
+    # into passing on a genuinely dirty tree. The gate's own append-only output
+    # (evidence/owner_gate/<UTC>/) is excluded durably via the committed
+    # .gitignore, NOT special-cased here: this checker stays a plain, honest
+    # "is the tree clean?" and the exclusion travels with the repo. Ignored
+    # files are never shown in this mode, so the gate no longer blocks itself.
+    porcelain = _git(repo, ["status", "--porcelain",
+                            "--untracked-files=normal"], runner).stdout
     if porcelain.strip():
         return {"ok": False, "reason": SELF_PROTECT_DIRTY_TREE,
                 "detail": "working tree not clean:\n" + porcelain.strip()}

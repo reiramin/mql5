@@ -55,9 +55,15 @@ $Python = if ($env:MQL5BOT_PYTHON) { $env:MQL5BOT_PYTHON } else { "python" }
 $Decide = Join-Path $PSScriptRoot "owner_gate_decide.py"
 
 # ---- evidence root (append-only) -------------------------------------
+# Compute the path now but DO NOT create the directory yet: the stage-0
+# clean-tree self-check must run against a tree that does not yet contain the
+# gate's own output. The committed .gitignore (/evidence/) makes this dir
+# invisible to `git status` even once created, so creation order is no longer
+# load-bearing -- but we still defer creation until just before first use so
+# the check cannot possibly see it. (Historical bug: creating evidence\ up
+# front left `?? evidence/` in the porcelain and the gate blocked itself.)
 $Stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmss")
 $Evidence = Join-Path $RepoRoot ("evidence\owner_gate\" + $Stamp)
-New-Item -ItemType Directory -Force -Path $Evidence | Out-Null
 
 # ordered stage ledger; each entry: name/status/reason/artifacts
 $Script:Stages = New-Object System.Collections.ArrayList
@@ -171,6 +177,10 @@ function Invoke-TerminalScript([string]$scriptRel, [string]$label) {
     return $true
 }
 
+# create the append-only evidence root now (deferred from startup): every
+# decision from here on records into it. It is .gitignore'd, so it does not
+# dirty the tree the stage-0 clean-tree check inspects.
+New-Item -ItemType Directory -Force -Path $Evidence | Out-Null
 Write-Host "[owner-gate] evidence dir: $Evidence"
 
 # =====================================================================
