@@ -390,14 +390,22 @@ foreach ($g in $golds) {
     # importer writes and the gate reads back.
     $outRel = "Mql5Bot\gold_import_out\" + $g.name + ".json"
     $setName = "mql5bot_import_" + $g.name + ".set"
+    # R4 ROOT CAUSE (gate_run6): inside a PowerShell @() literal the COMMA
+    # operator binds TIGHTER than '+', so `"InpSymbolName=" + $g.name,`
+    # contributed TWO array elements -- the staged .set carried
+    # "InpSymbolName=" (EMPTY) with GOLD1_EURUSD on the FOLLOWING line, and
+    # likewise InpOutFile: exactly the two fixture-derived entries broke
+    # while the five literals were fine, and the importer refused at
+    # name_check with a blank symbol. Every element is now ONE interpolated
+    # string; never use bare '+' concatenation inside an @() literal.
     $setLines = @(
         "InpFixtureCsv=Mql5Bot\gold_import\gold_fixture.csv",
         "InpManifest=Mql5Bot\gold_import\manifest.json",
         "InpSymbolSpec=Mql5Bot\broker_exports\EURUSD.json",
-        "InpSymbolName=" + $g.name,
+        "InpSymbolName=$($g.name)",
         "InpSymbolGroup=Mql5Bot\gold",
         "InpOutDir=Mql5Bot\gold_import_out",
-        "InpOutFile=" + $outRel
+        "InpOutFile=$outRel"
     )
     # PARAMETER DELIVERY (verified against the MT5 "Configuration at Startup"
     # help, terminal/help/start_advanced/start): [StartUp] ScriptParameters is
@@ -411,9 +419,31 @@ foreach ($g in $golds) {
     [IO.File]::WriteAllText((Join-Path $presetsDir $setName), (($setLines -join "`r`n") + "`r`n"), [Text.Encoding]::Unicode)
     # archive the EXACT params the gate passed as evidence (byte copy of the
     # staged preset, so the artifact sha256 pins what the terminal was given)
+    $setStaged = Join-Path $presetsDir $setName
     $setEvidence = Join-Path $Evidence ("import_" + $g.name + ".set")
-    Copy-Item -LiteralPath (Join-Path $presetsDir $setName) -Destination $setEvidence -Force
+    Copy-Item -LiteralPath $setStaged -Destination $setEvidence -Force
     [void]$stage4art.Add((New-Artifact $setEvidence))
+    # attach the DECODED preset (UTF-16LE -> readable text) so a wrong value
+    # can be read straight from the evidence dir, not just the raw bytes
+    $setDecoded = Join-Path $Evidence ("import_" + $g.name + "_preset_decoded.txt")
+    [IO.File]::WriteAllText($setDecoded, [IO.File]::ReadAllText($setStaged, [Text.Encoding]::Unicode), [Text.Encoding]::ASCII)
+    [void]$stage4art.Add((New-Artifact $setDecoded))
+
+    # VALIDATE BEFORE LAUNCH, fail-closed: re-read the STAGED .set back from
+    # MQL5\Presets, decode it, and let committed Python assert it carries
+    # EXACTLY the intended key=value pairs -- exact key set, every value
+    # non-empty and single-line, no stray key-less lines, key count matching
+    # what MT5 will report. Any violation FAILs stage 4 immediately, naming
+    # the offending key, BEFORE the terminal is ever launched: a malformed
+    # preset must never again cost a terminal round-trip.
+    $expectArgs = @()
+    foreach ($sl in $setLines) { $expectArgs += @("--expect", $sl) }
+    $pv = Invoke-Decide (@("validate-preset", $setStaged) + $expectArgs)
+    if (-not $pv.ok) {
+        $why = if ($pv.data -and $pv.data.reasons) { ($pv.data.reasons -join "; ") } else { "staged preset failed validation" }
+        Record-Stage 4 "fixture_import" "FAIL" ("[preset_invalid] {0}: {1}" -f $g.name, $why) @($stage4art) | Out-Null
+        Finish-Gate "fixture_import"
+    }
 
     # NOTE: the importer refuses (creates nothing) unless the staged fixture
     # sha256 equals the manifest dataset_hash and the CustomRatesUpdate

@@ -66,6 +66,15 @@ def main(argv: list[str] | None = None) -> int:
                        help="stage 4: importer result must be non-vacuous")
     p.add_argument("result", help="path to the importer <symbol>.json")
 
+    p = sub.add_parser("validate-preset",
+                       help="stage 4: the STAGED .set must carry exactly the "
+                            "intended key=value pairs (validated BEFORE the "
+                            "terminal is launched; fail-closed)")
+    p.add_argument("preset", help="path to the staged .set in MQL5\\Presets")
+    p.add_argument("--expect", action="append", default=[],
+                   metavar="KEY=VALUE",
+                   help="one intended key=value pair (repeat per input)")
+
     p = sub.add_parser("stage4-outcome",
                        help="stage 4: decide the three-way import outcome "
                             "(never-launched / ran-no-json / refused)")
@@ -125,6 +134,15 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"ok": verdict["populated"], **verdict},
                              indent=2, sort_keys=True))
             return 0 if verdict["populated"] else 1
+
+        if args.cmd == "validate-preset":
+            text = gs.decode_bom_aware(_read_bytes(args.preset))
+            expected: dict[str, str] = {}
+            for pair in args.expect:
+                key, _, val = pair.partition("=")
+                expected[key] = val
+            verdict = gs.validate_preset(text, expected)
+            return _emit({**verdict, "preset": args.preset})
 
         if args.cmd == "stage4-outcome":
             launched = str(args.launched).strip().lower() in ("true", "1", "yes")

@@ -345,6 +345,77 @@ def import_diagnostic_populated(doc: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# stage 4: staged-preset validation (the R4 empty-value fix)
+# ---------------------------------------------------------------------------
+# gate_run6 ground truth: the terminal received "InpSymbolName=" (EMPTY) with
+# GOLD1_EURUSD on the FOLLOWING line -- the gate's PowerShell built exactly the
+# two fixture-derived preset entries with `"Key=" + $expr` inside an @()
+# literal, where the COMMA operator binds tighter than '+', splitting each
+# into two array elements. This validator makes that entire bug class
+# pre-launch fatal: the gate re-reads the STAGED .set from MQL5\Presets,
+# decodes it, and this function asserts it carries EXACTLY the intended
+# key=value pairs before the terminal is ever started.
+
+def validate_preset(text: str, expected: dict[str, str]) -> dict:
+    """Fail-closed check of a staged MT5 .set preset against the intended
+    key=value pairs.
+
+    Returns {"ok": bool, "reasons": [str], "keys": [str],
+             "expected_count": int, "found_count": int}. ``ok`` only when:
+      - the decoded text carries EXACTLY the expected key set (no missing,
+        extra, or duplicate keys; count matches what MT5 will report),
+      - EVERY value is non-empty and equals the intended value,
+      - no stray key-less line exists (a value that broke across lines --
+        the gate_run6 symptom -- shows up as one), and
+      - no INTENDED value is empty or multi-line either (a gate-construction
+        bug is named at the source, not discovered by the terminal).
+    Every violation names the offending key or line.
+    """
+    reasons: list[str] = []
+    for k, v in expected.items():
+        if not v:
+            reasons.append(f"{k}: intended value is EMPTY "
+                           f"(gate preset construction bug)")
+        elif "\r" in v or "\n" in v:
+            reasons.append(f"{k}: intended value contains CR/LF "
+                           f"(gate preset construction bug)")
+    seen: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if "=" not in line:
+            reasons.append(f"stray key-less line (a value broke across "
+                           f"lines): {line!r}")
+            continue
+        key, _, val = line.partition("=")
+        if key in seen:
+            reasons.append(f"duplicate key: {key}")
+            continue
+        seen[key] = val
+    for k in expected:
+        if k not in seen:
+            reasons.append(f"missing key: {k}")
+    for k in seen:
+        if k not in expected:
+            reasons.append(f"unexpected key: {k}")
+    for k, v in seen.items():
+        if k not in expected:
+            continue
+        if v == "":
+            reasons.append(f"{k}: staged value is EMPTY (the terminal would "
+                           f"run with a blank input)")
+        elif v != expected[k]:
+            reasons.append(f"{k}: staged value {v!r} != intended "
+                           f"{expected[k]!r}")
+    if len(seen) != len(expected):
+        reasons.append(f"key count {len(seen)} != intended {len(expected)} "
+                       f"(MT5 would report a different parameter set)")
+    return {"ok": not reasons, "reasons": reasons, "keys": sorted(seen),
+            "expected_count": len(expected), "found_count": len(seen)}
+
+
+# ---------------------------------------------------------------------------
 # stage 4: three-way import-outcome classifier (the MISREPORT fix)
 # ---------------------------------------------------------------------------
 # The gate must never again claim "terminal did not run" when the importer

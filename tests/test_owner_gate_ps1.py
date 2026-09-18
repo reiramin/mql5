@@ -12,6 +12,7 @@ stage. These are VERIFIER self-tests, never MT5/tester/gold claims.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -1209,3 +1210,193 @@ def test_stage4_outcome_decide_cli_folds_excerpt_head_into_message(tmp_path: Pat
     assert "symbol=GOLD_EURUSD" in payload["message"]
     # only the first ~10 lines are folded in
     assert "filler line 12" not in payload["message"]
+
+
+# ---------------------------------------------------------------------------
+# STAGE 4 ROUND 4 -- the STARTUP banner caught it: the .set reached MT5 with
+# InpSymbolName= and InpOutFile= EMPTY (their values on the FOLLOWING line).
+# Root cause: inside a PowerShell @() literal the COMMA operator binds
+# TIGHTER than '+', so `"Key=" + $expr,` contributes TWO array elements.
+# The fix is (1) single interpolated strings in $setLines and (2) fail-closed
+# validation of the STAGED preset BEFORE the terminal is ever launched.
+# ---------------------------------------------------------------------------
+
+def _intended_preset(name: str = "GOLD1_EURUSD") -> dict:
+    """The exact key=value pairs the gate intends to deliver for a gold."""
+    return {
+        "InpFixtureCsv": "Mql5Bot\\gold_import\\gold_fixture.csv",
+        "InpManifest": "Mql5Bot\\gold_import\\manifest.json",
+        "InpSymbolSpec": "Mql5Bot\\broker_exports\\EURUSD.json",
+        "InpSymbolName": name,
+        "InpSymbolGroup": "Mql5Bot\\gold",
+        "InpOutDir": "Mql5Bot\\gold_import_out",
+        "InpOutFile": "Mql5Bot\\gold_import_out\\" + name + ".json",
+    }
+
+
+def _build_preset_lines_from_ps1(name: str) -> list[str]:
+    """Build the preset lines the gate's own $setLines literal produces for a
+    fixture, under PowerShell's ACTUAL precedence rules.
+
+    In PowerShell the comma operator binds TIGHTER than '+', so an element
+    written `"Key=" + $expr` inside @() contributes TWO array elements
+    ("Key=" and the expression's value) -- the gate_run6 bug. A single
+    (interpolated) double-quoted string contributes ONE line. This mirror
+    lets the Mac tests reconstruct the exact lines MT5 would read without a
+    PowerShell host.
+    """
+    src = _ps1()
+    start = src.index("$setLines = @(")
+    end = src.index("\n    )", start)
+    out_rel = "Mql5Bot\\gold_import_out\\" + name + ".json"
+
+    def resolve(text: str) -> str:
+        return (text.replace("$($g.name)", name)
+                    .replace("$g.name", name)
+                    .replace("$outRel", out_rel))
+
+    lines: list[str] = []
+    for raw in src[start:end].splitlines()[1:]:
+        el = raw.strip().rstrip(",").strip()
+        if not el or el.startswith("#"):
+            continue
+        whole = re.fullmatch(r'"([^"]*)"', el)
+        if whole:
+            lines.append(resolve(whole.group(1)))
+            continue
+        # a top-level '+' inside @(): comma precedence splits the element
+        for part in (p.strip() for p in el.split("+")):
+            quoted = re.fullmatch(r'"([^"]*)"', part)
+            lines.append(resolve(quoted.group(1)) if quoted else resolve(part))
+    return lines
+
+
+def test_preset_lines_built_for_gold1_are_nonempty_and_single_line():
+    """R4 non-vacuous regression: the lines the gate's $setLines literal
+    actually produces for GOLD1_EURUSD must every one be Key=Value with a
+    non-empty single-line value. FAILED against the pre-R4 construction
+    (`"InpSymbolName=" + $g.name,`): InpSymbolName= and InpOutFile= arrived
+    EMPTY with their values on the following lines."""
+    lines = _build_preset_lines_from_ps1("GOLD1_EURUSD")
+    v = gs.validate_preset("\r\n".join(lines) + "\r\n", _intended_preset())
+    assert v["ok"], v["reasons"]
+
+
+def test_ps1_preset_elements_are_single_strings_no_comma_precedence():
+    # no $setLines element may use bare '+' concatenation inside the @()
+    # literal -- the comma operator would split it into two elements
+    src = _ps1()
+    start = src.index("$setLines = @(")
+    end = src.index("\n    )", start)
+    for raw in src[start:end].splitlines()[1:]:
+        el = raw.strip().rstrip(",").strip()
+        if not el or el.startswith("#"):
+            continue
+        assert re.fullmatch(r'"[^"]*"', el), \
+            f"$setLines element must be ONE interpolated string: {el}"
+
+
+def test_validate_preset_accepts_the_intended_lines():
+    expected = _intended_preset()
+    text = "\r\n".join(f"{k}={v}" for k, v in expected.items()) + "\r\n"
+    v = gs.validate_preset(text, expected)
+    assert v["ok"], v["reasons"]
+    assert v["found_count"] == v["expected_count"] == 7
+
+
+def test_validate_preset_rejects_the_gate_run6_broken_preset():
+    # the EXACT decoded shape gate_run6 observed: the two fixture-derived
+    # entries split into "Key=" with the value on the FOLLOWING line
+    text = ("InpFixtureCsv=Mql5Bot\\gold_import\\gold_fixture.csv\r\n"
+            "InpManifest=Mql5Bot\\gold_import\\manifest.json\r\n"
+            "InpSymbolSpec=Mql5Bot\\broker_exports\\EURUSD.json\r\n"
+            "InpSymbolName=\r\n"
+            "GOLD1_EURUSD\r\n"
+            "InpSymbolGroup=Mql5Bot\\gold\r\n"
+            "InpOutDir=Mql5Bot\\gold_import_out\r\n"
+            "InpOutFile=\r\n"
+            "Mql5Bot\\gold_import_out\\GOLD1_EURUSD.json\r\n")
+    v = gs.validate_preset(text, _intended_preset())
+    assert not v["ok"]
+    joined = "; ".join(v["reasons"])
+    # the offending keys are NAMED, and the broken-across-lines values are
+    # called out as stray key-less lines
+    assert "InpSymbolName" in joined and "EMPTY" in joined
+    assert "InpOutFile" in joined
+    assert "stray key-less line" in joined
+    assert "GOLD1_EURUSD" in joined
+
+
+def test_validate_preset_names_every_violation_class():
+    expected = _intended_preset()
+    # missing + unexpected + duplicate + mismatched value + count
+    text = ("InpFixtureCsv=Mql5Bot\\gold_import\\gold_fixture.csv\r\n"
+            "InpFixtureCsv=twice\r\n"
+            "InpBogus=x\r\n"
+            "InpSymbolName=GOLD2_EURUSD\r\n")
+    v = gs.validate_preset(text, expected)
+    joined = "; ".join(v["reasons"])
+    assert not v["ok"]
+    assert "duplicate key: InpFixtureCsv" in joined
+    assert "unexpected key: InpBogus" in joined
+    assert "missing key: InpOutFile" in joined
+    assert "!= intended" in joined          # GOLD2 vs GOLD1 named
+    assert "key count" in joined
+    # an INTENDED value that is empty or multi-line is a gate bug, named too
+    bad = dict(expected, InpSymbolName="")
+    v2 = gs.validate_preset("x=y\r\n", bad)
+    assert any("intended value is EMPTY" in r for r in v2["reasons"])
+    bad2 = dict(expected, InpOutFile="a\nb")
+    v3 = gs.validate_preset("x=y\r\n", bad2)
+    assert any("intended value contains CR/LF" in r for r in v3["reasons"])
+
+
+def test_validate_preset_decide_cli_roundtrips_utf16(tmp_path: Path):
+    # the CLI decodes the STAGED UTF-16LE .set (BOM-aware) and fails closed
+    # naming the offending key -- exit 1 before any terminal launch
+    import subprocess as sp
+    import sys
+    decide = REPO / "tools" / "owner_gate_decide.py"
+    expected = _intended_preset()
+    expect_args: list[str] = []
+    for k, v in expected.items():
+        expect_args += ["--expect", f"{k}={v}"]
+
+    broken = tmp_path / "broken.set"
+    broken.write_bytes(
+        ("InpFixtureCsv=Mql5Bot\\gold_import\\gold_fixture.csv\r\n"
+         "InpManifest=Mql5Bot\\gold_import\\manifest.json\r\n"
+         "InpSymbolSpec=Mql5Bot\\broker_exports\\EURUSD.json\r\n"
+         "InpSymbolName=\r\nGOLD1_EURUSD\r\n"
+         "InpSymbolGroup=Mql5Bot\\gold\r\n"
+         "InpOutDir=Mql5Bot\\gold_import_out\r\n"
+         "InpOutFile=\r\n"
+         "Mql5Bot\\gold_import_out\\GOLD1_EURUSD.json\r\n").encode("utf-16"))
+    cp = sp.run([sys.executable, str(decide), "--repo", str(REPO),
+                 "validate-preset", str(broken)] + expect_args,
+                capture_output=True, text=True, check=False)
+    payload = json.loads(cp.stdout)
+    assert cp.returncode == 1 and payload["ok"] is False
+    assert any("InpSymbolName" in r for r in payload["reasons"])
+
+    good = tmp_path / "good.set"
+    good.write_bytes(
+        ("\r\n".join(f"{k}={v}" for k, v in expected.items()) + "\r\n")
+        .encode("utf-16"))
+    cp2 = sp.run([sys.executable, str(decide), "--repo", str(REPO),
+                  "validate-preset", str(good)] + expect_args,
+                 capture_output=True, text=True, check=False)
+    payload2 = json.loads(cp2.stdout)
+    assert cp2.returncode == 0 and payload2["ok"] is True
+
+
+def test_ps1_validates_the_staged_preset_before_launch():
+    src = _ps1()
+    # the fail-closed validation runs BEFORE the terminal is launched, and the
+    # DECODED preset text (UTF-16LE -> readable) is attached to the evidence
+    assert "validate-preset" in src
+    s4 = src.index("STAGE 4")
+    assert src.index("validate-preset", s4) < src.index(
+        'Invoke-TerminalScript "Mql5Bot\\Mql5BotImportFixture"', s4)
+    assert "_preset_decoded.txt" in src
+    assert "preset_invalid" in src
