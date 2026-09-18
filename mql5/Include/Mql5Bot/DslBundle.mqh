@@ -130,13 +130,13 @@ private:
          json.Raw(json.Member(spec, "version")), true, err);
       if(ver == "")
         { m_error = "spec version underivable: " + err; return false; }
-      string input = "{\"schema_version\":"
+      string payload = "{\"schema_version\":"
          + DslCanonEscape(json.GetStr(spec, "schema_version", ""))
          + ",\"semantic\":" + canonCore
          + ",\"strategy_id\":"
          + DslCanonEscape(json.GetStr(spec, "strategy_id", ""))
          + ",\"version\":" + ver + "}";
-      out = DslSha256Hex(input);
+      out = DslSha256Hex(payload);
       return (out != "");
      }
 

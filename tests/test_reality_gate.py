@@ -213,8 +213,7 @@ def test_indicator_parity_python_vs_mql5_ema_transcription(gold_df):
 
 
 def _mql5_getlots_transcription(spec, *, mode_value: float, equity: float,
-                                stop_distance: float, max_lots: float,
-                                profit_to_deposit: float = 1.0):
+                                stop_distance: float, max_lots: float):
     """Faithful transcription of RiskManager.GetLots (SIZING_RISK_PERCENT_EQ
     path) over SymbolSpec.mqh primitives.  Kept line-by-line next to the
     MQL5 source; any divergence is a FINDING (§12)."""
@@ -225,7 +224,7 @@ def _mql5_getlots_transcription(spec, *, mode_value: float, equity: float,
     dist = max(stop_distance, min_dist)
     dist = round(dist / spec.tick_size) * spec.tick_size
     ticks = round(dist / spec.tick_size)              # SpecTicksOf
-    loss_pl = ticks * spec.tick_value_loss * profit_to_deposit
+    loss_pl = ticks * spec.tick_value_loss     # SpecLossPerLot (no FX factor)
     if loss_pl <= 0:
         return 0.0, "loss per lot <= 0"
     budget = equity * mode_value / 100.0

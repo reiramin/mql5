@@ -9,6 +9,93 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-18 — Audit-and-close wave: sizing denomination + DSL hardening
+
+**Supersedes** the 2026-09-16 "Wave 1 — tick-value denomination stays
+owner-gated" DEFER decision below. That entry deferred the fix because
+`data/broker_exports/` then held **no owner export** (`n_exports: 0`, every
+asset class PENDING), so the ACCOUNT_CURRENCY vs PROFIT_CURRENCY question
+could not be attested on this host. The trigger has now landed: the
+committed owner evidence `artifacts/owner_mt5_gate/broker_parity.json`
+renders `tick_value_denomination = ACCOUNT_CURRENCY` (status MATCH, against
+an independent `OrderCalcProfit` witness) for EURUSD, US30 and XAUEUR (BTC
+UNVERIFIED/PENDING). Acting on that committed artifact — not on numbers
+quoted in a directive — resolves the owner-gated open item and authorises
+the runtime-semantics change recorded here.
+
+**HOTFIX — compile blocker (this commit).** The owner's strict compile of
+the prior commit `92b3102` ("Integrate generic DSL runtime into `mql5/`…")
+**FAILED** — 11 errors, the first being
+`DslBundle.mqh(133,14): error 149: unexpected token`. Cause: `input` is an
+MQL5 reserved keyword and was used as a local variable name in
+`CDslBundleLoader::DeriveSpecHash`. Fix: rename the local to `payload` (at
+its declaration and the `DslSha256Hex(...)` call). To keep this class of
+break from returning, a source-structure guard
+(`tests/test_mql5_dsl_runtime_source.py::
+test_no_mql5_reserved_word_declared_as_identifier`) now fails if any MQL5
+reserved word is declared as a variable/parameter name anywhere under
+`mql5/`; it is proven non-vacuous by
+`test_reserved_word_guard_is_not_vacuous` (it flags the exact original
+pattern while leaving legitimate `const`/`new`/`delete`/`return` uses
+alone). No MT5/tester/broker/parity claim is made — this is the commit the
+owner should compile; `92b3102` must not be used as the compile-of-record.
+
+**P0-1 — tick-value denomination.** Owner MT5 evidence
+(`artifacts/owner_mt5_gate/broker_parity.json`) establishes that the
+terminal denominates `SYMBOL_TRADE_TICK_VALUE_LOSS` in the ACCOUNT/DEPOSIT
+currency (verdict `ACCOUNT_CURRENCY` for EURUSD, US30, XAUEUR — note XAUEUR
+has profit currency EUR yet its tick value is account-denominated; BTC
+UNVERIFIED/PENDING). The prior `profit_to_deposit` FX factor in the
+loss-per-lot path was therefore a double-conversion bug. Decision:
+
+1. **No FX factor in loss-per-lot, and no FX rate is ever derived from a
+   tick value.** Removed the `profit_to_deposit` multiply from the
+   loss-per-lot path in Python (`symbolspec.loss_per_lot`, `sizer.size_position`,
+   `engine`) and MQL5 (`SymbolSpec.SpecLossPerLot`, `RiskManager.GetLots`
+   and `RiskMoneyAt`). `RiskManager.ProfitToDeposit` (the FX-quote helper)
+   is deleted. Loss per lot = `ticks × tick_value_loss`, account-denominated.
+2. **Independent runtime witness (MQL5).** `RiskManager.GetLots` now
+   reconciles the tick-value loss against an independent
+   `OrderCalcProfit` witness (P/L of a 1.0-lot position closed at the
+   min-stop-enforced stop, always in the account currency): it sizes on
+   `max(tick-value loss, witness)`, and VETOES the trade ("denomination
+   unverified") when the witness fails or the two disagree by > 1%. This is
+   the runtime equivalent of the offline denomination gate; it never
+   invents an FX rate.
+3. **USDJPY synthetic fixture re-denominated (owner-pending).** The only
+   multi-currency synthetic fixture, USDJPY (profit JPY), had a
+   JPY-denominated tick value (`tick_value_loss=100`) plus a 1/150
+   conversion. Under account denomination the fixture is corrected to
+   `tick_value_loss=100/150` (account/deposit USD), which is
+   output-preserving (old `100 × 1/150` == new value). USDJPY is OUTSIDE
+   the owner's 3-symbol evidence, so this re-denomination is flagged
+   owner-pending. The `profit→deposit` conversion is banished from both
+   sizing and PnL accounting; `synthetic_profit_to_deposit` and the meta
+   `conversion` telemetry are retained as descriptive metadata only.
+4. **Parity tolerance.** `sizer.loss_per_lot` in the broker-parity harness
+   compares the exported (rounded, printed-precision)
+   `SYMBOL_TRADE_TICK_VALUE_LOSS` against the full-precision
+   `OrderCalcProfit` witness inside the SAME 1% denomination band the
+   runtime enforces (e.g. EURUSD 21.685 vs 21.665 = 0.09%); a tighter bound
+   reported the broker's own tick-value rounding as a false MISMATCH.
+
+**DSL hardening (same wave).** P0-3: the EA reads the bundle as raw bytes
+(`FILE_BIN`) and refuses (`INIT_FAILED`) when the bundle's declared
+market/timeframe does not match the chart (`DslBundle.MarketMatches` now
+wired); `bundle_hash` remains SHA256-verified over the canonical envelope
+(`DslCanon`) and refuses on mismatch. P1-1: warmup contract — refuse when
+`InpDslBars < 10 × longest indicator period`. P1-4: SL/TP ATR uses the
+canonical period-14 Wilder ATR (matching the Python engine's fixed exit
+ATR in period AND seeding, never `iATR`), and the bundle's
+`trail_atr`/`breakeven_atr`/`time_bars` drive `PositionGuard` when DSL mode
+is on. P1-5: when the DSL desired position is 0 while a position is open the
+EA CLOSES it, matching the Python canonical engine default
+(`allow_signal_exit=True`); pinned by `tests/test_engine.py` (Python) and
+`tests/test_mql5_sources.py` (MQL5 source structure). MQL5 sources are NEW
+and require an owner recompile; parity/certification remain owner-pending.
+
+---
+
 ## 2026-09-18 — Generic DSL runtime INTEGRATED into `mql5/` (anchor break)
 
 **Purpose.** Promote the staged generic DSL runtime from
@@ -612,6 +699,14 @@ server-side (evidence binding, human-approval actor prefixes, no order
 endpoint). The telemetry body cap (#7) was the only hardening applied.
 
 ## 2026-09-16 — Wave 1 code-side pass: tick-value denomination stays owner-gated; loopback-default network servers
+
+> **SUPERSEDED (2026-09-18).** The tick-value denomination DEFER below is
+> resolved by the 2026-09-18 "Audit-and-close wave" entry above: committed
+> owner evidence (`artifacts/owner_mt5_gate/broker_parity.json`,
+> `ACCOUNT_CURRENCY` MATCH for EURUSD/US30/XAUEUR) now attests the
+> account-currency denomination, so the `profit_to_deposit` multiply is
+> removed from the loss-per-lot path. The loopback-default network-server
+> hardening in this entry stands.
 
 **Trigger.** Wave 1 asked whether the runtime double-converts stop-loss
 risk: `SpecLossPerLot` (and the Python `loss_per_lot`) multiply

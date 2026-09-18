@@ -72,15 +72,14 @@ def test_r3_drift_receives_per_book_regime_labels(frames, monkeypatch):
 
 
 def test_r4_absurd_conversion_sizing_stays_capped(frames):
-    """R4: conversion is an explicit owner input; a pathological
-    (1e-9) rate must not explode exposure — max_lots/volume_max hold
-    and the run completes."""
+    """R4: conversion no longer enters the risk math (tick_value_loss is
+    account-denominated); sizing stays finite and capped by
+    max_lots/volume_max and the run completes."""
     from mql5bot.sizer import size_position
-    tiny = 1e-9
     r = size_position(FX_SPEC, mode="risk_percent_equity",
                       equity=10_000.0, balance=10_000.0,
                       stop_distance=0.002, value=1.0,
-                      profit_to_deposit=tiny, max_lots=100.0)
+                      max_lots=100.0)
     assert np.isfinite(r.lots)
     assert r.lots <= FX_SPEC.volume_max
 

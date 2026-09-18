@@ -110,7 +110,6 @@ def size_position(
     balance: float = 0.0,
     stop_distance: float = 0.0,
     value: float = 0.0,
-    profit_to_deposit: float = 1.0,
     max_lots: float = 0.0,
     kelly_cap: float = KELLY_DEFAULT_CAP,
     kelly_enabled: bool = not KELLY_DEFAULT_OFF,
@@ -129,7 +128,6 @@ def size_position(
             BEFORE broker min-stop enforcement (we enforce here: the risk
             arithmetic must match the stop that will actually be sent).
         value: lot size (fixed_lot) or fixed risk money (fixed_money).
-        profit_to_deposit: conversion profit currency -> deposit currency.
         max_lots: strategy/EA-level cap on top of ``spec.volume_max``.
         kelly_cap/kelly_enabled: kelly mode guard rails.
         win_rate/payoff_ratio: inputs for kelly mode.
@@ -140,6 +138,11 @@ def size_position(
             ``margin_calc`` is given.
 
     Returns: a :class:`SizingResult`; check ``rejected`` before trading.
+
+    The loss-per-lot risk math consumes ``spec.tick_value_loss`` directly:
+    it is ALREADY denominated in the account/deposit currency by the
+    terminal, so NO profit->deposit FX factor is applied here. No FX rate is
+    ever derived from ``tick_value``.
     """
     # -- argument validation --------------------------------------------
     if mode not in SIZING_MODES:
@@ -149,7 +152,7 @@ def size_position(
     # comparison below (so it would otherwise crash in normalize_volume), and
     # +Inf equity/value would inflate the budget past the cap and return a
     # tradable clamped size — both are unsafe. Reject up front.
-    _finite_inputs = (equity, balance, stop_distance, value, profit_to_deposit,
+    _finite_inputs = (equity, balance, stop_distance, value,
                       max_lots, kelly_cap, win_rate, payoff_ratio)
     if not all(isfinite(x) for x in _finite_inputs):
         return SizingResult(reason=INVALID_ARGS)
@@ -166,7 +169,7 @@ def size_position(
     if stop_distance <= 0.0:
         return SizingResult(reason=MISSING_STOP)  # rule 5 / SPEC §3.2
     distance = enforce_min_stop(stop_distance, spec)
-    loss_pl = loss_per_lot(distance, spec, profit_to_deposit)
+    loss_pl = loss_per_lot(distance, spec)
     if loss_pl <= 0.0:
         return SizingResult(reason=MISSING_STOP)
 

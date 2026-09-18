@@ -162,28 +162,30 @@ def test_conversion_identity_when_currencies_equal():
     assert ctx.profit_to_deposit == 1.0
 
 
-def test_conversion_explicit_rate_scales_pnl(frames):
+def test_conversion_is_telemetry_only_not_in_risk_math(frames):
     base = _ctx("XAUUSD", "macd@XAUUSD", "macd_momentum",
                 frames["au"], dataclasses.replace(
                     AU_SPEC, currency_profit="EUR"))
     with_rate = dataclasses.replace(base, conversion=1.08)
     assert with_rate.conversion_error == ""
+    # Telemetry preserved: the conversion is carried as descriptive
+    # metadata even though it no longer feeds the risk math.
     assert with_rate.profit_to_deposit == pytest.approx(1.08)
 
-    # The conversion enters the RISK MATH (loss-per-lot in deposit
-    # currency), so lot sizing shifts by exactly the rate — never a
-    # silent 1.0.
+    # The conversion does NOT enter the RISK MATH: tick_value_loss is
+    # already account/deposit-denominated, so loss-per-lot and lot sizing
+    # are independent of the (metadata-only) conversion rate.
     from mql5bot.sizer import size_position
+    from mql5bot.symbolspec import enforce_min_stop, loss_per_lot
     a = 0.004          # fixed stop distance
     common = {"mode": "risk_percent_equity", "equity": 10_000.0,
               "balance": 10_000.0, "stop_distance": a, "value": 1.0}
-    r1 = size_position(AU_SPEC, profit_to_deposit=1.0, **common)
-    r2 = size_position(AU_SPEC, profit_to_deposit=1.08, **common)
-    assert r2.loss_per_lot_ccy == pytest.approx(r1.loss_per_lot_ccy
-                                                * 1.08)
-    assert r2.lots <= r1.lots
+    r = size_position(AU_SPEC, **common)
+    assert r.loss_per_lot_ccy == pytest.approx(
+        loss_per_lot(enforce_min_stop(a, AU_SPEC), AU_SPEC))
 
-    # Run-level: the rate is carried end-to-end (manifest + live PnL).
+    # Run-level: the rate is carried end-to-end as manifest telemetry, but
+    # live PnL is INDEPENDENT of it (no FX factor in the engine PnL path).
     eng = _engine(frames, contexts=[with_rate])
     man = eng.manifest()
     assert man["instruments"][0]["conversion"] == pytest.approx(1.08)
@@ -192,7 +194,7 @@ def test_conversion_explicit_rate_scales_pnl(frames):
                                                          conversion=1.0)])
     res_usd = _seam_run(eng2)
     assert len(res_eur.trades) > 0 and len(res_usd.trades) > 0
-    assert not res_eur.trades["pnl"].equals(res_usd.trades["pnl"])
+    assert res_eur.trades["pnl"].equals(res_usd.trades["pnl"])
 
 
 def test_conversion_missing_context_is_ineligible(frames):

@@ -328,3 +328,95 @@ def test_bundle_loader_has_no_unverified_acceptance_path():
     derive_at = load_body.index("DeriveBundleHash")
     spec_ok_at = load_body.index("m_spec = spec")
     assert derive_at < spec_ok_at
+
+
+# ---------------------------------------------------------------------------
+# Reserved-keyword collision guard
+#
+# The HOTFIX cause: ``input`` (an MQL5 reserved keyword) was used as a local
+# variable name in DslBundle.mqh::DeriveSpecHash, breaking the owner's strict
+# compile ("error 149: unexpected token").  This scanner fails if ANY MQL5
+# reserved word is declared as a variable/parameter name anywhere under
+# ``mql5/`` — so that class of compile break cannot silently return.  It is
+# deliberately conservative: it only flags a reserved word sitting in the
+# *name* position of a declaration (after a type/qualifier, before a
+# declarator terminator), never a legitimate use as a type, qualifier, or
+# operator (``const int x``, ``new Foo()``, ``delete p``, ``return x`` all
+# pass).
+# ---------------------------------------------------------------------------
+
+# MQL5 reserved words that must never be used as a declared identifier.
+MQL5_RESERVED = frozenset({
+    # data types
+    "bool", "char", "uchar", "short", "ushort", "int", "uint", "long",
+    "ulong", "double", "float", "string", "datetime", "color", "void",
+    "matrix", "vector", "complex",
+    # keywords / specifiers
+    "break", "case", "class", "const", "continue", "default", "delete",
+    "do", "else", "enum", "export", "extern", "false", "for", "if",
+    "input", "new", "operator", "override", "private", "protected",
+    "public", "return", "sinput", "sizeof", "static", "struct", "switch",
+    "template", "this", "true", "typename", "virtual", "volatile", "while",
+    "final", "register", "group",
+})
+
+# Builtin type tokens that can open a declaration (so the next token is a name).
+_MQL5_BUILTIN_TYPES = frozenset({
+    "bool", "char", "uchar", "short", "ushort", "int", "uint", "long",
+    "ulong", "double", "float", "string", "datetime", "color", "void",
+    "matrix", "vector", "complex",
+})
+
+# TYPE token: a builtin type OR a user type (Uppercase-first identifier —
+# the codebase convention for classes/structs/enums, e.g. CDslJson, MqlTick,
+# ENUM_TIMEFRAMES).  A declaration is TYPE [&|*] NAME <declarator-terminator>.
+_TYPE_RE = (r"(?:" + "|".join(sorted(_MQL5_BUILTIN_TYPES, key=len,
+            reverse=True)) + r"|[A-Z]\w*)")
+_RESERVED_RE = "|".join(sorted(MQL5_RESERVED, key=len, reverse=True))
+_DECL_RE = re.compile(
+    r"\b" + _TYPE_RE + r"\s*[&*]?\s*\b(" + _RESERVED_RE + r")\b\s*(?=[;,=\[\)])"
+)
+
+
+def _strip_comments_and_literals(text: str) -> str:
+    text = re.sub(r"/\*.*?\*/", " ", text, flags=re.DOTALL)
+    text = re.sub(r"//[^\n]*", " ", text)
+    text = re.sub(r'"(\\.|[^"\\])*"', '""', text)
+    text = re.sub(r"'(\\.|[^'\\])*'", "''", text)
+    return text
+
+
+def test_no_mql5_reserved_word_declared_as_identifier():
+    violations = []
+    for path in sorted((ROOT / "mql5").rglob("*.mq*")):
+        clean = _strip_comments_and_literals(path.read_text(encoding="utf-8"))
+        for m in _DECL_RE.finditer(clean):
+            line = clean[:m.start()].count("\n") + 1
+            violations.append(
+                f"{path.relative_to(ROOT)}:{line}: reserved word "
+                f"'{m.group(1)}' used as identifier — '{m.group(0).strip()}'"
+            )
+    assert not violations, (
+        "MQL5 reserved keyword(s) declared as variable/parameter names "
+        "(will break the owner strict compile):\n" + "\n".join(violations)
+    )
+
+
+def test_reserved_word_guard_is_not_vacuous():
+    """The guard must actually flag the exact HOTFIX bug pattern and
+    common declaration forms, while leaving legitimate uses alone."""
+    def flagged(snippet: str) -> bool:
+        return bool(_DECL_RE.search(_strip_comments_and_literals(snippet)))
+
+    assert flagged('string input = "x";')          # the original bug
+    assert flagged("int export;")
+    assert flagged("void Fn(double input, int color) {}")
+    assert flagged("MqlTick &new;")
+    # legitimate uses must not trip the guard
+    assert not flagged("const int x = 3;")
+    assert not flagged("static double y;")
+    assert not flagged("input double Lots = 0.1;")
+    assert not flagged("virtual void Foo();")
+    assert not flagged("new CDslJson();")
+    assert not flagged("delete ptr;")
+    assert not flagged("return x;")

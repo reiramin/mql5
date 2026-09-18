@@ -139,6 +139,7 @@ CDslRuntime     g_dslRuntime;
 SDslExitGeometry g_dslGeometry;
 int             g_dslPositions[];
 bool            g_dslEnabled    = false;
+int             g_dslDesired    = 0;      // last DSL desired position (incl 0=flat)
 
 datetime        g_lastBarTime   = 0;
 datetime        g_lastHeartbeat = 0;
@@ -183,14 +184,24 @@ string TfToString(ENUM_TIMEFRAMES tf)
      }
   }
 
+// Read the bundle as RAW BYTES (FILE_BIN) — never text/ANSI mode, which
+// would inject per-line "\n" and mangle UTF-8/CRLF. The exact committed
+// bytes are parsed and then canonically re-serialised for the bundle_hash
+// check (DslBundle), so a byte-faithful read is required (P0-3).
 bool ReadDslBundleText(const string path,string &out)
   {
-   int h=FileOpen(path,FILE_READ|FILE_TXT|FILE_ANSI);
-   if(h==INVALID_HANDLE){out="";return false;}
    out="";
-   while(!FileIsEnding(h)) out+=FileReadString(h)+"\n";
+   int h=FileOpen(path,FILE_READ|FILE_BIN);
+   if(h==INVALID_HANDLE) return false;
+   int sz=(int)FileSize(h);
+   if(sz<=0){ FileClose(h); return false; }
+   uchar bytes[];
+   ArrayResize(bytes,sz);
+   int rd=(int)FileReadArray(h,bytes,0,sz);
    FileClose(h);
-   return true;
+   if(rd!=sz) return false;
+   out=CharArrayToString(bytes,0,sz,CP_UTF8);
+   return StringLen(out)>0;
   }
 
 bool RefreshDslSignal()
@@ -212,8 +223,11 @@ bool RefreshDslSignal()
    int n=ArraySize(positions);
    if(n<2) return false;
    int position=positions[n-2];
+   g_dslDesired=position;                 // record flat (0) too, for P1-5
    double entry=(position>0)?SymbolInfoDouble(g_symbol,SYMBOL_ASK):SymbolInfoDouble(g_symbol,SYMBOL_BID);
-   double atr=g_guard.ATR(g_symbol,g_tf,1);
+   // SL/TP ATR uses the canonical period-14 Wilder ATR (matches the python
+   // engine's exit ATR in period AND seeding), never iATR (P1-4).
+   double atr=DslCanonicalAtr(g_symbol,g_tf,InpDslBars);
    SBotSignal signal;
    if(!DslSignalFromPosition(position,entry,atr,g_dslGeometry,signal))
      {
@@ -541,6 +555,25 @@ int OnInit()
          Print("[mql5bot] DSL bundle refused: ",g_dslJson.Error()," ",g_dslLoader.Error());
          return INIT_FAILED;
         }
+      //--- §6 market/timeframe guard: refuse a bundle whose declared market
+      //    (symbol + timeframe) does not match this chart. Prevents running
+      //    an e.g. EURUSD/H1 bundle on any other chart (P0-3).
+      if(!g_dslLoader.MarketMatches(g_symbol,g_tf))
+        {
+         Print("[mql5bot] DSL bundle refused: ",g_dslLoader.Error());
+         return INIT_FAILED;
+        }
+      //--- warmup contract: the parity/NaN seeding requires enough history
+      //    to seed the longest indicator. Refuse below 10x the longest
+      //    declared period (P1-1). InpDslBars is the history depth pulled.
+      int longestPeriod=DslLongestPeriod(g_dslJson,g_dslLoader.Spec());
+      if(longestPeriod>0 && InpDslBars < 10*longestPeriod)
+        {
+         Print("[mql5bot] DSL bundle refused: InpDslBars=",InpDslBars,
+               " < 10x longest indicator period (",longestPeriod,
+               ") — insufficient warmup (need >= ",10*longestPeriod,")");
+         return INIT_FAILED;
+        }
       int root=g_dslJson.Root;
       int ident=g_dslJson.Member(root,"identity");
       g_strategyId=g_dslJson.GetStr(ident,"strategy_id","dsl");
@@ -560,9 +593,14 @@ int OnInit()
       g_log.Info("generic DSL execution enabled: "+g_strategyId);
      }
 
-   //--- position guard (ATR for management + adoption fallback)
-   if(!g_guard.Init(g_symbol, g_tf, InpTrailAtr, InpBreakevenAtr,
-                    InpBreakevenOffset, InpPartialAtr, InpPartialFraction))
+   //--- position guard (ATR for management + adoption fallback). When DSL
+   //    mode is on, the bundle's trail_atr / breakeven_atr drive the guard
+   //    and the management ATR uses the canonical exit period 14 to match
+   //    the python engine (P1-4); otherwise the EA inputs apply.
+   double guardTrail    = g_dslEnabled ? g_dslGeometry.trailAtr     : InpTrailAtr;
+   double guardBreakEv  = g_dslEnabled ? g_dslGeometry.breakevenAtr : InpBreakevenAtr;
+   if(!g_guard.Init(g_symbol, g_tf, guardTrail, guardBreakEv,
+                    InpBreakevenOffset, InpPartialAtr, InpPartialFraction, 14))
       return INIT_FAILED;
 
    //--- risk engine + persisted state (S2)
@@ -804,11 +842,14 @@ void ManageOpenPositions()
       if(!PositionSelectByTicket(rec.ticket))
          continue;
 
-      //--- max-bars timeout (every managed position)
-      if(InpMaxBars > 0)
+      //--- max-bars timeout (every managed position). In DSL mode the
+      //    bundle's exit.time_bars overrides the EA input (P1-4).
+      int maxBars = (g_dslEnabled && g_dslGeometry.timeBars > 0)
+                    ? g_dslGeometry.timeBars : InpMaxBars;
+      if(maxBars > 0)
         {
          int bars = iBarShift(rec.symbol, g_tf, rec.openTime, false);
-         if(bars >= InpMaxBars)
+         if(bars >= maxBars)
            {
             if(g_trade.ClosePosition(rec.ticket, 0.0))
                g_log.Info(StringFormat("#%I64u closed: max bars timeout (%d)",
@@ -888,6 +929,19 @@ void OnNewBar()
    if(g_dslEnabled)
      {
       if(!RefreshDslSignal()) return;
+      //--- flat semantics (P1-5): when the DSL desired position is 0 while
+      //    a position is open, CLOSE it — matching the python canonical
+      //    engine default (engine.py allow_signal_exit=True closes on
+      //    flat). A flat signal is a decision to be out, not a hold.
+      if(g_dslDesired == 0)
+        {
+         if(CurrentExposure() != 0)
+           {
+            g_log.Info("DSL desired flat — closing exposure (engine-parity)");
+            CloseAllPositions("dsl_flat");
+           }
+         return;
+        }
      }
    else
       g_lastSignal = g_signal.Evaluate(g_strategy);

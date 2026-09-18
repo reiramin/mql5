@@ -16,10 +16,10 @@ Risk (Phase 1)
     stops level and the tick grid before sizing.
   * PnL valuation is tick-based: unfavourable moves use
     ``tick_value_loss``, favourable moves the profit-side tick value (the
-    loss-side value when the spec is symmetric), and the profit -> deposit
-    conversion is applied per leg.  The price-continuous convention of the
-    legacy engine is exactly recovered when
-    ``tick_value == tick_size * contract_size`` and conversion is 1.0.
+    loss-side value when the spec is symmetric).  The tick value is already
+    account/deposit-denominated by the terminal, so NO profit -> deposit FX
+    factor is applied.  The price-continuous convention of the legacy engine
+    is exactly recovered when ``tick_value == tick_size * contract_size``.
 
 Costs (Phase 2)
   * Every fill is priced by ``mql5bot.costs`` — fixed or per-bar variable
@@ -131,7 +131,7 @@ from .costs import (
 from .dayclock import DayClock, server_day_ids
 from .indicators import atr as atr_indicator
 from .sizer import RISK_PERCENT_EQUITY, SIZING_MODES, size_position
-from .specs import synthetic_profit_to_deposit, synthetic_spec
+from .specs import synthetic_spec
 from .symbolspec import SymbolSpec, enforce_min_stop, round_to_tick
 
 MODE_NETTING = "netting"
@@ -193,11 +193,6 @@ class Instrument:
         if self.spec is not None:
             return self.spec
         return synthetic_spec(self.symbol)
-
-    def resolved_conversion(self) -> float:
-        if self.profit_to_deposit is not None:
-            return self.profit_to_deposit
-        return synthetic_profit_to_deposit(self.symbol)
 
     def resolved_costs(self) -> CostConfig:
         if self.costs is not None:
@@ -346,7 +341,6 @@ class _Line:
     def __init__(self, ins: Instrument, n: int):
         self.ins = ins
         self.spec = ins.resolved_spec()
-        self.conv = ins.resolved_conversion()
         self.costs = ins.resolved_costs()
         self.df = ins.df
         self.o = ins.df["open"].to_numpy(dtype=float)
@@ -427,12 +421,12 @@ def leg_cash(
     entry: float,
     price: float,
     spec: SymbolSpec,
-    conv: float,
 ) -> float:
     """Realised/unrealised cash of one leg moved from ``entry`` to ``price``
     (deposit currency).  Tick-valued: whole ticks x per-tick value x lots.
     A favourable move (``side * (price - entry) > 0``) is valued with the
-    profit-side tick value when the spec injects one."""
+    profit-side tick value when the spec injects one.  The tick value is
+    already account/deposit-denominated, so no FX factor is applied."""
     move = side * (price - entry)
     ticks = round(abs(price - entry) / spec.tick_size)
     if move == 0.0 or ticks <= 0 or lots == 0.0:
@@ -440,12 +434,11 @@ def leg_cash(
         # tradable moves and generate no PnL (tick-quantised valuation)
         return 0.0
     value = spec.tick_value(side, price - entry)
-    return math.copysign(1.0, move) * ticks * value * conv * lots
+    return math.copysign(1.0, move) * ticks * value * lots
 
 
-def _notional_deposit(lots: float, price: float, spec: SymbolSpec,
-                      conv: float) -> float:
-    return abs(lots) * spec.contract_size * price * conv
+def _notional_deposit(lots: float, price: float, spec: SymbolSpec) -> float:
+    return abs(lots) * spec.contract_size * price
 
 
 def _periods_per_year(index: pd.DatetimeIndex) -> float:
@@ -556,26 +549,25 @@ class PortfolioEngine:
                 ln = lines[b.ins]
                 for leg in b.legs:
                     total += leg_cash(b.side, leg.lots, leg.entry_price,
-                                      ln.c[bar], ln.spec, ln.conv)
+                                      ln.c[bar], ln.spec)
             return total
 
         def book_notional(b: _Book, price: float) -> float:
             ln = lines[b.ins]
-            return _notional_deposit(b.lots, price, ln.spec, ln.conv)
+            return _notional_deposit(b.lots, price, ln.spec)
 
         def _row(bar: int, b: _Book, leg: _Leg, take: float, fill: float,
                  reason: str, entry_fee_share: float, swap_share: float,
                  fee_share: float, quote: float) -> dict:
             ln = lines[b.ins]
-            pnl = leg_cash(b.side, take, leg.entry_price, fill, ln.spec, ln.conv)
+            pnl = leg_cash(b.side, take, leg.entry_price, fill, ln.spec)
             pnl_net = pnl - entry_fee_share - swap_share - fee_share
             # execution costs vs the raw quote levels, tick-valued:
             # entries fill at open +/- surcharge; stops fill worse by
             # slippage (gap fills at the open), TPs fill at the level.
             cost_entry = leg_cash(b.side, take, ln.o[leg.entry_index],
-                                  leg.entry_price, ln.spec, ln.conv)
-            cost_exit = leg_cash(b.side, take, fill, quote,
-                                 ln.spec, ln.conv)
+                                  leg.entry_price, ln.spec)
+            cost_exit = leg_cash(b.side, take, fill, quote, ln.spec)
             fees = entry_fee_share + swap_share + fee_share
             return {
                 "symbol": b.symbol,
@@ -613,7 +605,7 @@ class PortfolioEngine:
                 s_fee = leg.swap_fee * share
                 fee = exit_fee * (take / volume) if volume > 0 else 0.0
                 pnl = leg_cash(book.side, take, leg.entry_price, fill,
-                               ln.spec, ln.conv)
+                               ln.spec)
                 realized += pnl
                 trades.append(_row(bar, book, leg, take, fill, reason,
                                    e_fee, s_fee, fee, quote))
@@ -652,7 +644,7 @@ class PortfolioEngine:
             fill = fill_exit(ln, bar, book.side, quote)
             fee = commission_cash(volume, ln.costs)
             realized = sum(leg_cash(book.side, leg.lots, leg.entry_price,
-                                    fill, ln.spec, ln.conv) for leg in targets)
+                                    fill, ln.spec) for leg in targets)
             for leg in targets:
                 share = leg.lots / volume if volume > 0 else 0.0
                 trades.append(_row(bar, book, leg, leg.lots, fill, reason,
@@ -694,7 +686,6 @@ class PortfolioEngine:
                 balance=equity_ref,
                 stop_distance=sl_dist,
                 value=value,
-                profit_to_deposit=ln.conv,
                 max_lots=cap,
                 margin_calc=margin,
                 free_margin=equity_ref if margin is not None else None,
@@ -725,7 +716,7 @@ class PortfolioEngine:
             plus the ``lots`` being added."""
             ln = line_of(symbol)
             price = ln.o[bar]  # decisions at the open use the open price
-            delta = _notional_deposit(lots, price, ln.spec, ln.conv)
+            delta = _notional_deposit(lots, price, ln.spec)
             if delta <= 1e-12:
                 return True, ""  # nothing added: no cap headroom needed
             if adds_book and len(books) >= cfg.max_total_positions:

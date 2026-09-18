@@ -25,8 +25,8 @@ struct SSymbolSpec
    int               digits;               // SYMBOL_DIGITS
    double            point;                // SYMBOL_POINT
    double            tickSize;             // SYMBOL_TRADE_TICK_SIZE (price step)
-   double            tickValueProfit;      // SYMBOL_TRADE_TICK_VALUE_PROFIT (profit ccy, per 1.0 lot)
-   double            tickValueLoss;        // SYMBOL_TRADE_TICK_VALUE_LOSS   (profit ccy, per 1.0 lot)
+   double            tickValueProfit;      // SYMBOL_TRADE_TICK_VALUE_PROFIT (account/deposit ccy, per 1.0 lot)
+   double            tickValueLoss;        // SYMBOL_TRADE_TICK_VALUE_LOSS   (account/deposit ccy, per 1.0 lot)
    double            contractSize;         // SYMBOL_TRADE_CONTRACT_SIZE
    double            volumeMin;            // SYMBOL_VOLUME_MIN
    double            volumeMax;            // SYMBOL_VOLUME_MAX
@@ -177,19 +177,22 @@ double SpecNormalizeVolume(const double lots, const SSymbolSpec &spec)
    return floor;
   }
 
-// Stop-loss loss per 1.0 lot in DEPOSIT currency:
-//   ticks(stopDistance) * tick_value_loss * profit_to_deposit
-// The conversion factor is injected by the caller (queried at runtime);
-// it is never assumed to be 1.0 (SPEC §3.3 tick-value profit/loss).
-double SpecLossPerLot(const double stopDistance, const SSymbolSpec &spec,
-                      const double profitToDeposit)
+// Stop-loss loss per 1.0 lot in the ACCOUNT/DEPOSIT currency:
+//   ticks(stopDistance) * tick_value_loss
+// SYMBOL_TRADE_TICK_VALUE_LOSS is denominated by the terminal in the
+// account/deposit currency (owner-verified for EURUSD/US30/XAUEUR in
+// artifacts/owner_mt5_gate/broker_parity.json; BTC unverified). NO
+// profit->deposit FX factor is applied and NO FX rate is ever derived
+// from tick_value (P0-1, DECISIONS.md 2026-09-18). The runtime risk
+// path (RiskManager.GetLots) additionally reconciles this against an
+// independent OrderCalcProfit witness before sizing.
+double SpecLossPerLot(const double stopDistance, const SSymbolSpec &spec)
   {
-   if(spec.tickValueLoss <= 0.0 || profitToDeposit <= 0.0)
+   if(spec.tickValueLoss <= 0.0)
       return 0.0;
    if(stopDistance <= 0.0)
       return 0.0;
-   return (double)SpecTicksOf(stopDistance, spec) * spec.tickValueLoss *
-          profitToDeposit;
+   return (double)SpecTicksOf(stopDistance, spec) * spec.tickValueLoss;
   }
 
 // Is this filling mode allowed by the symbol mask (SPEC §8.D)?

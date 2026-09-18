@@ -228,15 +228,16 @@ def test_init_failed_is_fatal_only_and_always_reasoned():
     lines = ea.splitlines()
     fatal_sites = [i for i, ln in enumerate(lines)
                    if "return INIT_FAILED" in ln]
-    # 5 legacy environment/identity failures + 3 generic-DSL-surface
-    # failures (bundle refused / series build / evaluation), each gated
-    # and reasoned
-    assert len(fatal_sites) == 8, fatal_sites
+    # 5 legacy environment/identity failures + 5 generic-DSL-surface
+    # failures (bundle refused / market-timeframe mismatch / warmup floor /
+    # series build / evaluation), each gated and reasoned
+    assert len(fatal_sites) == 10, fatal_sites
     # each fatal site is gated by an explicit condition within the file
     context = "\n".join(lines)
     for gate in ("BuildSymbolSpec", "TERMINAL_TRADE_ALLOWED",
                  "g_signal.Init", "g_guard.Init", "g_magic < 0",
-                 "g_dslLoader.Load", "DslBuildSeries",
+                 "g_dslLoader.Load", "MarketMatches", "DslLongestPeriod",
+                 "DslBuildSeries",
                  "g_dslRuntime.DesiredPositions"):
         assert gate in context, gate
     # every fatal INIT_FAILED site is REASONED: within the two lines

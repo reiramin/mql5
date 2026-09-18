@@ -94,9 +94,9 @@ def test_a_zero_movement_pure_valuation():
                       freeze_level_points=0.0, currency_profit="USD",
                       currency_deposit="USD")
     for side in (1, -1):
-        assert leg_cash(side, 3.0, 1.23456, 1.23456, spec, 1.0) == 0.0
+        assert leg_cash(side, 3.0, 1.23456, 1.23456, spec) == 0.0
         # sub-tick residuals are not tradable moves either
-        assert leg_cash(side, 3.0, 1.23456, 1.234564, spec, 1.0) == 0.0
+        assert leg_cash(side, 3.0, 1.23456, 1.234564, spec) == 0.0
 
 
 def test_a_zero_movement_engine_trade(zig):

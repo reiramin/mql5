@@ -141,19 +141,22 @@ class MagicRegistry:
 class SymbolSpec:
     """Immutable snapshot of broker facts for one symbol/account pair.
 
-    Field semantics mirror the MT5 properties they come from; all monetary
-    values are expressed in the SYMBOL's own currency unless a field name
-    says otherwise (see ``tick_value_profit/loss``), so an injected
-    ``profit_to_deposit`` conversion is required by the sizer and never
-    assumed to be 1.0.
+    Field semantics mirror the MT5 properties they come from. The tick-value
+    fields (``tick_value_profit/loss``, SYMBOL_TRADE_TICK_VALUE_*) are
+    denominated by the terminal in the ACCOUNT/DEPOSIT currency, NOT the
+    symbol's profit currency — owner-verified for EURUSD, US30 and XAUEUR
+    (``artifacts/owner_mt5_gate/broker_parity.json``). The loss-per-lot risk
+    math therefore consumes ``tick_value_loss`` directly and never applies a
+    profit->deposit FX factor (P0-1, DECISIONS.md 2026-09-18).
     """
 
     name: str = "EURUSD"
     digits: int = 5
     point: float = 1e-5  # SYMBOL_POINT
     tick_size: float = 1e-5  # SYMBOL_TRADE_TICK_SIZE (price step)
-    # Tick value per 1.0 lot in the PROFIT currency (SYMBOL_TRADE_TICK_VALUE_
-    # PROFIT / _LOSS; use the _LOSS side for stop-loss risk math).
+    # Tick value per 1.0 lot in the ACCOUNT/DEPOSIT currency (SYMBOL_TRADE_
+    # TICK_VALUE_PROFIT / _LOSS; use the _LOSS side for stop-loss risk math).
+    # Owner-verified account-currency denomination (broker_parity.json).
     tick_value_loss: float = 1.0
     # Profit-side tick value; None (default) means symmetric with the loss
     # side.  Real asymmetric specs inject both sides; the canonical engine
@@ -285,20 +288,22 @@ def normalize_volume(lots: float, spec: SymbolSpec) -> float:
 def loss_per_lot(
     stop_distance: float,
     spec: SymbolSpec,
-    profit_to_deposit: float = 1.0,
 ) -> float:
-    """Stop-loss loss per 1.0 lot, in DEPOSIT currency.
+    """Stop-loss loss per 1.0 lot, in DEPOSIT (account) currency.
 
-    ``loss = ticks(stop_distance) * tick_value_loss * profit_to_deposit``
-    where ``tick_value_loss`` is in the symbol's profit currency. The
-    conversion factor is injected (queried at runtime from the profit
-    currency's quote; 1.0 when profit currency == deposit currency) — never
-    assumed (SPEC §3.3 lists SYMBOL_TRADE_TICK_VALUE_PROFIT/_LOSS).
+    ``loss = ticks(stop_distance) * tick_value_loss``.
+
+    ``tick_value_loss`` (SYMBOL_TRADE_TICK_VALUE_LOSS) is ALREADY expressed
+    in the account/deposit currency by the terminal — this is owner-verified
+    for EURUSD, US30 and XAUEUR (``tick_value_denomination == ACCOUNT_CURRENCY``
+    in ``artifacts/owner_mt5_gate/broker_parity.json``; note XAUEUR has
+    profit currency EUR yet the tick value is denominated in the account
+    currency). No profit->deposit FX factor is applied here: doing so would
+    double-convert (P0-1, DECISIONS.md 2026-09-18). No FX rate is ever
+    derived from ``tick_value``.
     """
     if spec.tick_value_loss <= 0.0:
         raise ValueError(f"{spec.name}: tick_value_loss must be positive")
-    if profit_to_deposit <= 0.0:
-        raise ValueError(f"{spec.name}: profit_to_deposit must be positive")
     if stop_distance <= 0.0:
         return 0.0
-    return ticks_of(stop_distance, spec) * spec.tick_value_loss * profit_to_deposit
+    return ticks_of(stop_distance, spec) * spec.tick_value_loss

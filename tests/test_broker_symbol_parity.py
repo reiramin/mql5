@@ -285,6 +285,23 @@ def test_crypto_style_grid_non_point_tick_size(tmp_path):
     assert tick_value_denomination(doc) == "ACCOUNT_CURRENCY"
 
 
+def test_loss_per_lot_tolerates_rounded_owner_tick_value(tmp_path):
+    """P0-1: sizer.loss_per_lot compares the exported (rounded, printed-
+    precision) SYMBOL_TRADE_TICK_VALUE_LOSS against the full-precision
+    OrderCalcProfit witness. A broker-rounding difference inside the 1%
+    denomination band (the same band RiskManager.GetLots enforces) is a
+    MATCH; a larger gap is a real MISMATCH."""
+    # witness (probe) fixes tick value at 1.0 (buy_loss_profit/-probe_ticks).
+    # Reported tick value 1.005 is 0.5% off -> within the band -> MATCH.
+    doc = _synthetic_export(tmp_path, tick_value_loss=1.005)
+    by = {r.field: r for r in sizer_behaviour_parity(doc)}
+    assert by["sizer.loss_per_lot"].status == "MATCH"
+    # 2% off is beyond the denomination band -> MISMATCH (not silently hidden)
+    doc_off = _synthetic_export(tmp_path, tick_value_loss=1.02)
+    by_off = {r.field: r for r in sizer_behaviour_parity(doc_off)}
+    assert by_off["sizer.loss_per_lot"].status == "MISMATCH"
+
+
 def test_probe_field_contract_is_optional_and_not_field_mapped():
     from broker_symbol_parity import DENOMINATION_PROBE_FIELDS
     assert set(DENOMINATION_PROBE_FIELDS) == {

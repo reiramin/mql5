@@ -497,3 +497,101 @@ def test_powershell_sources_are_ascii_for_ps51():
         if bad:
             offenders.append(f"{path.name}: {len(bad)} non-ASCII bytes")
     assert not offenders, f"PowerShell sources must stay ASCII: {offenders}"
+
+
+# ---------------------------------------------------------------------------
+# P0-1 — sizing denomination: tick_value_loss is account-denominated (no FX
+# multiply) and the runtime reconciles it against an OrderCalcProfit witness
+# ---------------------------------------------------------------------------
+
+
+def test_p0_1_loss_per_lot_has_no_profit_to_deposit_factor():
+    src = _read("Include/Mql5Bot/SymbolSpec.mqh")
+    # SpecLossPerLot takes only (stopDistance, spec) and does NOT multiply
+    # by any profit->deposit conversion.
+    assert "double SpecLossPerLot(const double stopDistance, const SSymbolSpec &spec)" in src
+    assert "profitToDeposit" not in src
+    assert "spec.tickValueLoss;" in src  # ticks * tickValueLoss, nothing else
+
+
+def test_p0_1_riskmanager_witness_and_no_fx_conversion():
+    src = _read("Include/Mql5Bot/RiskManager.mqh")
+    # the FX quote-based conversion helper is gone; no FX is derived anywhere
+    assert "ProfitToDeposit" not in src
+    # independent OrderCalcProfit denomination witness with a veto + max()
+    assert "OrderCalcProfit(" in src
+    assert "denomination unverified" in src
+    assert "MathMax(lossPl, lossWitness)" in src
+    # the >1% disagreement veto
+    assert "> 0.01" in src
+
+
+# ---------------------------------------------------------------------------
+# P0-3 — bundle read as raw bytes + market/timeframe refusal wired in the EA
+# ---------------------------------------------------------------------------
+
+
+def test_p0_3_bundle_read_as_raw_bytes_and_market_refusal():
+    ea = _read("Experts/Mql5Bot/Mql5Bot.mq5")
+    # raw-byte read (FILE_BIN), never text/ANSI line concatenation
+    assert "FILE_READ|FILE_BIN" in ea
+    assert "FileReadArray" in ea
+    # §6 market/timeframe guard is actually CALLED and refuses (INIT_FAILED)
+    assert "g_dslLoader.MarketMatches(g_symbol,g_tf)" in ea
+    idx = ea.index("MarketMatches(g_symbol,g_tf)")
+    assert "INIT_FAILED" in ea[idx:idx + 200]
+
+
+def test_p0_3_bundle_hash_verified_and_refused():
+    b = _read("Include/Mql5Bot/DslBundle.mqh")
+    canon = _read("Include/Mql5Bot/DslCanon.mqh")
+    # real SHA256 re-derivation over the canonical envelope (DslCanon), and
+    # the loader refuses on mismatch — not a presence-only check.
+    assert "CryptEncode(CRYPT_HASH_SHA256" in canon
+    assert "DeriveBundleHash(json, derived)" in b
+    assert "bundle_hash mismatch" in b
+
+
+# ---------------------------------------------------------------------------
+# P1-1 — warmup contract: refuse below 10x the longest indicator period
+# ---------------------------------------------------------------------------
+
+
+def test_p1_1_warmup_refuses_below_ten_times_longest_period():
+    ea = _read("Experts/Mql5Bot/Mql5Bot.mq5")
+    assert "DslLongestPeriod(" in ea
+    assert "10*longestPeriod" in ea
+    idx = ea.index("10*longestPeriod")
+    assert "INIT_FAILED" in ea[idx:idx + 300]
+
+
+# ---------------------------------------------------------------------------
+# P1-4 — exit geometry: canonical-period ATR for SL/TP; bundle trail/breakeven/
+# time_bars drive the guard when DSL mode is on
+# ---------------------------------------------------------------------------
+
+
+def test_p1_4_canonical_atr_and_bundle_exit_geometry_wired():
+    ea = _read("Experts/Mql5Bot/Mql5Bot.mq5")
+    # SL/TP ATR uses the canonical Wilder ATR (period 14), not iATR
+    assert "DslCanonicalAtr(g_symbol,g_tf,InpDslBars)" in ea
+    # bundle trail_atr / breakeven_atr drive the guard in DSL mode
+    assert "g_dslGeometry.trailAtr" in ea
+    assert "g_dslGeometry.breakevenAtr" in ea
+    # bundle time_bars overrides the max-bars timeout
+    assert "g_dslGeometry.timeBars" in ea
+
+
+# ---------------------------------------------------------------------------
+# P1-5 — flat semantics: DSL desired == 0 while open CLOSES (engine parity)
+# ---------------------------------------------------------------------------
+
+
+def test_p1_5_dsl_flat_closes_exposure():
+    ea = _read("Experts/Mql5Bot/Mql5Bot.mq5")
+    # desired flat (0) with open exposure -> close, matching engine default
+    assert "g_dslDesired == 0" in ea
+    idx = ea.index("g_dslDesired == 0")
+    window = ea[idx:idx + 300]
+    assert "CurrentExposure() != 0" in window
+    assert 'CloseAllPositions("dsl_flat")' in window

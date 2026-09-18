@@ -210,21 +210,48 @@ public:
          return 0.0;
         }
       double stopDist = MathAbs(price - slPrice);
-      double conv = ProfitToDeposit(spec);
-      if(conv <= 0.0)
-        {
-         outReason = "profit->deposit conversion unavailable";
-         return 0.0;
-        }
       // enforce broker stops level & tick grid so the risk math matches
       // the stop that will actually be sent
       double distance = SpecEnforceMinStop(stopDist, spec);
-      double lossPl = SpecLossPerLot(distance, spec, conv);
+      // tick-value-based loss per 1.0 lot, ALREADY in account/deposit
+      // currency (no profit->deposit FX factor — SpecLossPerLot / P0-1).
+      double lossPl = SpecLossPerLot(distance, spec);
       if(lossPl <= 0.0)
         {
          outReason = "loss per lot <= 0";
          return 0.0;
         }
+      // Independent denomination witness (P0-1): OrderCalcProfit returns
+      // the P/L of a 1.0-lot position closed at the (min-stop-enforced)
+      // stop, ALWAYS in the account currency. It must agree with the
+      // tick-value loss above; if it fails or disagrees by > 1% the
+      // tick-value denomination is UNVERIFIED and we refuse the trade
+      // (never derive an FX rate from tick_value). We then size on the
+      // more conservative (larger) of the two.
+      long   witnessType  = (price > slPrice) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+      double witnessClose = (price > slPrice) ? (price - distance) : (price + distance);
+      double witnessProfit = 0.0;
+      ResetLastError();
+      if(!OrderCalcProfit((ENUM_ORDER_TYPE)witnessType, spec.name, 1.0, price,
+                          witnessClose, witnessProfit)
+         || !MathIsValidNumber(witnessProfit))
+        {
+         outReason = "denomination unverified (OrderCalcProfit witness failed)";
+         return 0.0;
+        }
+      double lossWitness = MathAbs(witnessProfit);
+      if(lossWitness <= 0.0)
+        {
+         outReason = "denomination unverified (witness loss <= 0)";
+         return 0.0;
+        }
+      double denomRef = MathMax(lossPl, lossWitness);
+      if(MathAbs(lossPl - lossWitness) / denomRef > 0.01)
+        {
+         outReason = "denomination unverified (tick-value vs OrderCalcProfit disagree > 1%)";
+         return 0.0;
+        }
+      lossPl = denomRef;   // conservative: the larger loss per lot
 
       //---- budget ------------------------------------------------------
       double equity  = AccountInfoDouble(ACCOUNT_EQUITY);
@@ -365,30 +392,9 @@ public:
      {
       if(lots <= 0.0 || slPrice <= 0.0)
          return 0.0;
-      double conv = ProfitToDeposit(spec);
-      if(conv <= 0.0)
-         return 0.0;
       double distance = SpecEnforceMinStop(MathAbs(price - slPrice), spec);
-      return lots * SpecLossPerLot(distance, spec, conv);
-     }
-
-   // Profit-currency -> deposit-currency conversion, queried at runtime.
-   // Conservative: uses the ask (worse) rate. Returns 0 when unavailable
-   // (callers must fail safe, never assume 1.0).
-   static double     ProfitToDeposit(const SSymbolSpec &spec)
-     {
-      if(spec.currencyProfit == spec.currencyDeposit)
-         return 1.0;
-      string direct = spec.currencyProfit + spec.currencyDeposit;
-      if(SymbolInfoDouble(direct, SYMBOL_BID) > 0.0)
-         return SymbolInfoDouble(direct, SYMBOL_ASK);   // deposit per profit
-      string inverse = spec.currencyDeposit + spec.currencyProfit;
-      if(SymbolInfoDouble(inverse, SYMBOL_BID) > 0.0)
-        {
-         double ask = SymbolInfoDouble(inverse, SYMBOL_ASK);
-         return (ask > 0.0) ? 1.0 / ask : 0.0;
-        }
-      return 0.0;
+      // loss per lot is already in the account/deposit currency (P0-1).
+      return lots * SpecLossPerLot(distance, spec);
      }
 
    // spread guard: block entries when the spread is too wide

@@ -42,12 +42,15 @@ SYNTHETIC_SPECS: dict[str, SymbolSpec] = {
         stops_level_points=10.0,
         currency_profit="USD", currency_deposit="USD",
     ),
-    # 3-digit JPY pair: tick value expressed in JPY (profit currency)
+    # 3-digit JPY pair: tick value denominated in the account/deposit
+    # currency (USD), matching the terminal's SYMBOL_TRADE_TICK_VALUE_LOSS
+    # convention (100 JPY per tick / 150.0 fixture quote). Owner-pending
+    # verification — USDJPY is outside the owner's 3-symbol evidence set.
     "USDJPY": SymbolSpec(
         name="USDJPY", digits=3, point=0.001, tick_size=0.001,
-        tick_value_loss=100.0, contract_size=100_000.0,
+        tick_value_loss=100.0 / 150.0, contract_size=100_000.0,
         volume_min=0.01, volume_max=100.0, volume_step=0.01,
-        stops_level_points=10.0,  # 0.010 JPY min stop distance
+        stops_level_points=10.0,  # 0.010 min stop distance
         currency_profit="JPY", currency_deposit="USD",
     ),
     # metals: 2 digits, tick 0.01, 100 oz contract -> $1/tick/lot

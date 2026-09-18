@@ -45,7 +45,6 @@ def test_conversion_fixtures_are_positive_and_complete():
 def test_sizer_usable_on_every_fixture(symbol):
     """A funded 1% risk request must size a valid trade on every asset."""
     spec = synthetic_spec(symbol)
-    conv = synthetic_profit_to_deposit(symbol)
     res = size_position(
         spec,
         mode=RISK_PERCENT_EQUITY,
@@ -53,7 +52,6 @@ def test_sizer_usable_on_every_fixture(symbol):
         balance=100_000.0,
         stop_distance=spec.min_stop_distance() + 5 * spec.tick_size,
         value=1.0,
-        profit_to_deposit=conv,
         max_lots=10.0,
     )
     assert not res.rejected, f"{symbol}: {res.reason}"
@@ -63,18 +61,18 @@ def test_sizer_usable_on_every_fixture(symbol):
     assert res.risk_money_actual <= res.risk_money_budget * (1 + 1e-9)
 
 
-def test_usdjpy_loss_converts_jpy_to_deposit():
-    """USDJPY fixture: loss per lot is in JPY; the sizer must convert."""
+def test_usdjpy_loss_is_account_denominated_no_fx():
+    """USDJPY fixture: tick_value_loss is already account/deposit (USD)
+    denominated (100 JPY per tick / 150.0 fixture quote), so loss_per_lot
+    consumes it directly with NO profit->deposit FX factor."""
     spec = synthetic_spec("USDJPY")
-    conv = synthetic_profit_to_deposit("USDJPY")  # 1/150
     dist = 0.010  # 10 ticks of 0.001
-    pl_jpy = loss_per_lot(dist, spec, profit_to_deposit=1.0)
-    assert pl_jpy == pytest.approx(1000.0)  # 10 ticks * 100 JPY
-    pl_usd = loss_per_lot(dist, spec, profit_to_deposit=conv)
+    pl_usd = loss_per_lot(dist, spec)
+    # 10 ticks * (100/150) USD/tick = 6.6667 USD/lot
     assert pl_usd == pytest.approx(1000.0 / 150.0)
     res = size_position(
         spec, mode=RISK_PERCENT_EQUITY, equity=1_000.0, balance=1_000.0,
-        stop_distance=dist, value=1.0, profit_to_deposit=conv, max_lots=10.0,
+        stop_distance=dist, value=1.0, max_lots=10.0,
     )
     assert not res.rejected
     # risk budget = 1% of 1k USD = 10 USD; loss/lot = 6.6667 USD ->
@@ -88,7 +86,7 @@ def test_underfunded_budget_rejects_below_minimum():
     spec = synthetic_spec("EURUSD")
     res = size_position(
         spec, mode=RISK_PERCENT_EQUITY, equity=10_000.0, balance=10_000.0,
-        stop_distance=0.01, value=1.0, profit_to_deposit=1.0, max_lots=10.0,
+        stop_distance=0.01, value=1.0, max_lots=10.0,
     )
     # min-lot loss at 0.01 stop = 1000 ticks * $1 * 0.01 = $10 >= 1% of 10k
     if res.reason == BELOW_MIN:

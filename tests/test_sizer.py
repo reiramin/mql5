@@ -32,11 +32,6 @@ def specs() -> dict[str, SymbolSpec]:
     return make_specs()
 
 
-def _usdjpy_conv() -> float:
-    """JPY -> USD conversion used by the USDJPY assertions."""
-    return 1.0 / 150.0
-
-
 # ---------------------------------------------------------------------------
 # Hand-computed lot sizes on the five synthetic specs
 # ---------------------------------------------------------------------------
@@ -66,25 +61,15 @@ def test_eurusd_floor_to_step_never_exceeds_budget(specs):
 
 
 def test_usdjpy_profit_currency_conversion(specs):
-    """stop 0.300 JPY = 300 ticks x 100 JPY/tick = 30 000 JPY = 200 USD per
-    lot at 1/150 -> 0.50 lots for a 100 USD budget."""
+    """stop 0.300 = 300 ticks x (100/150) account-denominated tick value =
+    200 USD per lot -> 0.50 lots for a 100 USD budget.  The tick value is
+    already account-denominated; no FX factor is applied."""
     res = size_position(
         specs["USDJPY"], equity=10_000.0, value=1.0, stop_distance=0.30,
-        profit_to_deposit=_usdjpy_conv(),
     )
     assert res.reason == OK
     assert res.lots == pytest.approx(0.50)
     assert res.loss_per_lot_ccy == pytest.approx(200.0, rel=1e-9)
-
-
-def test_usdjpy_requires_conversion(specs):
-    """Forgetting the conversion factor is an error of 150x — the engine
-    must not silently assume 1.0; the caller injects the rate."""
-    with pytest.raises(ValueError):
-        size_position(
-            specs["USDJPY"], equity=10_000.0, value=1.0, stop_distance=0.30,
-            profit_to_deposit=0.0,
-        )
 
 
 def test_xauusd_hand_calc(specs):
@@ -215,11 +200,6 @@ def test_non_finite_inputs_fail_closed(specs, bad):
     r = size_position(specs["EURUSD"], mode=RISK_PERCENT_EQUITY,
                       equity=10_000.0, value=1.0, stop_distance=bad)
     assert r.rejected and r.reason == INVALID_ARGS
-    # non-finite profit->deposit conversion
-    r = size_position(specs["EURUSD"], mode=RISK_PERCENT_EQUITY,
-                      equity=10_000.0, value=1.0, stop_distance=0.0020,
-                      profit_to_deposit=bad)
-    assert r.rejected and r.reason == INVALID_ARGS
 
 
 def test_kelly_no_edge_rejected(specs):
@@ -324,10 +304,8 @@ def test_invalid_args_rejected(specs):
 @pytest.mark.parametrize("equity", [5_000.0, 25_000.0])
 def test_risk_never_exceeds_budget_across_grid(specs, distance, equity):
     for name, spec in specs.items():
-        conv = _usdjpy_conv() if name == "USDJPY" else 1.0
         res = size_position(
             spec, equity=equity, value=1.0, stop_distance=distance,
-            profit_to_deposit=conv,
         )
         if res.rejected:
             assert res.lots == 0.0

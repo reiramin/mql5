@@ -239,11 +239,11 @@ def run_fast(
                 entry_fee_share: float, exit_fee_share: float,
                 quote: float) -> None:
         """One trade row; mirrors the engine's ``_row`` exactly."""
-        pnl = leg_cash(side, take, entry_price, fill, spec, 1.0)
+        pnl = leg_cash(side, take, entry_price, fill, spec)
         pnl_net = pnl - entry_fee_share - exit_fee_share
         cost_entry = leg_cash(side, take, o[entry_index], entry_price,
-                              spec, 1.0)
-        cost_exit = leg_cash(side, take, fill, quote, spec, 1.0)
+                              spec)
+        cost_exit = leg_cash(side, take, fill, quote, spec)
         fees = entry_fee_share + exit_fee_share
         trades.append({
             "symbol": "BACKTEST",
@@ -271,7 +271,7 @@ def run_fast(
         nonlocal bars_held, partial_done, be_done, sl, tp
         take = lots if vol is None else min(lots, float(vol))
         exit_fee = commission_cash(take, cost_cfg)
-        pnl = leg_cash(side, take, entry_price, fill, spec, 1.0)
+        pnl = leg_cash(side, take, entry_price, fill, spec)
         e_share = entry_fee * (take / lots) if lots > 0.0 else 0.0
         cash += pnl - exit_fee
         add_row(bar, take, fill, reason, e_share, exit_fee, quote)
@@ -312,7 +312,7 @@ def run_fast(
         # no engine-level speedup above environment noise, so the extra
         # invalidation complexity was rejected.
         if lots > 0.0 and side != 0:
-            return cash + leg_cash(side, lots, entry_price, c[bar], spec, 1.0)
+            return cash + leg_cash(side, lots, entry_price, c[bar], spec)
         return cash
 
     # ---- main bar loop (plain arrays; mirrors the TRUTH loop exactly) ----
@@ -372,7 +372,6 @@ def run_fast(
                             spec, mode="risk_percent_equity",
                             equity=basis, balance=basis,
                             stop_distance=sl_dist, value=risk_percent,
-                            profit_to_deposit=1.0,
                             max_lots=max_lots, margin_calc=None,
                             free_margin=None)
                         passable = res.lots > 0.0 and not res.rejected \

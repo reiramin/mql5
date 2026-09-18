@@ -37,6 +37,44 @@ bool DslBuildSeries(CDslJson &json,const int spec,const string symbol,
                                    rt,err);
   }
 
+// Canonical exit ATR: period-14 Wilder ATR over chart history, matching
+// the python engine's FIXED exit ATR (engine.py builds atr_indicator(
+// h,l,c,14) for SL/TP/trail/breakeven) in BOTH period AND seeding — never
+// iATR, whose seeding differs. "The spec's ATR period" for exits is the
+// canonical 14 (P1-4). Returns the value at the last CLOSED bar (shift 1);
+// 0.0 on failure / non-finite.
+double DslCanonicalAtr(const string symbol,const ENUM_TIMEFRAMES tf,
+                       const int bars,const int period=14)
+  {
+   MqlRates rates[]; ArraySetAsSeries(rates,false);   // rates[0] = oldest
+   int got=CopyRates(symbol,tf,0,bars,rates);
+   if(got<bars || got<period+2) return 0.0;
+   double high[],low[],close[];
+   ArrayResize(high,got); ArrayResize(low,got); ArrayResize(close,got);
+   for(int i=0;i<got;i++)
+     { high[i]=rates[i].high; low[i]=rates[i].low; close[i]=rates[i].close; }
+   double a[];
+   DslAtr(high,low,close,period,a);
+   double v=a[got-2];                                 // last closed bar
+   return (MathIsValidNumber(v) && v>0.0) ? v : 0.0;
+  }
+
+// Longest declared indicator period in the bundle (0 when none). Used to
+// enforce the warmup contract InpDslBars >= 10 x longest period (P1-1).
+int DslLongestPeriod(CDslJson &json,const int spec)
+  {
+   int longest=0;
+   int inds=json.Member(spec,"indicators");
+   int c=json.FirstChild(inds);
+   while(c>=0)
+     {
+      int period=(int)json.GetNum(c,"period",0);
+      if(period>longest) longest=period;
+      c=json.NextSibling(c);
+     }
+   return longest;
+  }
+
 bool DslSignalFromPosition(const int position,const double entry,
                            const double atr,const SDslExitGeometry &geometry,
                            SBotSignal &signal)

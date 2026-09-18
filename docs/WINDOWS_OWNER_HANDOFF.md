@@ -160,6 +160,37 @@ The integration wave applied — directly to `mql5/` — the two items the
 byte-identical to the anchor `227bf66`, and the owner must re-anchor after
 a real compile. Full context: `docs/AEGIS_CONVERGENCE_AUDIT_2026-09.md`.
 
+### 8c. Audit-and-close wave (2026-09-18) — NEW source, owner recompile due
+
+> **COMPILE BLOCKER FIXED — read first.** The owner's strict compile of the
+> prior commit `92b3102` **FAILED**: 11 errors, first
+> `DslBundle.mqh(133,14): error 149: unexpected token`, because `input` (an
+> MQL5 reserved keyword) was used as a local variable name in
+> `DeriveSpecHash`. This commit renames it to `payload` and adds a
+> source-structure guard so no reserved word can be declared as an
+> identifier under `mql5/` again. **Compile THIS commit, not `92b3102`.**
+> No MT5/tester/broker/parity/Gold result is claimed for it — compile is the
+> owner's to observe.
+
+This wave hardened the sizing denomination and the DSL execution surface
+on top of the Windows integration branch (`windows/integration-wip`,
+commit `71a8459`, where the integrated source was compile-OBSERVED 0/0,
+uncertified). It changed `RiskManager.mqh`, `SymbolSpec.mqh`,
+`Mql5Bot.mq5` and `DslExecution.mqh` (see `docs/DECISIONS.md`,
+2026-09-18 audit-and-close entry): P0-1 removes the `profit_to_deposit` FX
+factor from the loss-per-lot path and adds an independent `OrderCalcProfit`
+denomination witness/veto in `GetLots`; P0-3 wires the bundle
+market/timeframe refusal and a raw-byte (`FILE_BIN`) bundle read; P1-1 adds
+the `>= 10x longest period` warmup refusal; P1-4 uses the canonical
+period-14 Wilder ATR for SL/TP and drives `PositionGuard` from the bundle's
+`trail_atr`/`breakeven_atr`/`time_bars`; P1-5 closes exposure on a DSL flat
+signal (engine-parity). **Status: integrated, compile OBSERVED on
+`71a8459`; this is NEW source that needs a fresh owner recompile; parity
+and certification remain owner-pending. No MT5 runtime claim is made here.**
+Mac-side evidence is source-structure only (`tests/test_mql5_sources.py`)
+plus the Python behavioural mirrors; the owner re-anchor procedure below is
+unchanged and still required.
+
 ### 8a. RiskManager direction fix (bounded correctness) — APPLIED
 The inverted `OrderCalcMargin` side (`price < slPrice` → `price > slPrice`)
 is now fixed in-tree at `mql5/Include/Mql5Bot/RiskManager.mqh`. Mac

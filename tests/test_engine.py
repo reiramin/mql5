@@ -114,20 +114,20 @@ def test_no_legacy_risk_formula_in_canonical_path():
 def test_tick_value_profit_side_used_for_favourable_moves():
     spec = SYNTHETIC_SPECS[EUR]
     # symmetric spec: both sides use tick_value_loss
-    assert leg_cash(+1, 1.0, 100.0, 100.01, spec, 1.0) == pytest.approx(1000.0)
-    assert leg_cash(+1, 1.0, 100.0, 99.99, spec, 1.0) == pytest.approx(-1000.0)
-    assert leg_cash(-1, 1.0, 100.0, 99.99, spec, 1.0) == pytest.approx(1000.0)
-    assert leg_cash(-1, 1.0, 100.0, 100.01, spec, 1.0) == pytest.approx(-1000.0)
+    assert leg_cash(+1, 1.0, 100.0, 100.01, spec) == pytest.approx(1000.0)
+    assert leg_cash(+1, 1.0, 100.0, 99.99, spec) == pytest.approx(-1000.0)
+    assert leg_cash(-1, 1.0, 100.0, 99.99, spec) == pytest.approx(1000.0)
+    assert leg_cash(-1, 1.0, 100.0, 100.01, spec) == pytest.approx(-1000.0)
     # sub-tick float noise on equal prices is not a tradable move
-    assert leg_cash(+1, 0.25, 100.00000000000001, 100.0, spec, 1.0) == 0.0
+    assert leg_cash(+1, 0.25, 100.00000000000001, 100.0, spec) == 0.0
 
     from dataclasses import replace
 
     asym = replace(spec, tick_value_profit=2.0)  # favourable ticks worth 2x
-    assert leg_cash(+1, 1.0, 100.0, 100.01, asym, 1.0) == pytest.approx(2000.0)
-    assert leg_cash(+1, 1.0, 100.0, 99.99, asym, 1.0) == pytest.approx(-1000.0)
-    assert leg_cash(-1, 1.0, 100.0, 99.99, asym, 1.0) == pytest.approx(2000.0)
-    assert leg_cash(-1, 1.0, 100.0, 100.01, asym, 1.0) == pytest.approx(-1000.0)
+    assert leg_cash(+1, 1.0, 100.0, 100.01, asym) == pytest.approx(2000.0)
+    assert leg_cash(+1, 1.0, 100.0, 99.99, asym) == pytest.approx(-1000.0)
+    assert leg_cash(-1, 1.0, 100.0, 99.99, asym) == pytest.approx(2000.0)
+    assert leg_cash(-1, 1.0, 100.0, 100.01, asym) == pytest.approx(-1000.0)
 
 
 # ---------------------------------------------------------------------------
@@ -477,9 +477,6 @@ def test_multisymbol_portfolio_and_notional_curve():
     a[:] = 1
     register_signal("eng_mp1", a)
     register_signal("eng_mp2", a)
-    from mql5bot.specs import synthetic_profit_to_deposit
-
-    g_conv = synthetic_profit_to_deposit(GBP)  # 1.27 (GBPUSD fixture)
     cfg = RunConfig(initial_capital=10_000.0, strategy_risk={
         "eng_mp1": _fixed(0.25), "eng_mp2": _fixed(0.25)})
     res = engine(cfg).run([
@@ -489,10 +486,11 @@ def test_multisymbol_portfolio_and_notional_curve():
     assert len(res.trades) == 2
     assert set(res.trades["symbol"]) == {EUR, GBP}
     assert list(res.trades["lots"]) == [pytest.approx(0.25)] * 2
-    # gross notional is in DEPOSIT currency: the EUR leg converts at 1.0,
-    # the GBP leg at its profit->deposit conversion
+    # gross notional is in DEPOSIT currency = lots * contract_size * price.
+    # The tick value is account-denominated so no FX factor enters notional;
+    # both legs value at their price directly (EUR and GBP legs alike).
     assert res.notional.iloc[100] == pytest.approx(
-        0.25 * (1.0 + g_conv) * 100_000.0 * 100.0)
+        0.25 * 2.0 * 100_000.0 * 100.0)
     assert res.equity.iloc[-1] == pytest.approx(10_000.0)
 
 
