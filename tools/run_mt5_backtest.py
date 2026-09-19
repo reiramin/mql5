@@ -50,7 +50,9 @@ from mql5bot.mt5tester import (
     validate_inputs,
 )
 
-EA = "Experts\\Mql5Bot\\Mql5Bot.ex5"
+# STAGE 5 R3: relative to MQL5\Experts (NOT the MQL5 root) — a leading
+# "Experts\" doubles the directory and the EA is never found.
+EA = "Mql5Bot\\Mql5Bot.ex5"
 
 
 # ---------------------------------------------------------------------------
@@ -89,7 +91,9 @@ def parse_kv_pairs(items: list[str]) -> dict[str, object]:
 
 def add_config_args(parser: argparse.ArgumentParser, *, with_ea: bool = True) -> None:
     if with_ea:
-        parser.add_argument("--ea", default=EA, help=".ex5 path under MQL5")
+        parser.add_argument("--ea", default=EA,
+                            help=".ex5 path relative to MQL5\\Experts "
+                                 "(e.g. Mql5Bot\\Mql5Bot.ex5; NO leading Experts\\)")
     parser.add_argument("--symbol", default="EURUSD")
     parser.add_argument("--timeframe", default="H1",
                         choices=MT5_TIMEFRAMES)

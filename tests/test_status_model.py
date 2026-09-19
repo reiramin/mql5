@@ -115,7 +115,7 @@ def test_run_certification_without_terminal_is_pending_not_verified(
     """No MT5 runner: every required leg is 'did not run' -> the report
     is EMPIRICAL_VALIDATION_PENDING with MT5 NOT VERIFIED.  A successful
     Python cross-check leg never upgrades the verdict."""
-    cfg = CertifyConfig(strategy="ema_crossover", ea="Experts\\Mql5Bot\\Mql5Bot.ex5",
+    cfg = CertifyConfig(strategy="ema_crossover", ea="Mql5Bot\\Mql5Bot.ex5",
                         symbol="EURUSD", timeframe="M1", manifest_id="")
     report = run_certification(cfg, run_tester=None)
     assert report["verdict"]["status"] == "NOT VERIFIED"
@@ -131,7 +131,7 @@ def test_run_certification_without_terminal_is_pending_not_verified(
 def test_run_certification_failed_leg_is_failed(tmp_path):
     """A required MT5 leg that RAN and failed -> FAILED (not pending,
     not verified)."""
-    cfg = CertifyConfig(strategy="ema_crossover", ea="Experts\\Mql5Bot\\Mql5Bot.ex5",
+    cfg = CertifyConfig(strategy="ema_crossover", ea="Mql5Bot\\Mql5Bot.ex5",
                         symbol="EURUSD", timeframe="M1", manifest_id="")
     report = run_certification(
         cfg, run_tester=lambda tc: _Outcome(False, None, "boom"))
@@ -167,7 +167,7 @@ def test_degradation_outside_band_is_a_finding_not_a_gate(tmp_path):
     band) is REPORTED as measured but must NOT fail the verdict when
     every gate (ran/ok/trade-minimum) passes — the band is informative
     only."""
-    cfg = CertifyConfig(strategy="ema_crossover", ea="Experts\\Mql5Bot\\Mql5Bot.ex5",
+    cfg = CertifyConfig(strategy="ema_crossover", ea="Mql5Bot\\Mql5Bot.ex5",
                         symbol="EURUSD", timeframe="M1", manifest_id="",
                         min_trades=100)
     report = run_certification(
@@ -190,7 +190,7 @@ def test_degradation_outside_band_is_a_finding_not_a_gate(tmp_path):
 def test_degradation_mild_also_reported(tmp_path):
     """5% degradation (better than the band) is likewise reported
     truthfully and never gates."""
-    cfg = CertifyConfig(strategy="ema_crossover", ea="Experts\\Mql5Bot\\Mql5Bot.ex5",
+    cfg = CertifyConfig(strategy="ema_crossover", ea="Mql5Bot\\Mql5Bot.ex5",
                         symbol="EURUSD", timeframe="M1", manifest_id="",
                         min_trades=100)
     report = run_certification(

@@ -224,12 +224,16 @@ _REPORT_SAFE_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 class TesterConfig:
     """Deterministic single-run tester configuration.
 
-    ``ea`` is the .ex5 path relative to the data folder's MQL5 directory
-    (e.g. ``Experts\\Mql5Bot\\Mql5Bot.ex5``).  ``inputs`` maps EA input
+    ``ea`` is the .ex5 path relative to ``MQL5\\Experts`` — MT5 resolves the
+    ``[Tester] Expert=`` key against that directory, NOT the MQL5 root (e.g.
+    ``Mql5Bot\\Mql5Bot.ex5``, which the terminal loads from
+    ``MQL5\\Experts\\Mql5Bot\\Mql5Bot.ex5``).  A leading ``Experts\\`` is a
+    doubling bug — it makes the terminal look under ``MQL5\\Experts\\Experts\\``
+    (STAGE 5 R3) — and is rejected by ``validate``.  ``inputs`` maps EA input
     names to Python values; rendered in .set style into [TesterInputs].
     """
 
-    ea: str = "Experts\\Mql5Bot\\Mql5Bot.ex5"
+    ea: str = "Mql5Bot\\Mql5Bot.ex5"
     symbol: str = "EURUSD"
     timeframe: str = "H1"
     model: int = 1
@@ -246,7 +250,15 @@ class TesterConfig:
 
     def validate(self) -> None:
         if not self.ea.lower().endswith(".ex5"):
-            raise ValueError(f"ea must be a .ex5 path under MQL5, got {self.ea!r}")
+            raise ValueError(
+                f"ea must be a .ex5 path under MQL5\\Experts, got {self.ea!r}")
+        # STAGE 5 R3: MT5 resolves [Tester] Expert= relative to MQL5\Experts, so
+        # a leading "Experts\" doubles the directory (MQL5\Experts\Experts\...)
+        # and the EA is never found. Reject it here so the mistake cannot recur.
+        if re.match(r"(?i)experts[\\/]", self.ea):
+            raise ValueError(
+                f"ea must be relative to MQL5\\Experts (drop the leading "
+                f"'Experts\\'), got {self.ea!r}")
         if not self.symbol or any(ch.isspace() for ch in self.symbol):
             raise ValueError(f"symbol must be a non-blank MT5 symbol, got {self.symbol!r}")
         if self.timeframe not in MT5_TIMEFRAMES:
@@ -916,6 +928,30 @@ def report_not_found_message(searched: list[Path]) -> str:
             + " — tester did not produce a report")
 
 
+def resolve_ea_path(data_folder: Path | str, ea: str) -> Path:
+    """Resolve the EA to its absolute path under ``MQL5\\Experts`` and verify it
+    exists — STAGE 5 R3.
+
+    MT5 resolves the ``[Tester] Expert=`` key relative to ``MQL5\\Experts``.
+    Passing ``Experts\\Mql5Bot\\Mql5Bot.ex5`` made the terminal look under
+    ``MQL5\\Experts\\Experts\\`` — the EA was never loaded, the tester exited
+    without running, and no report was written (26 seconds of silence).  This
+    check turns a wrong EA path into a one-second failure that names the
+    resolved absolute path and the value of ``cfg.ea``, so a launch is never
+    blind again.  Raises FileNotFoundError when the .ex5 is not present.
+    """
+    # cfg.ea is a Windows-relative path (backslashes); split it into components
+    # so the check resolves correctly on any host running the unit tests, and
+    # so terminal64.exe on Windows sees the same location.
+    parts = [p for p in re.split(r"[\\/]+", ea) if p]
+    ea_abs = Path(data_folder).joinpath("MQL5", "Experts", *parts)
+    if not ea_abs.exists():
+        raise FileNotFoundError(
+            f"EA not found: {ea_abs} (cfg.ea={ea!r}; resolved relative to "
+            "MQL5\\Experts — compile the EA or fix the path before launching)")
+    return ea_abs
+
+
 def run_backtest(cfg: TesterConfig, settings: RunSettings) -> RunOutcome:
     """Run one backtest headlessly and parse its report.
 
@@ -936,6 +972,10 @@ def run_backtest(cfg: TesterConfig, settings: RunSettings) -> RunOutcome:
         raise FileNotFoundError(f"terminal64.exe not found in {terminal_dir}")
     if not (data_folder / "MQL5").is_dir():
         raise FileNotFoundError(f"{data_folder} is not an MT5 data folder (no MQL5)")
+    # STAGE 5 R3: verify the EA resolves to an existing .ex5 under MQL5\Experts
+    # BEFORE launching — a wrong path must cost one second and say so, not 26
+    # seconds of silence and a missing report.
+    resolve_ea_path(data_folder, cfg.ea)
     out_root = Path(settings.out_dir)
     run_id = f"{cfg.safe_report_name}_m{cfg.model}_{int(time.time())}"
     run_dir = out_root / "runs" / run_id
@@ -1065,6 +1105,7 @@ __all__ = [
     "report_gate",
     "report_not_found_message",
     "report_search_paths",
+    "resolve_ea_path",
     "run_backtest",
     "run_batch",
     "validate_inputs",

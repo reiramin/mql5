@@ -9,6 +9,42 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-19 — MT5 resolves `[Tester] Expert=` relative to `MQL5\Experts`, not the MQL5 root: the doubled EA path that made all six tester legs run nothing (STAGE 5 R3)
+
+**Trigger.** gate_run14 (HEAD 2c94996) failed all six tester legs with
+"report not found". The terminal launched correctly (start config accepted),
+so nothing looked wrong with the symbol, history, model, dates or strategy.
+
+**Root cause — measured, not inferred.** The fix was invisible in the
+terminal journal. It was only visible in the Strategy Tester's OWN log,
+`<DataFolder>\Tester\logs\20260919.log`, which carried exactly one error, six
+times (once per leg, at 06:43:52 / 06:44:16 / 06:44:46 / 06:45:10 / 06:45:33
+/ 06:45:57):
+
+    Tester   Experts\Experts\Mql5Bot\Mql5Bot.ex5 not found
+
+MT5 resolves the `[Tester] Expert=` key **relative to `MQL5\Experts`**, not
+the MQL5 root. The config passed `Experts\Mql5Bot\Mql5Bot.ex5`, so the
+terminal looked for `MQL5\Experts\Experts\Mql5Bot\Mql5Bot.ex5` — a doubled
+`Experts\`. The EA was never loaded, the tester exited without running, and
+no report was written. That the doubling was invisible until the Tester's OWN
+log (`Tester\logs\`, a different file from the terminal journal) was read is
+exactly why STAGE 5 R2 added `-Recurse` capture of that nested log and the
+unfiltered failure tail — without R2, R3 could not have been diagnosed.
+
+**Decision.**
+- The EA path is relative to `MQL5\Experts`. The canonical value is
+  `Mql5Bot\Mql5Bot.ex5` (`TesterConfig.ea`, `CertifyConfig.ea`, the CLI `EA`
+  constant, and the `--ea` help all agree).
+- `TesterConfig.validate()` **rejects** a leading `Experts\` or `Experts/`
+  with a message stating the path is relative to `MQL5\Experts`, so the exact
+  mistake cannot be re-introduced via `--ea`.
+- The real fix is to never launch blind: before starting terminal64.exe,
+  `run_backtest` resolves the EA to `<data_folder>\MQL5\Experts\<cfg.ea>` and
+  verifies it exists, failing in one second with the resolved absolute path
+  named — not 26 seconds of silence and a missing report. This check, not the
+  string, is what would have caught the defect on the first run.
+
 ## 2026-09-19 — A re-run must not need Market Watch at all: verify-first adoption, and the asynchronous ChartClose is never assumed done (STAGE 4 R10)
 
 **Trigger.** gate_run13 (on 96125a0): stage 4 refused at `symbol_state` with

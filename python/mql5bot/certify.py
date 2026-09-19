@@ -97,7 +97,9 @@ class CertifyConfig:
     """One certification: an EA (with inputs) x symbol x model ladder."""
 
     strategy: str
-    ea: str = "Experts\\Mql5Bot\\Mql5Bot.ex5"
+    # STAGE 5 R3: relative to MQL5\Experts (a leading "Experts\" doubles the
+    # directory — MQL5\Experts\Experts\ — and the EA is never found).
+    ea: str = "Mql5Bot\\Mql5Bot.ex5"
     params: dict = field(default_factory=dict)   # canonical python params
     ea_inputs: dict = field(default_factory=dict)  # EA .set input overrides
     symbol: str = "EURUSD"
