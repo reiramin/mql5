@@ -273,17 +273,25 @@ def run_dashboard(
     host: str = "127.0.0.1",
     live_symbol: str | None = None,
     live_timeframe: str = "H1",
+    lang: str = "en",
 ) -> None:
     """Start the dashboard server. Blocks forever (Ctrl+C to stop).
 
     Binds loopback by default: the dashboard is an unauthenticated status
     server, so exposing it on the network must be an explicit operator choice
     (``host="0.0.0.0"`` behind a firewall). Security audit, Wave 1F.
+
+    ``lang`` (Feature Wave 2) affects ONLY the console startup line —
+    presentation, never behaviour; the default stays byte-identical.
     """
     dashboard = Dashboard(df, live_symbol=live_symbol, live_timeframe=live_timeframe)
     server = ThreadingHTTPServer((host, port), _Handler)
     server.dashboard = dashboard  # type: ignore[attr-defined]
-    print(f"mql5bot dashboard listening on http://{host}:{port}")
+    if lang == "fa":
+        from .i18n import render_dashboard_listening_fa
+        print(render_dashboard_listening_fa(f"http://{host}:{port}"))
+    else:
+        print(f"mql5bot dashboard listening on http://{host}:{port}")
 
     if not live_symbol:
         def feed_loop():

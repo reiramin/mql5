@@ -43,6 +43,13 @@ def main(argv: list[str] | None = None) -> int:
         prog="mql5bot",
         description="mql5bot — algorithmic trading system for MetaTrader 5 (quant toolkit)",
     )
+    # Feature Wave 2: opt-in Persian/RTL PRESENTATION of the console output.
+    # Default stays English (byte-identical); MQL5BOT_LANG=fa also opts in.
+    # An unknown value fails cleanly via argparse choices.
+    parser.add_argument("--lang", choices=("en", "fa"), default=None,
+                        help="console output language (default: en; or set "
+                             "MQL5BOT_LANG). Presentation only — never "
+                             "changes JSON, reports, artifacts or exit codes")
     sub = parser.add_subparsers(dest="command", required=True)
 
     # ---------------- data ----------------
@@ -123,7 +130,17 @@ def main(argv: list[str] | None = None) -> int:
                              "only behind a firewall)")
     add_cost_args(p_dash)
 
+    # accept --lang after the subcommand too (mql5bot backtest --lang fa).
+    # default=SUPPRESS so an absent post-subcommand flag never clobbers a
+    # value parsed before the subcommand (argparse subparser-default gotcha).
+    for sp in sub.choices.values():
+        sp.add_argument("--lang", choices=("en", "fa"),
+                        default=argparse.SUPPRESS, help=argparse.SUPPRESS)
+
     args = parser.parse_args(argv)
+
+    from . import i18n
+    lang = i18n.resolve_lang(getattr(args, "lang", None))
 
     from . import backtest as bt_mod
     from . import data as data_mod
@@ -143,7 +160,10 @@ def main(argv: list[str] | None = None) -> int:
                 drift=args.drift,
             )
             data_mod.save_csv(df, args.out)
-            print(f"wrote {len(df)} bars to {args.out}")
+            if lang == "fa":
+                print(i18n.render_wrote_bars_fa(len(df), args.out))
+            else:
+                print(f"wrote {len(df)} bars to {args.out}")
 
         elif args.command in ("backtest", "compare", "optimize", "walkforward", "dashboard"):
             df = data_mod.load_csv(args.data) if args.data else data_mod.generate_ohlc(days=730)
@@ -174,13 +194,21 @@ def main(argv: list[str] | None = None) -> int:
             if args.command == "backtest":
                 params = json.loads(args.params) if args.params else None
                 res = bt_mod.run_backtest(df, args.strategy, params, **kwargs)
-                _print_metrics(res.metrics)
+                _print_metrics(res.metrics, lang=lang)
                 if args.report:
                     report_mod.save_report_html(res, args.report, title=f"{args.strategy} on {args.data}")
-                    print(f"report -> {args.report}")
+                    if lang == "fa":
+                        print(i18n.render_artifact_fa("msg.report", "report",
+                                                      args.report))
+                    else:
+                        print(f"report -> {args.report}")
                 if args.json_out:
                     _write_json(args.json_out, res.to_dict())
-                    print(f"json -> {args.json_out}")
+                    if lang == "fa":
+                        print(i18n.render_artifact_fa("msg.json", "json",
+                                                      args.json_out))
+                    else:
+                        print(f"json -> {args.json_out}")
 
             elif args.command == "compare":
                 results = []
@@ -188,11 +216,19 @@ def main(argv: list[str] | None = None) -> int:
                     res = bt_mod.run_backtest(df, name, None, **kwargs)
                     results.append((name, res))
                     m = res.metrics
-                    print(
-                        f"{name:<20} ret {_fmt(m['total_return_pct']):>9}%  "
-                        f"sharpe {_fmt(m['sharpe']):>6}  maxDD {_fmt(m['max_drawdown_pct']):>8}%  "
-                        f"trades {m['trades']:>4}"
-                    )
+                    if lang == "fa":
+                        # the strategy NAME is a Latin identifier: isolated,
+                        # verbatim, never digit-substituted (i18n rules)
+                        print(i18n.render_compare_row_fa(
+                            name, _fmt(m["total_return_pct"]),
+                            _fmt(m["sharpe"]), _fmt(m["max_drawdown_pct"]),
+                            str(m["trades"])))
+                    else:
+                        print(
+                            f"{name:<20} ret {_fmt(m['total_return_pct']):>9}%  "
+                            f"sharpe {_fmt(m['sharpe']):>6}  maxDD {_fmt(m['max_drawdown_pct']):>8}%  "
+                            f"trades {m['trades']:>4}"
+                        )
                 if args.report:
                     html = report_mod.build_batch_report_html(
                         f"strategy comparison — {args.data}", results
@@ -204,7 +240,11 @@ def main(argv: list[str] | None = None) -> int:
                         os.makedirs(parent, exist_ok=True)
                     with open(args.report, "w", encoding="utf-8") as fh:
                         fh.write(html)
-                    print(f"report -> {args.report}")
+                    if lang == "fa":
+                        print(i18n.render_artifact_fa("msg.report", "report",
+                                                      args.report))
+                    else:
+                        print(f"report -> {args.report}")
 
             elif args.command == "optimize":
                 grid = json.loads(args.grid)
@@ -212,7 +252,12 @@ def main(argv: list[str] | None = None) -> int:
                     df, args.strategy, grid, metric=args.metric,
                     minimize=args.minimize, n_jobs=args.jobs, **kwargs,
                 )
-                print(f"{'params':<42} {'metric':>10}")
+                if lang == "fa":
+                    print(i18n.render_table_header_fa(
+                        [("optimize.params", "params", 42),
+                         ("optimize.metric", "metric", 10)]))
+                else:
+                    print(f"{'params':<42} {'metric':>10}")
                 for r in runs[: args.top]:
                     print(f"{json.dumps(r.params):<42} {r.result.metrics.get(args.metric):>10}")
                 if args.json_out:
@@ -224,7 +269,11 @@ def main(argv: list[str] | None = None) -> int:
                             "runs": [r.summary() for r in runs[: args.top]],
                         },
                     )
-                    print(f"json -> {args.json_out}")
+                    if lang == "fa":
+                        print(i18n.render_artifact_fa("msg.json", "json",
+                                                      args.json_out))
+                    else:
+                        print(f"json -> {args.json_out}")
 
             elif args.command == "walkforward":
                 wf = opt_mod.walk_forward(
@@ -232,17 +281,33 @@ def main(argv: list[str] | None = None) -> int:
                     train_fraction=args.train_frac, n_windows=args.windows,
                     metric=args.metric, **kwargs,
                 )
-                print("window  train_metric  best_params")
+                if lang == "fa":
+                    print(i18n.render_table_header_fa(
+                        [("walkforward.window", "window", 8),
+                         ("walkforward.train_metric", "train_metric", 13),
+                         ("walkforward.best_params", "best_params", 0)]))
+                else:
+                    print("window  train_metric  best_params")
                 for w in wf["windows"]:
+                    # row values are machine-ish (window ints, metric floats,
+                    # JSON params) — kept verbatim in both languages so they
+                    # stay copyable
                     print(
                         f"{w['window']:<8} {w['train_metric']:<13} "
                         f"{json.dumps(w['best_params'])}"
                     )
                 oos = wf["oos_metrics"]
-                print(
-                    f"\nOOS aggregate: ret {_fmt(oos.get('total_return_pct'))}%  "
-                    f"sharpe {_fmt(oos.get('sharpe'))}  maxDD {_fmt(oos.get('max_drawdown_pct'))}%"
-                )
+                if lang == "fa":
+                    print()
+                    print(i18n.render_oos_aggregate_fa(
+                        _fmt(oos.get("total_return_pct")),
+                        _fmt(oos.get("sharpe")),
+                        _fmt(oos.get("max_drawdown_pct"))))
+                else:
+                    print(
+                        f"\nOOS aggregate: ret {_fmt(oos.get('total_return_pct'))}%  "
+                        f"sharpe {_fmt(oos.get('sharpe'))}  maxDD {_fmt(oos.get('max_drawdown_pct'))}%"
+                    )
                 if args.json_out:
                     _write_json(
                         args.json_out,
@@ -252,37 +317,56 @@ def main(argv: list[str] | None = None) -> int:
                             "oos_metrics": wf["oos_metrics"],
                         },
                     )
-                    print(f"json -> {args.json_out}")
+                    if lang == "fa":
+                        print(i18n.render_artifact_fa("msg.json", "json",
+                                                      args.json_out))
+                    else:
+                        print(f"json -> {args.json_out}")
 
             elif args.command == "dashboard":
                 from .dashboard import run_dashboard
 
                 df.attrs["symbol"] = getattr(args, "data", None) or "EURUSD"
-                print(f"dashboard: http://localhost:{args.port}")
+                if lang == "fa":
+                    print(i18n.render_dashboard_url_fa(
+                        f"http://localhost:{args.port}"))
+                else:
+                    print(f"dashboard: http://localhost:{args.port}")
                 run_dashboard(df, args.strategy, kwargs, port=args.port,
-                              host=args.host)
+                              host=args.host, lang=lang)
 
     except (ValueError, KeyError, OSError, json.JSONDecodeError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        if lang == "fa":
+            print(i18n.render_error_fa(exc), file=sys.stderr)
+        else:
+            print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0
 
 
-def _print_metrics(m: dict) -> None:
+def _print_metrics(m: dict, lang: str = "en") -> None:
     rows = [
-        ("total return", m["total_return_pct"], "%"),
-        ("CAGR", m["cagr_pct"], "%"),
-        ("Sharpe", m["sharpe"], ""),
-        ("Sortino", m["sortino"], ""),
-        ("max drawdown", m["max_drawdown_pct"], "%"),
-        ("win rate", m["win_rate_pct"], "%"),
-        ("profit factor", m["profit_factor"], ""),
-        ("trades", m["trades"], ""),
-        ("net profit", m["net_profit"], ""),
-        ("expectancy", m["expectancy"], ""),
+        ("metric.total_return", "total return", m["total_return_pct"], "%"),
+        ("metric.cagr", "CAGR", m["cagr_pct"], "%"),
+        ("metric.sharpe", "Sharpe", m["sharpe"], ""),
+        ("metric.sortino", "Sortino", m["sortino"], ""),
+        ("metric.max_drawdown", "max drawdown", m["max_drawdown_pct"], "%"),
+        ("metric.win_rate", "win rate", m["win_rate_pct"], "%"),
+        ("metric.profit_factor", "profit factor", m["profit_factor"], ""),
+        ("metric.trades", "trades", m["trades"], ""),
+        ("metric.net_profit", "net profit", m["net_profit"], ""),
+        ("metric.expectancy", "expectancy", m["expectancy"], ""),
     ]
-    width = max(len(label) for label, _, _ in rows)
-    for label, value, unit in rows:
+    if lang == "fa":
+        from . import i18n
+        # values are formatted HERE (single source: _fmt), the fa renderer
+        # only translates labels, applies Persian digits and aligns columns
+        print(i18n.render_metric_rows_fa(
+            [(key, label, _fmt(value), unit)
+             for key, label, value, unit in rows]))
+        return
+    width = max(len(label) for _, label, _, _ in rows)
+    for _, label, value, unit in rows:
         print(f"{label:<{width}} {_fmt(value)} {unit}".rstrip())
 
 
