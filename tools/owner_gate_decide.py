@@ -75,6 +75,26 @@ def main(argv: list[str] | None = None) -> int:
                    metavar="KEY=VALUE",
                    help="one intended key=value pair (repeat per input)")
 
+    p = sub.add_parser("tester-inputs",
+                       help="stage 5: derive the tester timeframe + period "
+                            "from the manifest + fixture; fail-closed naming "
+                            "any input the gate cannot derive (never guessed)")
+    p.add_argument("--manifest", required=True, help="path to the gold manifest.json")
+    p.add_argument("--fixture", required=True, help="path to the gold fixture CSV")
+
+    p = sub.add_parser("stage5-leg",
+                       help="stage 5: read the ACTUAL model + real-tick "
+                            "coverage a tester leg achieved from its report "
+                            "sidecar + journal (never the requested model)")
+    p.add_argument("--report-json", required=True,
+                   help="path to the leg's parsed report.json sidecar")
+    p.add_argument("--journal", default="",
+                   help="path to the leg's tester-journal excerpt, if any")
+    p.add_argument("--requested-model", required=True, type=int,
+                   help="the model the gate requested (0..4)")
+    p.add_argument("--symbol", default="", help="the custom symbol under test")
+    p.add_argument("--leg", default="", help="a label for this leg")
+
     p = sub.add_parser("stage4-outcome",
                        help="stage 4: decide the three-way import outcome "
                             "(never-launched / ran-no-json / refused)")
@@ -143,6 +163,17 @@ def main(argv: list[str] | None = None) -> int:
                 expected[key] = val
             verdict = gs.validate_preset(text, expected)
             return _emit({**verdict, "preset": args.preset})
+
+        if args.cmd == "tester-inputs":
+            return _emit(gs.derive_tester_inputs(args.manifest, args.fixture))
+
+        if args.cmd == "stage5-leg":
+            verdict = gs.tester_leg_evidence(
+                args.report_json, args.journal or None,
+                args.requested_model, symbol=args.symbol or None,
+                leg=args.leg or None)
+            print(json.dumps({**verdict}, indent=2, sort_keys=True))
+            return 0 if verdict["ok"] else 1
 
         if args.cmd == "stage4-outcome":
             launched = str(args.launched).strip().lower() in ("true", "1", "yes")

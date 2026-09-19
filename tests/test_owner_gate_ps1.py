@@ -1692,9 +1692,17 @@ def test_ps1_invoke_decide_sanitizes_empty_argumentlist_elements():
     src = _ps1()
     fn = src[src.index("function Invoke-Decide"):]
     fn = fn[:fn.index("\n}")]
-    assert "'\"\"'" in fn, \
-        "Invoke-Decide must pass empty elements as a literal quoted string"
+    # Invoke-Decide now routes its args through the single quoting rule
+    # (Get-ProcArgs / ConvertTo-ProcArg), which passes an empty element as a
+    # literal "" AND quotes a path with a space (the STAGE 5 R1 root cause).
+    assert "Get-ProcArgs" in fn, \
+        "Invoke-Decide must quote its args through Get-ProcArgs"
     assert "Cannot validate argument" in fn  # names the root cause it closes
+    # the empty-element -> literal quoted string lives in the shared quoter
+    conv = src[src.index("function ConvertTo-ProcArg"):]
+    conv = conv[:conv.index("\n}")]
+    assert "'\"\"'" in conv, \
+        "ConvertTo-ProcArg must map an empty element to a literal quoted string"
 
 
 def test_ps1_structural_verdict_contract_is_present():
@@ -1762,8 +1770,14 @@ def test_invoke_decide_survives_an_empty_argument(tmp_path: Path):
     if not pwsh:
         pytest.skip("no PowerShell host on this machine")
     src = _ps1()
-    start = src.index("function Invoke-Decide")
-    fn = src[start:src.index("\n}", start) + 2]
+
+    def _fn(name: str) -> str:
+        s = src.index("function " + name)
+        return src[s:src.index("\n}", s) + 2]
+
+    # Invoke-Decide now quotes through the shared helpers; include them too.
+    fn = _fn("ConvertTo-ProcArg") + "\n" + _fn("Get-ProcArgs") + "\n" \
+        + _fn("Invoke-Decide")
     stub = tmp_path / "argecho.py"
     stub.write_text("import json, sys\n"
                     "print(json.dumps({'argv': sys.argv[1:]}))\n",
@@ -1786,3 +1800,115 @@ def test_invoke_decide_survives_an_empty_argument(tmp_path: Path):
     assert cp.returncode == 0, cp.stderr
     # --repo <root> stage4-outcome --log-excerpt <empty> = 5 arguments
     assert "ARGC=5" in cp.stdout
+
+
+# ---------------------------------------------------------------------------
+# STAGE 5 R1 -- quoting: Start-Process joins an -ArgumentList array on spaces
+# WITHOUT quoting, so "C:\Program Files\MetaTrader 5" split into three tokens
+# and argparse rejected "Files\MetaTrader 5" (all six legs exit 2, empty
+# artifacts). Every process the gate STARTS is now quoted through one rule.
+# ---------------------------------------------------------------------------
+
+def test_ps1_defines_one_quoting_rule_for_every_started_process():
+    src = _ps1()
+    assert "function ConvertTo-ProcArg" in src
+    assert "function Get-ProcArgs" in src
+    # AUDIT: every Start-Process -ArgumentList in the CODE is quoted through
+    # Get-ProcArgs (directly, or via $argv which Invoke-Decide builds with it).
+    # Comment lines that merely mention "-ArgumentList" are excluded.
+    code = "\n".join(ln for ln in src.splitlines()
+                     if not ln.lstrip().startswith("#"))
+    for m in re.finditer(r"-ArgumentList\s+(\S+)", code):
+        tok = m.group(1)
+        assert tok.startswith("(Get-ProcArgs") or tok == "$argv", \
+            f"unquoted Start-Process -ArgumentList: {tok}"
+    # the root cause is documented at the quoter, not left as folklore
+    assert "CommandLineToArgvW" in src
+    assert "STAGE 5 R1" in src
+
+
+def test_ps1_stage5_derives_inputs_and_never_guesses_a_setting():
+    src = _ps1()
+    s5 = src.index('Enter-Stage 5 "tester_legs"')
+    s8 = src.index("STAGE 8", s5)
+    body = src[s5:s8]
+    # timeframe + period are DERIVED (delegated to committed Python), and an
+    # underivable input FAILS the stage naming it -- never a guessed setting
+    assert "tester-inputs" in body
+    assert "input_underivable" in body
+    assert "--manifest" in body and "--fixture" in body
+    # the hardcoded timeframe guess ($tfByGold) is gone
+    assert "tfByGold" not in body
+    # per-leg ACTUAL model + coverage are read from the leg's OWN report+journal
+    assert "stage5-leg" in body
+    assert "--requested-model" in body
+    assert "actual model=" in body and "real-tick coverage=" in body
+    # the dataset hash is re-checked AFTER the legs to prove no mutation
+    assert "POST-LEG dataset hash mutated" in body
+    assert "dataset-hash" in body
+
+
+def test_ps1_stage5_attaches_artifacts_before_any_early_continue():
+    """A failing leg must never leave an empty artifacts array (the STAGE 5 R1
+    symptom). The .set/.ini, the command line as invoked, stdout, stderr and
+    the journal excerpt are all attached BEFORE the exit-code branch that can
+    `continue` past a failed leg."""
+    src = _ps1()
+    s5 = src.index('Enter-Stage 5 "tester_legs"')
+    loop = src.index("foreach ($leg in $legs)", s5)
+    exit_branch = src.index('if ($p.ExitCode -ne 0)', loop)
+    window = src[loop:exit_branch]
+    for artifact in ("_cmdline.txt", "_stdout.txt", "_stderr.txt",
+                     "Save-TesterLog", 'tester_" + $legTag + ".ini'):
+        assert artifact in window, \
+            f"{artifact} must be attached before the leg can `continue`"
+    # every attach uses New-Artifact so each carries a sha256
+    assert "$legArt.Add((New-Artifact $cmdlinePath))" in window
+    assert "$legArt.Add((New-Artifact $stdoutPath))" in window
+    assert "$legArt.Add((New-Artifact $stderrPath))" in window
+
+
+def test_ps1_quotes_a_path_with_spaces_end_to_end(tmp_path: Path):
+    """NON-VACUOUS (executes the .ps1's own quoter through a real
+    Start-Process): a --terminal-dir whose value is 'C:\\Program Files\\...'
+    must reach the child python as ONE argument. Pre-R1 it split into
+    'C:\\Program' + 'Files\\...' and argparse rejected the tail."""
+    import os
+    import subprocess as sp
+    import sys
+    pwsh = _pwsh()
+    if not pwsh:
+        pytest.skip("no PowerShell host on this machine")
+    src = _ps1()
+
+    def _fn(name: str) -> str:
+        s = src.index("function " + name)
+        return src[s:src.index("\n}", s) + 2]
+
+    stub = tmp_path / "argecho.py"
+    stub.write_text("import json, sys\n"
+                    "print(json.dumps(sys.argv[1:]))\n", encoding="ascii")
+    out = tmp_path / "argv.json"
+    spaced = "C:\\Program Files\\MetaTrader 5"
+    # embed paths in PowerShell SINGLE-quoted strings: backslashes are literal
+    # there, so no escaping (the quoter under test is what must handle spaces).
+    driver = tmp_path / "driver.ps1"
+    driver.write_text(
+        '$ErrorActionPreference = "Stop"\n'
+        + _fn("ConvertTo-ProcArg") + "\n" + _fn("Get-ProcArgs") + "\n"
+        "$py = '" + sys.executable + "'\n"
+        "$argv = @('" + str(stub) + "',"
+        "'--terminal-dir','" + spaced + "',"
+        "'--symbol','EURUSD','--empty','')\n"
+        "$p = Start-Process -FilePath $py -ArgumentList (Get-ProcArgs $argv) "
+        "-RedirectStandardOutput '" + str(out) + "' "
+        "-Wait -PassThru -NoNewWindow\n"
+        "exit $p.ExitCode\n", encoding="ascii")
+    cp = sp.run([pwsh, "-NoProfile", "-File", str(driver)],
+                capture_output=True, text=True, env=dict(os.environ),
+                check=False)
+    assert cp.returncode == 0, cp.stderr
+    argv = json.loads(out.read_text())
+    # the spaced path is ONE argument, not three; the empty arg survives
+    assert argv == ["--terminal-dir", spaced, "--symbol", "EURUSD",
+                    "--empty", ""]

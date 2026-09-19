@@ -899,6 +899,113 @@ def run_self_protection(repo: Path | str, runner=None) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# stage 5: tester-leg inputs + evidence (never guess a tester setting)
+# ---------------------------------------------------------------------------
+# The gate derives every tester setting it can from committed inputs and FAILS
+# closed, naming the input, for anything it cannot. Then, per leg, it reads the
+# ACTUAL modelling model and real-tick coverage from the leg's OWN report +
+# journal — never the requested model. These decisions live here; the .ps1
+# only launches the tester and hands the observed files in.
+
+def derive_tester_inputs(manifest_path: Path | str,
+                         fixture_csv_path: Path | str) -> dict:
+    """Derive the tester timeframe + period from the committed manifest and
+    fixture CSV. The gate must NEVER guess a tester setting; this returns
+    ``ok=False`` naming the FIRST input it cannot derive so the .ps1 fails the
+    stage with that input named, rather than running with an invented value.
+    """
+    from mql5bot import mt5tester as mt
+    try:
+        man = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return {"ok": False, "missing": "manifest",
+                "reasons": [f"manifest unreadable ({manifest_path}): {exc}"]}
+    tf = man.get("timeframe") if isinstance(man, dict) else None
+    if not tf or tf not in mt.MT5_TIMEFRAMES:
+        return {"ok": False, "missing": "timeframe",
+                "reasons": [(f"cannot derive tester timeframe: "
+                             f"manifest.timeframe={tf!r} is absent or not one "
+                             f"of {mt.MT5_TIMEFRAMES}")]}
+    try:
+        date_from, date_to = mt.fixture_date_range(fixture_csv_path)
+    except (OSError, ValueError) as exc:
+        return {"ok": False, "missing": "date_from/date_to",
+                "reasons": [f"cannot derive tester period: {exc}"]}
+    return {"ok": True, "missing": None, "reasons": [], "timeframe": tf,
+            "date_from": date_from, "date_to": date_to,
+            "manifest_symbol": man.get("symbol")}
+
+
+def tester_leg_evidence(report_json_path: Path | str,
+                        journal_path: Path | str | None,
+                        requested_model: int,
+                        symbol: str | None = None,
+                        leg: str | None = None) -> dict:
+    """Read the ACTUAL model + real-tick coverage a tester leg achieved.
+
+    Reads the leg's parsed report sidecar (``report.json``) and journal
+    excerpt and returns the model the terminal ACTUALLY ran (report Model line
+    cross-checked with the journal) and the real-tick coverage class with its
+    evidence — never the requested model. ``ok`` is False only when the actual
+    model cannot be confirmed (a leg whose model is unknown is not evidence);
+    a model that differs from the requested one is RECORDED, not silently
+    dropped, so a silent fallback is visible.
+    """
+    from mql5bot import mt5tester as mt
+    try:
+        report = json.loads(Path(report_json_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return {"ok": False,
+                "reasons": [(f"report sidecar unreadable "
+                             f"({report_json_path}): {exc}")]}
+    settings = report.get("settings", {}) if isinstance(report, dict) else {}
+    journal_text = ""
+    if journal_path and Path(journal_path).is_file():
+        journal_text = Path(journal_path).read_text(
+            encoding="utf-8", errors="replace")
+    am = mt.read_actual_model(settings, journal_text)
+    cov = mt.classify_real_tick_coverage(settings, journal_text,
+                                         requested_model)
+    requested_label = mt.MT5_MODEL_LABELS.get(requested_model)
+    actual_label = am["label"]
+    model_matches = (actual_label is not None and requested_label is not None
+                     and actual_label.lower() == requested_label.lower())
+    reasons: list[str] = []
+    ok = am["model"] is not None
+    if not ok:
+        reasons.append(
+            "could not read the ACTUAL tester model from the report Model "
+            "line or the journal — a leg whose model cannot be confirmed is "
+            "not evidence")
+    elif not model_matches:
+        reasons.append(
+            f"actual model {actual_label!r} differs from the requested "
+            f"{requested_label!r} (silent fallback — recorded, never a "
+            f"real-tick FULL claim)")
+    # coverage record shaped for owner_gate.verify_real_tick_coverage; a
+    # producer never claims FULL evidence (the stage-8 consumer requires
+    # file-bound proof), so the availability evidence is left empty here.
+    coverage_record = {
+        "leg": leg,
+        "coverage": cov["coverage"],
+        "applicable": cov["applicable"],
+        "requested_model": requested_label,
+        "actual_model_from_report": actual_label or "UNKNOWN",
+        "actual_interval": settings.get("period"),
+        "symbol": symbol or settings.get("symbol"),
+        "model_matches_requested": model_matches,
+        "coverage_evidence": cov["evidence"],
+        "history_quality": cov.get("history_quality"),
+    }
+    return {"ok": ok, "reasons": reasons, "actual_model": am,
+            "requested_model": requested_label,
+            "model_matches_requested": model_matches,
+            "coverage": cov["coverage"], "coverage_applicable": cov["applicable"],
+            "coverage_evidence": cov["evidence"],
+            "coverage_record": coverage_record}
+
+
 __all__ = [
     "SELF_PROTECT_AUTOCRLF_NOT_FALSE",
     "SELF_PROTECT_CLONE_TARGET_EXISTS",
@@ -915,6 +1022,7 @@ __all__ = [
     "clone_target_status",
     "dataset_hash_of_csv",
     "decode_bom_aware",
+    "derive_tester_inputs",
     "expected_compile_targets",
     "parse_compile_log",
     "parse_dsl_compare_report",
@@ -922,6 +1030,7 @@ __all__ = [
     "run_self_protection",
     "sha256_bytes",
     "sha256_file",
+    "tester_leg_evidence",
     "verify_autocrlf_false",
     "verify_clean_tree",
     "verify_dsl_parity_binding",

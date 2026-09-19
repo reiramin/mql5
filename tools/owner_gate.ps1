@@ -78,6 +78,37 @@ function New-Artifact([string]$path) {
     return [ordered]@{ path = $path; sha256 = (Get-Sha256 $path) }
 }
 
+# STAGE 5 R1 ROOT CAUSE: Start-Process flattens an -ArgumentList ARRAY into ONE
+# command-line string by joining the elements with a single space and does NOT
+# quote an element that contains a space -- so "C:\Program Files\MetaTrader 5"
+# arrived at python as THREE tokens and argparse rejected "Files\MetaTrader 5"
+# (all six stage-5 legs exit 2, empty artifacts array). Every external process
+# the gate STARTS is now handed an argument array whose every element is quoted
+# per the Windows CommandLineToArgvW rules, so a path with a space can never
+# re-split, and an empty element is passed as a literal "" (the R5 fix, folded
+# in here). The PowerShell call operator (&) used by stages 1-3 passes each
+# array element to the child verbatim and needs no quoting; only Start-Process
+# does. ConvertTo-ProcArg is the single quoting rule; Get-ProcArgs maps a whole
+# array through it so no call site hand-builds a command string.
+function ConvertTo-ProcArg([AllowNull()][string]$a) {
+    if ([string]::IsNullOrEmpty($a)) { return '""' }
+    if ($a -notmatch '[ \t\n\v"]') { return $a }
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.Append('"')
+    for ($i = 0; $i -lt $a.Length; $i++) {
+        $bs = 0
+        while ($i -lt $a.Length -and $a[$i] -eq '\') { $bs++; $i++ }
+        if ($i -eq $a.Length) { [void]$sb.Append('\' * ($bs * 2)); break }
+        elseif ($a[$i] -eq '"') { [void]$sb.Append('\' * ($bs * 2 + 1)); [void]$sb.Append('"') }
+        else { [void]$sb.Append('\' * $bs); [void]$sb.Append($a[$i]) }
+    }
+    [void]$sb.Append('"')
+    return $sb.ToString()
+}
+function Get-ProcArgs([string[]]$items) {
+    return @($items | ForEach-Object { ConvertTo-ProcArg $_ })
+}
+
 # record one stage (append-only stage_<n>.json) and return the record
 function Record-Stage([int]$num, [string]$name, [string]$status,
                       [string]$reason, $artifacts) {
@@ -111,14 +142,11 @@ function Invoke-Decide([string[]]$deciderArgs) {
     # contains a $null or "" element ("Cannot validate argument on parameter
     # 'ArgumentList'") -- the stage-4 outcome call passed --log-excerpt with
     # an EMPTY path when the import JSON existed, and the gate died with no
-    # verdict. Empty elements are passed as a literal quoted empty string so
-    # the child still sees an empty argument and the gate can never crash
+    # verdict. Get-ProcArgs/ConvertTo-ProcArg pass empty elements as a literal
+    # quoted "" (and quote any path with a space -- the STAGE 5 R1 root cause),
+    # so the child still sees an empty argument and the gate can never crash
     # verdictless here again.
-    $argv = @()
-    foreach ($a in (@($Decide) + $full)) {
-        if ($null -eq $a -or ([string]$a) -eq "") { $argv += '""' }
-        else { $argv += [string]$a }
-    }
+    $argv = Get-ProcArgs (@($Decide) + $full)
     $p = Start-Process -FilePath $Python -ArgumentList $argv `
         -RedirectStandardOutput $tmp -RedirectStandardError "$tmp.err" `
         -Wait -PassThru -NoNewWindow
@@ -231,10 +259,13 @@ function Invoke-TerminalScript([string]$scriptRel, [string]$label, [string]$pres
     if ($presetName) { $iniLines += "ScriptParameters=$presetName" }
     $iniLines += "ShutdownTerminal=1"
     [IO.File]::WriteAllText($iniPath, ($iniLines -join "`r`n") + "`r`n", [Text.Encoding]::ASCII)
+    # /config:<ini> carries the evidence path, which lives under $RepoRoot and
+    # can contain a space -- quote it (STAGE 5 R1) so the terminal receives one
+    # argument, not "/config:C:\Program" + "Files\...".
     $argList = @("/config:$iniPath")
     if ($Portable) { $argList += "/portable" }
     try {
-        $proc = Start-Process -FilePath $TerminalPath -ArgumentList $argList -PassThru
+        $proc = Start-Process -FilePath $TerminalPath -ArgumentList (Get-ProcArgs $argList) -PassThru
     } catch {
         return [pscustomobject]@{ launched = $false; exited = $false }
     }
@@ -282,6 +313,42 @@ function Save-ImporterLog([string]$name, $extraLines = $null) {
     }
     $out = Join-Path $Evidence ("import_" + $name + "_terminal_log.txt")
     [IO.File]::WriteAllText($out, (($all -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)
+    return (New-Artifact $out)
+}
+
+# stage-5 tester-journal excerpt: grep the most recent tester/agent/terminal
+# logs for the lines that state WHICH model actually ran and the tick/history
+# provenance (the evidence read_actual_model + classify_real_tick_coverage
+# decide on). Always returns an artifact -- an empty excerpt still records
+# "nothing found", which is itself evidence for a failing leg. $reportName and
+# $symbol narrow the grep so a leg's own lines are captured.
+function Save-TesterLog([string]$name, [string]$reportName, [string]$symbol) {
+    $dirs = @((Join-Path $DataFolder "Tester\logs"),
+              (Join-Path $DataFolder "MQL5\Logs"),
+              (Join-Path $DataFolder "logs"))
+    $patterns = @([regex]::Escape($reportName), [regex]::Escape($symbol),
+                  "real tick", "generated tick", "history quality",
+                  "modelling", "modeling", "1 minute OHLC", "Every tick",
+                  "Real ticks", "\bmodel\b", "ticks")
+    $lines = New-Object System.Collections.ArrayList
+    foreach ($d in $dirs) {
+        if (-not (Test-Path -LiteralPath $d)) { continue }
+        Get-ChildItem -LiteralPath $d -Filter "*.log" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 3 |
+            ForEach-Object {
+                try {
+                    Select-String -LiteralPath $_.FullName -Pattern $patterns `
+                        -ErrorAction SilentlyContinue |
+                        ForEach-Object { [void]$lines.Add(("{0}: {1}" -f (Split-Path -Leaf $_.Path), $_.Line.Trim())) }
+                } catch { }
+            }
+    }
+    if ($lines.Count -eq 0) {
+        [void]$lines.Add("(no tester-journal lines for " + $reportName +
+            " / " + $symbol + " found in MT5 logs under " + $DataFolder + ")")
+    }
+    $out = Join-Path $Evidence ("tester_" + $name + "_journal.txt")
+    [IO.File]::WriteAllText($out, (($lines -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)
     return (New-Artifact $out)
 }
 
@@ -602,6 +669,7 @@ Record-Stage 4 "fixture_import" "PASS" "both gold fixtures imported; round-trip 
 #   evidence; the dataset hash is re-checked after the legs.
 # =====================================================================
 Enter-Stage 5 "tester_legs"
+$runBacktest = Join-Path $PSScriptRoot "run_mt5_backtest.py"
 $legs = @(
     @{ gold = "gold1"; model = "m1_ohlc";    m = 1 },
     @{ gold = "gold1"; model = "every_tick"; m = 0 },
@@ -610,42 +678,152 @@ $legs = @(
     @{ gold = "gold2"; model = "every_tick"; m = 0 },
     @{ gold = "gold2"; model = "real_ticks"; m = 3 }
 )
+# per-gold identity: the custom-symbol NAME the gate assigned (stage 4) and the
+# committed manifest + fixture the tester period/timeframe are DERIVED from.
+$goldMeta = @{
+    gold1 = @{ symbol = "EURUSD.G1"; manifest = "artifacts\gold\manifest.json";   fixture = "artifacts\gold\gold_fixture.csv" }
+    gold2 = @{ symbol = "EURUSD.G2"; manifest = "artifacts\gold_2\manifest.json"; fixture = "artifacts\gold_2\gold2_fixture.csv" }
+}
 $legArt = New-Object System.Collections.ArrayList
 $legReasons = New-Object System.Collections.ArrayList
 $legOk = $true
-$symbolByGold = @{ gold1 = "EURUSD.G1"; gold2 = "EURUSD.G2" }
-$tfByGold = @{ gold1 = "H1"; gold2 = "M1" }
-foreach ($leg in $legs) {
-    $sym = $symbolByGold[$leg.gold]
-    $tf = $tfByGold[$leg.gold]
-    $reportName = "{0}_{1}" -f $leg.gold, $leg.model
-    $runArgs = @("run", "--terminal-dir", (Split-Path -Parent $TerminalPath),
-        "--data-folder", $DataFolder, "--symbol", $sym, "--timeframe", $tf,
-        "--model", $leg.m, "--report", $reportName, "--out-dir", (Join-Path $Evidence "tester"))
-    $p = Start-Process -FilePath $Python `
-        -ArgumentList (@((Join-Path $PSScriptRoot "run_mt5_backtest.py")) + $runArgs) `
-        -Wait -PassThru -NoNewWindow
-    if ($p.ExitCode -ne 0) {
-        $legOk = $false
-        [void]$legReasons.Add(("{0}: tester leg exit {1}" -f $reportName, $p.ExitCode))
-        continue
+$terminalDir = Split-Path -Parent $TerminalPath
+$testerOut = Join-Path $Evidence "tester"
+
+# NEVER GUESS A TESTER SETTING: derive the timeframe (from the manifest) and
+# the period (from the fixture's first/last bar) once per gold. If any input
+# cannot be derived, FAIL the stage naming that input -- do not run with an
+# invented value.
+$derived = @{}
+foreach ($gk in @("gold1", "gold2")) {
+    $meta = $goldMeta[$gk]
+    $ti = Invoke-Decide @("tester-inputs",
+        "--manifest", (Join-Path $RepoRoot $meta.manifest),
+        "--fixture", (Join-Path $RepoRoot $meta.fixture))
+    [void]$legArt.Add((New-Artifact $ti.raw))
+    if (-not $ti.ok) {
+        $why = if ($ti.data -and $ti.data.reasons) { ($ti.data.reasons -join "; ") } else { "tester inputs underivable" }
+        $miss = if ($ti.data) { $ti.data.missing } else { "unknown" }
+        Record-Stage 5 "tester_legs" "FAIL" ("[input_underivable] {0} ({1}): {2}" -f $gk, $miss, $why) @($legArt) | Out-Null
+        Finish-Gate "tester_legs"
     }
-    # archive the raw .htm + the report.json sidecar; read ACTUAL model
-    $runRoot = Join-Path (Join-Path $Evidence "tester") "runs"
+    $derived[$gk] = $ti.data
+}
+
+foreach ($leg in $legs) {
+    $gk = $leg.gold
+    $meta = $goldMeta[$gk]
+    $d = $derived[$gk]
+    $sym = $meta.symbol
+    $tf = $d.timeframe
+    $from = $d.date_from
+    $to = $d.date_to
+    $reportName = "{0}_{1}" -f $gk, $leg.model
+    $legTag = $reportName
+
+    # (i) ALWAYS-present intended tester .ini (pure Python, no terminal): the
+    # exact [Tester]/[TesterInputs] the gate intends, so a leg that never
+    # produces a report still attaches the config it was asked to run.
+    $iniEvidence = Join-Path $Evidence ("tester_" + $legTag + ".ini")
+    $genArgs = @($runBacktest, "generate-ini", "--symbol", $sym,
+        "--timeframe", $tf, "--model", ([string]$leg.m), "--from", $from,
+        "--to", $to, "--report", $reportName, "--output", $iniEvidence)
+    $gp = Start-Process -FilePath $Python -ArgumentList (Get-ProcArgs $genArgs) `
+        -Wait -PassThru -NoNewWindow
+    if (Test-Path -LiteralPath $iniEvidence) { [void]$legArt.Add((New-Artifact $iniEvidence)) }
+    if ($gp.ExitCode -ne 0) {
+        $legOk = $false
+        [void]$legReasons.Add(("{0}: could not render the intended tester .ini (generate-ini exit {1})" -f $legTag, $gp.ExitCode))
+    }
+
+    # (ii) the command line EXACTLY as invoked, quoted the way it is passed --
+    # so a re-split (the STAGE 5 R1 defect) is visible straight from evidence.
+    $runArgs = @("run", "--terminal-dir", $terminalDir, "--data-folder", $DataFolder,
+        "--symbol", $sym, "--timeframe", $tf, "--model", ([string]$leg.m),
+        "--from", $from, "--to", $to, "--report", $reportName, "--out-dir", $testerOut)
+    $cmdArgv = @($Python, $runBacktest) + $runArgs
+    $cmdlinePath = Join-Path $Evidence ("tester_" + $legTag + "_cmdline.txt")
+    [IO.File]::WriteAllText($cmdlinePath, ((Get-ProcArgs $cmdArgv) -join " ") + "`r`n", [Text.Encoding]::ASCII)
+    [void]$legArt.Add((New-Artifact $cmdlinePath))
+
+    # (iii) run the tester leg with stdout + stderr captured to files (attached
+    # on pass OR fail -- a failing leg with an empty artifacts array is not
+    # diagnosable, the STAGE 5 R1 rule).
+    $stdoutPath = Join-Path $Evidence ("tester_" + $legTag + "_stdout.txt")
+    $stderrPath = Join-Path $Evidence ("tester_" + $legTag + "_stderr.txt")
+    $p = Start-Process -FilePath $Python -ArgumentList (Get-ProcArgs (@($runBacktest) + $runArgs)) `
+        -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath `
+        -Wait -PassThru -NoNewWindow
+    if (Test-Path -LiteralPath $stdoutPath) { [void]$legArt.Add((New-Artifact $stdoutPath)) }
+    if (Test-Path -LiteralPath $stderrPath) { [void]$legArt.Add((New-Artifact $stderrPath)) }
+
+    # (iv) the tester-journal excerpt (always attached; empty = "nothing found")
+    $journalArt = Save-TesterLog $legTag $reportName $sym
+    if ($journalArt) { [void]$legArt.Add($journalArt) }
+
+    # (v) the run-dir artifacts (tool tester.ini, raw .htm, report.json sidecar)
+    $runRoot = Join-Path $testerOut "runs"
     $latest = Get-ChildItem -LiteralPath $runRoot -Directory -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -like ($reportName + "_*") } |
         Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+    $reportJson = ""
     if ($latest) {
         Get-ChildItem -LiteralPath $latest.FullName -File | ForEach-Object {
             [void]$legArt.Add((New-Artifact $_.FullName))
+            if ($_.Name -eq "report.json") { $reportJson = $_.FullName }
         }
     }
+
+    if ($p.ExitCode -ne 0) {
+        $legOk = $false
+        [void]$legReasons.Add(("{0}: tester leg exit {1} (see tester_{0}_cmdline.txt + _stderr.txt + _journal.txt)" -f $legTag, $p.ExitCode))
+        continue
+    }
+    if (-not $reportJson) {
+        $legOk = $false
+        [void]$legReasons.Add(("{0}: tester leg exited 0 but produced no report.json sidecar" -f $legTag))
+        continue
+    }
+
+    # (vi) read the ACTUAL model + real-tick coverage from THIS leg's report +
+    # journal (never the requested model). A leg whose model cannot be
+    # confirmed fails; a model that differs from the requested one is recorded.
+    $le = Invoke-Decide @("stage5-leg", "--report-json", $reportJson,
+        "--journal", $journalArt.path, "--requested-model", ([string]$leg.m),
+        "--symbol", $sym, "--leg", $legTag)
+    [void]$legArt.Add((New-Artifact $le.raw))
+    if ($le.ok -and $le.data) {
+        $am = if ($le.data.actual_model) { $le.data.actual_model.label } else { "?" }
+        $cov = $le.data.coverage
+        [void]$legReasons.Add(("{0}: actual model={1} (src {2}), real-tick coverage={3}" -f `
+            $legTag, $am, $le.data.actual_model.source, $cov))
+    } else {
+        $legOk = $false
+        $why = if ($le.data -and $le.data.reasons) { ($le.data.reasons -join "; ") } else { "actual model unreadable" }
+        [void]$legReasons.Add(("{0}: {1}" -f $legTag, $why))
+    }
 }
+
+# (vii) re-check the dataset hash AFTER the legs to prove the fixtures were not
+# mutated by the run (the gate never lets a tester leg touch a frozen input).
+foreach ($gk in @("gold1", "gold2")) {
+    $meta = $goldMeta[$gk]
+    $man = Get-Content -LiteralPath (Join-Path $RepoRoot $meta.manifest) -Raw | ConvertFrom-Json
+    $dh = Invoke-Decide @("dataset-hash", (Join-Path $RepoRoot $meta.fixture))
+    if (-not $dh.data -or ($dh.data.sha256 -ne $man.dataset_hash)) {
+        $got = if ($dh.data) { $dh.data.sha256 } else { "(unreadable)" }
+        $legOk = $false
+        [void]$legReasons.Add(("{0}: POST-LEG dataset hash mutated: got {1} != manifest {2}" -f $gk, $got, $man.dataset_hash))
+    } else {
+        [void]$legReasons.Add(("{0}: post-leg dataset hash intact ({1})" -f $gk, $man.dataset_hash))
+    }
+}
+
 if (-not $legOk) {
     Record-Stage 5 "tester_legs" "FAIL" (($legReasons -join "; ")) @($legArt) | Out-Null
     Finish-Gate "tester_legs"
 }
-Record-Stage 5 "tester_legs" "PASS" "six tester legs produced raw reports + sidecars; models read from report+journal" @($legArt) | Out-Null
+Record-Stage 5 "tester_legs" "PASS" ("six tester legs; actual models + real-tick coverage read from report+journal; dataset hash intact after the legs. " + ($legReasons -join "; ")) @($legArt) | Out-Null
 
 # =====================================================================
 # STAGE 8 -- reconciliation (full bindings + 8a kill-switch, 8b restart,
@@ -657,7 +835,7 @@ Enter-Stage 8 "reconciliation"
 $evidencePkg = if ($env:MQL5BOT_EVIDENCE_DIR) { $env:MQL5BOT_EVIDENCE_DIR } else { Join-Path $RepoRoot "artifacts\owner_mt5_gate\evidence" }
 $verifyOut = Join-Path $Evidence "reconciliation_verify.json"
 $vp = Start-Process -FilePath $Python `
-    -ArgumentList (@((Join-Path $PSScriptRoot "verify_owner_mt5_gate.py"), $evidencePkg, "--repo", $RepoRoot, "--out", $verifyOut)) `
+    -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "verify_owner_mt5_gate.py"), $evidencePkg, "--repo", $RepoRoot, "--out", $verifyOut))) `
     -Wait -PassThru -NoNewWindow
 $recon = $null
 try { $recon = Get-Content -LiteralPath $verifyOut -Raw | ConvertFrom-Json } catch { }
@@ -698,7 +876,7 @@ if ($recon.verdict -eq "MT5_VALIDATED") {
 Enter-Stage 9 "archive_manifest"
 $archiveManifest = Join-Path $Evidence "archive_manifest.json"
 $ap = Start-Process -FilePath $Python `
-    -ArgumentList (@((Join-Path $PSScriptRoot "owner_evidence_bind.py"), "manifest", $Evidence, "--frozen", (Join-Path $RepoRoot "artifacts\owner_mt5_gate\frozen_inputs.json"))) `
+    -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "owner_evidence_bind.py"), "manifest", $Evidence, "--frozen", (Join-Path $RepoRoot "artifacts\owner_mt5_gate\frozen_inputs.json")))) `
     -RedirectStandardOutput $archiveManifest -Wait -PassThru -NoNewWindow
 if ($ap.ExitCode -ne 0) {
     Record-Stage 9 "archive_manifest" "FAIL" ("owner_evidence_bind.py exit {0}" -f $ap.ExitCode) @() | Out-Null
@@ -717,7 +895,7 @@ if (-not (Test-Path -LiteralPath $certConfig)) {
     Finish-Gate "reconciliation"
 }
 $cp = Start-Process -FilePath $Python `
-    -ArgumentList (@((Join-Path $PSScriptRoot "certify_strategy.py"), "--config", $certConfig, "--out", $certReport)) `
+    -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "certify_strategy.py"), "--config", $certConfig, "--out", $certReport))) `
     -Wait -PassThru -NoNewWindow
 $certStatus = if ($cp.ExitCode -eq 0) { "PASS" } else { "FAIL" }
 Record-Stage 10 "certify" $certStatus ("certify_strategy.py exit {0} (state recorded as assigned)" -f $cp.ExitCode) @((New-Artifact $certReport)) | Out-Null

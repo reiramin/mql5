@@ -617,6 +617,159 @@ def parse_report_html(html_text: str) -> ReportData:
                       fields=fields, metrics=metrics)
 
 
+# longest label first so the specific "Every tick based on real ticks" is
+# matched before the substrings "Every tick" / "real ticks" can shadow it.
+_MODEL_LABELS_BY_LEN = sorted(MT5_MODEL_LABELS.items(),
+                              key=lambda kv: -len(kv[1]))
+
+
+def model_int_from_text(text: str) -> int | None:
+    """Map an MT5 report/journal model string to its model int, else None.
+
+    Matches the canonical MT5 modelling labels (``MT5_MODEL_LABELS``)
+    case-insensitively; a bare ``0``..``4`` is accepted only as a fallback.
+    Returns None when nothing states a model — that absence is recorded by
+    the caller, never guessed into a value.
+    """
+    if not text:
+        return None
+    low = text.lower()
+    for model, label in _MODEL_LABELS_BY_LEN:
+        if label.lower() in low:
+            return model
+    m = re.search(r"\b([0-4])\b", text)
+    return int(m.group(1)) if m else None
+
+
+def read_actual_model(settings: dict[str, str] | None,
+                      journal_text: str = "") -> dict[str, object]:
+    """The model the tester ACTUALLY used, read from the report Model line and
+    cross-checked against the journal — NEVER the requested model.
+
+    ``settings`` is the parsed report's settings map (``ReportData.settings``
+    / the ``report.json`` sidecar); ``journal_text`` is the tester journal
+    excerpt.  ``model`` is None with ``source='unknown'`` when neither states
+    it, so a leg whose model cannot be confirmed is visibly not-evidence
+    rather than silently attributed to the requested value.
+    """
+    settings = settings or {}
+    report_value = str(settings.get("model") or "")
+    r_model = model_int_from_text(report_value)
+    j_model: int | None = None
+    j_line = ""
+    for line in (journal_text or "").splitlines():
+        # only a line that names a canonical label counts as a model statement
+        if any(lbl.lower() in line.lower() for lbl in MT5_MODEL_LABELS.values()):
+            mi = model_int_from_text(line)
+            if mi is not None:
+                j_model, j_line = mi, line.strip()
+                break
+    model = r_model if r_model is not None else j_model
+    if r_model is not None and j_model is not None:
+        source = "report+journal"
+    elif r_model is not None:
+        source = "report"
+    elif j_model is not None:
+        source = "journal"
+    else:
+        source = "unknown"
+    evidence: list[str] = []
+    if report_value:
+        evidence.append(f"report Model={report_value!r}")
+    if j_line:
+        evidence.append(f"journal: {j_line}")
+    return {
+        "model": model,
+        "label": MT5_MODEL_LABELS.get(model) if model is not None else None,
+        "report_value": report_value,
+        "report_model": r_model,
+        "journal_model": j_model,
+        "report_journal_agree": (r_model is not None and j_model is not None
+                                 and r_model == j_model),
+        "source": source,
+        "evidence": evidence,
+    }
+
+
+# journal phrases (MT5, "Real and Generated Ticks") — kept conservative so
+# FULL is only ever asserted from POSITIVE evidence, never mode selection.
+_GENERATED_TICK_PHRASES = ("generated tick", "ticks are generated",
+                           "generating tick", "synthetic tick",
+                           "ticks generated")
+_REAL_TICK_PHRASES = ("real ticks", "real tick data", "based on real ticks")
+
+
+def classify_real_tick_coverage(settings: dict[str, str] | None,
+                                journal_text: str,
+                                model: int) -> dict[str, object]:
+    """FULL / PARTIAL / UNKNOWN real-tick coverage with the evidence it rests
+    on — never inferred from the requested modelling mode.
+
+    Official MT5 semantics ("Real and Generated Ticks"): a minute bar with no
+    tick data is filled with GENERATED ticks even in a real-tick mode, so
+    selecting a real-tick model never implies every tick was real.  FULL is
+    therefore returned only with positive evidence (100% history quality and a
+    journal that mentions real ticks without any generated-tick line); any
+    generated-tick evidence or sub-100% quality is PARTIAL; the absence of
+    evidence either way is UNKNOWN.  For a non-real-tick model the coverage is
+    UNKNOWN and ``applicable`` is False.
+    """
+    settings = settings or {}
+    journal = journal_text or ""
+    jl = journal.lower()
+    evidence: list[str] = []
+    hq_raw = settings.get("history quality")
+    hq_num = _first_number(hq_raw) if hq_raw else None
+    if hq_raw:
+        evidence.append(f"history quality={hq_raw}")
+    generated = any(p in jl for p in _GENERATED_TICK_PHRASES)
+    real_phrase = any(p in jl for p in _REAL_TICK_PHRASES)
+    if generated:
+        evidence.append("journal reports generated ticks")
+    if real_phrase:
+        evidence.append("journal mentions real ticks")
+    if model not in (3, 4):
+        label = MT5_MODEL_LABELS.get(model, str(model))
+        return {"coverage": REAL_TICK_COVERAGE_UNKNOWN, "applicable": False,
+                "history_quality": hq_raw,
+                "evidence": evidence + [
+                    f"model {model} ({label}) is not a real-tick mode"]}
+    hq_full = hq_num is not None and hq_num >= 100.0
+    if hq_full and real_phrase and not generated:
+        coverage = REAL_TICK_COVERAGE_FULL
+    elif generated or (hq_num is not None and hq_num < 100.0):
+        coverage = REAL_TICK_COVERAGE_PARTIAL
+    else:
+        coverage = REAL_TICK_COVERAGE_UNKNOWN
+    if not evidence:
+        evidence.append("no positive real-tick evidence in the report or journal")
+    return {"coverage": coverage, "applicable": True,
+            "history_quality": hq_raw, "evidence": evidence}
+
+
+def fixture_date_range(csv_path: Path | str) -> tuple[str, str]:
+    """The tester period (``date_from``, ``date_to`` as MT5 ``YYYY.MM.DD``)
+    DERIVED from a fixture CSV's first and last bar timestamps.
+
+    The tester period is a required setting the gate must never guess: it is
+    read from the fixture the leg tests.  Raises ValueError when the CSV has no
+    parseable ``YYYY-MM-DD`` (or ``YYYY.MM.DD``) time column so the caller can
+    FAIL naming the underivable input instead of inventing a range.
+    """
+    path = Path(csv_path)
+    stamps: list[str] = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        cell = line.split(",", 1)[0].strip()
+        m = re.match(r"(\d{4})[.\-/](\d{2})[.\-/](\d{2})", cell)
+        if m:
+            stamps.append(f"{m.group(1)}.{m.group(2)}.{m.group(3)}")
+    if not stamps:
+        raise ValueError(
+            f"no YYYY-MM-DD time column found in fixture {path} — the tester "
+            "period cannot be derived and must not be guessed")
+    return min(stamps), max(stamps)
+
+
 def report_gate(parsed: ReportData | None) -> tuple[bool, str]:
     """Fail-closed completeness gate for a parsed tester report.
 
@@ -804,11 +957,15 @@ __all__ = [
     "RunOutcome",
     "RunSettings",
     "TesterConfig",
+    "classify_real_tick_coverage",
     "extract_tables",
+    "fixture_date_range",
     "inputs_to_lines",
+    "model_int_from_text",
     "mt5_value_str",
     "parse_report_html",
     "parse_set",
+    "read_actual_model",
     "render_set",
     "report_gate",
     "run_backtest",
