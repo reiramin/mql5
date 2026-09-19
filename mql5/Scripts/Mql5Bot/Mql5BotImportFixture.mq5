@@ -58,18 +58,47 @@
 //|  REFUSES when the last element of InpSymbolGroup equals             |
 //|  InpSymbolName (an ambiguous name/group pair) before creating.     |
 //|                                                                  |
-//|  IDEMPOTENCY (err=5304 ERR_CUSTOM_SYMBOL_EXIST): a prior run that   |
-//|  created the symbol and then failed at a later stage can leave the  |
-//|  custom symbol behind; a bare CustomSymbolCreate then fails with    |
-//|  5304. This script resolves the symbol STATE fail-closed BEFORE     |
-//|  creating: SymbolExist first; if it exists AND is custom, deselect  |
-//|  + CustomSymbolDelete + VERIFY it is gone, then create fresh; if    |
-//|  the delete fails, name the failing call and its _LastError and     |
-//|  REFUSE (never charge into a create that will 5304); if it exists   |
-//|  but is NOT custom, refuse (broker symbol) untouched. RUNNING THE   |
-//|  GATE TWICE IN A ROW MUST PRODUCE IDENTICAL RESULTS -- a clean       |
-//|  second run either succeeds identically or refuses at symbol_state  |
-//|  with the same named reason.                                       |
+//|  IDEMPOTENCY -- THREE-OUTCOME SYMBOL-STATE CONTRACT (R9; errs 5304  |
+//|  ERR_CUSTOM_SYMBOL_EXIST / 5306 selected-state): a prior run can    |
+//|  leave the custom symbol behind. A FAILED run leaves it deselected; |
+//|  a SUCCESSFUL run deliberately ENDS with SymbolSelect(sym,true) so  |
+//|  the tester can see it -- and THAT selection is what strands the    |
+//|  symbol for the next run (gate_run12): MT5 releases a symbol        |
+//|  asynchronously and not at all while a chart shows it, so the       |
+//|  delete fails with 5306. The symbol STATE is resolved fail-closed   |
+//|  BEFORE creating, with exactly three outcomes:                     |
+//|   1. DELETED-AND-RECREATED: close any OTHER chart on the symbol    |
+//|      (never the script's own), deselect with the return CHECKED,   |
+//|      then a bounded retry (<=5 attempts, Sleep(300) between --     |
+//|      Sleep is legal in scripts; only the event-driven EA/indicator |
+//|      sources ban it) of CustomRatesDelete -> CustomSymbolDelete -> |
+//|      SymbolExist verify. Only a VERIFIED-gone name proceeds to      |
+//|      CustomSymbolCreate, so it can never collide with               |
+//|      ERR_CUSTOM_SYMBOL_EXIST (5304). symbol_state="created_fresh". |
+//|   2. ADOPTED-IN-PLACE: the delete still fails and the survivor IS  |
+//|      custom. Do NOT refuse: deselect it (must succeed -- properties |
+//|      cannot be changed on a selected symbol, that is 5306), wipe    |
+//|      ALL bars and VERIFY zero remain (no bar from a prior fixture   |
+//|      may survive), re-apply EVERY property through the SAME         |
+//|      one-at-a-time sequence a fresh create uses, then run the SAME  |
+//|      full read-back verification and round-trip dataset-hash check, |
+//|      unchanged and unskipped. Adoption is accepted only by passing  |
+//|      exactly the evidence a fresh create must pass -- the gate's    |
+//|      guarantee comes from that verification, not from the symbol    |
+//|      being new. symbol_state="adopted_existing" (+ the delete       |
+//|      attempts made and the _LastError that forced adoption).        |
+//|   3. REFUSED-BECAUSE-UNDESELECTABLE: the one remaining honest       |
+//|      refusal -- the surviving symbol cannot even be DESELECTED, so  |
+//|      its properties cannot be set (5306). The record names the      |
+//|      failing call, its _LastError, and the operator remediation:    |
+//|      close any chart on the symbol in the terminal, then re-run     |
+//|      the gate.                                                     |
+//|  A NON-custom (broker) symbol of the same name still refuses        |
+//|  untouched (never shadowed).                                        |
+//|  RUNNING THE GATE TWICE IN A ROW MUST PRODUCE IDENTICAL RESULTS --  |
+//|  the second run recreates or adopts and passes on identical         |
+//|  evidence; the symbol_state field names which path ran, so an       |
+//|  adopted import can never look like a fresh create.                 |
 //|                                                                  |
 //|  err=5306 FAMILY (custom-symbol STATE / VALUE errors, 53xx):       |
 //|   - STATE: a symbol SELECTED in Market Watch cannot be deleted     |
@@ -77,8 +106,8 @@
 //|     deselects the symbol (SymbolSelect(sym,false)) BEFORE any      |
 //|     delete or CustomSymbolSet*, and selects it (SymbolSelect(...,  |
 //|     true)) only AFTER every property is set and the bars written.  |
-//|     A stale prior custom symbol is detected (SymbolExist w/        |
-//|     is_custom) and recreated deterministically.                   |
+//|     A stale prior custom symbol is resolved by the three-outcome   |
+//|     contract above (recreate / adopt / undeselectable refusal).    |
 //|   - VALUE: a property value from the SymbolSpec/manifest may be    |
 //|     out of the range MT5 accepts (5308 ERR_CUSTOM_SYMBOL_PARAMETER_|
 //|     ERROR, "a wrong parameter while setting the property"; NOT     |
@@ -156,6 +185,11 @@
 //|    "failed_value":...,"failed_source":<manifest/spec field>,      |
 //|    "properties":[{"enum","value","source","ok","last_error"}...], |
 //|    "error":...}                                                   |
+//|  Every record ALSO names which symbol-state path ran (R9):        |
+//|    "symbol_state":"created_fresh"|"adopted_existing" and, when     |
+//|    adopted, "adopt_delete_attempts" + "adopt_last_error" (the      |
+//|    _LastError that forced adoption) -- an adopted import is a      |
+//|    PASS, but its evidence must never look like a fresh create.     |
 //|  Every record ALSO carries the read-back evidence:                |
 //|    "verified_properties":[{"enum","expected","readback","ok"}...] |
 //|    "derived_tick_values":{"trade_calc_mode",                      |
@@ -383,8 +417,10 @@ bool VerS(const string sym, const ENUM_SYMBOL_INFO_STRING id,
 // would refuse a symbol whose economics a stronger gate already certifies.
 //
 // It still tries hard first: after selection + bars it nudges a recompute and
-// re-reads a BOUNDED number of times (NO Sleep -- Sleep is banned in every
-// MQL5 source, SPEC 3.4), taking the value the moment it becomes non-zero.
+// re-reads a BOUNDED number of times (NO Sleep in this hot read-back loop --
+// the event-driven EA/include sources ban Sleep outright, SPEC 3.4; this
+// SCRIPT's only Sleep is the bounded stale-symbol drop retry, R9), taking the
+// value the moment it becomes non-zero.
 bool VerDerivedD(const string sym, const ENUM_SYMBOL_INFO_DOUBLE id,
                  const string enumName, const double manifestVal,
                  const string source)
@@ -445,6 +481,25 @@ string DerivedBlockJson()
           ",\"trade_calc_mode\":" + DslCanonEscape(g_calcModeStr) + "}";
   }
 
+// R9 SYMBOL-STATE HONESTY: every record names which path produced the
+// symbol -- created fresh, or adopted from a prior run's survivor. An
+// adopted import is a PASS (it earns it through the identical property
+// re-set + read-back + round-trip evidence), but the evidence must never
+// look like a fresh create.
+string g_symbolState   = "created_fresh"; // "created_fresh"|"adopted_existing"
+int    g_adoptAttempts = 0;   // CustomSymbolDelete attempts before adoption
+int    g_adoptLastErr  = 0;   // the _LastError that forced adoption
+int    g_dropAttempts  = 0;   // attempts made by the LAST DropCustomSymbolChecked
+
+string SymbolStateJson()
+  {
+   string s = "\"symbol_state\":" + DslCanonEscape(g_symbolState);
+   if(g_symbolState == "adopted_existing")
+      s += ",\"adopt_delete_attempts\":" + IntegerToString(g_adoptAttempts) +
+           ",\"adopt_last_error\":"      + IntegerToString(g_adoptLastErr);
+   return s;
+  }
+
 void RefuseAt(const string outPath, const string symbol, const string stage,
               const string why, const int lastErr)
   {
@@ -460,6 +515,7 @@ void RefuseAt(const string outPath, const string symbol, const string stage,
                 ",\"refused\":true" +
                 ",\"stage\":"           + DslCanonEscape(stage) +
                 ",\"symbol\":"          + DslCanonEscape(symbol) +
+                "," + SymbolStateJson() +
                 ",\"verified_properties\":[" + g_verifyJson + "]}\n";
    if(!WriteTextLF(outPath, doc))
       Print("[import] cannot write ", outPath);
@@ -468,28 +524,85 @@ void RefuseAt(const string outPath, const string symbol, const string stage,
   }
 
 //+------------------------------------------------------------------+
-//| deselect + drop a custom symbol and VERIFY it is gone.            |
-//| A SELECTED symbol cannot be deleted (5306), so deselect first.    |
-//| Returns true ONLY when SymbolExist reports the name is no longer  |
-//| present (so a following CustomSymbolCreate cannot 5304). On       |
-//| failure, whichCall names the call that failed and lastErr is its  |
-//| _LastError -- the caller REFUSES with that fact rather than       |
-//| colliding with ERR_CUSTOM_SYMBOL_EXIST.                          |
+//| deselect + drop a custom symbol and VERIFY it is gone (R9         |
+//| hardened). A SELECTED symbol cannot be deleted (5306), and MT5    |
+//| (a) will not release a symbol while a chart shows it and          |
+//| (b) releases it ASYNCHRONOUSLY after deselection. gate_run12:     |
+//| a prior SUCCESSFUL run ends with SymbolSelect(sym,true) so the    |
+//| tester can see the symbol, and the next run's single unchecked    |
+//| deselect + immediate delete failed with 5306. This function now:  |
+//|  1. closes any chart whose symbol is `sym` -- NEVER the script's  |
+//|     own chart (closing it would kill the script mid-run); if the  |
+//|     OWN chart is on `sym`, that fact is recorded in whichCall and |
+//|     the caller adopts in place (the symbol can never be deleted   |
+//|     in that state, so refusing would be wrong);                   |
+//|  2. deselects with the RETURN VALUE and _LastError CHECKED;       |
+//|  3. retries the delete a BOUNDED 5 times with Sleep(300) between  |
+//|     (Sleep is legal in scripts; the event-driven EA/include       |
+//|     sources stay Sleep-free): CustomRatesDelete ->                |
+//|     ResetLastError -> CustomSymbolDelete -> SymbolExist verify.   |
+//| Returns true ONLY when SymbolExist reports the name is gone (so a |
+//| following CustomSymbolCreate can never collide with               |
+//| ERR_CUSTOM_SYMBOL_EXIST (5304)). On exhaustion, whichCall/lastErr |
+//| name the LAST failing call; g_dropAttempts counts delete attempts |
+//| (0 = failed before the first delete).                             |
 //+------------------------------------------------------------------+
 bool DropCustomSymbolChecked(const string sym, string &whichCall, int &lastErr)
   {
    whichCall = ""; lastErr = 0;
-   SymbolSelect(sym, false);                 // 5306-safe: deselect before delete
-   CustomRatesDelete(sym, 0, LONG_MAX);      // clear any bars (no-op if none)
+   g_dropAttempts = 0;
+   // 1. close any OTHER chart displaying the symbol; MT5 will not release
+   //    a symbol while a chart is open on it. The script's OWN chart is
+   //    never closed -- that would kill this script mid-run.
+   long ownChart = ChartID();
+   long cid = ChartFirst();
+   while(cid >= 0)
+     {
+      long nextCid = ChartNext(cid);
+      if(ChartSymbol(cid) == sym)
+        {
+         if(cid == ownChart)
+           {
+            whichCall = "own chart displays " + sym +
+                        " (this script's chart cannot be closed and the "
+                        "symbol can never be deleted while it shows; "
+                        "adopt in place)";
+            lastErr = 0;
+            return false;
+           }
+         ChartClose(cid);
+        }
+      cid = nextCid;
+     }
+   // 2. deselect, CHECKING the result (the pre-R9 code discarded it)
    ResetLastError();
-   if(!CustomSymbolDelete(sym))
-     { whichCall = "CustomSymbolDelete"; lastErr = GetLastError(); return false; }
-   bool isCustom = false;
-   ResetLastError();
-   if(SymbolExist(sym, isCustom))            // it MUST actually be gone now
-     { whichCall = "SymbolExist(still present after delete)";
-       lastErr = GetLastError(); return false; }
-   return true;
+   if(!SymbolSelect(sym, false))
+     {
+      whichCall = "SymbolSelect(false)";
+      lastErr = GetLastError();
+      return false;
+     }
+   // 3. bounded delete retry: the release after deselection is asynchronous
+   for(int attempt = 1; attempt <= 5; attempt++)
+     {
+      g_dropAttempts = attempt;
+      CustomRatesDelete(sym, 0, LONG_MAX);   // clear any bars (no-op if none)
+      ResetLastError();
+      if(!CustomSymbolDelete(sym))
+        { whichCall = "CustomSymbolDelete"; lastErr = GetLastError(); }
+      else
+        {
+         bool isCustom = false;
+         ResetLastError();
+         if(!SymbolExist(sym, isCustom))     // it MUST actually be gone now
+            return true;
+         whichCall = "SymbolExist(still present after delete)";
+         lastErr = GetLastError();
+        }
+      if(attempt < 5)
+         Sleep(300);                         // scripts may Sleep; bounded
+     }
+   return false;
   }
 
 //+------------------------------------------------------------------+
@@ -668,6 +781,86 @@ bool LooksAbsolutePath(const string p)
   }
 
 //+------------------------------------------------------------------+
+//| ONE property-application sequence (R9): called by BOTH the        |
+//| fresh-create path and the adopt-in-place path. It is deliberately  |
+//| a single function -- a second copy would drift, and the volume     |
+//| MAX -> STEP -> MIN -> LIMIT ordering (R6, err 5308) must hold      |
+//| identically on both paths. The symbol must be DESELECTED when     |
+//| this runs (a selected symbol cannot have properties changed,      |
+//| err 5306). Every property is set ONE AT A TIME with each return   |
+//| checked and recorded (AppendProp); on the first failure the       |
+//| g_fail* diagnostics name the call/property/value/source.          |
+//+------------------------------------------------------------------+
+bool ApplySymbolProperties(const string sym,
+                           const double digits, const double point,
+                           const double tickSize, const double tickValProfit,
+                           const double contractSize,
+                           const double volMin, const double volMax,
+                           const double volStep, const double volLimit,
+                           const double stopsLevel, const double freezeLevel,
+                           const string ccyProfit, const string ccyBase,
+                           const string ccyMargin)
+  {
+   bool sok = true;
+   sok = sok && SetI(sym, SYMBOL_DIGITS, "SYMBOL_DIGITS", (long)digits,
+                     "manifest.broker_spec.digits");
+   sok = sok && SetD(sym, SYMBOL_POINT, "SYMBOL_POINT", point,
+                     "manifest.broker_spec.point");
+   sok = sok && SetD(sym, SYMBOL_TRADE_TICK_SIZE, "SYMBOL_TRADE_TICK_SIZE",
+                     tickSize, "manifest.broker_spec.tick_size");
+   sok = sok && SetD(sym, SYMBOL_TRADE_TICK_VALUE, "SYMBOL_TRADE_TICK_VALUE",
+                     tickValProfit, "manifest.broker_spec.tick_value_profit");
+   // SYMBOL_TRADE_TICK_VALUE_PROFIT / SYMBOL_TRADE_TICK_VALUE_LOSS are NOT
+   // set here: MT5 documents them as CALCULATED and CustomSymbolSetDouble
+   // rejects them with 5307 ERR_CUSTOM_SYMBOL_PROPERTY_WRONG (gate_run7).
+   // They are verified by READ-BACK against the manifest in the
+   // verify_properties stage below -- refusing on divergence, never skipping.
+   sok = sok && SetD(sym, SYMBOL_TRADE_CONTRACT_SIZE,
+                     "SYMBOL_TRADE_CONTRACT_SIZE", contractSize,
+                     "manifest.broker_spec.contract_size");
+   // VOLUME FAMILY ORDERING (err=5308 ERR_CUSTOM_SYMBOL_PARAMETER_ERROR,
+   // gate_run8): a freshly created custom symbol starts with volume_min=0,
+   // volume_max=0, volume_step=0. Setting SYMBOL_VOLUME_MIN=0.01 FIRST is an
+   // internally inconsistent intermediate state (min > max=0, and min is not a
+   // multiple of step=0), which CustomSymbolSetDouble rejects with 5308 -- "a
+   // wrong parameter while setting the property" (5307 would mean a read-only
+   // PROPERTY; 5308 means the VALUE, so volume_min IS settable, its value was
+   // refused). The MQL5 docs give no ordering rule, so we impose one that keeps
+   // EVERY intermediate state consistent: set the ceiling (MAX) and the grid
+   // (STEP) BEFORE the floor (MIN), so MIN is only ever validated against the
+   // real broker max and step (min<=max, min a multiple of step). LIMIT
+   // (aggregate cap, 0=none) is set last, after the [min,max] band exists.
+   sok = sok && SetD(sym, SYMBOL_VOLUME_MAX, "SYMBOL_VOLUME_MAX", volMax,
+                     "manifest.broker_spec.volume_max");
+   sok = sok && SetD(sym, SYMBOL_VOLUME_STEP, "SYMBOL_VOLUME_STEP", volStep,
+                     "manifest.broker_spec.volume_step");
+   sok = sok && SetD(sym, SYMBOL_VOLUME_MIN, "SYMBOL_VOLUME_MIN", volMin,
+                     "manifest.broker_spec.volume_min");
+   sok = sok && SetD(sym, SYMBOL_VOLUME_LIMIT, "SYMBOL_VOLUME_LIMIT", volLimit,
+                     "manifest.broker_spec.volume_limit");
+   sok = sok && SetI(sym, SYMBOL_TRADE_STOPS_LEVEL, "SYMBOL_TRADE_STOPS_LEVEL",
+                     (long)stopsLevel, "manifest.broker_spec.stops_level_points");
+   sok = sok && SetI(sym, SYMBOL_TRADE_FREEZE_LEVEL, "SYMBOL_TRADE_FREEZE_LEVEL",
+                     (long)freezeLevel, "manifest.broker_spec.freeze_level_points");
+   // CURRENCY PROPERTIES (R7): a Forex-mode custom symbol DERIVES base and
+   // profit currencies from the name (first/second three-char chunks). These
+   // two SetString calls therefore return ok=true WITHOUT taking effect -- MT5
+   // overrides them with the name inference. They are kept for generality (a
+   // non-Forex symbol WOULD honour them) and cause no failure (they return
+   // ok), but correctness for base/profit comes from the XXXYYY+suffix NAME
+   // (EURUSD.G1 -> EUR/USD) and is PROVEN by the read-back in
+   // verify_properties, never assumed. Margin currency IS settable and this
+   // call sticks. Read-back is the authoritative guarantee for all three.
+   sok = sok && SetS(sym, SYMBOL_CURRENCY_PROFIT, "SYMBOL_CURRENCY_PROFIT",
+                     ccyProfit, "manifest.broker_spec.currency_profit");
+   sok = sok && SetS(sym, SYMBOL_CURRENCY_BASE, "SYMBOL_CURRENCY_BASE",
+                     ccyBase, "SymbolSpec("+InpSymbolSpec+").symbol.currency_base");
+   sok = sok && SetS(sym, SYMBOL_CURRENCY_MARGIN, "SYMBOL_CURRENCY_MARGIN",
+                     ccyMargin, "SymbolSpec("+InpSymbolSpec+").symbol.currency_margin");
+   return sok;
+  }
+
+//+------------------------------------------------------------------+
 //| main import                                                      |
 //+------------------------------------------------------------------+
 void OnStart()
@@ -825,13 +1018,18 @@ void OnStart()
    // ---- 2b. resolve symbol STATE deterministically & IDEMPOTENTLY -
    // SymbolExist is a GLOBAL check (names are unique across the whole
    // hierarchy). A broker (non-custom) symbol of the same name must never
-   // be shadowed. A stale custom symbol from a prior FAILED run makes a
-   // bare create 5304 (ERR_CUSTOM_SYMBOL_EXIST): delete it, VERIFY it is
-   // gone, and REFUSE fail-closed if the delete fails -- never charge into
-   // a create that will 5304. Running twice in a row is therefore
-   // deterministic (identical success, or the same named symbol_state
-   // refusal).
+   // be shadowed. A stale custom symbol from a prior run is resolved by the
+   // R9 three-outcome contract (header): delete-and-recreate when the
+   // hardened drop verifies the name gone; ADOPT IN PLACE when the drop
+   // fails but the survivor is custom (never charge into a create that
+   // would collide with ERR_CUSTOM_SYMBOL_EXIST (5304), and never refuse a
+   // symbol this script itself certified and left selected on the PRIOR
+   // successful run); refuse ONLY when the survivor cannot even be
+   // deselected (its properties could never be set -- err 5306). Running
+   // twice in a row therefore produces identical evidence, with
+   // symbol_state naming which path ran.
    bool isCustom=false;
+   bool needCreate = true;
    if(SymbolExist(sym, isCustom))
      {
       if(!isCustom)
@@ -842,11 +1040,54 @@ void OnStart()
       // stale custom symbol from a prior run: drop it AND verify it is gone
       string wc=""; int le=0;
       if(!DropCustomSymbolChecked(sym, wc, le))
-        { RefuseAt(outPath, sym, "symbol_state",
-                   "a stale custom symbol named "+sym+" from a prior run "
-                   "could not be removed ("+wc+" failed); refusing rather "
-                   "than colliding with ERR_CUSTOM_SYMBOL_EXIST (5304)", le);
-          return; }
+        {
+         // R9 ADOPT-IN-PLACE (gate_run12): the drop failed -- typically 5306
+         // because the PRIOR SUCCESSFUL run deliberately ended with
+         // SymbolSelect(sym,true) and MT5 releases a symbol asynchronously
+         // (or never, while a chart shows it). The survivor IS a custom
+         // symbol, so adopt it: wipe its bars, re-apply every property, and
+         // let the UNCHANGED read-back + round-trip verification decide.
+         // The gate's guarantee comes from that verification, not from the
+         // symbol being new.
+         g_symbolState  = "adopted_existing";
+         g_adoptAttempts = g_dropAttempts;
+         g_adoptLastErr  = le;
+         Print("[import] SYMBOL_STATE adopted_existing: ", wc,
+               " failed after ", g_dropAttempts,
+               " delete attempt(s), last_error=", le,
+               "; adopting the surviving custom symbol in place");
+         // properties cannot be changed on a SELECTED symbol (5306): the
+         // deselect MUST succeed. If even that fails, this is the one
+         // remaining honest refusal -- with the remediation named.
+         ResetLastError();
+         if(!SymbolSelect(sym, false))
+           { int dsErr = GetLastError();
+             RefuseAt(outPath, sym, "symbol_state",
+                      "cannot adopt the surviving custom symbol "+sym+
+                      ": SymbolSelect(false) failed (last_error="+
+                      IntegerToString(dsErr)+") after "+
+                      IntegerToString(g_dropAttempts)+
+                      " delete attempt(s) ("+wc+", last_error="+
+                      IntegerToString(le)+"); properties cannot be changed "
+                      "on a selected symbol (5306). Operator remediation: "
+                      "close any chart on "+sym+" in the terminal, then "
+                      "re-run the gate", dsErr);
+             return; }
+         // no bar from a prior fixture may survive into this dataset: wipe
+         // the full range and VERIFY the symbol carries zero bars
+         CustomRatesDelete(sym, 0, LONG_MAX);
+         ResetLastError();
+         int leftoverBars = Bars(sym, tf);
+         if(leftoverBars > 0)
+           { int lbErr = GetLastError();
+             RefuseAt(outPath, sym, "symbol_state",
+                      "adopt-in-place: CustomRatesDelete left "+
+                      IntegerToString(leftoverBars)+" bar(s) on "+sym+
+                      "; a prior fixture's bars must never survive into "
+                      "this dataset", lbErr);
+             return; }
+         needCreate = false;
+        }
      }
    else
      {
@@ -854,74 +1095,30 @@ void OnStart()
       SymbolSelect(sym, false);
      }
 
-   ResetLastError();
-   if(!CustomSymbolCreate(sym, InpSymbolGroup))
-     { RefuseAt(outPath, sym, "create_symbol",
-                "CustomSymbolCreate failed for group "+InpSymbolGroup+
-                " (last_error 5304 = ERR_CUSTOM_SYMBOL_EXIST means a prior "
-                "symbol survived deletion)", GetLastError());
-       return; }
-   // the symbol is freshly created and NOT selected in Market Watch, so it
-   // is safe to set every property. We select it only after bars are written.
+   if(needCreate)
+     {
+      ResetLastError();
+      if(!CustomSymbolCreate(sym, InpSymbolGroup))
+        { RefuseAt(outPath, sym, "create_symbol",
+                   "CustomSymbolCreate failed for group "+InpSymbolGroup+
+                   " (last_error 5304 = ERR_CUSTOM_SYMBOL_EXIST means a prior "
+                   "symbol survived deletion)", GetLastError());
+          return; }
+      // the symbol is freshly created and NOT selected in Market Watch, so it
+      // is safe to set every property. We select it only after bars are
+      // written.
+     }
 
    // ---- 2c. set every property ONE AT A TIME, checking each -------
-   bool sok = true;
-   sok = sok && SetI(sym, SYMBOL_DIGITS, "SYMBOL_DIGITS", (long)digits,
-                     "manifest.broker_spec.digits");
-   sok = sok && SetD(sym, SYMBOL_POINT, "SYMBOL_POINT", point,
-                     "manifest.broker_spec.point");
-   sok = sok && SetD(sym, SYMBOL_TRADE_TICK_SIZE, "SYMBOL_TRADE_TICK_SIZE",
-                     tickSize, "manifest.broker_spec.tick_size");
-   sok = sok && SetD(sym, SYMBOL_TRADE_TICK_VALUE, "SYMBOL_TRADE_TICK_VALUE",
-                     tickValProfit, "manifest.broker_spec.tick_value_profit");
-   // SYMBOL_TRADE_TICK_VALUE_PROFIT / SYMBOL_TRADE_TICK_VALUE_LOSS are NOT
-   // set here: MT5 documents them as CALCULATED and CustomSymbolSetDouble
-   // rejects them with 5307 ERR_CUSTOM_SYMBOL_PROPERTY_WRONG (gate_run7).
-   // They are verified by READ-BACK against the manifest in the
-   // verify_properties stage below -- refusing on divergence, never skipping.
-   sok = sok && SetD(sym, SYMBOL_TRADE_CONTRACT_SIZE,
-                     "SYMBOL_TRADE_CONTRACT_SIZE", contractSize,
-                     "manifest.broker_spec.contract_size");
-   // VOLUME FAMILY ORDERING (err=5308 ERR_CUSTOM_SYMBOL_PARAMETER_ERROR,
-   // gate_run8): a freshly created custom symbol starts with volume_min=0,
-   // volume_max=0, volume_step=0. Setting SYMBOL_VOLUME_MIN=0.01 FIRST is an
-   // internally inconsistent intermediate state (min > max=0, and min is not a
-   // multiple of step=0), which CustomSymbolSetDouble rejects with 5308 -- "a
-   // wrong parameter while setting the property" (5307 would mean a read-only
-   // PROPERTY; 5308 means the VALUE, so volume_min IS settable, its value was
-   // refused). The MQL5 docs give no ordering rule, so we impose one that keeps
-   // EVERY intermediate state consistent: set the ceiling (MAX) and the grid
-   // (STEP) BEFORE the floor (MIN), so MIN is only ever validated against the
-   // real broker max and step (min<=max, min a multiple of step). LIMIT
-   // (aggregate cap, 0=none) is set last, after the [min,max] band exists.
-   sok = sok && SetD(sym, SYMBOL_VOLUME_MAX, "SYMBOL_VOLUME_MAX", volMax,
-                     "manifest.broker_spec.volume_max");
-   sok = sok && SetD(sym, SYMBOL_VOLUME_STEP, "SYMBOL_VOLUME_STEP", volStep,
-                     "manifest.broker_spec.volume_step");
-   sok = sok && SetD(sym, SYMBOL_VOLUME_MIN, "SYMBOL_VOLUME_MIN", volMin,
-                     "manifest.broker_spec.volume_min");
-   sok = sok && SetD(sym, SYMBOL_VOLUME_LIMIT, "SYMBOL_VOLUME_LIMIT", volLimit,
-                     "manifest.broker_spec.volume_limit");
-   sok = sok && SetI(sym, SYMBOL_TRADE_STOPS_LEVEL, "SYMBOL_TRADE_STOPS_LEVEL",
-                     (long)stopsLevel, "manifest.broker_spec.stops_level_points");
-   sok = sok && SetI(sym, SYMBOL_TRADE_FREEZE_LEVEL, "SYMBOL_TRADE_FREEZE_LEVEL",
-                     (long)freezeLevel, "manifest.broker_spec.freeze_level_points");
-   // CURRENCY PROPERTIES (R7): a Forex-mode custom symbol DERIVES base and
-   // profit currencies from the name (first/second three-char chunks). These
-   // two SetString calls therefore return ok=true WITHOUT taking effect -- MT5
-   // overrides them with the name inference. They are kept for generality (a
-   // non-Forex symbol WOULD honour them) and cause no failure (they return
-   // ok), but correctness for base/profit comes from the XXXYYY+suffix NAME
-   // (EURUSD.G1 -> EUR/USD) and is PROVEN by the read-back in
-   // verify_properties, never assumed. Margin currency IS settable and this
-   // call sticks. Read-back is the authoritative guarantee for all three.
-   sok = sok && SetS(sym, SYMBOL_CURRENCY_PROFIT, "SYMBOL_CURRENCY_PROFIT",
-                     ccyProfit, "manifest.broker_spec.currency_profit");
-   sok = sok && SetS(sym, SYMBOL_CURRENCY_BASE, "SYMBOL_CURRENCY_BASE",
-                     ccyBase, "SymbolSpec("+InpSymbolSpec+").symbol.currency_base");
-   sok = sok && SetS(sym, SYMBOL_CURRENCY_MARGIN, "SYMBOL_CURRENCY_MARGIN",
-                     ccyMargin, "SymbolSpec("+InpSymbolSpec+").symbol.currency_margin");
-   if(!sok)
+   // ONE sequence for BOTH paths (R9): a freshly created symbol and an
+   // adopted survivor go through the IDENTICAL ApplySymbolProperties calls
+   // (same volume MAX->STEP->MIN->LIMIT ordering) and then the identical
+   // read-back + round-trip verification below -- adoption earns its PASS
+   // by exactly the same evidence as a fresh create.
+   if(!ApplySymbolProperties(sym, digits, point, tickSize, tickValProfit,
+                             contractSize, volMin, volMax, volStep, volLimit,
+                             stopsLevel, freezeLevel, ccyProfit, ccyBase,
+                             ccyMargin))
      { int err = GetLastError();
        string suffix = CleanupAfterFail(sym);
        RefuseAt(outPath, sym, "set_properties",
@@ -1071,11 +1268,12 @@ void OnStart()
                 ",\"roundtrip_sha256\":" + DslCanonEscape(roundtripSha) +
                 ",\"stage\":\"complete\"" +
                 ",\"symbol\":" + DslCanonEscape(sym) +
+                "," + SymbolStateJson() +
                 ",\"timeframe\":" + DslCanonEscape(tfStr) +
                 ",\"verified_properties\":[" + g_verifyJson + "]}\n";
    if(!WriteTextLF(outPath, doc))
       Print("[import] cannot write ", outPath);
    Print("[import] ", sym, ": ", got, " bars, dataset hash MATCHES manifest ",
-         datasetHash, " -> ", outPath);
+         datasetHash, " symbol_state=", g_symbolState, " -> ", outPath);
   }
 //+------------------------------------------------------------------+

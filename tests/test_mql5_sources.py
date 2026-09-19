@@ -99,16 +99,32 @@ def test_s2_failsafe_uses_state_store_keys():
 
 
 def test_s3_no_sleep_calls_anywhere_in_ea_sources():
+    """Sleep is banned in the EVENT-DRIVEN sources (Experts/ + Include/:
+    OnTimer/OnTradeTransaction instead — SPEC §3.4/§8.D). Scripts run on
+    their own thread where Sleep is documented-legal; the ONE permitted use
+    is the bounded stale-symbol drop retry in Mql5BotImportFixture.mq5
+    (STAGE 4 R9) — pinned below and, structurally, in
+    tests/test_owner_gate_ps1.py."""
     offenders = []
+    script_sleeps = []
     for path in _all_sources():
+        rel = Path(path).relative_to(MQL5).as_posix()
         text = Path(path).read_text(encoding="utf-8")
         for i, line in enumerate(text.splitlines(), 1):
             code = line.split("//")[0]
             if "Sleep" in code and "(" in code.split("Sleep", 1)[1]:
-                offenders.append(f"{path}:{i}: {line.strip()}")
+                if rel.startswith("Scripts/"):
+                    script_sleeps.append((rel, code.strip()))
+                else:
+                    offenders.append(f"{path}:{i}: {line.strip()}")
     assert not offenders, (
-        "Sleep() must not appear in EA sources (event-driven design; "
-        f"SPEC §3.4/§8.D): {offenders}")
+        "Sleep() must not appear in event-driven EA sources (Experts/, "
+        f"Include/; SPEC §3.4/§8.D): {offenders}")
+    # the ONLY script Sleep is the R9 bounded drop retry: one call, fixed
+    # 300 ms, in the fixture importer — anything else is a regression
+    assert script_sleeps == [
+        ("Scripts/Mql5Bot/Mql5BotImportFixture.mq5", "Sleep(300);"),
+    ], script_sleeps
 
 
 # ---------------------------------------------------------------------------

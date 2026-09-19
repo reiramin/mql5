@@ -9,6 +9,74 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-19 — A symbol left SELECTED by a prior SUCCESSFUL run survives deletion; stage 4 adopts it in place instead of refusing (STAGE 4 R9)
+
+**Trigger.** gate_run12 (on 10ec10a): stage 4 refused at `symbol_state` with
+last_error **5306** — "a stale custom symbol named EURUSD.G1 from a prior run
+could not be removed (CustomSymbolDelete failed)". This was NOT a regression
+from the stage-5 quoting fix; gate_run11 had PASSED stage 4.
+
+**Root cause.** On a SUCCESSFUL import the script deliberately ends with
+`SymbolSelect(sym, true)` so the Strategy Tester can see the symbol — and that
+final selection is exactly what strands the symbol for the NEXT run.
+`DropCustomSymbolChecked()` then (a) called `SymbolSelect(sym,false)` but
+DISCARDED its return value and _LastError, and (b) called `CustomSymbolDelete`
+immediately, once, with no retry. MT5 releases a symbol ASYNCHRONOUSLY after
+deselection, and will not release it at all while a chart is open on it —
+hence 5306. The R2 requirement (running the gate twice in a row must produce
+identical stage-4 results) was therefore not met: PASS on run N guaranteed a
+refusal on run N+1.
+
+**Decision (three-outcome symbol-state contract).**
+
+1. **Deleted-and-recreated.** The drop is hardened: close any OTHER chart
+   displaying the symbol (never the script's own chart — closing it would
+   kill the script mid-run; an own-chart-on-symbol case is recorded and goes
+   straight to adoption, since the symbol can never be deleted in that state
+   and refusing would be wrong); deselect with the return value and
+   _LastError CHECKED; then a bounded retry — at most 5 attempts with
+   `Sleep(300)` between (Sleep is legal in scripts; the event-driven
+   EA/include sources remain Sleep-free, and the source test now pins exactly
+   that split) — of `CustomRatesDelete` → `ResetLastError` →
+   `CustomSymbolDelete` → `SymbolExist` verify. Only a VERIFIED-gone name
+   proceeds to `CustomSymbolCreate`. `symbol_state="created_fresh"`.
+2. **Adopted-in-place.** When the drop still fails and the survivor IS custom,
+   do NOT refuse. Deselect it (must succeed — properties cannot be changed on
+   a selected symbol, which is what 5306 means), `CustomRatesDelete(sym, 0,
+   LONG_MAX)` and VERIFY zero bars remain (no bar from a prior fixture can
+   survive into this dataset), then re-apply EVERY property through the SAME
+   one-at-a-time `ApplySymbolProperties` sequence the fresh-create path uses
+   (extracted into ONE function called by both paths, so the volume
+   MAX→STEP→MIN→LIMIT ordering of R6 cannot drift), and then run the
+   UNCHANGED full read-back verification and round-trip dataset-hash check.
+   **Why adopt-in-place is as safe as create-fresh:** the gate's guarantee
+   never came from the symbol being new — it comes from the evidence the
+   symbol must produce: every settable property read back equal to the value
+   set, and the round-trip dataset hash equal to the manifest pin. An adopted
+   symbol passes only by producing exactly that same evidence; a symbol that
+   could not be brought to the certified state still refuses through the
+   existing verify/roundtrip stages. `symbol_state="adopted_existing"`, with
+   the delete attempts made and the _LastError that forced adoption.
+3. **Refused-because-undeselectable.** The one remaining honest refusal: the
+   survivor cannot even be DESELECTED, so its properties can never be set.
+   The record names the failing call, its _LastError, and the operator
+   remediation ("close any chart on <sym> in the terminal, then re-run the
+   gate"). Every exit path still writes the JSON.
+
+**Honesty.** Every record (refusal and success) now carries
+`symbol_state: "created_fresh" | "adopted_existing"` plus, when adopted,
+`adopt_delete_attempts` and `adopt_last_error`; the terminal log prints the
+same at adoption time and in the result line. An adopted import is a PASS,
+but its evidence can never masquerade as a fresh create.
+
+Regression tests: `tests/test_owner_gate_ps1.py` (R9 section: chart walk
+closes only foreign charts, checked deselect, bounded Sleep(300) retry order,
+single shared property sequence with the R6 ordering pinned on the call
+sites, adoption wipe-and-verify, the undeselectable refusal's remediation,
+symbol_state on both writers, three-outcome header) and
+`tests/test_mql5_sources.py` S3 (Sleep stays banned in Experts/+Include/; the
+importer's single bounded `Sleep(300)` is the only script exception).
+
 ## 2026-09-19 — Custom-symbol CALCULATED tick values may read back 0; stage 4 records them as a NAMED limitation and PASSES, never blocks (STAGE 4 R8)
 
 **Trigger.** gate_run10 (on 63f2faa): currencies now correct (USD/EUR/EUR all
