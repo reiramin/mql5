@@ -46,10 +46,18 @@ from pathlib import Path
 
 MT5_TIMEFRAMES = ("M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1")
 
-# tester model: 0 every tick, 1 one-minute OHLC, 2 open prices only,
-# 3 every tick based on real ticks, 4 real ticks.
+# tester model — the CONFIG-FILE ``[Tester] Model=`` enum that
+# ``terminal64.exe /config:`` consumes (NOT the Strategy Tester GUI dropdown,
+# which orders the tick modes differently). Measured from the MT5 build-6184
+# startup-config log (STAGE 5 R5, DEFECT 1):
+#   0 Every tick | 1 1 minute OHLC | 2 Open prices only
+#   | 3 Math calculations (no history, no symbol info — a pure OnTester math
+#       mode) | 4 Every tick based on real ticks
+# Sending Model=3 for a data-driven leg silently ran math-calculations mode
+# with NO history; the real-tick legs must therefore request 4, and
+# ``TesterConfig.validate`` refuses 3 outright (see below).
 MT5_MODEL_LABELS = {0: "Every tick", 1: "1 minute OHLC", 2: "Open prices only",
-                    3: "Every tick based on real ticks", 4: "Real ticks"}
+                    3: "Math calculations", 4: "Every tick based on real ticks"}
 
 # Default EA inputs — mirrored from mql5/Experts/Mql5Bot/Mql5Bot.mq5
 # (enums as their integer values from the .mqh headers; keep in sync when
@@ -266,6 +274,18 @@ class TesterConfig:
                 f"timeframe must be one of {MT5_TIMEFRAMES}, got {self.timeframe!r}")
         if self.model not in MT5_MODEL_LABELS:
             raise ValueError(f"model must be 0..4, got {self.model}")
+        # STAGE 5 R5, DEFECT 1: config-file Model=3 is MT5's math-calculations
+        # mode — it runs with NO history and NO symbol info (measured: "math
+        # calculations test mode means no history and no symbol info"). Every
+        # leg this project runs is data-driven, so requesting 3 can only mean
+        # the GUI-enum "real ticks" was confused with the config-file value.
+        # Refuse it here so a data-driven leg can never silently run without
+        # history again (real-tick legs must request 4).
+        if self.model == 3:
+            raise ValueError(
+                "model 3 is MT5 math-calculations mode (no history, no symbol "
+                "info); a data-driven tester leg must not request it — use "
+                "model 4 for 'Every tick based on real ticks'")
         for name, date in (("date_from", self.date_from), ("date_to", self.date_to)):
             if not _DATE_RE.match(date or ""):
                 raise ValueError(f"{name} must be YYYY.MM.DD, got {date!r}")
@@ -750,7 +770,9 @@ def classify_real_tick_coverage(settings: dict[str, str] | None,
         evidence.append("journal reports generated ticks")
     if real_phrase:
         evidence.append("journal mentions real ticks")
-    if model not in (3, 4):
+    # STAGE 5 R5, DEFECT 1: only config-file Model=4 ("Every tick based on real
+    # ticks") is a real-tick mode; 3 is math-calculations, not a tick mode.
+    if model != 4:
         label = MT5_MODEL_LABELS.get(model, str(model))
         return {"coverage": REAL_TICK_COVERAGE_UNKNOWN, "applicable": False,
                 "history_quality": hq_raw,

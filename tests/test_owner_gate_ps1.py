@@ -2119,6 +2119,47 @@ def test_ps1_stage5_attaches_artifacts_before_any_early_continue():
     assert "$legArt.Add((New-Artifact $stderrPath))" in window
 
 
+def test_ps1_stage5_real_tick_legs_request_model_4_not_3():
+    # STAGE 5 R5, DEFECT 1: real-tick legs must send config-file Model=4; Model=3
+    # is math-calculations (no history). The old m = 3 must be gone.
+    src = _ps1()
+    s5 = src.index('Enter-Stage 5 "tester_legs"')
+    s8 = src.index("STAGE 8", s5)
+    body = src[s5:s8]
+    for line in body.splitlines():
+        if 'model = "real_ticks"' in line:
+            assert "m = 4" in line, line
+            assert "m = 3" not in line, line
+    # and no leg row requests model 3 anywhere in the stage
+    assert "m = 3 }" not in body
+
+
+def test_ps1_stage5_passes_defaults_to_populate_tester_inputs():
+    # STAGE 5 R5, DEFECT 2: both the evidence .ini and the launched run carry
+    # --defaults so [TesterInputs] is never an empty block.
+    src = _ps1()
+    s5 = src.index('Enter-Stage 5 "tester_legs"')
+    s8 = src.index("STAGE 8", s5)
+    body = src[s5:s8]
+    assert body.count("--defaults") >= 2, "generate-ini AND run must pass --defaults"
+
+
+def test_ps1_stage5_classifies_blocked_owner_environment():
+    # STAGE 5 R5, DEFECT 3: a no-report leg is classified via committed Python;
+    # a proven clean run whose only missing artifact is the report is BLOCKED
+    # (not a pass), and GATE_RESULT distinguishes it.
+    src = _ps1()
+    s5 = src.index('Enter-Stage 5 "tester_legs"')
+    s8 = src.index("STAGE 8", s5)
+    body = src[s5:s8]
+    assert "stage5-leg-outcome" in body
+    assert "BLOCKED_OWNER_ENVIRONMENT" in body
+    assert "tester_legs_blocked" in body
+    assert 'Record-Stage 5 "tester_legs" "BLOCKED"' in body
+    # a blocked stage still STOPS the gate (Finish-Gate), never falls through
+    assert 'Finish-Gate "tester_legs_blocked"' in body
+
+
 def test_ps1_quotes_a_path_with_spaces_end_to_end(tmp_path: Path):
     """NON-VACUOUS (executes the .ps1's own quoter through a real
     Start-Process): a --terminal-dir whose value is 'C:\\Program Files\\...'

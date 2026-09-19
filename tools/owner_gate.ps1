@@ -115,7 +115,7 @@ function Record-Stage([int]$num, [string]$name, [string]$status,
     $rec = [ordered]@{
         stage      = $num
         name       = $name
-        status     = $status       # PASS | FAIL | SKIP | DIVERGENCE_EXPECTED
+        status     = $status       # PASS | FAIL | SKIP | DIVERGENCE_EXPECTED | BLOCKED
         reason     = $reason
         artifacts  = @($artifacts)
         utc        = (Get-Date).ToUniversalTime().ToString("o")
@@ -125,7 +125,8 @@ function Record-Stage([int]$num, [string]$name, [string]$status,
     [void]$Script:Stages.Add($rec)
     $color = switch ($status) {
         "PASS" { "Green" } "FAIL" { "Red" }
-        "DIVERGENCE_EXPECTED" { "Yellow" } default { "Gray" }
+        "DIVERGENCE_EXPECTED" { "Yellow" } "BLOCKED" { "Magenta" }
+        default { "Gray" }
     }
     Write-Host ("[owner-gate] stage {0} {1}: {2} -- {3}" -f $num, $name, $status, $reason) -ForegroundColor $color
     if ($status -eq "FAIL" -and -not $Script:Blocked) {
@@ -729,11 +730,15 @@ $runBacktest = Join-Path $PSScriptRoot "run_mt5_backtest.py"
 $legs = @(
     @{ gold = "gold1"; model = "m1_ohlc";    m = 1 },
     @{ gold = "gold1"; model = "every_tick"; m = 0 },
-    @{ gold = "gold1"; model = "real_ticks"; m = 3 },
+    @{ gold = "gold1"; model = "real_ticks"; m = 4 },
     @{ gold = "gold2"; model = "m1_ohlc";    m = 1 },
     @{ gold = "gold2"; model = "every_tick"; m = 0 },
-    @{ gold = "gold2"; model = "real_ticks"; m = 3 }
+    @{ gold = "gold2"; model = "real_ticks"; m = 4 }
 )
+# STAGE 5 R5, DEFECT 1: real-tick legs request config-file Model=4 ("Every tick
+# based on real ticks"). Model=3 is MT5's math-calculations mode (no history, no
+# symbol info) -- sending it silently ran the two real-tick legs with no data at
+# all. mt5tester.TesterConfig.validate() now refuses model 3 outright.
 # per-gold identity: the custom-symbol NAME the gate assigned (stage 4) and the
 # committed manifest + fixture the tester period/timeframe are DERIVED from.
 $goldMeta = @{
@@ -743,6 +748,11 @@ $goldMeta = @{
 $legArt = New-Object System.Collections.ArrayList
 $legReasons = New-Object System.Collections.ArrayList
 $legOk = $true
+# STAGE 5 R5, DEFECT 3: a leg whose test completed cleanly (bars>0, successfully
+# finished) but for which MT5 build 6184 wrote no [Tester] Report file is
+# BLOCKED_OWNER_ENVIRONMENT -- NOT a pass and NOT a plain FAIL. $legBlocked
+# records that at least one leg earned that classification from its tester log.
+$legBlocked = $false
 $terminalDir = Split-Path -Parent $TerminalPath
 $testerOut = Join-Path $Evidence "tester"
 
@@ -781,9 +791,12 @@ foreach ($leg in $legs) {
     # exact [Tester]/[TesterInputs] the gate intends, so a leg that never
     # produces a report still attaches the config it was asked to run.
     $iniEvidence = Join-Path $Evidence ("tester_" + $legTag + ".ini")
+    # DEFECT 2: --defaults populates [TesterInputs] from EA_INPUT_DEFAULTS so the
+    # evidence .ini states EXACTLY the inputs the leg sends (never an empty block
+    # that silently runs the EA's compiled-in defaults).
     $genArgs = @($runBacktest, "generate-ini", "--symbol", $sym,
         "--timeframe", $tf, "--model", ([string]$leg.m), "--from", $from,
-        "--to", $to, "--report", $reportName, "--output", $iniEvidence)
+        "--to", $to, "--report", $reportName, "--defaults", "--output", $iniEvidence)
     $gp = Start-Process -FilePath $Python -ArgumentList (Get-ProcArgs $genArgs) `
         -Wait -PassThru -NoNewWindow
     if (Test-Path -LiteralPath $iniEvidence) { [void]$legArt.Add((New-Artifact $iniEvidence)) }
@@ -794,9 +807,11 @@ foreach ($leg in $legs) {
 
     # (ii) the command line EXACTLY as invoked, quoted the way it is passed --
     # so a re-split (the STAGE 5 R1 defect) is visible straight from evidence.
+    # DEFECT 2: --defaults so the LAUNCHED leg sends the full EA input set;
+    # run_mt5_backtest refuses (before launch) if [TesterInputs] would be empty.
     $runArgs = @("run", "--terminal-dir", $terminalDir, "--data-folder", $DataFolder,
         "--symbol", $sym, "--timeframe", $tf, "--model", ([string]$leg.m),
-        "--from", $from, "--to", $to, "--report", $reportName, "--out-dir", $testerOut)
+        "--from", $from, "--to", $to, "--report", $reportName, "--defaults", "--out-dir", $testerOut)
     $cmdArgv = @($Python, $runBacktest) + $runArgs
     $cmdlinePath = Join-Path $Evidence ("tester_" + $legTag + "_cmdline.txt")
     [IO.File]::WriteAllText($cmdlinePath, ((Get-ProcArgs $cmdArgv) -join " ") + "`r`n", [Text.Encoding]::ASCII)
@@ -834,20 +849,50 @@ foreach ($leg in $legs) {
     }
 
     if ($p.ExitCode -ne 0) {
-        $legOk = $false
-        # DEFECT 2: attach the unfiltered tail -- the exit-code failure lines
-        # ("no history", init/file errors) are what explain this, not the
-        # modelling-quality excerpt.
+        # No usable report from a non-zero exit. Attach the unfiltered tail (the
+        # "no history"/init/file-error lines that explain it -- DEFECT 2) then
+        # CLASSIFY from that log, fail-closed (DEFECT 3/4): only a PROVEN clean
+        # run whose sole missing artifact is the report is BLOCKED_OWNER_
+        # ENVIRONMENT; a zero-bars fixture is its own named FAIL; else a plain
+        # FAIL. BLOCKED is earned from the log, never the absence of an error.
         $tailArt = Save-TesterFailLog $legTag $legStart
         if ($tailArt) { [void]$legArt.Add($tailArt) }
-        [void]$legReasons.Add(("{0}: tester leg exit {1} (see tester_{0}_cmdline.txt + _stderr.txt + _journal.txt + _journal_tail.txt)" -f $legTag, $p.ExitCode))
+        $ocArgs = @("stage5-leg-outcome", "--symbol", $sym, "--leg", $legTag,
+            "--report-present", "false", "--journal", $journalArt.path)
+        if ($tailArt -and $tailArt.path) { $ocArgs += @("--journal-tail", $tailArt.path) }
+        $oc = Invoke-Decide $ocArgs
+        [void]$legArt.Add((New-Artifact $oc.raw))
+        $outcome = if ($oc.data -and $oc.data.outcome) { $oc.data.outcome } else { "FAIL" }
+        $ocReason = if ($oc.data -and $oc.data.reason) { $oc.data.reason } else { "no classification available" }
+        if ($outcome -eq "BLOCKED_OWNER_ENVIRONMENT") {
+            $legBlocked = $true
+            [void]$legReasons.Add(("{0}: exit {1}; {2}" -f $legTag, $p.ExitCode, $ocReason))
+        } else {
+            $legOk = $false
+            [void]$legReasons.Add(("{0}: exit {1}; {2}" -f $legTag, $p.ExitCode, $ocReason))
+        }
         continue
     }
     if (-not $reportJson) {
-        $legOk = $false
+        # Exited 0 but wrote no report.json sidecar. Same fail-closed
+        # classification as above (DEFECT 3/4): this is the exact MT5-build-6184
+        # BLOCKED_OWNER_ENVIRONMENT shape when the run finished clean.
         $tailArt = Save-TesterFailLog $legTag $legStart
         if ($tailArt) { [void]$legArt.Add($tailArt) }
-        [void]$legReasons.Add(("{0}: tester leg exited 0 but produced no report.json sidecar (see tester_{0}_journal_tail.txt)" -f $legTag))
+        $ocArgs = @("stage5-leg-outcome", "--symbol", $sym, "--leg", $legTag,
+            "--report-present", "false", "--journal", $journalArt.path)
+        if ($tailArt -and $tailArt.path) { $ocArgs += @("--journal-tail", $tailArt.path) }
+        $oc = Invoke-Decide $ocArgs
+        [void]$legArt.Add((New-Artifact $oc.raw))
+        $outcome = if ($oc.data -and $oc.data.outcome) { $oc.data.outcome } else { "FAIL" }
+        $ocReason = if ($oc.data -and $oc.data.reason) { $oc.data.reason } else { "no classification available" }
+        if ($outcome -eq "BLOCKED_OWNER_ENVIRONMENT") {
+            $legBlocked = $true
+            [void]$legReasons.Add(("{0}: exited 0 but produced no report.json sidecar; {1}" -f $legTag, $ocReason))
+        } else {
+            $legOk = $false
+            [void]$legReasons.Add(("{0}: exited 0 but produced no report.json sidecar; {1}" -f $legTag, $ocReason))
+        }
         continue
     }
 
@@ -890,6 +935,16 @@ foreach ($gk in @("gold1", "gold2")) {
 if (-not $legOk) {
     Record-Stage 5 "tester_legs" "FAIL" (($legReasons -join "; ")) @($legArt) | Out-Null
     Finish-Gate "tester_legs"
+}
+if ($legBlocked) {
+    # STAGE 5 R5, DEFECT 3: at least one leg is BLOCKED_OWNER_ENVIRONMENT (a
+    # proven clean run whose only missing artifact is the MT5-build-6184 report)
+    # and none FAILed. A BLOCKED leg is NOT a pass: the gate STOPS here, stages
+    # 6-10 stay not-run, and GATE_RESULT distinguishes this from both PASS and
+    # FAIL. The stage reason quotes the tester-log lines that justify it.
+    Record-Stage 5 "tester_legs" "BLOCKED" (($legReasons -join "; ")) @($legArt) | Out-Null
+    $Script:Blocked = "tester_legs"
+    Finish-Gate "tester_legs_blocked"
 }
 Record-Stage 5 "tester_legs" "PASS" ("six tester legs; actual models + real-tick coverage read from report+journal; dataset hash intact after the legs. " + ($legReasons -join "; ")) @($legArt) | Out-Null
 

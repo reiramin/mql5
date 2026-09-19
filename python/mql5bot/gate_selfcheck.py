@@ -908,6 +908,121 @@ def run_self_protection(repo: Path | str, runner=None) -> dict:
 # journal — never the requested model. These decisions live here; the .ps1
 # only launches the tester and hands the observed files in.
 
+# STAGE 5 R5, DEFECT 3/4: when a tester leg produces NO report, the gate must
+# not collapse every cause into one FAIL. It classifies the leg from its OWN
+# tester-log lines, fail-closed:
+#   * BLOCKED_OWNER_ENVIRONMENT — only when the log PROVES all of: the test
+#     reached "successfully finished", bars generated > 0, and the ONLY missing
+#     artifact is the report (MT5 build 6184 does not write the [Tester] Report
+#     file). BLOCKED is EARNED from evidence, never inferred from the absence of
+#     an error, and it is NOT a pass — the gate still stops at stage 5.
+#   * FAIL_FIXTURE_TOO_SHORT — the fixture cannot provide both MT5's reserved
+#     warm-up history and a test window, so 0 bars are generated. Zero bars is
+#     insufficient data, a NAMED limitation distinct from the blocked
+#     environment — never a blocked case.
+#   * FAIL — anything else (a real crash, an unprovable state). Fail-closed.
+STAGE5_OUTCOME_OK = "OK"
+STAGE5_OUTCOME_BLOCKED_ENV = "BLOCKED_OWNER_ENVIRONMENT"
+STAGE5_OUTCOME_FIXTURE_TOO_SHORT = "FAIL_FIXTURE_TOO_SHORT"
+STAGE5_OUTCOME_FAIL = "FAIL"
+
+# "successfully finished" — the tester's own completion phrase (measured:
+# `last test passed with result "successfully finished"`).
+_TESTER_FINISHED_RE = re.compile(r"successfully finished", re.IGNORECASE)
+# "<N> ticks, <M> bars generated" — the per-symbol generation line (measured:
+# `EURUSD.G2,M1: 11520 ticks, 2880 bars generated.`).
+_BARS_GENERATED_RE = re.compile(
+    r"(\d+)\s+ticks?,\s*(\d+)\s+bars? generated", re.IGNORECASE)
+# MT5 reserving preceding history for warm-up (measured: `start time changed to
+# 2024.01.06 00:00 to provide data at beginning`).
+_WARMUP_RESERVE_RE = re.compile(
+    r"start time changed .*?to provide data at (?:the )?beginning",
+    re.IGNORECASE)
+
+
+def _matching_lines(text: str, *patterns: re.Pattern[str]) -> list[str]:
+    out: list[str] = []
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if line and any(p.search(line) for p in patterns):
+            out.append(line)
+    return out
+
+
+def classify_tester_leg_outcome(*, report_present: bool, journal_text: str,
+                                symbol: str | None = None,
+                                leg: str | None = None) -> dict:
+    """Classify a tester leg that produced no usable report from its log.
+
+    Returns ``{"outcome", "ok", "blocked", "bars_generated", "test_finished",
+    "evidence_lines", "reason", "leg"}``. ``ok`` is True ONLY for OK
+    (report present); BLOCKED and both FAILs are not-ok. The reason QUOTES the
+    tester-log lines the classification rests on so a reader can check it
+    without the terminal.
+    """
+    journal = journal_text or ""
+    finished = bool(_TESTER_FINISHED_RE.search(journal))
+    bars_lines = _matching_lines(journal, _BARS_GENERATED_RE)
+    bars_values = [int(m.group(2))
+                   for line in bars_lines
+                   for m in [_BARS_GENERATED_RE.search(line)] if m]
+    max_bars = max(bars_values) if bars_values else None
+    finished_lines = _matching_lines(journal, _TESTER_FINISHED_RE)
+    warmup_lines = _matching_lines(journal, _WARMUP_RESERVE_RE)
+
+    if report_present:
+        return {"outcome": STAGE5_OUTCOME_OK, "ok": True, "blocked": False,
+                "bars_generated": max_bars, "test_finished": finished,
+                "evidence_lines": [], "reason": "report present", "leg": leg}
+
+    # Zero bars is INSUFFICIENT DATA, not a blocked environment (DEFECT 4).
+    # Checked first: a leg with no test window can never be BLOCKED.
+    if max_bars is not None and max_bars == 0:
+        evidence = warmup_lines + [ln for ln in bars_lines if " 0 bars" in
+                                   (" " + ln.lower())]
+        if not evidence:
+            evidence = bars_lines
+        return {
+            "outcome": STAGE5_OUTCOME_FIXTURE_TOO_SHORT, "ok": False,
+            "blocked": False, "bars_generated": 0, "test_finished": finished,
+            "evidence_lines": evidence,
+            "reason": ("FAIL — fixture too short for the tester's warm-up "
+                       "requirement: MT5 reserved preceding history and "
+                       "generated 0 bars, leaving no test window. Zero bars is "
+                       "insufficient data, NOT a blocked environment. Tester "
+                       "log: " + " | ".join(evidence)),
+            "leg": leg}
+
+    # BLOCKED must be EARNED: the test completed, bars>0, only the report is
+    # missing (never inferred from the absence of an error).
+    if finished and max_bars is not None and max_bars > 0:
+        evidence = finished_lines + bars_lines
+        return {
+            "outcome": STAGE5_OUTCOME_BLOCKED_ENV, "ok": False, "blocked": True,
+            "bars_generated": max_bars, "test_finished": True,
+            "evidence_lines": evidence,
+            "reason": ("BLOCKED_OWNER_ENVIRONMENT — the tester log PROVES a "
+                       "clean run (successfully finished, bars generated > 0) "
+                       "yet MT5 wrote no [Tester] Report file: the ONLY missing "
+                       "artifact is the report (an owner-environment limitation "
+                       "of this MT5 build, never worked around). NOT a pass. "
+                       "Tester log: " + " | ".join(evidence)),
+            "leg": leg}
+
+    # Anything else: cannot PROVE blocked — fail closed.
+    proof = " | ".join(finished_lines + bars_lines) or \
+        "no 'successfully finished' or 'N bars generated' line in the tester log"
+    return {
+        "outcome": STAGE5_OUTCOME_FAIL, "ok": False, "blocked": False,
+        "bars_generated": max_bars, "test_finished": finished,
+        "evidence_lines": finished_lines + bars_lines,
+        "reason": ("FAIL — the tester log does not PROVE a clean completion "
+                   "with bars > 0 and only the report missing, so the leg "
+                   "cannot be classified BLOCKED (earned from evidence, never "
+                   "the absence of an error). Tester log: " + proof),
+        "leg": leg}
+
+
 def derive_tester_inputs(manifest_path: Path | str,
                          fixture_csv_path: Path | str) -> dict:
     """Derive the tester timeframe + period from the committed manifest and
@@ -1017,8 +1132,13 @@ __all__ = [
     "SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR",
     "SELF_PROTECT_HEAD_MISMATCH",
     "SELF_PROTECT_OK",
+    "STAGE5_OUTCOME_BLOCKED_ENV",
+    "STAGE5_OUTCOME_FAIL",
+    "STAGE5_OUTCOME_FIXTURE_TOO_SHORT",
+    "STAGE5_OUTCOME_OK",
     "broker_parity_scope",
     "classify_field",
+    "classify_tester_leg_outcome",
     "clone_target_status",
     "dataset_hash_of_csv",
     "decode_bom_aware",

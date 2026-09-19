@@ -9,6 +9,92 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-20 — Four measured MT5 build-6184 facts from gate_run17 (HEAD aac9fb9): the config-file Model enum, the empty [TesterInputs] leg, the un-written Report file, and gold1's warm-up-short fixture (STAGE 5 R5)
+
+This is the empirical record of MT5 behaviour this project paid for; it is
+kept in the repo so it survives, not only in a chat. All four facts were
+measured from the MT5 Strategy Tester logs of gate_run17.
+
+**DEFECT 1 — the Model enum was the GUI's, not the config file's.** In the
+`[Tester]` startup-config section the modelling values are:
+
+```
+0 Every tick | 1 1 minute OHLC | 2 Open prices only | 3 MATH CALCULATIONS
+  | 4 Every tick based on real ticks
+```
+
+For the two real-tick legs the gate sent `Model=3`, and the tester log shows:
+
+```
+Tester   mathematical calculations of Experts\Mql5Bot\Mql5Bot.ex5 to be started
+Core 1   math calculations test mode means no history and no symbol info for EURUSD.G1
+```
+
+`python/mql5bot/mt5tester.py` `MT5_MODEL_LABELS` had 3 and 4 wrong (the GUI
+dropdown order: 3 = "Every tick based on real ticks", 4 = "Real ticks"), so the
+two real-tick legs ran in math-calculations mode with no history and no symbol
+info at all. Every "some error after pass finished" line in the log is one of
+those legs. **Decision.** `MT5_MODEL_LABELS` now names the CONFIG-FILE enum
+(3 = "Math calculations", 4 = "Every tick based on real ticks"); the real-tick
+legs in `tools/owner_gate.ps1` request `m = 4`; `TesterConfig.validate` refuses
+`model == 3` outright ("math-calculations mode … carries no history"); and
+`certify.py`'s `MODEL_LADDER`, which shared the same GUI-enum mistake, drops the
+bogus rung to `(1, 0, 4)`. `owner_gate.py`'s reconciliation-side `MODEL_LABELS`
+is a separate evidence layer and is left unchanged.
+
+**DEFECT 2 — the EA ran on compiled-in defaults.** The rendered `tester.ini`
+had an EMPTY `[TesterInputs]` block, and the log confirms the EA started with
+`InpStrategy=0, InpFastEma=10, InpSlowEma=30` and `InpDslBundleFile=` (empty) —
+its compiled-in defaults, not the configured strategy. **Decision.** the gate
+renders `[TesterInputs]` from `EA_INPUT_DEFAULTS` merged with the leg's intended
+inputs (`run_mt5_backtest … --defaults`, passed for both `generate-ini` and
+`run`); `run` FAILS before launch if `[TesterInputs]` would be empty (a leg that
+silently tests the EA's defaults is worse than one that refuses); and the
+rendered `[TesterInputs]` is attached to the leg's evidence.
+
+**DEFECT 3 — MT5 build 6184 does not write the `[Tester]` Report file (an
+OWNER-ENVIRONMENT limitation, never worked around).** The gold2 M1 leg ran a
+complete, clean backtest:
+
+```
+Tester   quality of analyzed history is 100%
+Core 1   EURUSD.G2,M1: 11520 ticks, 2880 bars generated. Test passed in 0:00:03.561.
+Tester   last test passed with result "successfully finished" in 0:00:03.561
+```
+
+with `Report=<absolute path>`, `ShutdownTerminal=1`, `ReplaceReport=1` all
+correct, yet NO `.htm` was written anywhere (a disk-wide search over the user
+profile and the install directory found none). **Decision.** a new stage-5
+outcome `BLOCKED_OWNER_ENVIRONMENT`, EARNED only when the gate can PROVE from
+the tester log ALL of: the test reached "successfully finished", bars
+generated > 0, and the only missing artifact is the report. Anything else stays
+FAIL — BLOCKED is never inferred from the absence of an error. A BLOCKED leg is
+NOT a pass: the gate still stops at stage 5, stages 6-10 stay not-run, and
+`GATE_RESULT=tester_legs_blocked` distinguishes it from both PASS and FAIL. The
+stage-5 reason QUOTES the tester-log lines that justify the classification.
+
+**DEFECT 4 — gold1's fixture is too short for MT5's warm-up (a distinct named
+limitation, NOT a blocked environment).** MT5 reserves preceding history:
+
+```
+Core 1   EURUSD.G1: start time changed to 2024.01.06 00:00 to provide data at beginning
+Core 1   EURUSD.G1,H1: 0 ticks, 0 bars generated.
+```
+
+The 120-bar H1 fixture cannot provide both MT5's warm-up and a test window.
+**Decision.** this is its own stage-5 reason (`FAIL_FIXTURE_TOO_SHORT`,
+"fixture too short for the tester's warm-up requirement"), separate from
+DEFECT 3. gold1 legs stay FAIL, honestly: zero bars is insufficient data, not a
+blocked environment. The gold fixtures, manifests and dataset hashes are NOT
+changed — regenerating them is a separate decision the owner has not made.
+
+**Scope.** Python + tools + docs + tests only; `mql5/` (the compile-of-record),
+`artifacts/`, `evidence/`, `frozen_inputs.json`, `certification_manifest.json`,
+the gold fixtures and every manifest are untouched. No check was weakened; no
+FAIL became a PASS.
+
+---
+
 ## 2026-09-19 — The gate must grade THIS repo's mql5bot, not an installed copy: tools/ scripts pin `python/` and stage 0 asserts it, fail-closed (STAGE 5 R4)
 
 **Trigger.** gate_run16 (on HEAD c7aec19) produced per-leg outcome JSON whose

@@ -111,11 +111,20 @@ def add_config_args(parser: argparse.ArgumentParser, *, with_ea: bool = True) ->
                         help="report stem (default: deterministic auto id)")
     parser.add_argument("--input", dest="inputs", action="append", default=[],
                         metavar="KEY=VALUE", help="EA input override (repeatable)")
+    parser.add_argument("--defaults", action="store_true",
+                        help="seed [TesterInputs] from the EA's full default "
+                             "input set (EA_INPUT_DEFAULTS); --input wins")
 
 
 def config_from_args(args: argparse.Namespace,
                      known: set[str] | None = None) -> TesterConfig:
-    inputs = parse_kv_pairs(args.inputs)
+    # STAGE 5 R5, DEFECT 2: --defaults seeds the EA's full default input set so
+    # [TesterInputs] is populated with exactly the values the leg intends;
+    # --input overrides win. Without it (and without --input) the rendered
+    # [TesterInputs] is EMPTY and MT5 silently runs the EA's compiled-in
+    # defaults — the leg no longer tests the strategy it meant to.
+    inputs = dict(EA_INPUT_DEFAULTS) if getattr(args, "defaults", False) else {}
+    inputs.update(parse_kv_pairs(args.inputs))
     validate_inputs(inputs, known=known)
     cfg = TesterConfig(ea=args.ea, symbol=args.symbol, timeframe=args.timeframe,
                        model=args.model, date_from=args.date_from,
@@ -210,6 +219,16 @@ def _job_config(defaults: dict, job: dict) -> TesterConfig:
 
 def cmd_run(args: argparse.Namespace) -> int:
     cfg = config_from_args(args)
+    # STAGE 5 R5, DEFECT 2: FAIL before launching if [TesterInputs] would be
+    # empty. A leg that silently tests the EA's compiled-in defaults instead of
+    # the configured strategy is worse than a leg that refuses — refuse here,
+    # naming the fix, so the terminal is never launched with a blank input set.
+    if not cfg.inputs:
+        raise ValueError(
+            "refusing to launch a tester leg with an EMPTY [TesterInputs]: it "
+            "would silently test the EA's compiled-in defaults instead of the "
+            "configured strategy. Pass --defaults (EA_INPUT_DEFAULTS) and/or "
+            "--input KEY=VALUE so the leg states exactly which inputs it sends")
     settings = RunSettings(terminal_dir=args.terminal_dir,
                            data_folder=args.data_folder,
                            out_dir=args.out_dir, timeout_s=args.timeout)

@@ -4,7 +4,11 @@ The only path that may call a result VERIFIED: a ladder of data grades
 on the SAME EA and SAME terminal, regime by regime:
 
     M1 OHLC  (tester model 1)  ->  Every tick (model 0)
-        ->  Every tick based on real ticks (model 3)  ->  Real ticks (model 4)
+        ->  Every tick based on real ticks (model 4)
+
+(STAGE 5 R5, DEFECT 1: the config-file ``[Tester] Model=`` enum has 3 =
+math calculations — NO history — and 4 = every tick based on real ticks.
+The ladder never requests 3; the top tick grade is model 4.)
 
 plus a canonical Python TRUTH-engine M1-OHLC leg as an independent
 cross-check of the same (strategy, params) manifest binding.
@@ -53,7 +57,10 @@ REGIMES: tuple[tuple[str, str, str], ...] = (
 
 # tester model ladder: 1 = 1 minute OHLC, 0 = every tick,
 # 3 = every tick based on real ticks, 4 = real ticks
-MODEL_LADDER: tuple[int, ...] = (1, 0, 3, 4)
+# STAGE 5 R5, DEFECT 1: config-file Model=3 is math-calculations (no history),
+# NOT a tick grade. The ladder is M1-OHLC baseline (1) -> Every tick (0) ->
+# Every tick based on real ticks (4); it never requests 3.
+MODEL_LADDER: tuple[int, ...] = (1, 0, 4)
 
 # Execution-surface contract (FINAL REALITY-GATE §13): the MQL5 EA
 # executes exactly the strategy ids of its five-member enum

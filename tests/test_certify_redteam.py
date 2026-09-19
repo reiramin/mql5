@@ -159,9 +159,13 @@ def test_real_tick_coverage_vocabulary_is_closed():
 def test_model_ladder_distinguishes_every_tick_from_real_ticks():
     # §20 — the two tick grades are different modelling paths, and both
     # sit ABOVE the M1-OHLC baseline in the strict ladder.
+    # STAGE 5 R5, DEFECT 1: the config-file Model= enum has 3 = math
+    # calculations (no history) and 4 = every tick based on real ticks; the
+    # ladder never requests 3.
     assert MT5_MODEL_LABELS[0] == "Every tick"
-    assert MT5_MODEL_LABELS[3] == "Every tick based on real ticks"
-    assert certify.MODEL_LADDER == (1, 0, 3, 4)
+    assert MT5_MODEL_LABELS[3] == "Math calculations"
+    assert MT5_MODEL_LABELS[4] == "Every tick based on real ticks"
+    assert certify.MODEL_LADDER == (1, 0, 4)
 
 
 def test_report_data_shape_is_hashable_evidence_container():

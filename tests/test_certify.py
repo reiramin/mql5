@@ -179,8 +179,9 @@ def test_run_certification_verified_with_runner():
     assert report["verdict"]["status"] == VERIFIED
     assert report["verdict"]["reasons"] == []
     assert len(report["legs"]) == len(REGIMES) * len(MODEL_LADDER)
-    # degradation vs the M1-OHLC baseline per regime (3 tick grades each)
-    assert len(report["degradation"]) == len(REGIMES) * 3
+    # degradation vs the M1-OHLC baseline per regime (2 tick grades each:
+    # Every tick + Every tick based on real ticks; STAGE 5 R5 dropped model 3)
+    assert len(report["degradation"]) == len(REGIMES) * 2
     for d in report["degradation"]:
         assert d["net_profit"]["degradation_pct"] == pytest.approx(-30.0)
         # -30% sits exactly on the expected 30-50% band edge
@@ -201,8 +202,10 @@ def test_run_certification_failed_leg_blocks_verified():
     # degraded legs are still reported explicitly, even on a failed run
     assert any(d["net_profit"]["degradation_pct"] == pytest.approx(-10.0)
                for d in report["degradation"])
-    # the failed 2022 real-tick leg has no degradation row (never ran)
-    assert not any(d["regime"] == "bear_2022" and "Real ticks" in d["leg"]
+    # the failed 2022 real-tick leg has no degradation row (never ran). The
+    # model-4 leg is tagged "mt5-Every tick based on real ticks" (STAGE 5 R5).
+    assert not any(d["regime"] == "bear_2022"
+                   and "based on real ticks" in d["leg"]
                    for d in report["degradation"])
 
 

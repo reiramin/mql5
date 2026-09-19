@@ -107,9 +107,22 @@ def test_tester_config_defaults_valid():
     assert cfg.model in MT5_MODEL_LABELS
 
 
+def test_model_labels_are_the_config_file_enum():
+    # STAGE 5 R5, DEFECT 1: MT5_MODEL_LABELS is the [Tester] Model= config-file
+    # enum (what terminal64.exe reads), NOT the GUI dropdown order. Measured from
+    # the MT5 build-6184 startup-config log: 3 = math calculations (no history),
+    # 4 = every tick based on real ticks.
+    assert MT5_MODEL_LABELS == {
+        0: "Every tick", 1: "1 minute OHLC", 2: "Open prices only",
+        3: "Math calculations", 4: "Every tick based on real ticks"}
+
+
 @pytest.mark.parametrize("field,value,match", [
     ("timeframe", "H2", "timeframe"),
     ("model", 9, "model"),
+    # STAGE 5 R5, DEFECT 1: config-file Model=3 is math-calculations mode (no
+    # history); a data-driven leg must never request it.
+    ("model", 3, "math-calculations"),
     ("date_from", "2024/01/01", "YYYY.MM.DD"),
     ("date_from", "2025.01.01", "after"),  # later than the default date_to
     ("deposit", 0.0, "deposit"),
