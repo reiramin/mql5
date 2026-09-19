@@ -9,6 +9,66 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-19 — Custom-symbol currencies are inferred from the NAME; a SetString can report success without taking effect; name the symbol XXXYYY+suffix (STAGE 4 R7)
+
+**Trigger.** gate_run9: 13 properties (incl. the whole volume family, R6)
+set OK, then `verify_properties` refused. The read-back named the cause:
+`SYMBOL_CURRENCY_PROFIT` expected `USD` read back `D1_`; `SYMBOL_CURRENCY_BASE`
+expected `EUR` read back `GOL`. `GOL` and `D1_` are the first and second
+three-character chunks of the symbol name `GOLD1_EURUSD`. The
+`CustomSymbolSetString` calls had returned `ok=true`, `last_error=0` but did
+not take effect. (`SYMBOL_CURRENCY_MARGIN` was NOT in the divergence list —
+verify records every divergence without short-circuit — so margin stuck
+correctly at `EUR`; only base/profit were overridden.)
+
+**What the MQL5 documentation says (looked up, not assumed).**
+
+- MQL5 book, "Custom symbol properties"
+  (`book/advanced/custom_symbols/custom_symbols_properties`): "Immediately
+  after the creation of an 'empty' symbol, it is by default considered a
+  Forex symbol, and therefore these [currency] properties cannot be set for
+  it without first changing the market." "If you do not change
+  `SYMBOL_TRADE_CALC_MODE` to another required mode in advance, substrings of
+  the specified symbol name (the first and second triple of symbols) will
+  automatically fall into the properties of the base currency
+  (`SYMBOL_CURRENCY_BASE`) and profit currency (`SYMBOL_CURRENCY_PROFIT`).
+  For example, if you specify the name 'Dummy', it will be split into 2
+  pseudo-currencies 'Dum' and 'my'." Forex symbols follow "the form XXXYYY
+  (where XXX and YYY are currency codes) plus an optional suffix."
+- `CustomSymbolSetString` (`docs/customsymbols/customsymbolsetstring`) does
+  not warn about this and the call returns `true` — matching gate_run9,
+  where the set reported success while the value was silently overridden.
+
+Conclusion: **MT5 infers a custom symbol's base/profit currencies from the
+name in the default Forex calc mode, and `CustomSymbolSetString` for those
+properties can return success without taking effect.**
+
+**Decision.** Take the simplest fix that survives the docs and keeps the
+symbol a genuine Forex instrument: NAME each gold in the documented
+XXXYYY+suffix Forex form so MT5's own inference is correct by construction.
+`GOLD1_EURUSD`/`GOLD2_EURUSD` → `EURUSD.G1`/`EURUSD.G2` (first six chars
+`EURUSD` → base `EUR`, profit `USD`; the `.G1`/`.G2` suffix keeps each unique
+and non-colliding with the broker's own `EURUSD`, and is valid per MT5's
+name rule of Latin letters/digits and only `. _ & #`, ≤31 chars). Changing
+`SYMBOL_TRADE_CALC_MODE` to a non-Forex mode WOULD let SetString stick, but
+EURUSD genuinely IS Forex, so that would corrupt the margin/profit
+calculation — rejected.
+
+The importer keeps the currency `CustomSymbolSetString` calls (harmless for a
+Forex symbol, honoured on a non-Forex one) but treats them as non-
+authoritative: correctness for base/profit comes from the NAME and is PROVEN
+by the existing `verify_properties` read-back, never assumed. The read-back
+was NOT weakened — it is what caught this. Every prior guarantee holds:
+per-property success check, named failure, full read-back, fail-closed.
+
+**Threaded consistently.** `tools/owner_gate.ps1` (`$golds`, `$symbolByGold`),
+the importer default `InpSymbolName`, the `*.set` preset value, the
+`InpOutFile`/result/evidence filenames (all derived from `$g.name`), and a
+new regression test (`test_r7_symbol_names_are_forex_xxxyyy_form_for_currency_inference`).
+Manifest `broker_spec.name` was already `EURUSD` (metadata; the importer
+takes the symbol only from `InpSymbolName`). See the R5 tick-value entry
+below for the sibling "set-call rejected/ignored" pattern.
+
 ## 2026-09-19 — Custom-symbol tick values: MT5 will not store them; certify by derived-equality read-back, refuse on divergence (STAGE 4 R5)
 
 **Trigger.** gate_run7: `CustomSymbolSetDouble(SYMBOL_TRADE_TICK_VALUE_PROFIT

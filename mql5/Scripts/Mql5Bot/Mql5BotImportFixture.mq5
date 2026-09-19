@@ -26,15 +26,29 @@
 //|  behaves identically no matter which chart it is dropped on (the   |
 //|  owner gate runs it from a BTC,H1 chart).                         |
 //|                                                                  |
-//|  SYMBOL NAME (GOLD_EURUSD): MT5 restricts custom-symbol names to   |
+//|  SYMBOL NAME (EURUSD.G1): MT5 restricts custom-symbol names to     |
 //|  Latin letters/digits and the punctuation ". _ & #" only, <=32    |
-//|  chars incl. the terminating 0. "GOLD_EURUSD" (11 chars, letters   |
-//|  + "_") satisfies this. The script validates the name and REFUSES  |
-//|  before creating anything if it does not. The custom-symbol path   |
-//|  is InpSymbolGroup ("Mql5Bot\\gold"), which places it under        |
-//|  Custom\Mql5Bot\gold and cannot collide with a broker symbol; if  |
-//|  a NON-custom (broker) symbol of the same name already exists the  |
-//|  script REFUSES rather than shadow it.                            |
+//|  chars incl. the terminating 0. "EURUSD.G1" (9 chars) satisfies    |
+//|  this. The script validates the name and REFUSES before creating   |
+//|  anything if it does not. The custom-symbol path is InpSymbolGroup |
+//|  ("Mql5Bot\\gold"), placing it under Custom\Mql5Bot\gold; it       |
+//|  cannot collide with the broker's own "EURUSD" (different name),   |
+//|  and if a NON-custom (broker) symbol of the same name already      |
+//|  exists the script REFUSES rather than shadow it.                 |
+//|                                                                  |
+//|  WHY "EURUSD.G1" AND NOT "GOLD1_EURUSD" (R7, gate_run9): a custom  |
+//|  symbol is Forex by default, and in Forex calc mode MT5 DERIVES   |
+//|  the base and profit currencies from the first/second three-char  |
+//|  chunks of the NAME (MQL5 book, "Custom symbol properties":       |
+//|  name "Dummy" -> pseudo-currencies "Dum"+"my"). "GOLD1_EURUSD"     |
+//|  derived base "GOL"/profit "D1_", which failed verify_properties   |
+//|  even though CustomSymbolSetString returned ok=true (last_error 0):|
+//|  in Forex mode base/profit currencies "cannot be set" and the set  |
+//|  call reports success WITHOUT taking effect. The documented Forex   |
+//|  naming form is XXXYYY + optional suffix, so "EURUSD.G1" makes     |
+//|  MT5's own inference correct by construction: base "EUR", profit    |
+//|  "USD". Margin currency IS settable and is set + read-back as      |
+//|  before. See docs/DECISIONS.md 2026-09-19 (R7).                    |
 //|                                                                  |
 //|  MT5 NAME/PATH RULE (documented + enforced): custom-symbol names   |
 //|  are unique across the ENTIRE symbol hierarchy, so SymbolExist is  |
@@ -162,7 +176,7 @@
 input string InpFixtureCsv  = "Mql5Bot\\gold_import\\gold_fixture.csv"; // fixture CSV (under MQL5\Files)
 input string InpManifest    = "Mql5Bot\\gold_import\\manifest.json";    // gold manifest (broker_spec + dataset_hash)
 input string InpSymbolSpec  = "Mql5Bot\\broker_exports\\EURUSD.json";   // stage-3 SymbolSpec export
-input string InpSymbolName  = "GOLD_EURUSD";                             // custom symbol to create/update
+input string InpSymbolName  = "EURUSD.G1";                               // custom symbol (XXXYYY+suffix so Forex currency inference is correct)
 input string InpSymbolGroup = "Mql5Bot\\gold";                          // custom-symbol group
 input string InpOutDir      = "Mql5Bot\\gold_import_out";               // result JSON dir (fallback only)
 input string InpOutFile     = "";                                       // EXACT result JSON path the gate passes (under MQL5\Files); empty => InpOutDir\<symbol>.json
@@ -851,6 +865,15 @@ void OnStart()
                      (long)stopsLevel, "manifest.broker_spec.stops_level_points");
    sok = sok && SetI(sym, SYMBOL_TRADE_FREEZE_LEVEL, "SYMBOL_TRADE_FREEZE_LEVEL",
                      (long)freezeLevel, "manifest.broker_spec.freeze_level_points");
+   // CURRENCY PROPERTIES (R7): a Forex-mode custom symbol DERIVES base and
+   // profit currencies from the name (first/second three-char chunks). These
+   // two SetString calls therefore return ok=true WITHOUT taking effect -- MT5
+   // overrides them with the name inference. They are kept for generality (a
+   // non-Forex symbol WOULD honour them) and cause no failure (they return
+   // ok), but correctness for base/profit comes from the XXXYYY+suffix NAME
+   // (EURUSD.G1 -> EUR/USD) and is PROVEN by the read-back in
+   // verify_properties, never assumed. Margin currency IS settable and this
+   // call sticks. Read-back is the authoritative guarantee for all three.
    sok = sok && SetS(sym, SYMBOL_CURRENCY_PROFIT, "SYMBOL_CURRENCY_PROFIT",
                      ccyProfit, "manifest.broker_spec.currency_profit");
    sok = sok && SetS(sym, SYMBOL_CURRENCY_BASE, "SYMBOL_CURRENCY_BASE",

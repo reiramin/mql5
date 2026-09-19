@@ -797,6 +797,30 @@ def test_importer_enforces_the_name_path_pair_rule():
     assert "unique across the ENTIRE symbol hierarchy" in src
 
 
+def test_r7_symbol_names_are_forex_xxxyyy_form_for_currency_inference():
+    """R7 (gate_run9): a Forex-mode custom symbol derives base/profit currency
+    from the first/second three-char chunks of the NAME, and
+    CustomSymbolSetString reports success without taking effect for them. The
+    fix is to NAME each gold in XXXYYY+suffix Forex form so MT5's own inference
+    yields EUR/USD. Lock that the gate configures such names and that the old
+    GOLD*_EURUSD names (which derived base 'GOL'/profit 'D1_') are gone."""
+    ps1 = _ps1()
+    # both golds and the reconciliation map use EURUSD.G1 / EURUSD.G2
+    for name in ("EURUSD.G1", "EURUSD.G2"):
+        assert name in ps1, f"gate must configure {name}"
+        # first six characters are the currency pair -> base EUR, profit USD
+        assert name[:6] == "EURUSD"
+    # the broken pre-R7 names must not survive as configured VALUES (they may
+    # still be named in comments that explain the fix)
+    assert '= "GOLD1_EURUSD"' not in ps1 and '= "GOLD2_EURUSD"' not in ps1
+    assert 'name = "GOLD' not in ps1
+    # the importer default and docs reflect the same Forex-inference reasoning
+    src = _importer()
+    assert 'InpSymbolName  = "EURUSD.G1"' in src
+    assert "cannot be set" in src and "taking effect" in src
+    assert "first/second three-char chunks" in src
+
+
 # ---------------------------------------------------------------------------
 # stage 4 -- import diagnostic classifier (the err=5306 blind-spot mirror).
 # The importer cannot run on Mac (no MT5); its refusal-record contract is
@@ -1220,7 +1244,7 @@ def test_stage4_outcome_decide_cli_folds_excerpt_head_into_message(tmp_path: Pat
 # validation of the STAGED preset BEFORE the terminal is ever launched.
 # ---------------------------------------------------------------------------
 
-def _intended_preset(name: str = "GOLD1_EURUSD") -> dict:
+def _intended_preset(name: str = "EURUSD.G1") -> dict:
     """The exact key=value pairs the gate intends to deliver for a gold."""
     return {
         "InpFixtureCsv": "Mql5Bot\\gold_import\\gold_fixture.csv",
@@ -1276,7 +1300,7 @@ def test_preset_lines_built_for_gold1_are_nonempty_and_single_line():
     non-empty single-line value. FAILED against the pre-R4 construction
     (`"InpSymbolName=" + $g.name,`): InpSymbolName= and InpOutFile= arrived
     EMPTY with their values on the following lines."""
-    lines = _build_preset_lines_from_ps1("GOLD1_EURUSD")
+    lines = _build_preset_lines_from_ps1("EURUSD.G1")
     v = gs.validate_preset("\r\n".join(lines) + "\r\n", _intended_preset())
     assert v["ok"], v["reasons"]
 

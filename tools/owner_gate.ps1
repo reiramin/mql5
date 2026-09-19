@@ -427,9 +427,18 @@ if (-not $SymbolSpecExport) {
 Enter-Stage 4 "fixture_import"
 $stage4ok = $true
 $stage4art = New-Object System.Collections.ArrayList
+# SYMBOL NAMES (R7, gate_run9): both golds are EURUSD fixtures. A custom
+# symbol is Forex by default, and in Forex calc mode MT5 DERIVES the base and
+# profit currencies from the first/second three-character chunks of the NAME
+# (MQL5 book, "Custom symbol properties"): "GOLD1_EURUSD" -> base "GOL",
+# profit "D1_", which broke verify_properties even though CustomSymbolSetString
+# returned ok. The names are therefore the documented XXXYYY+suffix Forex form
+# so MT5's own inference yields EUR/USD: "EURUSD.G1" -> base "EUR", profit
+# "USD". The ".G1"/".G2" suffix keeps each unique and non-colliding with the
+# broker's own "EURUSD". See docs/DECISIONS.md 2026-09-19 (R7).
 $golds = @(
-    @{ name = "GOLD1_EURUSD"; fixture = "artifacts\gold\gold_fixture.csv";   manifest = "artifacts\gold\manifest.json" },
-    @{ name = "GOLD2_EURUSD"; fixture = "artifacts\gold_2\gold2_fixture.csv"; manifest = "artifacts\gold_2\manifest.json" }
+    @{ name = "EURUSD.G1"; fixture = "artifacts\gold\gold_fixture.csv";   manifest = "artifacts\gold\manifest.json" },
+    @{ name = "EURUSD.G2"; fixture = "artifacts\gold_2\gold2_fixture.csv"; manifest = "artifacts\gold_2\manifest.json" }
 )
 $filesImport = Join-Path $DataFolder "MQL5\Files\Mql5Bot\gold_import"
 $importOut = Join-Path $DataFolder "MQL5\Files\Mql5Bot\gold_import_out"
@@ -447,7 +456,7 @@ foreach ($g in $golds) {
     }
     # The gate tells the importer WHICH gold it is and EXACTLY where to write
     # its JSON via a *.set preset -- never the script's compiled-in default
-    # (that default is GOLD_EURUSD and would collide across the two golds and
+    # (that default is EURUSD.G1 and would collide across the two golds and
     # write to a path the gate is not watching). $outRel is the ONE path the
     # importer writes and the gate reads back.
     $outRel = "Mql5Bot\gold_import_out\" + $g.name + ".json"
@@ -604,7 +613,7 @@ $legs = @(
 $legArt = New-Object System.Collections.ArrayList
 $legReasons = New-Object System.Collections.ArrayList
 $legOk = $true
-$symbolByGold = @{ gold1 = "GOLD1_EURUSD"; gold2 = "GOLD2_EURUSD" }
+$symbolByGold = @{ gold1 = "EURUSD.G1"; gold2 = "EURUSD.G2" }
 $tfByGold = @{ gold1 = "H1"; gold2 = "M1" }
 foreach ($leg in $legs) {
     $sym = $symbolByGold[$leg.gold]
