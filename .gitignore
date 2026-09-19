@@ -8,6 +8,11 @@ __pycache__/
 dist/
 build/
 
+# Secrets: the Telegram bot token / chat id are ENV-only and must never be
+# committed. A local .env used to export them stays untracked.
+.env
+.env.*
+
 # Generated data / results (root-level only — committed test fixtures
 # like tests/data/real/ must NOT be ignored: a fresh clone has to pass)
 /data/
