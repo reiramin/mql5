@@ -66,12 +66,24 @@
 //|     A stale prior custom symbol is detected (SymbolExist w/        |
 //|     is_custom) and recreated deterministically.                   |
 //|   - VALUE: a property value from the SymbolSpec/manifest may be    |
-//|     out of the range MT5 accepts (5308). Properties are set ONE    |
+//|     out of the range MT5 accepts (5308 ERR_CUSTOM_SYMBOL_PARAMETER_|
+//|     ERROR, "a wrong parameter while setting the property"; NOT     |
+//|     5307, which is a read-only PROPERTY). Properties are set ONE   |
 //|     AT A TIME; the return of EACH call is checked and, on failure, |
 //|     the diagnostic names the property, its enum, its value, its    |
 //|     source field and _LastError. A property is never silently      |
 //|     skipped -- a skipped property means the symbol is not the      |
 //|     certified one, so any failure REFUSES.                        |
+//|   - VALUE ORDERING (5308, gate_run8): a fresh custom symbol starts |
+//|     with volume_min/max/step all 0, so setting SYMBOL_VOLUME_MIN   |
+//|     (0.01) BEFORE max/step is an inconsistent intermediate state   |
+//|     (min>max=0, min not a multiple of step=0) that MT5 rejects     |
+//|     with 5308. The docs give no ordering rule, so the volume       |
+//|     family is written MAX -> STEP -> MIN -> LIMIT: MIN is only     |
+//|     ever validated against the REAL broker ceiling and grid, and   |
+//|     every intermediate symbol state stays internally consistent.   |
+//|     More generally every property is ordered so no partially-set   |
+//|     symbol is ever internally inconsistent.                       |
 //|                                                                  |
 //|  TICK-VALUE ECONOMICS (err=5307 ERR_CUSTOM_SYMBOL_PROPERTY_WRONG): |
 //|  gate_run7 measured CustomSymbolSetDouble REFUSING                 |
@@ -815,12 +827,24 @@ void OnStart()
    sok = sok && SetD(sym, SYMBOL_TRADE_CONTRACT_SIZE,
                      "SYMBOL_TRADE_CONTRACT_SIZE", contractSize,
                      "manifest.broker_spec.contract_size");
-   sok = sok && SetD(sym, SYMBOL_VOLUME_MIN, "SYMBOL_VOLUME_MIN", volMin,
-                     "manifest.broker_spec.volume_min");
+   // VOLUME FAMILY ORDERING (err=5308 ERR_CUSTOM_SYMBOL_PARAMETER_ERROR,
+   // gate_run8): a freshly created custom symbol starts with volume_min=0,
+   // volume_max=0, volume_step=0. Setting SYMBOL_VOLUME_MIN=0.01 FIRST is an
+   // internally inconsistent intermediate state (min > max=0, and min is not a
+   // multiple of step=0), which CustomSymbolSetDouble rejects with 5308 -- "a
+   // wrong parameter while setting the property" (5307 would mean a read-only
+   // PROPERTY; 5308 means the VALUE, so volume_min IS settable, its value was
+   // refused). The MQL5 docs give no ordering rule, so we impose one that keeps
+   // EVERY intermediate state consistent: set the ceiling (MAX) and the grid
+   // (STEP) BEFORE the floor (MIN), so MIN is only ever validated against the
+   // real broker max and step (min<=max, min a multiple of step). LIMIT
+   // (aggregate cap, 0=none) is set last, after the [min,max] band exists.
    sok = sok && SetD(sym, SYMBOL_VOLUME_MAX, "SYMBOL_VOLUME_MAX", volMax,
                      "manifest.broker_spec.volume_max");
    sok = sok && SetD(sym, SYMBOL_VOLUME_STEP, "SYMBOL_VOLUME_STEP", volStep,
                      "manifest.broker_spec.volume_step");
+   sok = sok && SetD(sym, SYMBOL_VOLUME_MIN, "SYMBOL_VOLUME_MIN", volMin,
+                     "manifest.broker_spec.volume_min");
    sok = sok && SetD(sym, SYMBOL_VOLUME_LIMIT, "SYMBOL_VOLUME_LIMIT", volLimit,
                      "manifest.broker_spec.volume_limit");
    sok = sok && SetI(sym, SYMBOL_TRADE_STOPS_LEVEL, "SYMBOL_TRADE_STOPS_LEVEL",
@@ -885,9 +909,11 @@ void OnStart()
               tickValProfit) && vok;
    vok = VerD(sym, SYMBOL_TRADE_CONTRACT_SIZE, "SYMBOL_TRADE_CONTRACT_SIZE",
               contractSize) && vok;
-   vok = VerD(sym, SYMBOL_VOLUME_MIN, "SYMBOL_VOLUME_MIN", volMin) && vok;
+   // read back the volume family in the same MAX->STEP->MIN->LIMIT order it
+   // was set, so the verified_properties evidence array mirrors the writes
    vok = VerD(sym, SYMBOL_VOLUME_MAX, "SYMBOL_VOLUME_MAX", volMax) && vok;
    vok = VerD(sym, SYMBOL_VOLUME_STEP, "SYMBOL_VOLUME_STEP", volStep) && vok;
+   vok = VerD(sym, SYMBOL_VOLUME_MIN, "SYMBOL_VOLUME_MIN", volMin) && vok;
    vok = VerD(sym, SYMBOL_VOLUME_LIMIT, "SYMBOL_VOLUME_LIMIT", volLimit) && vok;
    vok = VerI(sym, SYMBOL_TRADE_STOPS_LEVEL, "SYMBOL_TRADE_STOPS_LEVEL",
               (long)stopsLevel) && vok;

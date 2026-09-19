@@ -13,7 +13,11 @@ One codebase, two layers that stay in lockstep:
 | **Expert Advisor** | MQL5 | `mql5/` | Executes trades in MetaTrader 5 (owner environment) |
 | **Quant toolkit + certification** | Python | `python/mql5bot/` | Research, backtesting, gold-standard parity, owner-evidence verification |
 
-> **Read this first if you are new:** [docs/INSTALLATION.md](docs/INSTALLATION.md)
+> **Start here:** [docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md) — the
+> plain-language delivery note: what is proven (with artifact hashes),
+> what has never been proven, and the checklist before any real account.
+>
+> **Then, if you are new:** [docs/INSTALLATION.md](docs/INSTALLATION.md)
 > (setup), [docs/USER_GUIDE.md](docs/USER_GUIDE.md) (how the system
 > works), [docs/MT5_SETUP_AND_OPERATION.md](docs/MT5_SETUP_AND_OPERATION.md)
 > (owner runbook), [docs/README.md](docs/README.md) (documentation map).
