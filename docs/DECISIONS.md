@@ -9,6 +9,96 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-19 — A re-run must not need Market Watch at all: verify-first adoption, and the asynchronous ChartClose is never assumed done (STAGE 4 R10)
+
+**Trigger.** gate_run13 (on 96125a0): stage 4 refused at `symbol_state` with
+last_error **4305** — "cannot adopt the surviving custom symbol EURUSD.G1:
+SymbolSelect(false) failed (last_error=4305) after 0 delete attempt(s)".
+4305 is **ERR_MARKET_SELECT_ERROR** — "error adding or deleting a symbol in
+Market Watch". The failing call was the DESELECT itself, with zero delete
+attempts made: the R9 chart-close loop found nothing left to block on, and
+the deselect still failed.
+
+**Root cause 1 — ChartClose is asynchronous.** `ChartClose` queues a close
+command and returns; the chart is NOT gone when the call returns. The R9
+drop closed charts and then immediately called `SymbolSelect(sym,false)`
+while MT5 still considered the symbol in use. R9 had added a bounded retry
+around the DELETE but none around the DESELECT, so the very first deselect
+failure was fatal — the same async class of defect as the delete retry R9
+already fixed.
+
+**Root cause 2 — the design wrote properties it did not need to write.** On
+a re-run the surviving symbol was configured by the previous run from the
+SAME manifest, so every property already holds the correct value. Property
+WRITES are the ONLY thing that requires a deselected symbol (the 5306 rule).
+Rewriting values that are already correct is what MANUFACTURED the deselect
+requirement — and the deselect is what failed. Bars never need it:
+`CustomRatesDelete`/`CustomRatesUpdate` work on a SELECTED custom symbol
+(the normal live-feed path for custom symbols).
+
+**Decision (verify-first symbol-state contract; supersedes the R9 drop-first
+three-outcome contract).**
+
+1. **Verify-first adoption.** Before touching anything, every settable
+   property of a custom survivor is read back and compared to the manifest
+   spec with the exact semantics of the final `verify_properties` stage
+   (doubles at the pipeline's own `%.10f` precision; the R8 CALCULATED tick
+   values excluded — not settable (5307), they must never force a rewrite).
+   An empty difference list means **`adopted_verified`**: ZERO property
+   writes, NO deselect, Market Watch untouched — the steady-state re-run
+   needs nothing from Market Watch, and the design principle is that it must
+   not: the properties are already correct, **verified, not assumed**. A
+   non-empty list means a deselect is genuinely required; only then does the
+   hardened release run, and the re-apply goes through the SAME shared
+   `ApplySymbolProperties` sequence a fresh create uses (never a second
+   partial writer) — **`adopted_reapplied`** with
+   `adopt_properties_rewritten: N` (the count that differed).
+2. **Bars are replaced and re-proven on every adopt.**
+   `CustomRatesDelete(sym, 0, LONG_MAX)`, zero-bar VERIFY, rewrite from the
+   fixture, then the UNCHANGED round-trip dataset-hash check against the
+   manifest `dataset_hash` — that hash is what earns the PASS.
+3. **The release sequence never assumes the close happened.** When a
+   deselect IS required: close any OTHER chart on the symbol, then POLL
+   until no chart displays it (bounded ≤10 iterations, `Sleep(300)`
+   between — ChartClose is asynchronous), then retry
+   `SymbolSelect(sym,false)` in its OWN bounded retry (≤5, `Sleep(300)`
+   between), return value and `_LastError` checked each time, the LAST
+   failure reported.
+4. **The script's own chart is never touched.** `ChartSetSymbolPeriod` on
+   the chart a script is running on TERMINATES that script — it would kill
+   the importer mid-run and produce no JSON at all, which is worse than a
+   clean refusal. It is never attempted (stated in-source). If the own chart
+   displays the symbol, the verify-first path usually needs no release at
+   all; if a release is required and impossible, the refusal is honest and
+   names the operator remediation ("close any chart on <sym> in the
+   terminal, then re-run the gate").
+5. **symbol_state is earned, never aspired to.** gate_run13's refused record
+   carried `"symbol_state":"adopted_existing"` although no adoption had
+   occurred — the state was set before the path was proven. The field is now
+   set ONLY when the named path actually completed:
+   `"created_fresh"` (after `CustomSymbolCreate` succeeded) /
+   `"adopted_verified"` (survivor reused, zero property writes) /
+   `"adopted_reapplied"` (survivor reused, N properties rewritten), plus
+   `adopt_properties_rewritten` on the adopt paths; until a path completes
+   the record says `"unresolved"`. A refusal reports the state it was in
+   when it refused.
+
+`DropCustomSymbolChecked` remains (hardened through the same release helper)
+but is CLEANUP-ONLY after a post-create refusal; the pre-create path never
+drops a survivor any more. No gate inputs changed — the .set presets are
+untouched; every exit path still writes the JSON.
+
+Regression tests: `tests/test_owner_gate_ps1.py` (R10 section: release
+closes only foreign charts and never issues ChartSetSymbolPeriod, bounded
+chart-close poll, bounded deselect retry reporting the last failure,
+cleanup-only drop, three bounded `Sleep(300)` calls only in release+drop,
+verify-first precheck mirroring `ApplySymbolProperties` with the CALCULATED
+tick values excluded, unchanged round-trip check, 4305 named in the
+undeselectable refusal, earned symbol_state ordering, header contract) and
+`tests/test_mql5_sources.py` S3 (Sleep stays banned in Experts/+Include/;
+the importer's three bounded `Sleep(300)` calls are the only script
+exception).
+
 ## 2026-09-19 — A symbol left SELECTED by a prior SUCCESSFUL run survives deletion; stage 4 adopts it in place instead of refusing (STAGE 4 R9)
 
 **Trigger.** gate_run12 (on 10ec10a): stage 4 refused at `symbol_state` with

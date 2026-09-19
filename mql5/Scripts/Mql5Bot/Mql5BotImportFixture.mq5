@@ -58,56 +58,86 @@
 //|  REFUSES when the last element of InpSymbolGroup equals             |
 //|  InpSymbolName (an ambiguous name/group pair) before creating.     |
 //|                                                                  |
-//|  IDEMPOTENCY -- THREE-OUTCOME SYMBOL-STATE CONTRACT (R9; errs 5304  |
-//|  ERR_CUSTOM_SYMBOL_EXIST / 5306 selected-state): a prior run can    |
-//|  leave the custom symbol behind. A FAILED run leaves it deselected; |
-//|  a SUCCESSFUL run deliberately ENDS with SymbolSelect(sym,true) so  |
-//|  the tester can see it -- and THAT selection is what strands the    |
-//|  symbol for the next run (gate_run12): MT5 releases a symbol        |
-//|  asynchronously and not at all while a chart shows it, so the       |
-//|  delete fails with 5306. The symbol STATE is resolved fail-closed   |
-//|  BEFORE creating, with exactly three outcomes:                     |
-//|   1. DELETED-AND-RECREATED: close any OTHER chart on the symbol    |
-//|      (never the script's own), deselect with the return CHECKED,   |
-//|      then a bounded retry (<=5 attempts, Sleep(300) between --     |
-//|      Sleep is legal in scripts; only the event-driven EA/indicator |
-//|      sources ban it) of CustomRatesDelete -> CustomSymbolDelete -> |
-//|      SymbolExist verify. Only a VERIFIED-gone name proceeds to      |
-//|      CustomSymbolCreate, so it can never collide with               |
-//|      ERR_CUSTOM_SYMBOL_EXIST (5304). symbol_state="created_fresh". |
-//|   2. ADOPTED-IN-PLACE: the delete still fails and the survivor IS  |
-//|      custom. Do NOT refuse: deselect it (must succeed -- properties |
-//|      cannot be changed on a selected symbol, that is 5306), wipe    |
-//|      ALL bars and VERIFY zero remain (no bar from a prior fixture   |
-//|      may survive), re-apply EVERY property through the SAME         |
-//|      one-at-a-time sequence a fresh create uses, then run the SAME  |
-//|      full read-back verification and round-trip dataset-hash check, |
-//|      unchanged and unskipped. Adoption is accepted only by passing  |
-//|      exactly the evidence a fresh create must pass -- the gate's    |
-//|      guarantee comes from that verification, not from the symbol    |
-//|      being new. symbol_state="adopted_existing" (+ the delete       |
-//|      attempts made and the _LastError that forced adoption).        |
-//|   3. REFUSED-BECAUSE-UNDESELECTABLE: the one remaining honest       |
-//|      refusal -- the surviving symbol cannot even be DESELECTED, so  |
-//|      its properties cannot be set (5306). The record names the      |
-//|      failing call, its _LastError, and the operator remediation:    |
-//|      close any chart on the symbol in the terminal, then re-run     |
-//|      the gate.                                                     |
-//|  A NON-custom (broker) symbol of the same name still refuses        |
-//|  untouched (never shadowed).                                        |
+//|  IDEMPOTENCY -- VERIFY-FIRST SYMBOL-STATE CONTRACT (R10, gate_run13;|
+//|  supersedes the R9 drop-first three-outcome contract; errs 5304     |
+//|  ERR_CUSTOM_SYMBOL_EXIST / 5306 selected-state / 4305               |
+//|  ERR_MARKET_SELECT_ERROR): a prior run can leave the custom symbol  |
+//|  behind, and a SUCCESSFUL run deliberately ENDS with                |
+//|  SymbolSelect(sym,true) so the tester can see it. R9 answered by    |
+//|  dropping the survivor (or adopting after a failed drop), which     |
+//|  REQUIRED a deselect -- and gate_run13 measured that deselect       |
+//|  itself failing with 4305 ERR_MARKET_SELECT_ERROR ("error adding    |
+//|  or deleting a symbol in Market Watch"): ChartClose is              |
+//|  ASYNCHRONOUS -- it queues a close command and returns, the chart   |
+//|  is NOT gone when the call returns -- so the immediate deselect ran |
+//|  while MT5 still considered the symbol in use. R10 removes the      |
+//|  need to deselect at all on the steady-state re-run: property       |
+//|  WRITES are the ONLY thing that requires a deselected symbol (the   |
+//|  5306 rule), and on a re-run the survivor was configured by the     |
+//|  previous run from the SAME manifest, so every property already     |
+//|  holds the correct value -- rewriting already-correct values is     |
+//|  what MANUFACTURED the deselect requirement. Bars never need it:    |
+//|  CustomRatesDelete/CustomRatesUpdate work on a SELECTED custom      |
+//|  symbol (the normal live-feed path for custom symbols). The symbol  |
+//|  STATE is resolved fail-closed BEFORE any mutation:                 |
+//|   1. CREATED-FRESH: no symbol of the name exists ->                 |
+//|      CustomSymbolCreate + the full property application.            |
+//|      symbol_state="created_fresh".                                  |
+//|   2. ADOPTED-VERIFIED: a custom survivor exists and EVERY settable  |
+//|      property reads back EQUAL to the manifest spec -- checked      |
+//|      FIRST, before touching anything (the R8 CALCULATED tick        |
+//|      values are excluded: not settable (5307), they must never      |
+//|      force a rewrite). ZERO property writes, NO deselect, Market    |
+//|      Watch untouched: straight to the bars. This is the steady-     |
+//|      state re-run and it needs NOTHING from Market Watch.           |
+//|      symbol_state="adopted_verified".                               |
+//|   3. ADOPTED-REAPPLIED: the survivor exists but N>0 properties      |
+//|      DIFFER from the spec. Only then is a deselect required: close  |
+//|      any OTHER chart on the symbol (never the script's own), POLL   |
+//|      until no chart displays it (bounded <=10 x Sleep(300) --       |
+//|      ChartClose is asynchronous, never assume the close happened),  |
+//|      retry SymbolSelect(sym,false) bounded (<=5 x Sleep(300),       |
+//|      return + _LastError checked, LAST failure reported), then      |
+//|      re-apply through the SAME shared ApplySymbolProperties         |
+//|      sequence a fresh create uses (never a second partial writer).  |
+//|      symbol_state="adopted_reapplied" +                             |
+//|      "adopt_properties_rewritten":N (the count that differed and    |
+//|      forced the rewrite).                                           |
+//|   4. REFUSED-BECAUSE-UNDESELECTABLE: differing properties REQUIRE   |
+//|      a deselect and the hardened release cannot obtain one --       |
+//|      typically this script's OWN chart displays the symbol (it can  |
+//|      never be closed, and ChartSetSymbolPeriod on the chart a       |
+//|      script is running on TERMINATES that script, which would kill  |
+//|      this importer mid-run and produce no JSON at all, worse than   |
+//|      a clean refusal, so it is NEVER attempted) -- or the deselect  |
+//|      still fails after the bounded retry (4305). The record names   |
+//|      the failing call, its _LastError, and the operator             |
+//|      remediation: close any chart on the symbol in the terminal,    |
+//|      then re-run the gate.                                          |
+//|  Either adopt path then wipes ALL bars (CustomRatesDelete + zero-   |
+//|  bar VERIFY -- no bar from a prior fixture may survive), rewrites   |
+//|  them from the fixture, and runs the UNCHANGED read-back            |
+//|  verification + round-trip dataset-hash check. Adoption is accepted |
+//|  only by passing exactly the evidence a fresh create must pass --   |
+//|  the gate's guarantee comes from that verification, not from the    |
+//|  symbol being new. A NON-custom (broker) symbol of the same name    |
+//|  still refuses untouched (never shadowed).                          |
 //|  RUNNING THE GATE TWICE IN A ROW MUST PRODUCE IDENTICAL RESULTS --  |
-//|  the second run recreates or adopts and passes on identical         |
-//|  evidence; the symbol_state field names which path ran, so an       |
-//|  adopted import can never look like a fresh create.                 |
+//|  the second run adopts the verified survivor with zero Market-Watch |
+//|  traffic and passes on identical evidence; the symbol_state field   |
+//|  names which path ran, so an adopted import can never look like a   |
+//|  fresh create.                                                      |
 //|                                                                  |
 //|  err=5306 FAMILY (custom-symbol STATE / VALUE errors, 53xx):       |
 //|   - STATE: a symbol SELECTED in Market Watch cannot be deleted     |
 //|     (5306) or have its properties changed. The script therefore    |
 //|     deselects the symbol (SymbolSelect(sym,false)) BEFORE any      |
-//|     delete or CustomSymbolSet*, and selects it (SymbolSelect(...,  |
+//|     delete or CustomSymbolSet* -- and, since R10, only when a      |
+//|     write is actually REQUIRED -- and selects it (SymbolSelect(...,|
 //|     true)) only AFTER every property is set and the bars written.  |
-//|     A stale prior custom symbol is resolved by the three-outcome   |
-//|     contract above (recreate / adopt / undeselectable refusal).    |
+//|     A stale prior custom symbol is resolved by the verify-first    |
+//|     contract above (create / adopt-verified / adopt-reapplied /    |
+//|     undeselectable refusal).                                       |
 //|   - VALUE: a property value from the SymbolSpec/manifest may be    |
 //|     out of the range MT5 accepts (5308 ERR_CUSTOM_SYMBOL_PARAMETER_|
 //|     ERROR, "a wrong parameter while setting the property"; NOT     |
@@ -185,11 +215,15 @@
 //|    "failed_value":...,"failed_source":<manifest/spec field>,      |
 //|    "properties":[{"enum","value","source","ok","last_error"}...], |
 //|    "error":...}                                                   |
-//|  Every record ALSO names which symbol-state path ran (R9):        |
-//|    "symbol_state":"created_fresh"|"adopted_existing" and, when     |
-//|    adopted, "adopt_delete_attempts" + "adopt_last_error" (the      |
-//|    _LastError that forced adoption) -- an adopted import is a      |
-//|    PASS, but its evidence must never look like a fresh create.     |
+//|  Every record ALSO names which symbol-state path ran (R9/R10):    |
+//|    "symbol_state":"unresolved"|"created_fresh"|"adopted_verified"| |
+//|    "adopted_reapplied" and, on the adopt paths,                    |
+//|    "adopt_properties_rewritten":N (0 = verified in place, nothing  |
+//|    written). The state is set ONLY when the named path has         |
+//|    actually happened; a refusal reports the state it was in when   |
+//|    it refused ("unresolved" until a path completes), never a state |
+//|    it aspired to -- an adopted import is a PASS, but its evidence  |
+//|    must never look like a fresh create.                            |
 //|  Every record ALSO carries the read-back evidence:                |
 //|    "verified_properties":[{"enum","expected","readback","ok"}...] |
 //|    "derived_tick_values":{"trade_calc_mode",                      |
@@ -419,8 +453,8 @@ bool VerS(const string sym, const ENUM_SYMBOL_INFO_STRING id,
 // It still tries hard first: after selection + bars it nudges a recompute and
 // re-reads a BOUNDED number of times (NO Sleep in this hot read-back loop --
 // the event-driven EA/include sources ban Sleep outright, SPEC 3.4; this
-// SCRIPT's only Sleep is the bounded stale-symbol drop retry, R9), taking the
-// value the moment it becomes non-zero.
+// SCRIPT's only Sleeps are the bounded Market-Watch release and drop retries,
+// R9/R10), taking the value the moment it becomes non-zero.
 bool VerDerivedD(const string sym, const ENUM_SYMBOL_INFO_DOUBLE id,
                  const string enumName, const double manifestVal,
                  const string source)
@@ -481,22 +515,29 @@ string DerivedBlockJson()
           ",\"trade_calc_mode\":" + DslCanonEscape(g_calcModeStr) + "}";
   }
 
-// R9 SYMBOL-STATE HONESTY: every record names which path produced the
-// symbol -- created fresh, or adopted from a prior run's survivor. An
-// adopted import is a PASS (it earns it through the identical property
-// re-set + read-back + round-trip evidence), but the evidence must never
-// look like a fresh create.
-string g_symbolState   = "created_fresh"; // "created_fresh"|"adopted_existing"
-int    g_adoptAttempts = 0;   // CustomSymbolDelete attempts before adoption
-int    g_adoptLastErr  = 0;   // the _LastError that forced adoption
-int    g_dropAttempts  = 0;   // attempts made by the LAST DropCustomSymbolChecked
+// R9/R10 SYMBOL-STATE HONESTY: every record names which path produced the
+// symbol. The field is set ONLY when the named path has ACTUALLY happened
+// (CustomSymbolCreate succeeded / the survivor read back fully equal / the
+// re-apply completed); until then it stays "unresolved". gate_run13's
+// refused record claimed an adopted state although no adoption had
+// occurred -- the state was set before the path was proven. A refusal must
+// report the state it was in when it refused, never a state it aspired to.
+// An adopted import is a PASS (it earns it through the identical read-back
+// + round-trip evidence), but the evidence must never look like a fresh
+// create.
+string g_symbolState    = "unresolved"; // "unresolved"|"created_fresh"|
+                                        // "adopted_verified"|"adopted_reapplied"
+int    g_adoptRewritten = -1;  // adopt path: N properties that DIFFERED and
+                               // were rewritten (0 = verified in place,
+                               // nothing written; -1 = not an adopt)
+int    g_dropAttempts   = 0;   // attempts made by the LAST DropCustomSymbolChecked
 
 string SymbolStateJson()
   {
    string s = "\"symbol_state\":" + DslCanonEscape(g_symbolState);
-   if(g_symbolState == "adopted_existing")
-      s += ",\"adopt_delete_attempts\":" + IntegerToString(g_adoptAttempts) +
-           ",\"adopt_last_error\":"      + IntegerToString(g_adoptLastErr);
+   if(g_adoptRewritten >= 0)
+      s += ",\"adopt_properties_rewritten\":" +
+           IntegerToString(g_adoptRewritten);
    return s;
   }
 
@@ -524,36 +565,39 @@ void RefuseAt(const string outPath, const string symbol, const string stage,
   }
 
 //+------------------------------------------------------------------+
-//| deselect + drop a custom symbol and VERIFY it is gone (R9         |
-//| hardened). A SELECTED symbol cannot be deleted (5306), and MT5    |
-//| (a) will not release a symbol while a chart shows it and          |
-//| (b) releases it ASYNCHRONOUSLY after deselection. gate_run12:     |
-//| a prior SUCCESSFUL run ends with SymbolSelect(sym,true) so the    |
-//| tester can see the symbol, and the next run's single unchecked    |
-//| deselect + immediate delete failed with 5306. This function now:  |
-//|  1. closes any chart whose symbol is `sym` -- NEVER the script's  |
-//|     own chart (closing it would kill the script mid-run); if the  |
-//|     OWN chart is on `sym`, that fact is recorded in whichCall and |
-//|     the caller adopts in place (the symbol can never be deleted   |
-//|     in that state, so refusing would be wrong);                   |
-//|  2. deselects with the RETURN VALUE and _LastError CHECKED;       |
-//|  3. retries the delete a BOUNDED 5 times with Sleep(300) between  |
-//|     (Sleep is legal in scripts; the event-driven EA/include       |
-//|     sources stay Sleep-free): CustomRatesDelete ->                |
-//|     ResetLastError -> CustomSymbolDelete -> SymbolExist verify.   |
-//| Returns true ONLY when SymbolExist reports the name is gone (so a |
-//| following CustomSymbolCreate can never collide with               |
-//| ERR_CUSTOM_SYMBOL_EXIST (5304)). On exhaustion, whichCall/lastErr |
-//| name the LAST failing call; g_dropAttempts counts delete attempts |
-//| (0 = failed before the first delete).                             |
+//| release `sym` from Market Watch so a property write (or a delete) |
+//| becomes possible -- the 5306 rule (R10 hardened). Two async facts  |
+//| drive the shape (gate_run13, deselect failed with 4305             |
+//| ERR_MARKET_SELECT_ERROR = "error adding or deleting a symbol in    |
+//| Market Watch"):                                                    |
+//|  (a) ChartClose is ASYNCHRONOUS: it queues a close command and     |
+//|      returns; the chart is NOT gone when the call returns, and MT5 |
+//|      considers the symbol in use while any chart displays it. So   |
+//|      after issuing the closes this function POLLS until no chart   |
+//|      displays sym, bounded (<=10 iterations, Sleep(300) between).  |
+//|      The close is never assumed to have happened.                  |
+//|  (b) MT5 releases a symbol asynchronously even after the charts    |
+//|      are gone, so SymbolSelect(sym,false) gets its OWN bounded     |
+//|      retry (<=5, Sleep(300) between), the return value and         |
+//|      _LastError checked each time; the LAST failure is reported.   |
+//| The script's OWN chart is NEVER closed (closing it would kill this |
+//| script mid-run) and its symbol is NEVER changed either:            |
+//| ChartSetSymbolPeriod on the chart a script is running on           |
+//| TERMINATES that script -- it would kill the importer mid-run and   |
+//| produce no JSON at all, which is worse than a clean refusal. Do    |
+//| NOT try it. If the own chart displays sym, this function fails     |
+//| honestly and the caller decides (verify-first adoption needs no    |
+//| release at all; only a required-but-impossible release refuses,    |
+//| with the operator remediation named).                              |
+//| Sleep is legal in scripts; the event-driven EA/include sources     |
+//| stay Sleep-free (SPEC 3.4).                                        |
 //+------------------------------------------------------------------+
-bool DropCustomSymbolChecked(const string sym, string &whichCall, int &lastErr)
+bool ReleaseFromMarketWatch(const string sym, string &whichCall, int &lastErr)
   {
    whichCall = ""; lastErr = 0;
-   g_dropAttempts = 0;
    // 1. close any OTHER chart displaying the symbol; MT5 will not release
-   //    a symbol while a chart is open on it. The script's OWN chart is
-   //    never closed -- that would kill this script mid-run.
+   //    a symbol while a chart is open on it. The own-chart guard runs
+   //    BEFORE any ChartClose.
    long ownChart = ChartID();
    long cid = ChartFirst();
    while(cid >= 0)
@@ -564,9 +608,11 @@ bool DropCustomSymbolChecked(const string sym, string &whichCall, int &lastErr)
          if(cid == ownChart)
            {
             whichCall = "own chart displays " + sym +
-                        " (this script's chart cannot be closed and the "
-                        "symbol can never be deleted while it shows; "
-                        "adopt in place)";
+                        " (this script's chart can never be closed, and "
+                        "ChartSetSymbolPeriod on the running script's own "
+                        "chart TERMINATES the script mid-run -- never "
+                        "attempted; the symbol cannot be released while "
+                        "its chart shows)";
             lastErr = 0;
             return false;
            }
@@ -574,15 +620,55 @@ bool DropCustomSymbolChecked(const string sym, string &whichCall, int &lastErr)
         }
       cid = nextCid;
      }
-   // 2. deselect, CHECKING the result (the pre-R9 code discarded it)
-   ResetLastError();
-   if(!SymbolSelect(sym, false))
+   // 2. ChartClose is asynchronous: POLL until no chart displays sym,
+   //    bounded. Do not assume the close happened.
+   for(int poll = 0; poll < 10; poll++)
      {
-      whichCall = "SymbolSelect(false)";
-      lastErr = GetLastError();
-      return false;
+      bool chartShown = false;
+      for(long c = ChartFirst(); c >= 0; c = ChartNext(c))
+         if(ChartSymbol(c) == sym) { chartShown = true; break; }
+      if(!chartShown)
+         break;
+      Sleep(300);
      }
-   // 3. bounded delete retry: the release after deselection is asynchronous
+   // 3. the deselect itself, in its OWN bounded retry: the symbol may stay
+   //    "in use" briefly even after the charts are gone (4305).
+   for(int attempt = 1; attempt <= 5; attempt++)
+     {
+      ResetLastError();
+      if(SymbolSelect(sym, false))
+         return true;
+      whichCall = "SymbolSelect(false)";     // the LAST failure is reported
+      lastErr   = GetLastError();
+      if(attempt < 5)
+         Sleep(300);
+     }
+   return false;
+  }
+
+//+------------------------------------------------------------------+
+//| release + drop a custom symbol and VERIFY it is gone (R9/R10      |
+//| hardened). A SELECTED symbol cannot be deleted (5306). Since R10   |
+//| this is CLEANUP-ONLY (a refusal after a create/mutation must not   |
+//| leave debris): the pre-create path never drops -- a survivor is    |
+//| adopted verify-first instead (header contract). The release goes   |
+//| through ReleaseFromMarketWatch (chart close + async poll + bounded |
+//| deselect retry); then the delete is retried a BOUNDED 5 times with |
+//| Sleep(300) between: CustomRatesDelete -> ResetLastError ->         |
+//| CustomSymbolDelete -> SymbolExist verify. Returns true ONLY when   |
+//| SymbolExist reports the name gone (so a following                  |
+//| CustomSymbolCreate could never collide with                        |
+//| ERR_CUSTOM_SYMBOL_EXIST (5304)). On exhaustion, whichCall/lastErr  |
+//| name the LAST failing call; g_dropAttempts counts delete attempts  |
+//| (0 = failed before the first delete).                              |
+//+------------------------------------------------------------------+
+bool DropCustomSymbolChecked(const string sym, string &whichCall, int &lastErr)
+  {
+   whichCall = ""; lastErr = 0;
+   g_dropAttempts = 0;
+   if(!ReleaseFromMarketWatch(sym, whichCall, lastErr))
+      return false;
+   // bounded delete retry: the release after deselection is asynchronous
    for(int attempt = 1; attempt <= 5; attempt++)
      {
       g_dropAttempts = attempt;
@@ -608,8 +694,8 @@ bool DropCustomSymbolChecked(const string sym, string &whichCall, int &lastErr)
 //+------------------------------------------------------------------+
 //| best-effort cleanup after a POST-create refusal. Never blocks the |
 //| refusal; returns a human suffix noting any leftover so the record |
-//| stays honest. A leftover is self-healed by the pre-create,        |
-//| verified drop on the next run (idempotency).                     |
+//| stays honest. A leftover is self-healed on the next run by the    |
+//| verify-first adoption contract (idempotency).                     |
 //+------------------------------------------------------------------+
 string CleanupAfterFail(const string sym)
   {
@@ -861,6 +947,88 @@ bool ApplySymbolProperties(const string sym,
   }
 
 //+------------------------------------------------------------------+
+//| R10 VERIFY-FIRST adopt precheck: read back every SETTABLE property |
+//| of the surviving symbol and compare it to the manifest/spec value  |
+//| with EXACTLY the semantics of the final verify_properties stage    |
+//| (doubles at the pipeline's own %.10f precision). Returns the       |
+//| number of properties that DIFFER; g_diffList names them. Property  |
+//| WRITES are the only thing that needs a deselected symbol (5306),   |
+//| so an all-equal survivor is adopted with ZERO writes and no        |
+//| Market-Watch traffic at all -- the steady-state re-run. The R8     |
+//| CALCULATED tick values (_PROFIT/_LOSS) are deliberately NOT        |
+//| checked here: they are not settable (5307) and must never force a  |
+//| rewrite. The property list and its order mirror                    |
+//| ApplySymbolProperties one-to-one (incl. volume MAX->STEP->MIN->    |
+//| LIMIT) so the two can never drift apart silently.                  |
+//+------------------------------------------------------------------+
+string g_diffList  = "";   // comma-joined enum names that differed
+int    g_diffCount = 0;
+
+void NoteDiff(const string enumName)
+  {
+   if(g_diffCount > 0) g_diffList += ",";
+   g_diffList += enumName;
+   g_diffCount++;
+  }
+
+void DiffI(const string sym, const ENUM_SYMBOL_INFO_INTEGER id,
+           const string enumName, const long want)
+  {
+   long got = 0;
+   if(!SymbolInfoInteger(sym, id, got) || got != want)
+      NoteDiff(enumName);
+  }
+
+void DiffD(const string sym, const ENUM_SYMBOL_INFO_DOUBLE id,
+           const string enumName, const double want)
+  {
+   double got = 0.0;
+   if(!SymbolInfoDouble(sym, id, got) ||
+      DoubleToString(got, 10) != DoubleToString(want, 10))
+      NoteDiff(enumName);
+  }
+
+void DiffS(const string sym, const ENUM_SYMBOL_INFO_STRING id,
+           const string enumName, const string want)
+  {
+   string got = "";
+   if(!SymbolInfoString(sym, id, got) || got != want)
+      NoteDiff(enumName);
+  }
+
+int CountPropertyDiffs(const string sym,
+                       const double digits, const double point,
+                       const double tickSize, const double tickValProfit,
+                       const double contractSize,
+                       const double volMin, const double volMax,
+                       const double volStep, const double volLimit,
+                       const double stopsLevel, const double freezeLevel,
+                       const string ccyProfit, const string ccyBase,
+                       const string ccyMargin)
+  {
+   g_diffList = ""; g_diffCount = 0;
+   DiffI(sym, SYMBOL_DIGITS, "SYMBOL_DIGITS", (long)digits);
+   DiffD(sym, SYMBOL_POINT, "SYMBOL_POINT", point);
+   DiffD(sym, SYMBOL_TRADE_TICK_SIZE, "SYMBOL_TRADE_TICK_SIZE", tickSize);
+   DiffD(sym, SYMBOL_TRADE_TICK_VALUE, "SYMBOL_TRADE_TICK_VALUE",
+         tickValProfit);
+   DiffD(sym, SYMBOL_TRADE_CONTRACT_SIZE, "SYMBOL_TRADE_CONTRACT_SIZE",
+         contractSize);
+   DiffD(sym, SYMBOL_VOLUME_MAX, "SYMBOL_VOLUME_MAX", volMax);
+   DiffD(sym, SYMBOL_VOLUME_STEP, "SYMBOL_VOLUME_STEP", volStep);
+   DiffD(sym, SYMBOL_VOLUME_MIN, "SYMBOL_VOLUME_MIN", volMin);
+   DiffD(sym, SYMBOL_VOLUME_LIMIT, "SYMBOL_VOLUME_LIMIT", volLimit);
+   DiffI(sym, SYMBOL_TRADE_STOPS_LEVEL, "SYMBOL_TRADE_STOPS_LEVEL",
+         (long)stopsLevel);
+   DiffI(sym, SYMBOL_TRADE_FREEZE_LEVEL, "SYMBOL_TRADE_FREEZE_LEVEL",
+         (long)freezeLevel);
+   DiffS(sym, SYMBOL_CURRENCY_PROFIT, "SYMBOL_CURRENCY_PROFIT", ccyProfit);
+   DiffS(sym, SYMBOL_CURRENCY_BASE, "SYMBOL_CURRENCY_BASE", ccyBase);
+   DiffS(sym, SYMBOL_CURRENCY_MARGIN, "SYMBOL_CURRENCY_MARGIN", ccyMargin);
+   return g_diffCount;
+  }
+
+//+------------------------------------------------------------------+
 //| main import                                                      |
 //+------------------------------------------------------------------+
 void OnStart()
@@ -1018,18 +1186,24 @@ void OnStart()
    // ---- 2b. resolve symbol STATE deterministically & IDEMPOTENTLY -
    // SymbolExist is a GLOBAL check (names are unique across the whole
    // hierarchy). A broker (non-custom) symbol of the same name must never
-   // be shadowed. A stale custom symbol from a prior run is resolved by the
-   // R9 three-outcome contract (header): delete-and-recreate when the
-   // hardened drop verifies the name gone; ADOPT IN PLACE when the drop
-   // fails but the survivor is custom (never charge into a create that
-   // would collide with ERR_CUSTOM_SYMBOL_EXIST (5304), and never refuse a
-   // symbol this script itself certified and left selected on the PRIOR
-   // successful run); refuse ONLY when the survivor cannot even be
-   // deselected (its properties could never be set -- err 5306). Running
-   // twice in a row therefore produces identical evidence, with
-   // symbol_state naming which path ran.
-   bool isCustom=false;
+   // be shadowed. A custom survivor from a prior run is resolved by the
+   // R10 VERIFY-FIRST contract (header): read back every settable property
+   // against the manifest spec BEFORE touching anything. All equal ->
+   // adopt with ZERO property writes and NO deselect -- the steady-state
+   // re-run needs nothing from Market Watch, because property WRITES are
+   // the only thing that requires a deselected symbol (5306) and
+   // rewriting already-correct values is what manufactured the failing
+   // deselect of gate_run13 (4305 ERR_MARKET_SELECT_ERROR). Any
+   // difference -> hardened release (close other charts, POLL the
+   // asynchronous ChartClose, bounded deselect retry), then re-apply
+   // through the SAME shared ApplySymbolProperties sequence. Refuse ONLY
+   // when a REQUIRED release cannot be obtained. Running twice in a row
+   // therefore produces identical evidence, with symbol_state naming
+   // which path ran.
+   bool isCustom = false;
    bool needCreate = true;
+   bool adopted = false;
+   int  adoptDiffs = 0;
    if(SymbolExist(sym, isCustom))
      {
       if(!isCustom)
@@ -1037,57 +1211,67 @@ void OnStart()
                    "a NON-custom (broker) symbol named "+sym+
                    " already exists; refusing to shadow a broker symbol", 0);
           return; }
-      // stale custom symbol from a prior run: drop it AND verify it is gone
-      string wc=""; int le=0;
-      if(!DropCustomSymbolChecked(sym, wc, le))
+      needCreate = false;
+      adopted    = true;
+      adoptDiffs = CountPropertyDiffs(sym, digits, point, tickSize,
+                                      tickValProfit, contractSize, volMin,
+                                      volMax, volStep, volLimit, stopsLevel,
+                                      freezeLevel, ccyProfit, ccyBase,
+                                      ccyMargin);
+      if(adoptDiffs == 0)
         {
-         // R9 ADOPT-IN-PLACE (gate_run12): the drop failed -- typically 5306
-         // because the PRIOR SUCCESSFUL run deliberately ended with
-         // SymbolSelect(sym,true) and MT5 releases a symbol asynchronously
-         // (or never, while a chart shows it). The survivor IS a custom
-         // symbol, so adopt it: wipe its bars, re-apply every property, and
-         // let the UNCHANGED read-back + round-trip verification decide.
-         // The gate's guarantee comes from that verification, not from the
-         // symbol being new.
-         g_symbolState  = "adopted_existing";
-         g_adoptAttempts = g_dropAttempts;
-         g_adoptLastErr  = le;
-         Print("[import] SYMBOL_STATE adopted_existing: ", wc,
-               " failed after ", g_dropAttempts,
-               " delete attempt(s), last_error=", le,
-               "; adopting the surviving custom symbol in place");
-         // properties cannot be changed on a SELECTED symbol (5306): the
-         // deselect MUST succeed. If even that fails, this is the one
-         // remaining honest refusal -- with the remediation named.
-         ResetLastError();
-         if(!SymbolSelect(sym, false))
-           { int dsErr = GetLastError();
-             RefuseAt(outPath, sym, "symbol_state",
-                      "cannot adopt the surviving custom symbol "+sym+
-                      ": SymbolSelect(false) failed (last_error="+
-                      IntegerToString(dsErr)+") after "+
-                      IntegerToString(g_dropAttempts)+
-                      " delete attempt(s) ("+wc+", last_error="+
-                      IntegerToString(le)+"); properties cannot be changed "
-                      "on a selected symbol (5306). Operator remediation: "
-                      "close any chart on "+sym+" in the terminal, then "
-                      "re-run the gate", dsErr);
-             return; }
-         // no bar from a prior fixture may survive into this dataset: wipe
-         // the full range and VERIFY the symbol carries zero bars
-         CustomRatesDelete(sym, 0, LONG_MAX);
-         ResetLastError();
-         int leftoverBars = Bars(sym, tf);
-         if(leftoverBars > 0)
-           { int lbErr = GetLastError();
-             RefuseAt(outPath, sym, "symbol_state",
-                      "adopt-in-place: CustomRatesDelete left "+
-                      IntegerToString(leftoverBars)+" bar(s) on "+sym+
-                      "; a prior fixture's bars must never survive into "
-                      "this dataset", lbErr);
-             return; }
-         needCreate = false;
+         // every settable property already equals the spec: the survivor is
+         // adopted VERIFIED -- ZERO property writes, no deselect, Market
+         // Watch untouched. The state is set here because the verification
+         // has actually happened (and the unchanged verify_properties stage
+         // below proves it again on the record).
+         g_symbolState    = "adopted_verified";
+         g_adoptRewritten = 0;
+         Print("[import] SYMBOL_STATE adopted_verified: every settable "
+               "property of the surviving custom symbol ", sym,
+               " already equals the manifest spec; ZERO property writes, "
+               "no deselect needed");
         }
+      else
+        {
+         // N properties differ -> a re-apply is REQUIRED, and only property
+         // writes need a deselected symbol (5306)
+         Print("[import] adopt precheck: ", adoptDiffs,
+               " differing propert(y/ies) vs the manifest spec (",
+               g_diffList, "); deselect + re-apply required");
+         string wc = ""; int le = 0;
+         if(!ReleaseFromMarketWatch(sym, wc, le))
+           { // symbol_state stays "unresolved": no adoption occurred, and
+             // the record must say the state it was in, not the one it
+             // aspired to
+             RefuseAt(outPath, sym, "symbol_state",
+                      "cannot adopt the surviving custom symbol "+sym+": "+
+                      IntegerToString(adoptDiffs)+" propert(y/ies) differ "
+                      "from the manifest spec ("+g_diffList+") and must be "
+                      "re-applied, but properties cannot be changed on a "
+                      "selected symbol (5306) and the release failed: "+wc+
+                      " (last_error="+IntegerToString(le)+"; 4305 = "
+                      "ERR_MARKET_SELECT_ERROR, error adding or deleting a "
+                      "symbol in Market Watch; ChartClose is asynchronous). "
+                      "Operator remediation: close any chart on "+sym+
+                      " in the terminal, then re-run the gate", le);
+             return; }
+        }
+      // no bar from a prior fixture may survive into this dataset: wipe the
+      // full range and VERIFY the symbol carries zero bars.
+      // CustomRatesDelete works on a SELECTED custom symbol (the normal
+      // live-feed path), so the verified adopt stays Market-Watch-free.
+      CustomRatesDelete(sym, 0, LONG_MAX);
+      ResetLastError();
+      int leftoverBars = Bars(sym, tf);
+      if(leftoverBars > 0)
+        { int lbErr = GetLastError();
+          RefuseAt(outPath, sym, "symbol_state",
+                   "adopt-in-place: CustomRatesDelete left "+
+                   IntegerToString(leftoverBars)+" bar(s) on "+sym+
+                   "; a prior fixture's bars must never survive into "
+                   "this dataset", lbErr);
+          return; }
      }
    else
      {
@@ -1106,25 +1290,43 @@ void OnStart()
           return; }
       // the symbol is freshly created and NOT selected in Market Watch, so it
       // is safe to set every property. We select it only after bars are
-      // written.
+      // written. Only now is the path proven, so only now may the record
+      // carry it (a refusal above stays "unresolved").
+      g_symbolState = "created_fresh";
      }
 
    // ---- 2c. set every property ONE AT A TIME, checking each -------
-   // ONE sequence for BOTH paths (R9): a freshly created symbol and an
-   // adopted survivor go through the IDENTICAL ApplySymbolProperties calls
-   // (same volume MAX->STEP->MIN->LIMIT ordering) and then the identical
-   // read-back + round-trip verification below -- adoption earns its PASS
-   // by exactly the same evidence as a fresh create.
-   if(!ApplySymbolProperties(sym, digits, point, tickSize, tickValProfit,
-                             contractSize, volMin, volMax, volStep, volLimit,
-                             stopsLevel, freezeLevel, ccyProfit, ccyBase,
-                             ccyMargin))
-     { int err = GetLastError();
-       string suffix = CleanupAfterFail(sym);
-       RefuseAt(outPath, sym, "set_properties",
-                g_failCall+"("+g_failEnum+"="+g_failValue+" from "+g_failSource+
-                ") failed"+suffix, err);
-       return; }
+   // ONE sequence for EVERY path that writes at all (R9/R10): a freshly
+   // created symbol and an adopted survivor with differing properties go
+   // through the IDENTICAL ApplySymbolProperties calls (same volume
+   // MAX->STEP->MIN->LIMIT ordering) and then the identical read-back +
+   // round-trip verification below. An adopted_verified survivor skips
+   // this block entirely -- zero writes is the point -- and is still
+   // proven by the same verification below. Adoption earns its PASS by
+   // exactly the same evidence as a fresh create: the guarantee comes from
+   // that verification, not from the symbol being new.
+   if(needCreate || adoptDiffs > 0)
+     {
+      if(!ApplySymbolProperties(sym, digits, point, tickSize, tickValProfit,
+                                contractSize, volMin, volMax, volStep,
+                                volLimit, stopsLevel, freezeLevel, ccyProfit,
+                                ccyBase, ccyMargin))
+        { int err = GetLastError();
+          string suffix = CleanupAfterFail(sym);
+          RefuseAt(outPath, sym, "set_properties",
+                   g_failCall+"("+g_failEnum+"="+g_failValue+" from "+
+                   g_failSource+") failed"+suffix, err);
+          return; }
+      if(adopted)
+        {
+         // only now has the re-apply actually completed
+         g_symbolState    = "adopted_reapplied";
+         g_adoptRewritten = adoptDiffs;
+         Print("[import] SYMBOL_STATE adopted_reapplied: ", adoptDiffs,
+               " differing propert(y/ies) forced a full re-apply (",
+               g_diffList, ")");
+        }
+     }
 
    // ---- 3. write the bars via CustomRatesUpdate -------------------
    MqlRates rates[];

@@ -101,10 +101,11 @@ def test_s2_failsafe_uses_state_store_keys():
 def test_s3_no_sleep_calls_anywhere_in_ea_sources():
     """Sleep is banned in the EVENT-DRIVEN sources (Experts/ + Include/:
     OnTimer/OnTradeTransaction instead — SPEC §3.4/§8.D). Scripts run on
-    their own thread where Sleep is documented-legal; the ONE permitted use
-    is the bounded stale-symbol drop retry in Mql5BotImportFixture.mq5
-    (STAGE 4 R9) — pinned below and, structurally, in
-    tests/test_owner_gate_ps1.py."""
+    their own thread where Sleep is documented-legal; the THREE permitted
+    uses are the bounded Market-Watch release retries (chart-close poll +
+    deselect retry, STAGE 4 R10) and the bounded stale-symbol drop retry
+    (STAGE 4 R9) in Mql5BotImportFixture.mq5 — pinned below and,
+    structurally, in tests/test_owner_gate_ps1.py."""
     offenders = []
     script_sleeps = []
     for path in _all_sources():
@@ -120,11 +121,12 @@ def test_s3_no_sleep_calls_anywhere_in_ea_sources():
     assert not offenders, (
         "Sleep() must not appear in event-driven EA sources (Experts/, "
         f"Include/; SPEC §3.4/§8.D): {offenders}")
-    # the ONLY script Sleep is the R9 bounded drop retry: one call, fixed
-    # 300 ms, in the fixture importer — anything else is a regression
+    # the ONLY script Sleeps are the R9/R10 bounded retries (chart-close
+    # poll + deselect retry + delete retry): three calls, fixed 300 ms, in
+    # the fixture importer — anything else is a regression
     assert script_sleeps == [
         ("Scripts/Mql5Bot/Mql5BotImportFixture.mq5", "Sleep(300);"),
-    ], script_sleeps
+    ] * 3, script_sleeps
 
 
 # ---------------------------------------------------------------------------

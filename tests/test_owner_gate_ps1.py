@@ -702,22 +702,23 @@ def test_importer_does_not_pull_live_history():
 def test_importer_is_chart_independent():
     # it must take symbol/timeframe ONLY from inputs + manifest, never read
     # the attached chart implicitly (the gate runs it from a BTC,H1 chart).
-    # R9 exception: DropCustomSymbolChecked WALKS the open charts to close
-    # any that display the stale symbol (MT5 will not release a symbol a
-    # chart shows) -- that is chart MANAGEMENT with explicit chart ids, not
-    # reading the attached chart to derive an input. ChartSymbol( is
-    # therefore permitted ONLY inside that one function.
+    # R9/R10 exception: ReleaseFromMarketWatch WALKS the open charts to close
+    # any that display the stale symbol and to POLL the asynchronous
+    # ChartClose (MT5 will not release a symbol a chart shows) -- that is
+    # chart MANAGEMENT with explicit chart ids, not reading the attached
+    # chart to derive an input. ChartSymbol( is therefore permitted ONLY
+    # inside that one function.
     src = _importer()
     for implicit in ("_Symbol", "_Period", "ChartPeriod(",
                      "Symbol()", "Period()"):
         assert implicit not in src, f"importer must not read {implicit!r}"
-    di = src.index("bool DropCustomSymbolChecked")
-    de = src.index("\n  }", di)
-    drop_body = src[di:de]
-    outside = src[:di] + src[de:]
-    assert "ChartSymbol(" in drop_body       # the R9 chart walk lives here...
+    ri = src.index("bool ReleaseFromMarketWatch")
+    re_ = src.index("\n  }", ri)
+    release_body = src[ri:re_]
+    outside = src[:ri] + src[re_:]
+    assert "ChartSymbol(" in release_body    # the chart walk lives here...
     assert "ChartSymbol(" not in outside, \
-        "ChartSymbol( is permitted ONLY inside DropCustomSymbolChecked"
+        "ChartSymbol( is permitted ONLY inside ReleaseFromMarketWatch"
     assert "InpSymbolName" in src            # symbol from the input
     assert "TimeframeFromString" in src      # timeframe from the manifest
 
@@ -781,19 +782,22 @@ def test_importer_writes_to_the_explicit_gate_path_not_a_guess():
 
 def test_importer_removes_stale_symbol_idempotently_and_fails_closed():
     src = _importer()
-    # a stale custom symbol is deleted AND verified gone before create; when
-    # the delete fails the survivor is ADOPTED in place (R9) -- the only
-    # remaining refusal is an undeselectable symbol -- so a create can still
-    # never 5304-collide
+    # the drop helper (cleanup-only since R10: a pre-existing survivor is
+    # adopted verify-first, never dropped pre-create) still releases from
+    # Market Watch (5306-safe), deletes, and VERIFIES gone -- so a create
+    # after cleanup can never 5304-collide
     assert "DropCustomSymbolChecked" in src
     assert "SymbolExist(still present after delete)" in src
     assert "ERR_CUSTOM_SYMBOL_EXIST (5304)" in src
     # the create refusal explains 5304 explicitly
     assert "5304 = ERR_CUSTOM_SYMBOL_EXIST" in src
-    # the delete-verify helper deselects (5306-safe) then deletes then checks
+    # the delete-verify helper releases first, then deletes, then checks
     di = src.index("bool DropCustomSymbolChecked")
-    assert src.index("SymbolSelect(sym, false)", di) < src.index("CustomSymbolDelete(sym)", di)
-    assert src.index("CustomSymbolDelete(sym)", di) < src.index("SymbolExist(sym, isCustom)", di)
+    de = src.index("\n  }", di)
+    drop_body = src[di:de]
+    assert drop_body.index("ReleaseFromMarketWatch(sym") \
+        < drop_body.index("CustomSymbolDelete(sym)") \
+        < drop_body.index("SymbolExist(sym, isCustom)")
 
 
 def test_importer_documents_twice_in_a_row_determinism():
@@ -1670,26 +1674,35 @@ def test_importer_derived_tick_values_are_scoped_not_a_refusal_r8():
     # the old economics refusal is gone
     assert "would NOT reproduce broker" not in src
     # Sleep never appears in the derived read-back loop (it stays a bounded,
-    # Sleep-free nudge); since R9 the importer's ONE Sleep is the bounded
-    # stale-symbol drop retry inside DropCustomSymbolChecked, pinned by
-    # test_r9_drop_retry_is_bounded_with_sleep_only_in_the_drop below
+    # Sleep-free nudge); since R9/R10 the importer's only Sleeps are the
+    # bounded Market-Watch release + drop retries, pinned by
+    # test_r10_sleep_stays_bounded_and_only_in_release_and_drop below
     vi = src.index("bool VerDerivedD")
     ver_body = src[vi:src.index("\n  }", vi)]
     assert "Sleep(" not in ver_body
 
 
 # ---------------------------------------------------------------------------
-# STAGE 4 R9 -- survive a symbol left SELECTED by a prior run. gate_run12: a
-# SUCCESSFUL run deliberately ends with SymbolSelect(sym,true) so the tester
-# can see the symbol; the NEXT run's unchecked deselect + immediate single
-# delete failed with 5306 (MT5 releases a symbol asynchronously and never
-# while a chart shows it) and stage 4 refused -- breaking the R2 requirement
-# that running the gate twice in a row produces identical results. R9:
-# hardened drop (close foreign charts, checked deselect, bounded Sleep(300)
-# retry) + an ADOPT-IN-PLACE recovery that earns its PASS through the
-# IDENTICAL property re-set + read-back + round-trip evidence, with a
-# symbol_state honesty field on every record.
+# STAGE 4 R10 -- remove the need to deselect at all, and stop losing to the
+# asynchronous chart close. gate_run13: the R9 adopt path's SINGLE deselect
+# failed with 4305 ERR_MARKET_SELECT_ERROR ("error adding or deleting a
+# symbol in Market Watch") after 0 delete attempts -- ChartClose only QUEUES
+# a close command, so the deselect ran while MT5 still considered the symbol
+# in use. Root cause 2: R9 rewrote properties that already held the correct
+# manifest values, and property WRITES are the ONLY thing that requires a
+# deselected symbol (5306) -- the rewrite MANUFACTURED the failing deselect.
+# R10: verify-first adoption (all-equal survivor -> ZERO writes, no Market-
+# Watch traffic), hardened release (poll the async ChartClose, bounded
+# deselect retry) only when a re-apply is actually required, and a
+# symbol_state field that is EARNED (set only when the named path actually
+# happened), never aspired to.
 # ---------------------------------------------------------------------------
+
+def _release_body() -> str:
+    src = _importer()
+    ri = src.index("bool ReleaseFromMarketWatch")
+    return src[ri:src.index("\n  }", ri)]
+
 
 def _drop_body() -> str:
     src = _importer()
@@ -1697,100 +1710,199 @@ def _drop_body() -> str:
     return src[di:src.index("\n  }", di)]
 
 
-def test_r9_drop_closes_foreign_charts_never_its_own():
-    body = _drop_body()
+def test_r10_release_closes_foreign_charts_never_its_own():
+    body = _release_body()
     for call in ("ChartFirst()", "ChartNext(", "ChartClose(", "ChartID()"):
-        assert call in body, f"drop must use {call}"
+        assert call in body, f"release must use {call}"
     # the script's own chart is never closed (closing it would kill the
-    # script mid-run); that case is recorded and handed to the adopt path
+    # script mid-run), and its symbol is never changed either:
+    # ChartSetSymbolPeriod on the running script's own chart TERMINATES the
+    # script -- no JSON at all, worse than a clean refusal. The importer
+    # documents that and never issues the call.
     assert "own chart displays" in body
-    assert "adopt in place" in body
+    assert "TERMINATES" in body
     assert body.index("cid == ownChart") < body.index("ChartClose("), \
         "the own-chart guard must run before any ChartClose"
+    src = _importer()
+    assert "ChartSetSymbolPeriod(" not in src, \
+        "ChartSetSymbolPeriod on the own chart kills the running script"
 
 
-def test_r9_drop_retry_is_bounded_with_sleep_only_in_the_drop():
+def test_r10_release_polls_the_asynchronous_chartclose():
+    body = _release_body()
+    # ChartClose queues a close and returns; the release POLLS until no
+    # chart displays the symbol, bounded (<=10 iterations, Sleep(300)
+    # between), and never assumes the close happened
+    assert "poll < 10" in body
+    assert "asynchronous" in body
+    pi = body.index("for(int poll")
+    poll_loop = body[pi:body.index("for(int attempt")]
+    assert "ChartSymbol(" in poll_loop and "Sleep(300)" in poll_loop
+
+
+def test_r10_release_retries_the_deselect_bounded_and_reports_the_last_failure():
+    body = _release_body()
+    # gate_run13: the single unretried deselect was fatal (4305). It now has
+    # its OWN bounded retry -- at most 5 attempts, Sleep(300) between, the
+    # return value and _LastError checked each time, LAST failure reported
+    assert "attempt <= 5" in body
+    assert "attempt < 5" in body
+    ai = body.index("for(int attempt")
+    retry = body[ai:]
+    assert retry.index("ResetLastError()") \
+        < retry.index("SymbolSelect(sym, false)") \
+        < retry.index("Sleep(300)")
+    assert 'whichCall = "SymbolSelect(false)"' in retry
+    assert "LAST failure" in body
+
+
+def test_r10_drop_is_cleanup_only_and_still_verifies_gone():
     src = _importer()
     body = _drop_body()
-    # the deselect return value + _LastError are CHECKED (pre-R9 both were
-    # discarded and the delete ran once, immediately -- the 5306 root cause)
-    assert "if(!SymbolSelect(sym, false))" in body
-    # bounded retry: at most 5 attempts, Sleep(300) between, none after the
-    # last -- and the delete sequence order is Rates -> Reset -> Delete ->
-    # Exist-verify inside the loop
-    assert "attempt <= 5" in body
-    assert "Sleep(300)" in body
-    assert "attempt < 5" in body
+    # the drop goes through the SAME hardened release, then the bounded
+    # delete retry: Rates -> Reset -> Delete -> Exist-verify inside the loop
+    assert "ReleaseFromMarketWatch(sym" in body
+    assert "attempt <= 5" in body and "attempt < 5" in body
     li = body.index("for(int attempt")
     loop = body[li:]
     assert loop.index("CustomRatesDelete(") < loop.index("ResetLastError()") \
         < loop.index("CustomSymbolDelete(") < loop.index("SymbolExist(")
-    # the ONE Sleep CALL in the whole importer lives in this function
-    # (scripts may Sleep; the event-driven sources stay Sleep-free -- see
-    # test_s3). Comments mentioning Sleep are stripped before counting.
+    assert "g_dropAttempts = attempt" in body
+    # since R10 the pre-create path never drops: a survivor is adopted
+    # verify-first, so DropCustomSymbolChecked is called ONLY by the
+    # post-failure cleanup (definition + the one CleanupAfterFail call site)
+    assert src.count("DropCustomSymbolChecked(") == 2
+    ci = src.index("string CleanupAfterFail")
+    assert "DropCustomSymbolChecked(" in src[ci:src.index("\n  }", ci)]
+
+
+def test_r10_sleep_stays_bounded_and_only_in_release_and_drop():
+    src = _importer()
+    # every Sleep CALL is the fixed 300 ms bounded-retry pause, and they all
+    # live in ReleaseFromMarketWatch (chart poll + deselect retry) and
+    # DropCustomSymbolChecked (delete retry). Comments mentioning Sleep are
+    # stripped before counting.
     sleep_calls = [ln for ln in (raw.split("//")[0]
                                  for raw in src.splitlines())
                    if "Sleep(" in ln]
-    assert len(sleep_calls) == 1 and "Sleep(300)" in sleep_calls[0], \
-        sleep_calls
-    # attempts are counted so the adoption record can carry them
-    assert "g_dropAttempts = attempt" in body
+    assert len(sleep_calls) == 3 and \
+        all("Sleep(300)" in ln for ln in sleep_calls), sleep_calls
+    release, drop = _release_body(), _drop_body()
+    in_release = [ln for ln in (raw.split("//")[0]
+                                for raw in release.splitlines())
+                  if "Sleep(" in ln]
+    in_drop = [ln for ln in (raw.split("//")[0]
+                             for raw in drop.splitlines())
+               if "Sleep(" in ln]
+    assert len(in_release) == 2 and len(in_drop) == 1
 
 
-def test_r9_adopt_path_reuses_the_single_property_sequence():
+def test_r10_adopt_is_verify_first():
     src = _importer()
-    # ONE property-application function, ONE shared call site (definition +
-    # call = exactly two mentions): a second copy would drift and the volume
-    # MAX->STEP->MIN->LIMIT ordering (R6) must hold identically on both paths
-    assert src.count("ApplySymbolProperties(") == 2
-    ai = src.index("bool ApplySymbolProperties")
-    fn = src[ai:src.index("\n  }", ai)]
-    # the R6 ordering is asserted on the SetD CALL SITES (comments inside the
-    # function also mention the volume enums and must not skew the indices)
-    order = [fn.index("SetD(sym, SYMBOL_VOLUME_" + k)
+    # the precheck reads back every SETTABLE property BEFORE touching
+    # anything, with the final-verification comparison semantics
+    for helper in ("int CountPropertyDiffs(", "void DiffI(", "void DiffD(",
+                   "void DiffS("):
+        assert helper in src, f"importer must define {helper}"
+    ci = src.index("int CountPropertyDiffs(")
+    fn = src[ci:src.index("\n  }", ci)]
+    # doubles compare at the pipeline's own %.10f precision (same as VerD)
+    assert "DoubleToString(got, 10) != DoubleToString(want, 10)" in src
+    # the R8 CALCULATED tick values never force a rewrite
+    assert "SYMBOL_TRADE_TICK_VALUE_PROFIT" not in fn
+    assert "SYMBOL_TRADE_TICK_VALUE_LOSS" not in fn
+    # the diff list mirrors ApplySymbolProperties one-to-one, including the
+    # R6 volume MAX->STEP->MIN->LIMIT ordering
+    order = [fn.index("SYMBOL_VOLUME_" + k)
              for k in ("MAX", "STEP", "MIN", "LIMIT")]
     assert order == sorted(order), order
-    # adoption deselects (5306), wipes ALL bars and VERIFIES zero remain
-    # before the re-set, so no prior fixture's bar can survive
-    assert "adopted_existing" in src
+    # an all-equal survivor is adopted with ZERO writes and NO deselect --
+    # the steady-state re-run needs nothing from Market Watch
+    assert "adopted_verified" in src
+    assert "ZERO property writes" in src
+    # a differing survivor re-applies through the ONE shared writer
+    # (definition + single call site = exactly two mentions; never a second
+    # partial writer)
+    assert src.count("ApplySymbolProperties(") == 2
+    assert "adopted_reapplied" in src
+    assert '\\"adopt_properties_rewritten\\":' in src
+    # the release is attempted ONLY on the differing path: in OnStart the
+    # precheck comes before the release call
+    body = src[src.index("void OnStart()"):]
+    assert body.index("CountPropertyDiffs(sym") \
+        < body.index("ReleaseFromMarketWatch(sym")
+
+
+def test_r10_adopt_wipes_bars_and_keeps_the_roundtrip_check_unchanged():
+    src = _importer()
+    # both adopt paths wipe ALL bars and VERIFY zero remain (works on a
+    # SELECTED custom symbol -- the normal live-feed path), then the
+    # UNCHANGED round-trip dataset-hash check earns the PASS
     assert "CustomRatesDelete(sym, 0, LONG_MAX)" in src
     assert "leftoverBars" in src
-    # adoption is accepted only via the UNCHANGED verification -- the
-    # guarantee is the evidence, not the symbol being new (stated in-source)
+    assert "roundtrip dataset hash" in src
+    assert "!= manifest dataset_hash" in src
     assert "guarantee comes from that verification" in src
 
 
-def test_r9_undeselectable_refusal_names_call_error_and_remediation():
+def test_r10_undeselectable_refusal_names_call_error_and_remediation():
     src = _importer()
-    # the ONE remaining honest refusal: the survivor cannot even be
-    # deselected, so its properties can never be set (5306). The record
-    # names the failing call, its _LastError, and the operator remediation.
+    # the one remaining honest refusal: differing properties REQUIRE a
+    # deselect and the hardened release cannot obtain one. The record names
+    # the failing call, its _LastError (4305 spelled out), and the operator
+    # remediation.
     assert "cannot adopt the surviving custom symbol" in src
+    assert "4305" in src and "ERR_MARKET_SELECT_ERROR" in src
     assert "close any chart on " in src
     assert "re-run the gate" in src
 
 
-def test_r9_symbol_state_is_named_on_every_record():
+def test_r10_symbol_state_is_earned_never_aspired():
     src = _importer()
     assert '\\"symbol_state\\":' in src
-    assert "created_fresh" in src and "adopted_existing" in src
-    assert "adopt_delete_attempts" in src and "adopt_last_error" in src
+    # the honest vocabulary: unresolved until a path actually completes
+    assert '"unresolved"' in src
+    for state in ('"created_fresh"', '"adopted_verified"',
+                  '"adopted_reapplied"'):
+        assert state in src, f"symbol_state must know {state}"
+    # the R9 vocabulary that lied on gate_run13's refusal is gone
+    assert "adopted_existing" not in src
+    assert "adopt_delete_attempts" not in src
+    assert "adopt_last_error" not in src
+    # created_fresh is set only AFTER CustomSymbolCreate succeeded, and
+    # adopted_reapplied only AFTER the shared re-apply completed (source
+    # order pins assignment after the guarded call in both cases)
+    body = src[src.index("void OnStart()"):]
+    assert body.index("CustomSymbolCreate(sym") \
+        < body.index('g_symbolState = "created_fresh"')
+    assert body.index("ApplySymbolProperties(sym") \
+        < body.index('g_symbolState    = "adopted_reapplied"')
+    # adopted_verified is set where the zero-diff verification happened
+    assert body.index("CountPropertyDiffs(sym") \
+        < body.index('g_symbolState    = "adopted_verified"')
     # carried by BOTH writers: the refusal record and the success record
     ri = src.index("void RefuseAt")
     assert "SymbolStateJson()" in src[ri:src.index("\n  }", ri)]
     si = src.index("// ---- success: the custom symbol provably equals")
     assert "SymbolStateJson()" in src[si:]
     # surfaced in the terminal log too: at adoption time and in the result
-    assert "SYMBOL_STATE adopted_existing" in src
+    assert "SYMBOL_STATE adopted_verified" in src
+    assert "SYMBOL_STATE adopted_reapplied" in src
     assert "symbol_state=" in src
 
 
-def test_r9_header_documents_the_three_outcome_contract():
+def test_r10_header_documents_the_verify_first_contract():
     src = _importer()
-    assert "THREE-OUTCOME" in src
-    assert "DELETED-AND-RECREATED" in src
-    assert "ADOPTED-IN-PLACE" in src
+    assert "VERIFY-FIRST" in src
+    assert "CREATED-FRESH" in src
+    assert "ADOPTED-VERIFIED" in src
+    assert "ADOPTED-REAPPLIED" in src
     assert "REFUSED-BECAUSE-UNDESELECTABLE" in src
+    # both root causes are named: the asynchronous ChartClose (4305) and the
+    # design principle that a re-run must not need Market Watch at all,
+    # because the properties are already correct -- verified, not assumed
+    assert "ChartClose is" in src and "ASYNCHRONOUS" in src
+    assert "ERR_MARKET_SELECT_ERROR" in src
     # the root cause is named: the SUCCESSFUL run's own final selection is
     # what strands the symbol for the next run
     assert "SymbolSelect(sym,true)" in src
