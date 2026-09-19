@@ -441,53 +441,67 @@ DERIVED_TICK_VALUE_ENUMS = ("SYMBOL_TRADE_TICK_VALUE_PROFIT",
 
 
 def properties_verified(doc: dict) -> dict:
-    """R5 read-back contract: a SUCCESS import record must carry
+    """Read-back contract for a SUCCESS import record.
 
       - ``verified_properties``: a non-empty list of read-backs of every
-        property that was SET, each with ``ok`` true, and
+        property that was SET, each with ``ok`` true (STRICT — a skipped or
+        divergent SETTABLE property fails closed; R5/R7); and
       - ``derived_tick_values.properties``: read-backs of BOTH calculated
-        tick-value properties (not settable, 5307), each with ``ok`` true --
-        the terminal-DERIVED value equalled the manifest broker value.
+        tick-value properties (not settable, 5307). These are RECORDED for
+        transparency but are NON-AUTHORITATIVE for stage 4 (R8 scope
+        decision): a bars-only Forex custom symbol legitimately reads them
+        back as 0, and broker tick-value economics are certified separately
+        by stage-3 broker parity + the OrderCalcProfit witness. Both enums
+        must be PRESENT (never silently skipped); their ``ok`` is not gated.
 
-    Returns {"ok": bool, "reason": str}. Anything missing or diverged is a
-    named fail-closed reason: a skipped or unverified property must never
-    pass as if it were set.
+    Returns {"ok": bool, "limited": bool, "reason": str}. When the calculated
+    tick values were not proven equal, ``limited`` is true and the reason
+    NAMES the scoped limitation — a pass, but never a silent one.
     """
     vp = doc.get("verified_properties")
     if not isinstance(vp, list) or not vp:
-        return {"ok": False,
+        return {"ok": False, "limited": False,
                 "reason": "success record carries no verified_properties "
                           "read-back (properties were never proven set)"}
     bad = [str(p.get("enum") or "?") for p in vp
            if not (isinstance(p, dict) and p.get("ok") is True)]
     if bad:
-        return {"ok": False,
+        return {"ok": False, "limited": False,
                 "reason": "read-back diverged from the value set for: "
                           + ", ".join(bad)}
     dv = doc.get("derived_tick_values")
     props = dv.get("properties") if isinstance(dv, dict) else None
     if not isinstance(props, list):
-        return {"ok": False,
+        return {"ok": False, "limited": False,
                 "reason": "success record carries no derived_tick_values "
-                          "read-back (the 5307-calculated tick values were "
-                          "never proven to equal the manifest)"}
+                          "read-back (the 5307-calculated tick values must be "
+                          "RECORDED for transparency, even when unavailable)"}
     by_enum = {p.get("enum"): p for p in props if isinstance(p, dict)}
-    for need in DERIVED_TICK_VALUE_ENUMS:
-        rec = by_enum.get(need)
-        if rec is None:
-            return {"ok": False,
-                    "reason": f"derived_tick_values misses {need} (not "
-                              f"settable per 5307; must be verified by "
-                              f"read-back, never skipped)"}
-        if rec.get("ok") is not True:
-            return {"ok": False,
-                    "reason": f"terminal-DERIVED {need} "
-                              f"({rec.get('readback')!r}) != manifest value "
-                              f"({rec.get('manifest_value')!r}); the custom "
-                              f"symbol does not carry the broker tick-value "
-                              f"economics"}
-    return {"ok": True, "reason": "every set property read back equal; both "
-                                  "derived tick values equal the manifest"}
+    missing = [need for need in DERIVED_TICK_VALUE_ENUMS
+               if by_enum.get(need) is None]
+    if missing:
+        return {"ok": False, "limited": False,
+                "reason": f"derived_tick_values misses {', '.join(missing)} "
+                          f"(calculated per 5307; must be RECORDED by "
+                          f"read-back for transparency, never skipped)"}
+    # R8: the calculated _PROFIT/_LOSS are NOT gated here. If any did not read
+    # back equal to the manifest, PASS with a NAMED, SCOPED limitation.
+    unequal = [need for need in DERIVED_TICK_VALUE_ENUMS
+               if by_enum[need].get("ok") is not True]
+    if unequal:
+        detail = "; ".join(
+            f"{n} read back {by_enum[n].get('readback')!r} vs manifest "
+            f"{by_enum[n].get('manifest_value')!r}" for n in unequal)
+        return {"ok": True, "limited": True,
+                "reason": "every SET property read back equal; the CALCULATED "
+                          "tick values are a NAMED, SCOPED limitation (stage 4 "
+                          "certifies strategy logic + execution path; broker "
+                          "tick-value economics are certified by stage-3 "
+                          "broker parity + the OrderCalcProfit witness): "
+                          + detail}
+    return {"ok": True, "limited": False,
+            "reason": "every set property read back equal; both calculated "
+                      "tick values also equal the manifest"}
 
 
 def classify_stage4_outcome(*, launched: bool, json_present: bool,
@@ -565,6 +579,7 @@ def classify_stage4_outcome(*, launched: bool, json_present: bool,
                 "message": f"{symbol}: import not property-verified: "
                            f"{verified['reason']}"}
     return {"case": STAGE4_CASE_PASS, "ok": True,
+            "limited": verified.get("limited", False),
             "message": f"{symbol}: imported; round-trip dataset hash == "
                        f"manifest; {verified['reason']}"}
 

@@ -9,6 +9,51 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-19 — Custom-symbol CALCULATED tick values may read back 0; stage 4 records them as a NAMED limitation and PASSES, never blocks (STAGE 4 R8)
+
+**Trigger.** gate_run10 (on 63f2faa): currencies now correct (USD/EUR/EUR all
+read back OK) and all 16 SETTABLE properties verified. The remaining blocker
+was `verify_properties`: `SYMBOL_TRADE_TICK_VALUE_PROFIT` read back
+`0.0000000000` (manifest `1.0`) while the SETTABLE `SYMBOL_TRADE_TICK_VALUE`
+read back `1.0` correctly; `trade_calc_mode = 0` (Forex). The importer was
+refusing on that derived divergence (the R5 rule).
+
+**What the MQL5 docs say (looked up, not assumed).** `ENUM_SYMBOL_INFO_DOUBLE`
+documents `SYMBOL_TRADE_TICK_VALUE_PROFIT`/`_LOSS` as the **"Calculated** tick
+price for a profitable/losing position" and `SYMBOL_TRADE_TICK_VALUE` as the
+settable "Value of SYMBOL_TRADE_TICK_VALUE_PROFIT". The calculated pair is
+derived lazily from a pricing/quote context and the account-currency
+conversion for the calc mode. A freshly built **Forex** custom symbol that
+carries only OHLC bars (no ticks, no cross-rate feed to the account currency)
+has nothing to derive from, so it legitimately reads back 0 — even after
+`SymbolSelect(true)` and `CustomRatesUpdate`. (The public docs do not promise
+these populate for a bars-only custom symbol; the importer now reads them
+after selection + bars with a bounded, Sleep-free retry that nudges a
+recompute, and takes the value the moment it becomes non-zero.)
+
+**Decision.** The derived tick values are **NON-AUTHORITATIVE for stage 4**.
+Applying the scope decision already recorded for R5: the Gold legs certify
+STRATEGY LOGIC and EXECUTION PATH on the fixture, NOT broker tick-value
+economics — those are certified separately by stage-3 broker parity + the
+independent OrderCalcProfit witness in RiskManager. So:
+
+- `Mql5BotImportFixture.mq5` reads the calculated `_PROFIT`/`_LOSS` back (after
+  selection + bars, bounded retry) and RECORDS them in `derived_tick_values`
+  with `available` + `ok` per property and an `authoritative:false` +
+  named-limitation block — but NEVER refuses on them (the R5 economics
+  refusal is removed). The SETTABLE read-back (16 properties) stays STRICT
+  and still fails closed on any divergence.
+- `gate_selfcheck.properties_verified` requires both calculated enums to be
+  PRESENT (transparency, never silently skipped) but does NOT gate on their
+  `ok`; when they are unavailable/divergent it PASSES with `limited:true` and
+  a reason that NAMES the limitation, surfaced in the stage-4 message. Never a
+  silent pass; never an over-strict block that refuses a symbol whose
+  economics a stronger gate already certifies.
+
+Recorded in `docs/OWNER_DELIVERY.md` (custom-symbol row + the tick-value
+limitation line). See the R5 tick-value entry below for the origin of the
+scope decision.
+
 ## 2026-09-19 — Custom-symbol currencies are inferred from the NAME; a SetString can report success without taking effect; name the symbol XXXYYY+suffix (STAGE 4 R7)
 
 **Trigger.** gate_run9: 13 properties (incl. the whole volume family, R6)

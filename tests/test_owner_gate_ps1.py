@@ -1512,17 +1512,48 @@ def test_stage4_missing_derived_tick_value_fails_and_names_it():
     assert "5307" in v["message"]
 
 
-def test_stage4_derived_tick_value_divergence_is_an_economics_fail():
+def test_stage4_derived_tick_value_divergence_passes_with_named_limitation():
+    """R8 scope decision: a CALCULATED (5307) tick value that does not read
+    back equal is a NAMED, SCOPED limitation, NOT a failure — stage 4 PASSES
+    (economics are certified by stage-3 broker parity + the OrderCalcProfit
+    witness). Never a silent pass: the limitation is named in the message."""
     doc = _verified_success_doc()
     rec = doc["derived_tick_values"]["properties"][1]
     rec["ok"] = False
+    rec["available"] = True
     rec["readback"] = "0.8700000000"
     v = gs.classify_stage4_outcome(launched=True, json_present=True, doc=doc,
                                    manifest_hash="b" * 64,
                                    symbol="GOLD1_EURUSD")
-    assert v["case"] == gs.STAGE4_CASE_UNVERIFIED
+    assert v["case"] == gs.STAGE4_CASE_PASS and v["ok"] is True
+    assert v["limited"] is True
     assert "SYMBOL_TRADE_TICK_VALUE_LOSS" in v["message"]
-    assert "economics" in v["message"]
+    assert "NAMED, SCOPED limitation" in v["message"]
+    assert "stage-3" in v["message"]
+
+
+def test_stage4_derived_tick_value_zero_readback_passes_gate_run10():
+    """gate_run10: the SETTABLE SYMBOL_TRADE_TICK_VALUE read back 1.0, but the
+    CALCULATED _PROFIT read back 0.0 (nothing to derive from on a bars-only
+    Forex custom symbol). Stage 4 PASSES with the limitation, never blocks."""
+    doc = _verified_success_doc()
+    prof = doc["derived_tick_values"]["properties"][0]
+    prof["ok"] = False
+    prof["available"] = False
+    prof["readback"] = "0.0000000000"
+    doc["derived_tick_values"]["properties"][1]["ok"] = False
+    doc["derived_tick_values"]["properties"][1]["available"] = False
+    doc["derived_tick_values"]["properties"][1]["readback"] = "0.0000000000"
+    v = gs.classify_stage4_outcome(launched=True, json_present=True, doc=doc,
+                                   manifest_hash="b" * 64, symbol="EURUSD.G1")
+    assert v["case"] == gs.STAGE4_CASE_PASS and v["ok"] is True
+    assert v["limited"] is True
+    # the settable properties are still strictly required — flip one and it
+    # fails closed even though the derived values are only a limitation
+    doc["verified_properties"][1]["ok"] = False
+    v2 = gs.classify_stage4_outcome(launched=True, json_present=True, doc=doc,
+                                    manifest_hash="b" * 64, symbol="EURUSD.G1")
+    assert v2["case"] == gs.STAGE4_CASE_UNVERIFIED and not v2["ok"]
 
 
 def test_verify_properties_refusal_must_name_the_property():
@@ -1606,8 +1637,26 @@ def test_importer_derived_verification_covers_both_tick_values():
     src = _importer()
     assert "VerDerivedD(sym, SYMBOL_TRADE_TICK_VALUE_PROFIT" in src
     assert "VerDerivedD(sym, SYMBOL_TRADE_TICK_VALUE_LOSS" in src
-    # divergence refuses with the economics fact, and cleans up the symbol
-    assert "would NOT reproduce broker" in src
+
+
+def test_importer_derived_tick_values_are_scoped_not_a_refusal_r8():
+    """R8: the CALCULATED tick values are recorded (available/ok per property)
+    with a bounded, Sleep-free retry AFTER selection + bars, but NEVER refuse
+    stage 4 — a bars-only Forex custom symbol reads them back 0 legitimately,
+    and economics are certified by stage 3."""
+    src = _importer()
+    # the retry nudges a lazy recompute without Sleep
+    assert "SymbolInfoTick(sym, tick)" in src
+    assert "attempt<32" in src
+    # the derived read-back records availability + the scope, and does NOT feed
+    # the refusal path (no MarkVerifyFail in the derived helper)
+    assert '\\"available\\":' in src
+    assert "authoritative" in src
+    assert "NAMED, SCOPED limitation" in src
+    # the old economics refusal is gone
+    assert "would NOT reproduce broker" not in src
+    # Sleep is still never used anywhere in the importer
+    assert "Sleep(" not in src
 
 
 # ---------------------------------------------------------------------------

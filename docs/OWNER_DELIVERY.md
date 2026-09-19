@@ -38,7 +38,7 @@ evidence exists yet).
 | Gold #1 leg Python ↔ MQL5 in MT5 tester | **NOT RUN** | same file — `python_vs_mql5: PENDING_OWNER`, `python_vs_mt5_tester: PENDING_OWNER` |
 | Gold #2 leg (56 trades) Python ↔ DSL | **VERIFIED** | `artifacts/gold_2/reconciliation.json` · `caa8a973934c61cd0e416af3755865af787c4339a94ab2779d2facbfe52eb9ff` — `python_vs_dsl: MATCHED`, `python_vs_mql5_source: SOURCE_PARITY` |
 | Gold #2 leg in MT5 tester | **NOT RUN** | same file — `python_vs_mt5_tester: PENDING_OWNER` |
-| Custom-symbol import of a Gold fixture into MT5 | **NOT RUN** | `mql5/Scripts/Mql5Bot/Mql5BotImportFixture.mq5` exists and self-verifies by hash round-trip. Progress across owner runs: gate_run8 refused at `SYMBOL_VOLUME_MIN` (err 5308, fixed by volume-family ordering, R6); gate_run9 then set 13 properties OK and refused at `verify_properties` because MT5 infers base/profit currencies from the symbol name — fixed by renaming the symbol to `EURUSD.G1`/`EURUSD.G2` (R7). Both fixes are **IMPLEMENTED-UNVERIFIED** until you re-run the gate. |
+| Custom-symbol import of a Gold fixture into MT5 | **NOT RUN** | `mql5/Scripts/Mql5Bot/Mql5BotImportFixture.mq5` exists and self-verifies by hash round-trip. Progress across owner runs: gate_run8 refused at `SYMBOL_VOLUME_MIN` (err 5308, fixed by volume-family ordering, R6); gate_run9 set 13 properties OK and refused at `verify_properties` because MT5 infers base/profit currencies from the symbol name — fixed by renaming to `EURUSD.G1`/`EURUSD.G2` (R7); gate_run10 verified all 16 settable properties but the calculated `SYMBOL_TRADE_TICK_VALUE_PROFIT` read back 0 — this is now a **named, scoped limitation** (see limitations §5), not a blocker (R8): stage 4 passes and certifies strategy logic + execution path, while tick-value economics are certified by stage 3. All fixes are **IMPLEMENTED-UNVERIFIED** until you re-run the gate. |
 | Reconciliation report format (17 fields per trade) | **VERIFIED** | `artifacts/gold/reconciliation.json` (`fields` array) |
 | Kill-switch / restart / retry logic | **IMPLEMENTED-UNVERIFIED** | Python unit-tested (`python/mql5bot/discovery/safety.py`, `tests/test_retryqueue.py`); MQL5 enforcement is PARTIAL and owner-unproven (`docs/KILL_SWITCH.md` line 23) |
 | NETTING account behaviour | **NOT RUN** | `artifacts/owner_mt5_gate/verification_report.json` — `safety/netting.json` MISSING |
@@ -84,10 +84,15 @@ profit, and fixture data is not the market.
   cross, RSI-above, RSI-low) plus a stop/target extractor; anything else
   is reported as ambiguous. No AI model is attached
   (`python/mql5bot/factory/interpreter.py`).
-- **Tick-value is read-only on custom symbols.** MT5 calculates
-  `SYMBOL_TRADE_TICK_VALUE_PROFIT/_LOSS` itself and rejects attempts to
-  set them (err 5307); the importer proves them faithful by read-back
-  instead of writing them.
+- **Tick-value is read-only, and may read back 0, on custom symbols.** MT5
+  calculates `SYMBOL_TRADE_TICK_VALUE_PROFIT/_LOSS` itself and rejects
+  attempts to set them (err 5307). For a bars-only Forex custom symbol they
+  can also read back 0 (nothing to derive from). The Gold-fixture import
+  therefore does NOT certify broker tick-value economics — it certifies
+  strategy logic and the execution path on the fixture; the tick-value
+  denomination is certified separately by the stage-3 broker parity check and
+  the independent OrderCalcProfit witness. This is recorded as a named
+  limitation in the import evidence, never a silent pass.
 
 ## 6. How to run it
 
