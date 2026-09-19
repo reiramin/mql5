@@ -10,12 +10,17 @@ from mql5bot.mt5tester import (
     EA_INPUT_DEFAULTS,
     MT5_MODEL_LABELS,
     MT5_TIMEFRAMES,
+    ReportData,
+    RunOutcome,
     RunSettings,
+    find_report,
     inputs_to_lines,
     mt5_value_str,
     parse_report_html,
     parse_set,
     render_set,
+    report_not_found_message,
+    report_search_paths,
     run_backtest,
     validate_inputs,
 )
@@ -282,3 +287,100 @@ def test_run_backtest_guard_off_windows():
     settings = RunSettings(terminal_dir="C:\\MT5", data_folder="C:\\MT5")
     with pytest.raises(RuntimeError, match="Windows-only"):
         run_backtest(cfg, settings)
+
+
+# ---------------------------------------------------------------------------
+# STAGE 5 R2 — a failed leg must be diagnosable; the report location is
+# written, not guessed.
+# ---------------------------------------------------------------------------
+
+
+def test_render_ini_writes_absolute_report_path():
+    # DEFECT 3: run_backtest points Report at an absolute path in the run_dir
+    # so there is exactly one place the report can land and no MT5 resolution
+    # rule to guess at.
+    cfg = MT5TesterConfig(report_name="leg1")
+    abs_stem = "C:\\results\\runs\\leg1_m1_123\\leg1"
+    ini = cfg.render_ini(report_path=abs_stem)
+    assert f"Report={abs_stem}" in ini
+    # exactly one Report= line, and it is the absolute one (not the bare stem)
+    report_lines = [ln for ln in ini.splitlines() if ln.startswith("Report=")]
+    assert report_lines == [f"Report={abs_stem}"]
+
+
+def test_render_ini_defaults_to_bare_report_name():
+    # No report_path: unchanged behaviour (generate-ini evidence path).
+    cfg = MT5TesterConfig(report_name="leg1")
+    ini = cfg.render_ini()
+    assert "Report=leg1" in ini
+
+
+def test_report_search_paths_order(tmp_path):
+    run_dir = tmp_path / "runs" / "r1"
+    data_folder = tmp_path / "data"
+    terminal_dir = tmp_path / "install"
+    paths = report_search_paths(run_dir, data_folder, terminal_dir, "leg1")
+    assert paths == [
+        run_dir / "leg1.htm",
+        data_folder / "tester" / "leg1.htm",
+        data_folder / "leg1.htm",
+        terminal_dir / "leg1.htm",
+    ]
+
+
+def test_find_report_records_hit_location(tmp_path):
+    # DEFECT 3 fallback: the report landed somewhere other than the intended
+    # run_dir; find_report names where it was actually found.
+    run_dir = tmp_path / "runs" / "r1"
+    data_folder = tmp_path / "data"
+    terminal_dir = tmp_path / "install"
+    (data_folder / "tester").mkdir(parents=True)
+    landed = data_folder / "tester" / "leg1.htm"
+    landed.write_text("<html></html>", encoding="utf-8")
+
+    found, searched = find_report(run_dir, data_folder, terminal_dir, "leg1")
+    assert found == landed
+    # every candidate location is reported, in resolution order
+    assert searched[1] == landed
+    assert len(searched) == 4
+
+
+def test_find_report_missing_returns_all_searched(tmp_path):
+    run_dir = tmp_path / "runs" / "r1"
+    data_folder = tmp_path / "data"
+    terminal_dir = tmp_path / "install"
+    found, searched = find_report(run_dir, data_folder, terminal_dir, "leg1")
+    assert found is None
+    assert len(searched) == 4
+
+
+def test_report_not_found_message_lists_every_searched_path(tmp_path):
+    # DEFECT 3: when no report exists, the error names every path searched.
+    _, searched = find_report(tmp_path / "run", tmp_path / "data",
+                              tmp_path / "install", "leg1")
+    msg = report_not_found_message(searched)
+    for p in searched:
+        assert str(p) in msg, p
+    assert "report not found" in msg.lower()
+
+
+def test_run_outcome_surfaces_exit_code_and_location():
+    # DEFECT 4: a crashed leg and a leg that ran but wrote nowhere must look
+    # different — the terminal exit code and the observed report location are
+    # both in the outcome JSON.
+    outcome = RunOutcome(
+        run_id="r1", ok=False, timed_out=False, error="boom",
+        config={}, report_raw=None, report_json=None, report=None,
+        exit_code=-9, report_location=None)
+    d = outcome.to_dict()
+    assert d["exit_code"] == -9
+    assert d["report_location"] is None
+
+    ok = RunOutcome(
+        run_id="r2", ok=True, timed_out=False, error="",
+        config={}, report_raw="x.htm", report_json=None,
+        report=ReportData(tables=1, settings={}, fields={"a": "b"}, metrics={}),
+        exit_code=0, report_location="C:\\results\\runs\\r2\\leg1.htm")
+    dd = ok.to_dict()
+    assert dd["exit_code"] == 0
+    assert dd["report_location"] == "C:\\results\\runs\\r2\\leg1.htm"

@@ -323,7 +323,11 @@ function Save-ImporterLog([string]$name, $extraLines = $null) {
 # "nothing found", which is itself evidence for a failing leg. $reportName and
 # $symbol narrow the grep so a leg's own lines are captured.
 function Save-TesterLog([string]$name, [string]$reportName, [string]$symbol) {
-    $dirs = @((Join-Path $DataFolder "Tester\logs"),
+    # STAGE 5 R2 DEFECT 1: the Strategy Tester's OWN log lives in a NESTED
+    # directory (Tester\Agent-127.0.0.1-3000\logs\), not Tester\logs\, so it was
+    # never read. Search the Tester ROOT with -Recurse so the agent log is
+    # enumerated too (the Tester root recursion subsumes Tester\logs\).
+    $dirs = @((Join-Path $DataFolder "Tester"),
               (Join-Path $DataFolder "MQL5\Logs"),
               (Join-Path $DataFolder "logs"))
     $patterns = @([regex]::Escape($reportName), [regex]::Escape($symbol),
@@ -333,8 +337,8 @@ function Save-TesterLog([string]$name, [string]$reportName, [string]$symbol) {
     $lines = New-Object System.Collections.ArrayList
     foreach ($d in $dirs) {
         if (-not (Test-Path -LiteralPath $d)) { continue }
-        Get-ChildItem -LiteralPath $d -Filter "*.log" -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 3 |
+        Get-ChildItem -LiteralPath $d -Filter "*.log" -Recurse -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 5 |
             ForEach-Object {
                 try {
                     Select-String -LiteralPath $_.FullName -Pattern $patterns `
@@ -348,6 +352,40 @@ function Save-TesterLog([string]$name, [string]$reportName, [string]$symbol) {
             " / " + $symbol + " found in MT5 logs under " + $DataFolder + ")")
     }
     $out = Join-Path $Evidence ("tester_" + $name + "_journal.txt")
+    [IO.File]::WriteAllText($out, (($lines -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)
+    return (New-Artifact $out)
+}
+
+# STAGE 5 R2 DEFECT 2: the Save-TesterLog pattern filter is built for modelling
+# quality (real tick / modelling / history quality / ...) and CANNOT match the
+# lines that explain a FAILURE ("no history", EA init failures, file errors).
+# When a leg fails, capture the UNFILTERED tail (last 200 lines) of every tester
+# log TOUCHED during that leg's window ($since = the leg's launch time), so a
+# failing leg never attaches only artifacts that cannot explain it -- the
+# STAGE 5 R1 rule. A passing leg keeps only the filtered Save-TesterLog excerpt.
+function Save-TesterFailLog([string]$name, [datetime]$since) {
+    $dirs = @((Join-Path $DataFolder "Tester"),
+              (Join-Path $DataFolder "MQL5\Logs"),
+              (Join-Path $DataFolder "logs"))
+    $lines = New-Object System.Collections.ArrayList
+    foreach ($d in $dirs) {
+        if (-not (Test-Path -LiteralPath $d)) { continue }
+        Get-ChildItem -LiteralPath $d -Filter "*.log" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -ge $since } |
+            Sort-Object LastWriteTimeUtc |
+            ForEach-Object {
+                [void]$lines.Add("===== " + $_.FullName + " (last 200 lines) =====")
+                try {
+                    Get-Content -LiteralPath $_.FullName -Tail 200 -ErrorAction SilentlyContinue |
+                        ForEach-Object { [void]$lines.Add($_) }
+                } catch { }
+            }
+    }
+    if ($lines.Count -eq 0) {
+        [void]$lines.Add("(no tester log was written during this leg's window under " +
+            $DataFolder + " -- the terminal produced no tester log for " + $name + ")")
+    }
+    $out = Join-Path $Evidence ("tester_" + $name + "_journal_tail.txt")
     [IO.File]::WriteAllText($out, (($lines -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)
     return (New-Artifact $out)
 }
@@ -751,6 +789,9 @@ foreach ($leg in $legs) {
     # diagnosable, the STAGE 5 R1 rule).
     $stdoutPath = Join-Path $Evidence ("tester_" + $legTag + "_stdout.txt")
     $stderrPath = Join-Path $Evidence ("tester_" + $legTag + "_stderr.txt")
+    # DEFECT 2: mark the leg's window so a failing leg can attach the unfiltered
+    # tail of exactly the tester logs written while THIS leg ran.
+    $legStart = (Get-Date).AddSeconds(-2)
     $p = Start-Process -FilePath $Python -ArgumentList (Get-ProcArgs (@($runBacktest) + $runArgs)) `
         -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath `
         -Wait -PassThru -NoNewWindow
@@ -776,12 +817,19 @@ foreach ($leg in $legs) {
 
     if ($p.ExitCode -ne 0) {
         $legOk = $false
-        [void]$legReasons.Add(("{0}: tester leg exit {1} (see tester_{0}_cmdline.txt + _stderr.txt + _journal.txt)" -f $legTag, $p.ExitCode))
+        # DEFECT 2: attach the unfiltered tail -- the exit-code failure lines
+        # ("no history", init/file errors) are what explain this, not the
+        # modelling-quality excerpt.
+        $tailArt = Save-TesterFailLog $legTag $legStart
+        if ($tailArt) { [void]$legArt.Add($tailArt) }
+        [void]$legReasons.Add(("{0}: tester leg exit {1} (see tester_{0}_cmdline.txt + _stderr.txt + _journal.txt + _journal_tail.txt)" -f $legTag, $p.ExitCode))
         continue
     }
     if (-not $reportJson) {
         $legOk = $false
-        [void]$legReasons.Add(("{0}: tester leg exited 0 but produced no report.json sidecar" -f $legTag))
+        $tailArt = Save-TesterFailLog $legTag $legStart
+        if ($tailArt) { [void]$legArt.Add($tailArt) }
+        [void]$legReasons.Add(("{0}: tester leg exited 0 but produced no report.json sidecar (see tester_{0}_journal_tail.txt)" -f $legTag))
         continue
     }
 
@@ -799,8 +847,10 @@ foreach ($leg in $legs) {
             $legTag, $am, $le.data.actual_model.source, $cov))
     } else {
         $legOk = $false
+        $tailArt = Save-TesterFailLog $legTag $legStart
+        if ($tailArt) { [void]$legArt.Add($tailArt) }
         $why = if ($le.data -and $le.data.reasons) { ($le.data.reasons -join "; ") } else { "actual model unreadable" }
-        [void]$legReasons.Add(("{0}: {1}" -f $legTag, $why))
+        [void]$legReasons.Add(("{0}: {1} (see tester_{0}_journal_tail.txt)" -f $legTag, $why))
     }
 }
 
