@@ -13,7 +13,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
 
@@ -145,6 +145,52 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
 
     # ---------------------------------------- §52 one-click research
     MAX_RUNNING_CAMPAIGNS = 3   # §82: global research concurrency cap
+
+    @app.post("/interpret")
+    def interpret_idea(idea: str = Form(...), source: str = Form(""),
+                       symbol: str = Form(""), timeframe: str = Form(""),
+                       interpreter: str = Form("auto"),
+                       provider: str = Form(""), model: str = Form(""),
+                       autonomous: bool = Form(False)):
+        """NL idea → draft interpretation (§9/§10). The operator picks the
+        interpreter; with NO API key configured this defaults to the
+        deterministic template and says so in ``interpreter_note``. The
+        draft is version 0 — no execution authority, no allocation, no
+        live state — and the market is only ever the explicit selection
+        passed here (§6: never guessed)."""
+        from ..factory.interpreter import select_interpreter
+        from ..factory.providers import ResearchMaterial
+        if not idea.strip():
+            raise HTTPException(422, "idea is required")
+        if interpreter not in ("auto", "template", "llm"):
+            raise HTTPException(422, "interpreter must be auto|template|llm")
+        text = source.strip() or idea.strip()
+        mat = ResearchMaterial("USER_TEXT", idea.strip().splitlines()[0][:80],
+                               text)
+        market = ({"symbol": symbol.strip(), "timeframe": timeframe.strip()}
+                  if symbol.strip() and timeframe.strip() else None)
+        choice = select_interpreter(prefer=interpreter,
+                                    provider=provider or None,
+                                    model=model or None)
+        try:
+            r = choice.interpreter.interpret(
+                mat, autonomous_research=autonomous, market=market)
+        except Exception as e:  # noqa: BLE001 — HTTP boundary: a bad idea
+            # text is a 422, never an unhandled 500
+            raise HTTPException(422, f"unprocessable idea text: {e}") from None
+        return JSONResponse({
+            "interpreter": r.interpreter or choice.name,
+            "interpreter_note": choice.note,
+            "is_llm": choice.is_llm,
+            "notes": r.notes,
+            "restatement": r.restatement,
+            "draft": r.draft,
+            "ambiguities": r.ambiguities,
+            "unsupported": r.unsupported,
+            "assumptions": r.assumptions,
+            "injection_warnings": r.injection_warnings,
+            "confidence": r.confidence,
+            "needs_review": r.needs_review})
 
     @app.post("/campaigns")
     def create_campaign(request: Request, idea: str = Form(...),

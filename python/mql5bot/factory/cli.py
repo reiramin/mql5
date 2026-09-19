@@ -25,7 +25,7 @@ from ..dsl import parse_spec
 from ..dsl.errors import LimitExceeded, SchemaInvalid
 from .adapter import meta_input
 from .claims import extract_claims
-from .interpreter import TemplateInterpreter
+from .interpreter import select_interpreter
 from .providers import ResearchMaterial
 from .store import FactoryStore, StoreError
 
@@ -45,8 +45,16 @@ def cmd_interpret(args) -> int:
     text = _read_text(args.infile)
     mat = ResearchMaterial("USER_TEXT", Path(args.infile).stem, text,
                            author=args.author or None)
-    interp = TemplateInterpreter()
-    r = interp.interpret(mat, autonomous_research=args.autonomous)
+    # §6: the market is only ever an EXPLICIT owner selection, never guessed
+    market = ({"symbol": args.symbol, "timeframe": args.timeframe}
+              if args.symbol and args.timeframe else None)
+    # provider chosen by the operator; defaults to the deterministic
+    # template when no API key is configured (the reason is printed)
+    choice = select_interpreter(prefer=args.interpreter,
+                                provider=args.provider or None,
+                                model=args.model or None)
+    r = choice.interpreter.interpret(mat, autonomous_research=args.autonomous,
+                                     market=market)
     r.claims.extend(extract_claims(text))
     out = {"draft": r.draft,
            "restatement": r.restatement,
@@ -56,6 +64,9 @@ def cmd_interpret(args) -> int:
            "assumptions": r.assumptions,
            "confidence": r.confidence,
            "needs_review": r.needs_review,
+           "interpreter": r.interpreter or choice.name,
+           "interpreter_note": choice.note,
+           "notes": r.notes,
            "next": "review ambiguities; then `factory register`"}
     print(json.dumps(out, ensure_ascii=False, indent=2,
                      sort_keys=True))
@@ -158,6 +169,20 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--autonomous", action="store_true",
                     help="carry explicit parameter RANGES instead of "
                          "ambiguities (research mode only)")
+    sp.add_argument("--interpreter", choices=["auto", "template", "llm"],
+                    default="auto",
+                    help="auto (LLM iff an API key is set, else template), "
+                         "template (force deterministic), or llm (force "
+                         "the LLM path; still degrades to template on error)")
+    sp.add_argument("--provider", default="",
+                    help="LLM provider (anthropic|openai); key from env "
+                         "only (ANTHROPIC_API_KEY / OPENAI_API_KEY)")
+    sp.add_argument("--model", default="",
+                    help="LLM model id (or $AEGIS_LLM_MODEL)")
+    sp.add_argument("--symbol", default="",
+                    help="market symbol (§6: explicit, never guessed)")
+    sp.add_argument("--timeframe", default="",
+                    help="market timeframe, e.g. H1 (§6: explicit)")
     sp.set_defaults(func=cmd_interpret)
 
     sp = sub.add_parser("register", help="register a draft/canonical spec")
