@@ -97,6 +97,129 @@ class IStrategyInterpreter:
         raise NotImplementedError
 
 
+# ======================================================================
+# restatement DERIVED from the scrubbed draft (ONE function, both paths).
+# The restatement is the human-review gate, so it must describe the draft
+# the reviewer will approve — NOT prepended boilerplate (template path) and
+# NOT the provider's own words (LLM path). Two invariants this guarantees,
+# both pinned by tests: (1) a NUMBER appears only if it is present in the
+# draft — a scrubbed/ambiguous threshold is described in words, never as a
+# value (the system never shows the operator a number it refused); (2) EVERY
+# element the draft actually contains — each entry condition, the stop, the
+# target — is mentioned. It reflects the structured draft, so it is correct
+# for a Persian or an English source alike.
+# ======================================================================
+
+_CMP_WORDS = {"GT": "is greater than", "GE": "is at least",
+              "LT": "is less than", "LE": "is at most",
+              "EQ": "equals", "NE": "does not equal"}
+
+
+def _fmt_num(value) -> str:
+    try:
+        return f"{float(value):g}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _indicator_label(ind: dict | None) -> str:
+    if not isinstance(ind, dict):
+        return "an indicator"
+    kind = str(ind.get("kind") or "indicator")
+    period = ind.get("period")
+    return f"{kind}({_fmt_num(period)})" if period is not None else kind
+
+
+def _operand_phrase(op, ind_by_id: dict) -> str:
+    """A number is emitted ONLY for a grounded {const}; an {ambiguous} operand
+    is described in words so a refused threshold never reaches the operator."""
+    if not isinstance(op, dict):
+        return "price"
+    if "ind" in op:
+        return _indicator_label(ind_by_id.get(op["ind"]))
+    if "price" in op:
+        return "price"
+    if "const" in op:
+        return _fmt_num(op["const"])
+    if "ambiguous" in op:
+        return "a threshold that must be supplied"
+    if any(k in op for k in ("add", "sub", "mul", "div")):
+        return "a derived value"
+    return "a value"
+
+
+def _describe_condition(cond, ind_by_id: dict, depth: int = 0) -> list[str]:
+    if not isinstance(cond, dict) or not cond or depth > 12:
+        return []
+    if isinstance(cond.get("and"), list):
+        parts = [p for c in cond["and"]
+                 for p in _describe_condition(c, ind_by_id, depth + 1)]
+        return [" and ".join(parts)] if parts else []
+    if isinstance(cond.get("or"), list):
+        parts = [p for c in cond["or"]
+                 for p in _describe_condition(c, ind_by_id, depth + 1)]
+        return [" or ".join(parts)] if parts else []
+    if "not" in cond:
+        return [f"not ({p})"
+                for p in _describe_condition(cond["not"], ind_by_id, depth + 1)]
+    if "cross" in cond:
+        a = _operand_phrase(cond.get("a"), ind_by_id)
+        b = _operand_phrase(cond.get("b"), ind_by_id)
+        direction = "above" if cond.get("cross") == "ABOVE" else "below"
+        return [f"{a} crosses {direction} {b}"]
+    if "cmp" in cond:
+        left = _operand_phrase(cond.get("left"), ind_by_id)
+        right = _operand_phrase(cond.get("right"), ind_by_id)
+        word = _CMP_WORDS.get(cond.get("cmp"), "is compared with")
+        return [f"{left} {word} {right}"]
+    if "rising" in cond:
+        return [f"{_operand_phrase(cond['rising'], ind_by_id)} is rising"]
+    if "falling" in cond:
+        return [f"{_operand_phrase(cond['falling'], ind_by_id)} is falling"]
+    if "within" in cond:
+        base = _operand_phrase(cond["within"], ind_by_id)
+        lo, hi = _fmt_num(cond.get("low")), _fmt_num(cond.get("high"))
+        return [f"{base} is between {lo} and {hi}"]
+    return []
+
+
+def restate_from_draft(draft: dict) -> str:
+    """Operator-facing restatement generated FROM the (already scrubbed) draft.
+
+    See the section header: every number comes from the draft (ambiguous
+    thresholds are worded, never numbered) and every element present in the
+    draft — entries, stop and target — is named. When the draft carries no
+    rule at all, it says so instead of inventing one.
+    """
+    ind_by_id = {i.get("id"): i for i in draft.get("indicators") or []
+                 if isinstance(i, dict)}
+    entry = draft.get("entry") or {}
+    long_desc = _describe_condition(entry.get("long") or {}, ind_by_id)
+    short_desc = _describe_condition(entry.get("short") or {}, ind_by_id)
+    exit_doc = draft.get("exit") or {}
+    exit_parts: list[str] = []
+    if isinstance(exit_doc, dict):
+        sl, tp = exit_doc.get("sl"), exit_doc.get("tp")
+        if isinstance(sl, dict) and "mult" in sl:
+            exit_parts.append(f"a stop-loss at {_fmt_num(sl['mult'])} ATR")
+        if isinstance(tp, dict) and "mult" in tp:
+            exit_parts.append(f"a take-profit at {_fmt_num(tp['mult'])} ATR")
+
+    if not (long_desc or short_desc or exit_parts):
+        return ("Could not recognize a strategy pattern in the source text; "
+                "the draft is a placeholder and must be specified manually.")
+    sentences: list[str] = []
+    if long_desc:
+        sentences.append("Enter long when " + "; ".join(long_desc) + ".")
+    if short_desc:
+        sentences.append("Exit/reverse to short when "
+                         + "; ".join(short_desc) + ".")
+    if exit_parts:
+        sentences.append("Protect the position with "
+                         + " and ".join(exit_parts) + ".")
+    return " ".join(sentences)
+
+
 class TemplateInterpreter(IStrategyInterpreter):
     """Deterministic EN/FA pattern interpreter (no ML, no network)."""
 
@@ -138,7 +261,6 @@ class TemplateInterpreter(IStrategyInterpreter):
                 "when EMA20 crosses EMA50 upward …' / 'وقتی EMA20 از "
                 "EMA50 به سمت بالا کراس کرد …')")
 
-        restatement = ""
         if rsi_above:
             recognized = True
             period = int(rsi_above.group(1) or 14)
@@ -147,8 +269,6 @@ class TemplateInterpreter(IStrategyInterpreter):
                                "period": period, "applied": "close"})
             long_parts.append({"left": {"ind": "rsi_m"}, "cmp": "GT",
                                "right": {"const": thr}})
-            restatement += (f" Long requires RSI({period}) above "
-                            f"{thr:g}.")
         elif _RE_RSI_LOW.search(text):
             # THE canonical ambiguity: a threshold is NOT invented
             recognized = True
@@ -165,8 +285,6 @@ class TemplateInterpreter(IStrategyInterpreter):
                 "why": "'RSI is low' has no deterministic threshold — "
                        "supply a value (or an explicit research range)",
                 "range": [10.0, 40.0] if autonomous_research else None})
-            restatement += (" Long requires an RSI threshold that is "
-                            "AMBIGUOUS and must be supplied.")
 
         exit_doc: dict = {}
         if sl_tp:
@@ -181,9 +299,17 @@ class TemplateInterpreter(IStrategyInterpreter):
                        "an SL (DECISIONS §4.2); supply an ATR multiple",
                 "range": [1.0, 4.0] if autonomous_research else None})
 
-        assumptions.append(
-            "state entry mode with EMA-cross flip semantics unless "
-            "review changes it")
+        # the EMA-cross flip assumption belongs ONLY to a draft that actually
+        # has an EMA cross; asserting it for an RSI-only draft (defect A) is a
+        # false statement to the reviewer.
+        if cross:
+            assumptions.append(
+                "state entry mode with EMA-cross flip semantics unless "
+                "review changes it")
+        elif recognized:
+            assumptions.append(
+                "state entry mode: the position holds until an opposite or "
+                "exit condition fires; supply the exit/flip rule in review")
 
         # market resolution (§6): NEVER guessed from prose. An explicit
         # owner selection (passed in) is preserved verbatim; otherwise the
@@ -213,15 +339,10 @@ class TemplateInterpreter(IStrategyInterpreter):
                      "long": (long_parts[0] if len(long_parts) == 1
                               else {"and": long_parts}),
                      "short": short_cond}
-            restatement = ("Buy when the fast EMA crosses the slow EMA "
-                           "upward." + restatement)
         else:
             # nothing recognized → NOTHING is invented: the entry is
             # empty and the draft stays non-executable (mission §10)
             entry = {"mode": "state", "long": {}, "short": {}}
-            restatement = ("Could not recognize a strategy pattern in "
-                           "the source text; the draft is a placeholder "
-                           "and must be specified manually.")
             ambiguities.append({
                 "name": "whole_rule", "kind": "UNRECOGNIZED",
                 "why": "no supported sentence shape matched",
@@ -243,6 +364,10 @@ class TemplateInterpreter(IStrategyInterpreter):
                          "requires_codegen": False,
                          "missing_features": []},
         }
+        # the restatement is DERIVED from the assembled draft (defect A): it
+        # describes exactly what the draft contains, so an RSI-only draft never
+        # gets an EMA sentence and every element present is named.
+        restatement = restate_from_draft(draft)
         # ``confidence`` measures how well the TEXT was understood. An
         # unresolved market is an expected OWNER input (§6), not an
         # interpretation failure, so it drives needs_review but never
@@ -580,8 +705,6 @@ class LlmInterpreter(IStrategyInterpreter):
 
         ambiguities.extend(_coerce_ambiguities(env.get("ambiguities")))
         unsupported = _coerce_str_list(env.get("unsupported"))
-        restatement = _strip_control(env.get("restatement") or "",
-                                     limit=1000)
 
         resolved_market = _resolve_market(market)
         if not (resolved_market["symbol"] and resolved_market["timeframe"]):
@@ -615,9 +738,11 @@ class LlmInterpreter(IStrategyInterpreter):
                 "name": "whole_rule", "kind": "UNRECOGNIZED",
                 "why": "the model returned no indicator or entry rule",
                 "range": None})
-            restatement = restatement or (
-                "No strategy rule could be extracted; the draft is a "
-                "placeholder and must be specified manually.")
+        # the restatement is DERIVED from the SCRUBBED draft (defect B): the
+        # provider's own words are never shown as fact, so a threshold the
+        # grounding stripped can never be restated back to the operator as if
+        # it were in the strategy. Same function as the template path.
+        restatement = restate_from_draft(draft)
         return draft, restatement, ambiguities, unsupported, assumptions
 
     def _fallback(self, material, autonomous, market, injection,
