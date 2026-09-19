@@ -311,74 +311,171 @@ def test_cli_stage5_leg_fails_when_model_unreadable(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# classify_tester_leg_outcome — DEFECT 3/4: BLOCKED is earned from the log;
-# zero bars is its own named FAIL; anything unprovable is a plain FAIL.
+# classify_tester_leg_outcome — R6: a leg is judged by its OWN window only.
+# BLOCKED is earned from scoped lines; zero bars is INSUFFICIENT_FIXTURE_
+# HISTORY; anything unprovable is a plain FAIL. The poisoned-log tests below
+# rebuild the EXACT shape that slipped through the R5 delivery run: gold1's
+# zero-bar legs classified BLOCKED because gold2's successes were in the dump.
 # ---------------------------------------------------------------------------
+
+# a deliberately POISONED capture: this leg's own 0-bars lines PLUS another
+# leg's successful lines (bars>0 + successfully finished) — the R5 defect shape
+_POISONED_G1_WINDOW = (
+    _FIXTURE_SHORT_JOURNAL
+    + 'Core 1\tEURUSD.G2,M1: 11520 ticks, 2880 bars generated. '
+      'Test passed in 0:00:03.561.\n'
+      'Tester\tlast test passed with result "successfully finished" '
+      'in 0:00:03.561\n')
+
 
 def test_leg_outcome_blocked_owner_environment_is_earned_from_the_log():
     r = gs.classify_tester_leg_outcome(
-        report_present=False, journal_text=_BLOCKED_JOURNAL,
+        report_present=False, window_text=_BLOCKED_JOURNAL,
         symbol="EURUSD.G2", leg="gold2_m1_ohlc")
     assert r["outcome"] == gs.STAGE5_OUTCOME_BLOCKED_ENV
     assert r["blocked"] is True and r["ok"] is False
     assert r["bars_generated"] == 2880 and r["test_finished"] is True
-    # the reason QUOTES the tester-log lines it rests on
+    # the reason QUOTES the scoped tester-log lines it rests on
     assert "successfully finished" in r["reason"]
     assert "2880 bars generated" in r["reason"]
     assert any("bars generated" in ln for ln in r["evidence_lines"])
 
 
 def test_leg_outcome_blocked_needs_positive_bars_not_just_finished():
-    # "successfully finished" WITHOUT a proven bars>0 line can NOT be BLOCKED —
-    # BLOCKED is never inferred from the absence of a bars line.
-    journal = ('Tester\tlast test passed with result "successfully finished"\n')
+    # "successfully finished" WITHOUT a symbol-attributed bars>0 line can NOT
+    # be BLOCKED — never inferred from the absence of a bars line.
+    window = ('Tester\tlast test passed with result "successfully finished"\n')
     r = gs.classify_tester_leg_outcome(report_present=False,
-                                       journal_text=journal)
+                                       window_text=window,
+                                       symbol="EURUSD.G1")
     assert r["outcome"] == gs.STAGE5_OUTCOME_FAIL
     assert r["blocked"] is False
 
 
-def test_leg_outcome_zero_bars_is_fixture_too_short_not_blocked():
+def test_leg_outcome_zero_bars_is_insufficient_history_not_blocked():
     r = gs.classify_tester_leg_outcome(
-        report_present=False, journal_text=_FIXTURE_SHORT_JOURNAL,
+        report_present=False, window_text=_FIXTURE_SHORT_JOURNAL,
         symbol="EURUSD.G1", leg="gold1_m1_ohlc")
-    assert r["outcome"] == gs.STAGE5_OUTCOME_FIXTURE_TOO_SHORT
+    assert r["outcome"] == gs.STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY
     assert r["blocked"] is False and r["ok"] is False
     assert r["bars_generated"] == 0
+    assert "INSUFFICIENT_FIXTURE_HISTORY" in r["reason"]
     assert "warm-up" in r["reason"]
     assert "0 bars generated" in r["reason"] or "start time changed" in r["reason"]
 
 
 def test_leg_outcome_zero_bars_never_blocked_even_if_finished():
     # a leg that generated 0 bars is insufficient data even if a stray
-    # "successfully finished" line is present — fixture-too-short wins.
-    journal = _FIXTURE_SHORT_JOURNAL + \
+    # "successfully finished" line is present — insufficient-history wins.
+    window = _FIXTURE_SHORT_JOURNAL + \
         'Tester\tlast test passed with result "successfully finished"\n'
     r = gs.classify_tester_leg_outcome(report_present=False,
-                                       journal_text=journal)
-    assert r["outcome"] == gs.STAGE5_OUTCOME_FIXTURE_TOO_SHORT
+                                       window_text=window,
+                                       symbol="EURUSD.G1")
+    assert r["outcome"] == gs.STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY
     assert r["blocked"] is False
 
 
 def test_leg_outcome_unprovable_is_plain_fail():
     r = gs.classify_tester_leg_outcome(
-        report_present=False,
-        journal_text="Core 1\tEURUSD.G1: some error after pass finished\n")
+        report_present=False, symbol="EURUSD.G1",
+        window_text="Core 1\tEURUSD.G1: some error after pass finished\n")
     assert r["outcome"] == gs.STAGE5_OUTCOME_FAIL
     assert r["blocked"] is False and r["ok"] is False
 
 
 def test_leg_outcome_report_present_is_ok():
     r = gs.classify_tester_leg_outcome(report_present=True,
-                                       journal_text="")
+                                       window_text="", symbol="EURUSD.G1")
     assert r["outcome"] == gs.STAGE5_OUTCOME_OK and r["ok"] is True
 
 
+# ---------------------------------------------------------------------------
+# R6 scoping — the exact laundering shape that slipped through the delivery
+# run, built on purpose: another leg's successes must never clear this leg.
+# ---------------------------------------------------------------------------
+
+def test_poisoned_window_zero_bars_leg_is_insufficient_never_blocked():
+    """THE R6 regression: gold1's window shows 0 bars, and the same text ALSO
+    carries gold2's successful lines (2880 bars + successfully finished).
+    R5 classified this BLOCKED. It must be FAIL/INSUFFICIENT_FIXTURE_HISTORY —
+    the other leg's bars>0 must not enter the decision OR the evidence."""
+    r = gs.classify_tester_leg_outcome(
+        report_present=False, window_text=_POISONED_G1_WINDOW,
+        symbol="EURUSD.G1", leg="gold1_m1_ohlc")
+    assert r["outcome"] == gs.STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY
+    assert r["blocked"] is False
+    assert r["bars_generated"] == 0
+    # gold2's lines appear NOWHERE in this leg's evidence or reason
+    assert all("EURUSD.G2" not in ln for ln in r["evidence_lines"])
+    assert "EURUSD.G2" not in r["reason"]
+    assert "2880" not in r["reason"]
+
+
+def test_blocked_requires_bars_line_naming_this_legs_symbol():
+    # only ANOTHER symbol's bars>0 + a finished line: not provable for THIS
+    # leg -> plain FAIL, never BLOCKED (the bars line must name this symbol)
+    window = ('Core 1\tEURUSD.G2,M1: 11520 ticks, 2880 bars generated.\n'
+              'Tester\tlast test passed with result "successfully finished"\n')
+    r = gs.classify_tester_leg_outcome(report_present=False,
+                                       window_text=window,
+                                       symbol="EURUSD.G1")
+    assert r["outcome"] == gs.STAGE5_OUTCOME_FAIL
+    assert r["blocked"] is False
+    assert all("EURUSD.G2" not in ln for ln in r["evidence_lines"])
+
+
+def test_no_symbol_means_no_attribution_and_never_blocked():
+    # without a symbol no bars line can be ATTRIBUTED to the leg — even a
+    # perfect blocked-shape text cannot prove BLOCKED (fail closed)
+    r = gs.classify_tester_leg_outcome(report_present=False,
+                                       window_text=_BLOCKED_JOURNAL,
+                                       symbol=None)
+    assert r["outcome"] == gs.STAGE5_OUTCOME_FAIL
+    assert r["blocked"] is False
+
+
+def test_two_legs_in_the_same_log_get_different_verdicts_by_window():
+    """One physical tester log, two leg windows: gold1's window (its own
+    appended lines) says 0 bars; gold2's says 2880 bars + finished. Scoped
+    classification reaches DIFFERENT verdicts from the same source log."""
+    full_log = (_FIXTURE_SHORT_JOURNAL + _BLOCKED_JOURNAL).splitlines()
+    g1_window = "\n".join(full_log[:2])   # the lines appended during leg 1
+    g2_window = "\n".join(full_log[2:])   # the lines appended during leg 2
+    r1 = gs.classify_tester_leg_outcome(
+        report_present=False, window_text=g1_window, symbol="EURUSD.G1")
+    r2 = gs.classify_tester_leg_outcome(
+        report_present=False, window_text=g2_window, symbol="EURUSD.G2")
+    assert r1["outcome"] == gs.STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY
+    assert r2["outcome"] == gs.STAGE5_OUTCOME_BLOCKED_ENV
+    # neither leg's evidence contains a line from outside its own window
+    assert all(ln in g1_window.splitlines() for ln in
+               (line.strip() for line in r1["evidence_lines"]))
+    assert all(ln in [x.strip() for x in g2_window.splitlines()]
+               for ln in r2["evidence_lines"])
+    assert all("EURUSD.G2" not in ln for ln in r1["evidence_lines"])
+    assert all("EURUSD.G1" not in ln for ln in r2["evidence_lines"])
+
+
+def test_evidence_is_short_specific_and_deduped():
+    # the day-wide dump is what hid the R5 defect: evidence must be the few
+    # scoped lines that justify the verdict, deduplicated
+    window = ('Core 1\tEURUSD.G1,H1: 0 ticks, 0 bars generated.\n' * 5
+              + 'Core 1\tEURUSD.G1: start time changed to 2024.01.06 00:00 '
+                'to provide data at beginning\n' * 3)
+    r = gs.classify_tester_leg_outcome(report_present=False,
+                                       window_text=window,
+                                       symbol="EURUSD.G1")
+    assert r["outcome"] == gs.STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY
+    assert len(r["evidence_lines"]) <= 3
+    assert len(set(r["evidence_lines"])) == len(r["evidence_lines"])
+
+
 def test_cli_stage5_leg_outcome_blocked(tmp_path: Path):
-    tail = tmp_path / "tail.txt"
-    tail.write_text(_BLOCKED_JOURNAL, encoding="utf-8")
+    window = tmp_path / "window.txt"
+    window.write_text(_BLOCKED_JOURNAL, encoding="utf-8")
     cp = _decide("stage5-leg-outcome", "--report-present", "false",
-                 "--journal-tail", str(tail), "--symbol", "EURUSD.G2",
+                 "--window", str(window), "--symbol", "EURUSD.G2",
                  "--leg", "gold2_m1_ohlc")
     # BLOCKED is not-ok (not a pass) -> exit 1
     assert cp.returncode == 1
@@ -388,16 +485,18 @@ def test_cli_stage5_leg_outcome_blocked(tmp_path: Path):
     assert "successfully finished" in payload["reason"]
 
 
-def test_cli_stage5_leg_outcome_fixture_short(tmp_path: Path):
-    tail = tmp_path / "tail.txt"
-    tail.write_text(_FIXTURE_SHORT_JOURNAL, encoding="utf-8")
+def test_cli_stage5_leg_outcome_poisoned_window_is_insufficient(tmp_path: Path):
+    # end-to-end through the CLI the .ps1 shells to, with the poisoned shape
+    window = tmp_path / "window.txt"
+    window.write_text(_POISONED_G1_WINDOW, encoding="utf-8")
     cp = _decide("stage5-leg-outcome", "--report-present", "false",
-                 "--journal-tail", str(tail), "--symbol", "EURUSD.G1",
+                 "--window", str(window), "--symbol", "EURUSD.G1",
                  "--leg", "gold1_m1_ohlc")
     assert cp.returncode == 1
     payload = json.loads(cp.stdout)
-    assert payload["outcome"] == gs.STAGE5_OUTCOME_FIXTURE_TOO_SHORT
+    assert payload["outcome"] == gs.STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY
     assert payload["blocked"] is False
+    assert "2880" not in payload["reason"]
 
 
 # ---------------------------------------------------------------------------

@@ -391,6 +391,62 @@ function Save-TesterFailLog([string]$name, [datetime]$since) {
     return (New-Artifact $out)
 }
 
+# STAGE 5 R6: per-leg WINDOW capture -- the ONLY text a leg may be judged by.
+# The R5 classifier read a day-wide log dump (Save-TesterLog greps the last 5
+# logs with no time bound; Save-TesterFailLog tails whole files), so gold2's
+# successful lines "proved" gold1's clean run: three zero-bar legs were
+# classified BLOCKED with "bars generated > 0" quoted over a window containing
+# "0 bars generated". One leg's result clearing another is fabricated
+# evidence. Fix: BEFORE a leg launches, snapshot every tester log's line count
+# (Get-TesterLogMarks); AFTER it exits, capture ONLY the lines APPENDED during
+# the leg's window (Save-TesterWindowLog). stage5-leg-outcome judges a leg
+# from that capture alone; the journal/tail excerpts stay as diagnostics but
+# never feed the classifier.
+function Get-TesterLogMarks {
+    $dirs = @((Join-Path $DataFolder "Tester"),
+              (Join-Path $DataFolder "MQL5\Logs"),
+              (Join-Path $DataFolder "logs"))
+    $marks = @{}
+    foreach ($d in $dirs) {
+        if (-not (Test-Path -LiteralPath $d)) { continue }
+        Get-ChildItem -LiteralPath $d -Filter "*.log" -Recurse -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                try { $marks[$_.FullName] = @(Get-Content -LiteralPath $_.FullName -ErrorAction SilentlyContinue).Count }
+                catch { $marks[$_.FullName] = 0 }
+            }
+    }
+    return $marks
+}
+
+function Save-TesterWindowLog([string]$name, $marks, [datetime]$since) {
+    $dirs = @((Join-Path $DataFolder "Tester"),
+              (Join-Path $DataFolder "MQL5\Logs"),
+              (Join-Path $DataFolder "logs"))
+    $lines = New-Object System.Collections.ArrayList
+    foreach ($d in $dirs) {
+        if (-not (Test-Path -LiteralPath $d)) { continue }
+        Get-ChildItem -LiteralPath $d -Filter "*.log" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -ge $since } |
+            Sort-Object FullName |
+            ForEach-Object {
+                $skip = 0
+                if ($marks -and $marks.ContainsKey($_.FullName)) { $skip = [int]$marks[$_.FullName] }
+                try {
+                    $content = @(Get-Content -LiteralPath $_.FullName -ErrorAction SilentlyContinue)
+                    if ($content.Count -gt $skip) {
+                        for ($i = $skip; $i -lt $content.Count; $i++) { [void]$lines.Add($content[$i]) }
+                    }
+                } catch { }
+            }
+    }
+    if ($lines.Count -eq 0) {
+        [void]$lines.Add("(no tester-log lines were appended during this leg's window under " + $DataFolder + ")")
+    }
+    $out = Join-Path $Evidence ("tester_" + $name + "_window.txt")
+    [IO.File]::WriteAllText($out, (($lines -join "`r`n") + "`r`n"), [Text.Encoding]::ASCII)
+    return (New-Artifact $out)
+}
+
 # create the append-only evidence root now (deferred from startup): every
 # decision from here on records into it. It is .gitignore'd, so it does not
 # dirty the tree the stage-0 clean-tree check inspects.
@@ -824,7 +880,10 @@ foreach ($leg in $legs) {
     $stderrPath = Join-Path $Evidence ("tester_" + $legTag + "_stderr.txt")
     # DEFECT 2: mark the leg's window so a failing leg can attach the unfiltered
     # tail of exactly the tester logs written while THIS leg ran.
+    # R6: additionally snapshot each tester log's line count NOW, so the
+    # window capture holds ONLY the lines appended during THIS leg's run.
     $legStart = (Get-Date).AddSeconds(-2)
+    $legMarks = Get-TesterLogMarks
     $p = Start-Process -FilePath $Python -ArgumentList (Get-ProcArgs (@($runBacktest) + $runArgs)) `
         -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath `
         -Wait -PassThru -NoNewWindow
@@ -850,17 +909,20 @@ foreach ($leg in $legs) {
 
     if ($p.ExitCode -ne 0) {
         # No usable report from a non-zero exit. Attach the unfiltered tail (the
-        # "no history"/init/file-error lines that explain it -- DEFECT 2) then
-        # CLASSIFY from that log, fail-closed (DEFECT 3/4): only a PROVEN clean
-        # run whose sole missing artifact is the report is BLOCKED_OWNER_
-        # ENVIRONMENT; a zero-bars fixture is its own named FAIL; else a plain
-        # FAIL. BLOCKED is earned from the log, never the absence of an error.
+        # "no history"/init/file-error lines that explain it -- DEFECT 2) as a
+        # DIAGNOSTIC, then CLASSIFY from THIS LEG'S OWN WINDOW CAPTURE ONLY
+        # (R6): only a proven clean run in the leg's own window -- successfully
+        # finished, bars>0 for THIS symbol, only the report missing -- is
+        # BLOCKED_OWNER_ENVIRONMENT; a zero-bars window is FAIL_INSUFFICIENT_
+        # FIXTURE_HISTORY; else a plain FAIL. Never the day-wide dump: one
+        # leg's lines must never clear another.
         $tailArt = Save-TesterFailLog $legTag $legStart
         if ($tailArt) { [void]$legArt.Add($tailArt) }
-        $ocArgs = @("stage5-leg-outcome", "--symbol", $sym, "--leg", $legTag,
-            "--report-present", "false", "--journal", $journalArt.path)
-        if ($tailArt -and $tailArt.path) { $ocArgs += @("--journal-tail", $tailArt.path) }
-        $oc = Invoke-Decide $ocArgs
+        $windowArt = Save-TesterWindowLog $legTag $legMarks $legStart
+        if ($windowArt) { [void]$legArt.Add($windowArt) }
+        $oc = Invoke-Decide @("stage5-leg-outcome", "--symbol", $sym,
+            "--leg", $legTag, "--report-present", "false",
+            "--window", $windowArt.path)
         [void]$legArt.Add((New-Artifact $oc.raw))
         $outcome = if ($oc.data -and $oc.data.outcome) { $oc.data.outcome } else { "FAIL" }
         $ocReason = if ($oc.data -and $oc.data.reason) { $oc.data.reason } else { "no classification available" }
@@ -874,15 +936,17 @@ foreach ($leg in $legs) {
         continue
     }
     if (-not $reportJson) {
-        # Exited 0 but wrote no report.json sidecar. Same fail-closed
-        # classification as above (DEFECT 3/4): this is the exact MT5-build-6184
-        # BLOCKED_OWNER_ENVIRONMENT shape when the run finished clean.
+        # Exited 0 but wrote no report.json sidecar. Same fail-closed R6
+        # classification as above, from THIS LEG'S OWN WINDOW CAPTURE ONLY:
+        # this is the exact MT5-build-6184 BLOCKED_OWNER_ENVIRONMENT shape
+        # when the leg's own window shows a clean run.
         $tailArt = Save-TesterFailLog $legTag $legStart
         if ($tailArt) { [void]$legArt.Add($tailArt) }
-        $ocArgs = @("stage5-leg-outcome", "--symbol", $sym, "--leg", $legTag,
-            "--report-present", "false", "--journal", $journalArt.path)
-        if ($tailArt -and $tailArt.path) { $ocArgs += @("--journal-tail", $tailArt.path) }
-        $oc = Invoke-Decide $ocArgs
+        $windowArt = Save-TesterWindowLog $legTag $legMarks $legStart
+        if ($windowArt) { [void]$legArt.Add($windowArt) }
+        $oc = Invoke-Decide @("stage5-leg-outcome", "--symbol", $sym,
+            "--leg", $legTag, "--report-present", "false",
+            "--window", $windowArt.path)
         [void]$legArt.Add((New-Artifact $oc.raw))
         $outcome = if ($oc.data -and $oc.data.outcome) { $oc.data.outcome } else { "FAIL" }
         $ocReason = if ($oc.data -and $oc.data.reason) { $oc.data.reason } else { "no classification available" }

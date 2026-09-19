@@ -2160,6 +2160,33 @@ def test_ps1_stage5_classifies_blocked_owner_environment():
     assert 'Finish-Gate "tester_legs_blocked"' in body
 
 
+def test_ps1_stage5_scopes_classification_to_the_leg_window():
+    """STAGE 5 R6: the classifier must be fed THIS leg's own window capture,
+    never the day-wide journal/tail dumps (whose other-leg lines manufactured
+    a BLOCKED verdict for three zero-bar legs in the delivery run)."""
+    src = _ps1()
+    # the window machinery exists: pre-leg line-count marks + appended-lines
+    # capture written per leg
+    assert "function Get-TesterLogMarks" in src
+    assert "function Save-TesterWindowLog" in src
+    assert "_window.txt" in src
+    s5 = src.index('Enter-Stage 5 "tester_legs"')
+    s8 = src.index("STAGE 8", s5)
+    body = src[s5:s8]
+    # marks are snapshotted per leg, before the tester run launches
+    # ($p = Start-Process is the tester launch; generate-ini's launch is $gp)
+    assert "$legMarks = Get-TesterLogMarks" in body
+    assert body.index("$legMarks = Get-TesterLogMarks") \
+        < body.index("$p = Start-Process")
+    # the classifier receives ONLY the window capture
+    assert '"--window", $windowArt.path' in body
+    # the day-wide excerpts no longer feed stage5-leg-outcome at all
+    assert "--journal-tail" not in src
+    for chunk in body.split("stage5-leg-outcome")[1:]:
+        # no journal/tail argument anywhere in an outcome call's arg list
+        assert '"--journal"' not in chunk.split(")")[0]
+
+
 def test_ps1_quotes_a_path_with_spaces_end_to_end(tmp_path: Path):
     """NON-VACUOUS (executes the .ps1's own quoter through a real
     Start-Process): a --terminal-dir whose value is 'C:\\Program Files\\...'

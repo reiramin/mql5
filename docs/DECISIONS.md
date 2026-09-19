@@ -9,6 +9,67 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-20 — A classifier that reads outside the unit it judges can manufacture a verdict; the fix is SCOPING, not a stricter threshold (STAGE 5 R6)
+
+**The defect, plainly.** The R5 BLOCKED classifier was laundering evidence. In
+the delivery run's `stage_5.json`, the gold1 legs — whose own tester lines are
+
+```
+EURUSD.G1,H1: 0 ticks, 0 bars generated.
+```
+
+— were classified `BLOCKED_OWNER_ENVIRONMENT` with a reason asserting "the
+tester log PROVES a clean run (successfully finished, bars generated > 0)".
+The classifier scanned the WHOLE tester log — every leg, every gate run, all
+of 20260919 — instead of the lines belonging to the leg being classified, so
+gold2's successful runs are what "proved" gold1's clean run, and every leg's
+evidence string was the same unreadable day-wide dump (which is exactly what
+hid the defect). One leg's result being used to clear another is fabricated
+evidence — the one thing this project must never produce. The R5 spec's
+distinct FAIL class for gold1 (fixture too short for the tester's warm-up)
+was also not wired into the gate at all.
+
+**The lesson.** A classifier that is allowed to read outside the unit it is
+judging can manufacture a verdict from someone else's evidence. No threshold
+tweak fixes that; only SCOPING does: the input to the decision must be
+restricted to the unit's own observations before any rule runs.
+
+**Decision.**
+- Every stage-5 no-report classification is scoped to ONE leg. The gate
+  snapshots each tester log's line count BEFORE the leg launches
+  (`Get-TesterLogMarks`) and captures ONLY the lines APPENDED during the
+  leg's run window (`Save-TesterWindowLog` → `tester_<leg>_window.txt`,
+  building on the R2 leg-window mark). `stage5-leg-outcome` judges a leg
+  from that capture alone; the day-wide journal/tail excerpts remain
+  attached as diagnostics but never feed the classifier.
+- Defense-in-depth inside the classifier (`classify_tester_leg_outcome`):
+  symbol-bearing lines (bars generated, warm-up reserve) count for or against
+  a leg ONLY when they name that leg's symbol; without a symbol no bars line
+  can be attributed and BLOCKED is unreachable (fail-closed).
+- `BLOCKED_OWNER_ENVIRONMENT` re-derived from the scoped lines only: a
+  "successfully finished" line in the leg's own window AND a bars-generated
+  line in that window naming the leg's symbol with N > 0 AND the report being
+  the only missing artifact. Any of the three missing → NOT blocked.
+- The missing R5 class exists: a leg whose own window shows
+  "0 ticks, 0 bars generated" is `FAIL_INSUFFICIENT_FIXTURE_HISTORY` — the
+  fixture cannot provide both MT5's warm-up ("start time changed to … to
+  provide data at beginning") and a test window. Zero bars is insufficient
+  data, never a blocked environment. On the delivery-run evidence this is all
+  three gold1 legs, and the gate now reaches that conclusion from the log.
+- Evidence strings are SHORT and specific: only the deduplicated scoped lines
+  (≤3) that justify THAT leg's verdict, so a reader can check the verdict
+  against the quoted lines in seconds.
+- Tests rebuild the exact laundering shape on purpose: a 0-bars window that
+  ALSO contains another leg's bars>0 + successfully-finished lines must
+  classify `FAIL_INSUFFICIENT_FIXTURE_HISTORY`; another symbol's success can
+  never prove BLOCKED; two legs sliced from the same physical log get
+  different verdicts; no evidence line comes from outside the leg's window.
+
+**Direction.** This change turns three legs from BLOCKED into FAIL. That is
+the point: nothing here is greener, it is truer.
+
+---
+
 ## 2026-09-20 — Four measured MT5 build-6184 facts from gate_run17 (HEAD aac9fb9): the config-file Model enum, the empty [TesterInputs] leg, the un-written Report file, and gold1's warm-up-short fixture (STAGE 5 R5)
 
 This is the empirical record of MT5 behaviour this project paid for; it is

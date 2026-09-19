@@ -103,15 +103,18 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("stage5-leg-outcome",
                        help="stage 5: classify a tester leg that produced no "
                             "report — BLOCKED_OWNER_ENVIRONMENT (proven clean "
-                            "run, only the report missing), FAIL_FIXTURE_TOO_"
-                            "SHORT (0 bars), or FAIL — from the tester log")
-    p.add_argument("--journal", default="",
-                   help="path to the leg's filtered tester-journal excerpt")
-    p.add_argument("--journal-tail", default="",
-                   help="path to the leg's unfiltered tester-log tail")
+                            "run, only the report missing), FAIL_INSUFFICIENT_"
+                            "FIXTURE_HISTORY (0 bars), or FAIL — from the "
+                            "leg's OWN window capture only (R6: never a "
+                            "day-wide log dump)")
+    p.add_argument("--window", required=True,
+                   help="path to THIS leg's window capture: the lines "
+                        "appended to the tester logs while this leg ran")
     p.add_argument("--report-present", default="false",
                    help="true|false: did the leg produce a usable report")
-    p.add_argument("--symbol", default="", help="the custom symbol under test")
+    p.add_argument("--symbol", required=True,
+                   help="the custom symbol under test; symbol-bearing log "
+                        "lines count only when they name it")
     p.add_argument("--leg", default="", help="a label for this leg")
 
     p = sub.add_parser("stage4-outcome",
@@ -203,16 +206,16 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if verdict["ok"] else 1
 
         if args.cmd == "stage5-leg-outcome":
-            texts: list[str] = []
-            for pth in (args.journal, args.journal_tail):
-                if pth and Path(pth).is_file():
-                    texts.append(Path(pth).read_text(
-                        encoding="utf-8", errors="replace"))
+            # R6: the ONLY text a leg may be judged by is its own window
+            # capture — never a day-wide journal dump or a multi-leg tail.
+            window = ""
+            if args.window and Path(args.window).is_file():
+                window = gs.decode_bom_aware(_read_bytes(args.window))
             report_present = str(args.report_present).strip().lower() in (
                 "true", "1", "yes")
             verdict = gs.classify_tester_leg_outcome(
                 report_present=report_present,
-                journal_text="\n".join(texts),
+                window_text=window,
                 symbol=args.symbol or None, leg=args.leg or None)
             print(json.dumps({"ok": verdict["ok"], **verdict},
                              indent=2, sort_keys=True))

@@ -908,22 +908,35 @@ def run_self_protection(repo: Path | str, runner=None) -> dict:
 # journal — never the requested model. These decisions live here; the .ps1
 # only launches the tester and hands the observed files in.
 
-# STAGE 5 R5, DEFECT 3/4: when a tester leg produces NO report, the gate must
-# not collapse every cause into one FAIL. It classifies the leg from its OWN
-# tester-log lines, fail-closed:
-#   * BLOCKED_OWNER_ENVIRONMENT — only when the log PROVES all of: the test
-#     reached "successfully finished", bars generated > 0, and the ONLY missing
-#     artifact is the report (MT5 build 6184 does not write the [Tester] Report
-#     file). BLOCKED is EARNED from evidence, never inferred from the absence of
-#     an error, and it is NOT a pass — the gate still stops at stage 5.
-#   * FAIL_FIXTURE_TOO_SHORT — the fixture cannot provide both MT5's reserved
-#     warm-up history and a test window, so 0 bars are generated. Zero bars is
-#     insufficient data, a NAMED limitation distinct from the blocked
-#     environment — never a blocked case.
+# STAGE 5 R5, DEFECT 3/4 + R6 SCOPING: when a tester leg produces NO report,
+# the gate must not collapse every cause into one FAIL. It classifies the leg
+# from its OWN tester-log lines, fail-closed:
+#   * BLOCKED_OWNER_ENVIRONMENT — only when the leg's OWN window PROVES all of:
+#     the test reached "successfully finished", a bars-generated line NAMING
+#     THIS LEG'S SYMBOL with bars > 0, and the ONLY missing artifact is the
+#     report (MT5 build 6184 does not write the [Tester] Report file). BLOCKED
+#     is EARNED from evidence, never inferred from the absence of an error, and
+#     it is NOT a pass — the gate still stops at stage 5.
+#   * FAIL_INSUFFICIENT_FIXTURE_HISTORY — the leg's own window shows
+#     "0 ticks, 0 bars generated" for its symbol: the fixture cannot provide
+#     both MT5's reserved warm-up history and a test window (MT5: "start time
+#     changed to ... to provide data at beginning"). Zero bars is insufficient
+#     data, never a blocked environment.
 #   * FAIL — anything else (a real crash, an unprovable state). Fail-closed.
+#
+# R6 ROOT CAUSE (the delivery run): the R5 classifier scanned a DAY-WIDE log
+# dump — every leg, every gate run — so gold2's successful lines "proved"
+# gold1's clean run and three zero-bar legs were classified BLOCKED with
+# "bars generated > 0" quoted over a window containing "0 bars generated".
+# One leg's result clearing another is fabricated evidence. The fix is
+# SCOPING, not a stricter threshold: a leg may only be judged by lines inside
+# its own run window (``window_text`` — the lines APPENDED to the tester logs
+# while THIS leg ran, captured by the .ps1) AND, for symbol-bearing lines,
+# lines that name THIS leg's symbol. Evidence quotes only those scoped lines,
+# short enough to check the verdict against in seconds.
 STAGE5_OUTCOME_OK = "OK"
 STAGE5_OUTCOME_BLOCKED_ENV = "BLOCKED_OWNER_ENVIRONMENT"
-STAGE5_OUTCOME_FIXTURE_TOO_SHORT = "FAIL_FIXTURE_TOO_SHORT"
+STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY = "FAIL_INSUFFICIENT_FIXTURE_HISTORY"
 STAGE5_OUTCOME_FAIL = "FAIL"
 
 # "successfully finished" — the tester's own completion phrase (measured:
@@ -940,86 +953,122 @@ _WARMUP_RESERVE_RE = re.compile(
     re.IGNORECASE)
 
 
-def _matching_lines(text: str, *patterns: re.Pattern[str]) -> list[str]:
-    out: list[str] = []
-    for raw in (text or "").splitlines():
+def _dedup_keep_order(lines: list[str], cap: int) -> list[str]:
+    """First occurrence of each distinct line, capped — evidence must be SHORT
+    and specific (R6 item 4): the day-wide dump is what hid the defect."""
+    return list(dict.fromkeys(lines))[:cap]
+
+
+def _leg_scoped_lines(window_text: str, symbol: str | None) -> dict:
+    """Categorize the LEG-SCOPED tester-log lines a verdict may rest on.
+
+    ``window_text`` must already be the leg's own run window (the lines
+    appended to the tester logs while THIS leg ran). Within it, symbol-bearing
+    lines (bars generated / warm-up reserve) count ONLY when they name this
+    leg's symbol — a line about another symbol can never enter this leg's
+    decision or its evidence string, even if a caller hands in an over-wide
+    capture. Without a symbol, no bars line can be ATTRIBUTED to the leg at
+    all (fail-closed: unattributable evidence is not evidence).
+    """
+    finished: list[str] = []
+    bars: list[tuple[str, int]] = []
+    warmup: list[str] = []
+    for raw in (window_text or "").splitlines():
         line = raw.strip()
-        if line and any(p.search(line) for p in patterns):
-            out.append(line)
-    return out
+        if not line:
+            continue
+        if _TESTER_FINISHED_RE.search(line):
+            finished.append(line)
+        m = _BARS_GENERATED_RE.search(line)
+        if m and symbol and symbol in line:
+            bars.append((line, int(m.group(2))))
+        if _WARMUP_RESERVE_RE.search(line) and symbol and symbol in line:
+            warmup.append(line)
+    return {"finished": finished, "bars": bars, "warmup": warmup}
 
 
-def classify_tester_leg_outcome(*, report_present: bool, journal_text: str,
+def classify_tester_leg_outcome(*, report_present: bool, window_text: str,
                                 symbol: str | None = None,
                                 leg: str | None = None) -> dict:
-    """Classify a tester leg that produced no usable report from its log.
+    """Classify ONE tester leg that produced no usable report — from that
+    leg's OWN window only (R6).
+
+    ``window_text`` is the leg-scoped capture: the lines APPENDED to the
+    tester logs during this leg's run window. Lines from another leg, another
+    gate run or another day must not be in it; as defense-in-depth, symbol-
+    bearing lines are additionally required to name ``symbol`` before they can
+    count for or against this leg.
 
     Returns ``{"outcome", "ok", "blocked", "bars_generated", "test_finished",
-    "evidence_lines", "reason", "leg"}``. ``ok`` is True ONLY for OK
-    (report present); BLOCKED and both FAILs are not-ok. The reason QUOTES the
-    tester-log lines the classification rests on so a reader can check it
-    without the terminal.
+    "evidence_lines", "reason", "leg"}``. ``ok`` is True ONLY for OK (report
+    present); BLOCKED and both FAILs are not-ok. The reason QUOTES only the
+    scoped lines that justify THIS leg's verdict — short enough to check in
+    seconds.
     """
-    journal = journal_text or ""
-    finished = bool(_TESTER_FINISHED_RE.search(journal))
-    bars_lines = _matching_lines(journal, _BARS_GENERATED_RE)
-    bars_values = [int(m.group(2))
-                   for line in bars_lines
-                   for m in [_BARS_GENERATED_RE.search(line)] if m]
-    max_bars = max(bars_values) if bars_values else None
-    finished_lines = _matching_lines(journal, _TESTER_FINISHED_RE)
-    warmup_lines = _matching_lines(journal, _WARMUP_RESERVE_RE)
-
     if report_present:
         return {"outcome": STAGE5_OUTCOME_OK, "ok": True, "blocked": False,
-                "bars_generated": max_bars, "test_finished": finished,
+                "bars_generated": None, "test_finished": None,
                 "evidence_lines": [], "reason": "report present", "leg": leg}
 
-    # Zero bars is INSUFFICIENT DATA, not a blocked environment (DEFECT 4).
-    # Checked first: a leg with no test window can never be BLOCKED.
-    if max_bars is not None and max_bars == 0:
-        evidence = warmup_lines + [ln for ln in bars_lines if " 0 bars" in
-                                   (" " + ln.lower())]
-        if not evidence:
-            evidence = bars_lines
+    scoped = _leg_scoped_lines(window_text, symbol)
+    finished = bool(scoped["finished"])
+    bars_values = [n for _, n in scoped["bars"]]
+    max_bars = max(bars_values) if bars_values else None
+
+    # Zero bars in THIS leg's window is INSUFFICIENT DATA, never a blocked
+    # environment (R5 defect 4 / R6 item 3). Checked first: a leg with no test
+    # window can never be BLOCKED, whatever else the log says.
+    zero_lines = [ln for ln, n in scoped["bars"] if n == 0]
+    if zero_lines:
+        evidence = _dedup_keep_order(scoped["warmup"] + zero_lines, 3)
         return {
-            "outcome": STAGE5_OUTCOME_FIXTURE_TOO_SHORT, "ok": False,
-            "blocked": False, "bars_generated": 0, "test_finished": finished,
-            "evidence_lines": evidence,
-            "reason": ("FAIL — fixture too short for the tester's warm-up "
-                       "requirement: MT5 reserved preceding history and "
-                       "generated 0 bars, leaving no test window. Zero bars is "
-                       "insufficient data, NOT a blocked environment. Tester "
-                       "log: " + " | ".join(evidence)),
+            "outcome": STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY,
+            "ok": False, "blocked": False, "bars_generated": 0,
+            "test_finished": finished, "evidence_lines": evidence,
+            "reason": ("FAIL — INSUFFICIENT_FIXTURE_HISTORY: this leg's own "
+                       "window shows 0 bars generated for "
+                       f"{symbol or 'its symbol'} — the fixture cannot provide "
+                       "both MT5's warm-up and a test window. Zero bars is "
+                       "insufficient data, never a blocked environment. "
+                       "Tester log (this leg only): " + " | ".join(evidence)),
             "leg": leg}
 
-    # BLOCKED must be EARNED: the test completed, bars>0, only the report is
-    # missing (never inferred from the absence of an error).
-    if finished and max_bars is not None and max_bars > 0:
-        evidence = finished_lines + bars_lines
+    # BLOCKED must be EARNED from THIS leg's window: a "successfully finished"
+    # line in the window, a bars-generated line NAMING THIS SYMBOL with
+    # bars > 0, and the only missing artifact being the report. Never inferred
+    # from the absence of an error, never from another leg's lines.
+    positive = [ln for ln, n in scoped["bars"] if n > 0]
+    if finished and positive:
+        evidence = _dedup_keep_order(scoped["finished"][:1] + positive[:1], 2)
         return {
             "outcome": STAGE5_OUTCOME_BLOCKED_ENV, "ok": False, "blocked": True,
             "bars_generated": max_bars, "test_finished": True,
             "evidence_lines": evidence,
-            "reason": ("BLOCKED_OWNER_ENVIRONMENT — the tester log PROVES a "
-                       "clean run (successfully finished, bars generated > 0) "
-                       "yet MT5 wrote no [Tester] Report file: the ONLY missing "
-                       "artifact is the report (an owner-environment limitation "
-                       "of this MT5 build, never worked around). NOT a pass. "
-                       "Tester log: " + " | ".join(evidence)),
+            "reason": ("BLOCKED_OWNER_ENVIRONMENT — this leg's own window "
+                       "PROVES a clean run (successfully finished; "
+                       f"{max_bars} bars generated for {symbol}) yet MT5 wrote "
+                       "no [Tester] Report file: the ONLY missing artifact is "
+                       "the report (an owner-environment limitation of this "
+                       "MT5 build, never worked around). NOT a pass. "
+                       "Tester log (this leg only): " + " | ".join(evidence)),
             "leg": leg}
 
-    # Anything else: cannot PROVE blocked — fail closed.
-    proof = " | ".join(finished_lines + bars_lines) or \
-        "no 'successfully finished' or 'N bars generated' line in the tester log"
+    # Anything else: cannot PROVE blocked from this leg's own window — fail
+    # closed. (Includes: no symbol given, so no bars line can be attributed.)
+    evidence = _dedup_keep_order(scoped["finished"] + positive, 3)
+    proof = " | ".join(evidence) or (
+        "no 'successfully finished' or symbol-attributed 'N bars generated' "
+        "line inside this leg's window")
     return {
         "outcome": STAGE5_OUTCOME_FAIL, "ok": False, "blocked": False,
         "bars_generated": max_bars, "test_finished": finished,
-        "evidence_lines": finished_lines + bars_lines,
-        "reason": ("FAIL — the tester log does not PROVE a clean completion "
-                   "with bars > 0 and only the report missing, so the leg "
-                   "cannot be classified BLOCKED (earned from evidence, never "
-                   "the absence of an error). Tester log: " + proof),
+        "evidence_lines": evidence,
+        "reason": ("FAIL — this leg's own window does not PROVE a clean "
+                   "completion with bars > 0 for "
+                   f"{symbol or 'an attributable symbol'} and only the report "
+                   "missing, so the leg cannot be classified BLOCKED (earned "
+                   "from scoped evidence, never the absence of an error). "
+                   "Tester log (this leg only): " + proof),
         "leg": leg}
 
 
@@ -1134,7 +1183,7 @@ __all__ = [
     "SELF_PROTECT_OK",
     "STAGE5_OUTCOME_BLOCKED_ENV",
     "STAGE5_OUTCOME_FAIL",
-    "STAGE5_OUTCOME_FIXTURE_TOO_SHORT",
+    "STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY",
     "STAGE5_OUTCOME_OK",
     "broker_parity_scope",
     "classify_field",
