@@ -9,6 +9,70 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-19 — Custom-symbol tick values: MT5 will not store them; certify by derived-equality read-back, refuse on divergence (STAGE 4 R5)
+
+**Trigger.** gate_run7: `CustomSymbolSetDouble(SYMBOL_TRADE_TICK_VALUE_PROFIT
+= 1.0 from manifest.broker_spec.tick_value_profit)` failed with
+`last_error 5307`, after `SYMBOL_DIGITS`, `SYMBOL_POINT`,
+`SYMBOL_TRADE_TICK_SIZE` and `SYMBOL_TRADE_TICK_VALUE` all succeeded.
+
+**What the MQL5 documentation says (looked up, not assumed).**
+
+- Runtime Errors table (`docs/constants/errorswarnings/errorcodes`):
+  `5307 ERR_CUSTOM_SYMBOL_PROPERTY_WRONG` — "An invalid custom symbol
+  property". (Distinct from `5308 ERR_CUSTOM_SYMBOL_PARAMETER_ERROR` — "A
+  wrong parameter while setting the property" — so 5307 rejects the
+  PROPERTY, not the value.)
+- MQL5 book, "Custom symbol properties": "not all properties are allowed to
+  change. When trying to set a read-only property, we get the error
+  CUSTOM_SYMBOL_PROPERTY_WRONG (5307)."
+- `ENUM_SYMBOL_INFO_DOUBLE` (`docs/constants/environment_state/
+  marketinfoconstants`): `SYMBOL_TRADE_TICK_VALUE_PROFIT` — "**Calculated**
+  tick price for a profitable position"; `SYMBOL_TRADE_TICK_VALUE_LOSS` —
+  "**Calculated** tick price for a losing position";
+  `SYMBOL_TRADE_TICK_VALUE` — "Value of SYMBOL_TRADE_TICK_VALUE_PROFIT".
+- `CustomSymbolSetDouble` (`docs/customsymbols/customsymbolsetdouble`) names
+  `SYMBOL_TRADE_TICK_VALUE` (with `SYMBOL_POINT`, `SYMBOL_TRADE_TICK_SIZE`)
+  in its history-reset note, i.e. it IS a settable custom-symbol property —
+  matching gate_run7, where setting it succeeded.
+
+Conclusion: the two `_PROFIT`/`_LOSS` properties are terminal-DERIVED, not
+settable storage. MT5 will not let a custom symbol *carry* the broker's
+tick-value economics as stored fields.
+
+**Decision (design, not suppression).** `tick_value_loss` underpins the
+P0-1 sizing correction, so a tester leg on the imported symbol reproduces
+broker sizing ONLY if the terminal's DERIVED tick values equal the broker's.
+Therefore `Mql5BotImportFixture.mq5`:
+
+1. never calls `CustomSymbolSet*` on `SYMBOL_TRADE_TICK_VALUE_PROFIT` /
+   `SYMBOL_TRADE_TICK_VALUE_LOSS` (a call documented to fail must not be
+   issued and its failure must not be swallowed);
+2. still sets `SYMBOL_TRADE_TICK_VALUE` from `manifest.broker_spec.
+   tick_value_profit` (settable; "Value of SYMBOL_TRADE_TICK_VALUE_PROFIT");
+3. after all sets + bars, READS BACK every set property
+   (`SymbolInfoInteger/Double/String`) and compares to the value set —
+   ANY divergence refuses at the new `verify_properties` stage;
+4. reads back the terminal-DERIVED `_PROFIT`/`_LOSS` (plus
+   `SYMBOL_TRADE_CALC_MODE`, the derivation basis) and REFUSES unless both
+   equal the manifest broker values. The result JSON records all of it:
+   `verified_properties` + `derived_tick_values` (a NAMED, SCOPED
+   limitation: proven by derived-equality at import time, never by storage).
+
+The committed classifier (`gate_selfcheck.properties_verified`, new stage-4
+case `properties_unverified`) fails a success record CLOSED unless the
+read-back proof is present and clean — a skipped property can never again
+pass silently as if it were set.
+
+**Stage-8 reconciliation scope (what the Gold legs can and cannot
+certify).** Recorded in `artifacts/owner_mt5_gate/README.md`: the Gold legs
+certify tick-value economics ONLY via the import-time derived-equality
+proof; they cannot certify the broker's *stored* `_PROFIT`/`_LOSS` fields
+(MT5 has no such storage for custom symbols), and the derived values are a
+function of calc mode/contract/tick size/account currency, re-derived by the
+tester at run time. If the derived-equality proof is absent or diverged,
+stage 4 refuses and no tick-value claim survives to stage 8.
+
 ## 2026-09-18 — Re-anchor frozen source to `a85cba3` + ancestry-based stage 0
 
 **Trigger.** The owner gate stopped at stage 0 with

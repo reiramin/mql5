@@ -73,6 +73,39 @@
 //|     skipped -- a skipped property means the symbol is not the      |
 //|     certified one, so any failure REFUSES.                        |
 //|                                                                  |
+//|  TICK-VALUE ECONOMICS (err=5307 ERR_CUSTOM_SYMBOL_PROPERTY_WRONG): |
+//|  gate_run7 measured CustomSymbolSetDouble REFUSING                 |
+//|  SYMBOL_TRADE_TICK_VALUE_PROFIT with last_error 5307. The MQL5     |
+//|  docs say why: 5307 is "An invalid custom symbol property"         |
+//|  (Runtime Errors table), and the MQL5 book (Custom symbol          |
+//|  properties) states "not all properties are allowed to change.     |
+//|  When trying to set a read-only property, we get the error         |
+//|  CUSTOM_SYMBOL_PROPERTY_WRONG (5307)". SYMBOL_TRADE_TICK_VALUE_    |
+//|  PROFIT and SYMBOL_TRADE_TICK_VALUE_LOSS are documented in         |
+//|  ENUM_SYMBOL_INFO_DOUBLE as "CALCULATED tick price for a           |
+//|  profitable/losing position" -- the terminal DERIVES them; they    |
+//|  are not settable storage. SYMBOL_TRADE_TICK_VALUE ("Value of      |
+//|  SYMBOL_TRADE_TICK_VALUE_PROFIT") IS settable (it is named in the  |
+//|  CustomSymbolSetDouble history-reset note) and gate_run7 set it    |
+//|  successfully. DESIGN DECISION (docs/DECISIONS.md 2026-09-19):     |
+//|  this script NEVER calls CustomSymbolSet* on the two calculated    |
+//|  properties. It sets SYMBOL_TRADE_TICK_VALUE from the manifest     |
+//|  tick_value_profit and then, in the verify_properties stage,       |
+//|  READS BACK the terminal-DERIVED _PROFIT/_LOSS and REFUSES unless  |
+//|  both equal the manifest broker values -- because tick_value_loss  |
+//|  is the field the P0-1 sizing correction rests on, a custom        |
+//|  symbol whose derived tick values diverge from the broker's would  |
+//|  NOT reproduce broker sizing in the tester, and claiming so would  |
+//|  be false. The derived pair is recorded as a NAMED, SCOPED         |
+//|  limitation (derived_tick_values in the JSON): proven by derived-  |
+//|  equality at import time, never by storage.                       |
+//|                                                                  |
+//|  READ-BACK CONTRACT (verify_properties): after every property is   |
+//|  set and the bars are written, EVERY set property is read back     |
+//|  via SymbolInfoInteger/Double/String and compared to the value     |
+//|  that was set; ANY divergence REFUSES. A skipped or silently       |
+//|  mutated property can therefore never masquerade as set.          |
+//|                                                                  |
 //|  OBSERVABILITY: the FIRST action of OnStart is a Print() banner    |
 //|  naming EVERY resolved input and the relative+absolute output path |
 //|  ("[import] STARTUP ..."), so the gate's terminal-log backstop     |
@@ -94,10 +127,19 @@
 //|    "failed_value":...,"failed_source":<manifest/spec field>,      |
 //|    "properties":[{"enum","value","source","ok","last_error"}...], |
 //|    "error":...}                                                   |
+//|  Every record ALSO carries the read-back evidence:                |
+//|    "verified_properties":[{"enum","expected","readback","ok"}...] |
+//|    "derived_tick_values":{"trade_calc_mode",                      |
+//|        "limitation":<named scope>,                                 |
+//|        "properties":[{"enum","settable":false,"manifest_value",   |
+//|                       "readback","source","ok"}...]}              |
 //|  On success it ALSO carries the faithful-import fields:           |
 //|    fixture_file_sha256, manifest_dataset_hash, n_bars,            |
 //|    roundtrip_sha256, timeframe. The gate attaches this file to     |
-//|    stage_4.json whether the import passes or fails.               |
+//|    stage_4.json whether the import passes or fails. The committed  |
+//|    Python classifier (gate_selfcheck.classify_stage4_outcome)      |
+//|    fails a success record CLOSED unless every verified_properties  |
+//|    entry and both derived tick values read back equal.            |
 //+------------------------------------------------------------------+
 #property script_show_inputs
 #property strict
@@ -218,15 +260,130 @@ bool SetS(const string sym, const ENUM_SYMBOL_INFO_STRING id,
   }
 
 //+------------------------------------------------------------------+
+//| READ-BACK verification (stage verify_properties): every property  |
+//| that was SET is read back and compared to the value it was set    |
+//| to; the terminal-DERIVED tick values (NOT settable, 5307) are     |
+//| compared to the manifest broker values. Doubles are compared at   |
+//| the pipeline's own %.10f precision. EVERY comparison is recorded  |
+//| (no short-circuit) so the evidence names all divergences at once. |
+//+------------------------------------------------------------------+
+string g_verifyJson  = "";   // JSON array body: set-property read-backs
+int    g_verifyCount = 0;
+string g_derivedJson = "";   // JSON array body: derived tick-value checks
+int    g_derivedCount= 0;
+
+void AppendVerify(const string enumName, const string expected,
+                  const string readback, const bool ok)
+  {
+   if(g_verifyCount>0) g_verifyJson += ",";
+   g_verifyJson += "{\"enum\":"     + DslCanonEscape(enumName) +
+                   ",\"expected\":" + DslCanonEscape(expected) +
+                   ",\"ok\":"       + (ok ? "true" : "false") +
+                   ",\"readback\":" + DslCanonEscape(readback) + "}";
+   g_verifyCount++;
+  }
+
+void MarkVerifyFail(const string call, const string enumName,
+                    const string readback)
+  {
+   // only the FIRST divergence is named in failed_*; the full picture is in
+   // the verified_properties array either way
+   if(g_failEnum!="" && g_failCall!="") return;
+   g_failCall = call; g_failEnum = enumName;
+   g_failValue = readback; g_failSource = "readback vs value set";
+  }
+
+bool VerI(const string sym, const ENUM_SYMBOL_INFO_INTEGER id,
+          const string enumName, const long expected)
+  {
+   long got = 0;
+   bool fetched = SymbolInfoInteger(sym, id, got);
+   bool ok = fetched && (got == expected);
+   AppendVerify(enumName, IntegerToString(expected),
+                fetched ? IntegerToString(got) : "(SymbolInfoInteger failed)",
+                ok);
+   if(!ok) MarkVerifyFail("SymbolInfoInteger(readback)", enumName,
+                          IntegerToString(got));
+   return ok;
+  }
+
+bool VerD(const string sym, const ENUM_SYMBOL_INFO_DOUBLE id,
+          const string enumName, const double expected)
+  {
+   double got = 0.0;
+   bool fetched = SymbolInfoDouble(sym, id, got);
+   string want = DoubleToString(expected, 10);
+   string have = DoubleToString(got, 10);
+   bool ok = fetched && (want == have);
+   AppendVerify(enumName, want,
+                fetched ? have : "(SymbolInfoDouble failed)", ok);
+   if(!ok) MarkVerifyFail("SymbolInfoDouble(readback)", enumName, have);
+   return ok;
+  }
+
+bool VerS(const string sym, const ENUM_SYMBOL_INFO_STRING id,
+          const string enumName, const string expected)
+  {
+   string got = "";
+   bool fetched = SymbolInfoString(sym, id, got);
+   bool ok = fetched && (got == expected);
+   AppendVerify(enumName, expected,
+                fetched ? got : "(SymbolInfoString failed)", ok);
+   if(!ok) MarkVerifyFail("SymbolInfoString(readback)", enumName, got);
+   return ok;
+  }
+
+// NOT settable (5307 ERR_CUSTOM_SYMBOL_PROPERTY_WRONG): the terminal DERIVES
+// this property; prove the derived value equals the manifest broker value.
+bool VerDerivedD(const string sym, const ENUM_SYMBOL_INFO_DOUBLE id,
+                 const string enumName, const double manifestVal,
+                 const string source)
+  {
+   double got = 0.0;
+   bool fetched = SymbolInfoDouble(sym, id, got);
+   string want = DoubleToString(manifestVal, 10);
+   string have = DoubleToString(got, 10);
+   bool ok = fetched && (want == have);
+   if(g_derivedCount>0) g_derivedJson += ",";
+   g_derivedJson += "{\"enum\":"          + DslCanonEscape(enumName) +
+                    ",\"manifest_value\":"+ DslCanonEscape(want) +
+                    ",\"ok\":"            + (ok ? "true" : "false") +
+                    ",\"readback\":"      + DslCanonEscape(
+                        fetched ? have : "(SymbolInfoDouble failed)") +
+                    ",\"settable\":false" +
+                    ",\"source\":"        + DslCanonEscape(source) + "}";
+   g_derivedCount++;
+   if(!ok) MarkVerifyFail("SymbolInfoDouble(derived readback)", enumName, have);
+   return ok;
+  }
+
+//+------------------------------------------------------------------+
 //| diagnostic writer: EVERY outcome writes a populated JSON here.    |
 //| refusal record carries the failing property/value/source/enum    |
 //| and _LastError so the gate is never blind again.                 |
 //+------------------------------------------------------------------+
+string g_calcModeStr = "";   // SYMBOL_TRADE_CALC_MODE readback (derivation basis)
+
+// the NAMED, SCOPED limitation + the derived-equality evidence, carried on
+// EVERY record so a skipped-vs-derived property can never pass silently
+string DerivedBlockJson()
+  {
+   return "{\"limitation\":" + DslCanonEscape(
+            "SYMBOL_TRADE_TICK_VALUE_PROFIT/SYMBOL_TRADE_TICK_VALUE_LOSS are "
+            "calculated by MT5 and rejected by CustomSymbolSetDouble (5307 "
+            "ERR_CUSTOM_SYMBOL_PROPERTY_WRONG); faithfulness is proven by "
+            "readback equality against the manifest broker values, never by "
+            "setting") +
+          ",\"properties\":["    + g_derivedJson + "]" +
+          ",\"trade_calc_mode\":" + DslCanonEscape(g_calcModeStr) + "}";
+  }
+
 void RefuseAt(const string outPath, const string symbol, const string stage,
               const string why, const int lastErr)
   {
    string props = "[" + g_propsJson + "]";
-   string doc = "{\"error\":"          + DslCanonEscape(why) +
+   string doc = "{\"derived_tick_values\":" + DerivedBlockJson() +
+                ",\"error\":"           + DslCanonEscape(why) +
                 ",\"failed_call\":"     + DslCanonEscape(g_failCall) +
                 ",\"failed_property\":" + DslCanonEscape(g_failEnum) +
                 ",\"failed_source\":"   + DslCanonEscape(g_failSource) +
@@ -235,7 +392,8 @@ void RefuseAt(const string outPath, const string symbol, const string stage,
                 ",\"properties\":"      + props +
                 ",\"refused\":true" +
                 ",\"stage\":"           + DslCanonEscape(stage) +
-                ",\"symbol\":"          + DslCanonEscape(symbol) + "}\n";
+                ",\"symbol\":"          + DslCanonEscape(symbol) +
+                ",\"verified_properties\":[" + g_verifyJson + "]}\n";
    if(!WriteTextLF(outPath, doc))
       Print("[import] cannot write ", outPath);
    Print("[import] ", symbol, " REFUSED [", stage, "]: ", why,
@@ -649,12 +807,11 @@ void OnStart()
                      tickSize, "manifest.broker_spec.tick_size");
    sok = sok && SetD(sym, SYMBOL_TRADE_TICK_VALUE, "SYMBOL_TRADE_TICK_VALUE",
                      tickValProfit, "manifest.broker_spec.tick_value_profit");
-   sok = sok && SetD(sym, SYMBOL_TRADE_TICK_VALUE_PROFIT,
-                     "SYMBOL_TRADE_TICK_VALUE_PROFIT", tickValProfit,
-                     "manifest.broker_spec.tick_value_profit");
-   sok = sok && SetD(sym, SYMBOL_TRADE_TICK_VALUE_LOSS,
-                     "SYMBOL_TRADE_TICK_VALUE_LOSS", tickValLoss,
-                     "manifest.broker_spec.tick_value_loss");
+   // SYMBOL_TRADE_TICK_VALUE_PROFIT / SYMBOL_TRADE_TICK_VALUE_LOSS are NOT
+   // set here: MT5 documents them as CALCULATED and CustomSymbolSetDouble
+   // rejects them with 5307 ERR_CUSTOM_SYMBOL_PROPERTY_WRONG (gate_run7).
+   // They are verified by READ-BACK against the manifest in the
+   // verify_properties stage below -- refusing on divergence, never skipping.
    sok = sok && SetD(sym, SYMBOL_TRADE_CONTRACT_SIZE,
                      "SYMBOL_TRADE_CONTRACT_SIZE", contractSize,
                      "manifest.broker_spec.contract_size");
@@ -715,6 +872,65 @@ void OnStart()
                 "SymbolSelect(true) failed after import"+suffix, err);
        return; }
 
+   // ---- 3b. verify_properties: READ BACK every property that was set
+   //      and compare to the value it was set to; ANY divergence REFUSES.
+   //      No short-circuit: every comparison is recorded so the evidence
+   //      names all divergences at once.
+   bool vok = true;
+   vok = VerI(sym, SYMBOL_DIGITS, "SYMBOL_DIGITS", (long)digits) && vok;
+   vok = VerD(sym, SYMBOL_POINT, "SYMBOL_POINT", point) && vok;
+   vok = VerD(sym, SYMBOL_TRADE_TICK_SIZE, "SYMBOL_TRADE_TICK_SIZE",
+              tickSize) && vok;
+   vok = VerD(sym, SYMBOL_TRADE_TICK_VALUE, "SYMBOL_TRADE_TICK_VALUE",
+              tickValProfit) && vok;
+   vok = VerD(sym, SYMBOL_TRADE_CONTRACT_SIZE, "SYMBOL_TRADE_CONTRACT_SIZE",
+              contractSize) && vok;
+   vok = VerD(sym, SYMBOL_VOLUME_MIN, "SYMBOL_VOLUME_MIN", volMin) && vok;
+   vok = VerD(sym, SYMBOL_VOLUME_MAX, "SYMBOL_VOLUME_MAX", volMax) && vok;
+   vok = VerD(sym, SYMBOL_VOLUME_STEP, "SYMBOL_VOLUME_STEP", volStep) && vok;
+   vok = VerD(sym, SYMBOL_VOLUME_LIMIT, "SYMBOL_VOLUME_LIMIT", volLimit) && vok;
+   vok = VerI(sym, SYMBOL_TRADE_STOPS_LEVEL, "SYMBOL_TRADE_STOPS_LEVEL",
+              (long)stopsLevel) && vok;
+   vok = VerI(sym, SYMBOL_TRADE_FREEZE_LEVEL, "SYMBOL_TRADE_FREEZE_LEVEL",
+              (long)freezeLevel) && vok;
+   vok = VerS(sym, SYMBOL_CURRENCY_PROFIT, "SYMBOL_CURRENCY_PROFIT",
+              ccyProfit) && vok;
+   vok = VerS(sym, SYMBOL_CURRENCY_BASE, "SYMBOL_CURRENCY_BASE",
+              ccyBase) && vok;
+   vok = VerS(sym, SYMBOL_CURRENCY_MARGIN, "SYMBOL_CURRENCY_MARGIN",
+              ccyMargin) && vok;
+   if(!vok)
+     { string suffix = CleanupAfterFail(sym);
+       RefuseAt(outPath, sym, "verify_properties",
+                "read-back of a set property diverged from the value set ("+
+                g_failEnum+" read back as "+g_failValue+
+                "); the custom symbol is not the certified one"+suffix, 0);
+       return; }
+
+   // the derivation basis: which calc mode the terminal derives tick
+   // values under (recorded in the evidence, never assumed)
+   g_calcModeStr = IntegerToString(
+       SymbolInfoInteger(sym, SYMBOL_TRADE_CALC_MODE));
+   // NOT settable (5307): the terminal-DERIVED tick values must equal the
+   // manifest broker values, or the tester legs on this symbol would NOT
+   // reproduce broker sizing (tick_value_loss underpins the P0-1 sizing
+   // correction) -- REFUSE rather than certify a false economics claim.
+   bool dok = true;
+   dok = VerDerivedD(sym, SYMBOL_TRADE_TICK_VALUE_PROFIT,
+                     "SYMBOL_TRADE_TICK_VALUE_PROFIT", tickValProfit,
+                     "manifest.broker_spec.tick_value_profit") && dok;
+   dok = VerDerivedD(sym, SYMBOL_TRADE_TICK_VALUE_LOSS,
+                     "SYMBOL_TRADE_TICK_VALUE_LOSS", tickValLoss,
+                     "manifest.broker_spec.tick_value_loss") && dok;
+   if(!dok)
+     { string suffix = CleanupAfterFail(sym);
+       RefuseAt(outPath, sym, "verify_properties",
+                "terminal-DERIVED "+g_failEnum+" read back as "+g_failValue+
+                " != manifest broker value (trade_calc_mode="+g_calcModeStr+
+                "); a tester leg on this symbol would NOT reproduce broker "
+                "tick-value economics"+suffix, 0);
+       return; }
+
    // ---- read them back at the fixture timeframe (explicit sym/tf) --
    MqlRates back[];
    int got = CopyRates(sym, tf, 0, nBars, back);
@@ -758,7 +974,8 @@ void OnStart()
    // the diagnostic block (properties/last_error/stage) is carried on the
    // success record too, so the gate attaches identical observability data
    // whether stage 4 passes or fails.
-   string doc = "{\"fixture_file_sha256\":" + DslCanonEscape(fixtureSha) +
+   string doc = "{\"derived_tick_values\":" + DerivedBlockJson() +
+                ",\"fixture_file_sha256\":" + DslCanonEscape(fixtureSha) +
                 ",\"last_error\":0" +
                 ",\"manifest_dataset_hash\":" + DslCanonEscape(datasetHash) +
                 ",\"n_bars\":" + IntegerToString(got) +
@@ -767,7 +984,8 @@ void OnStart()
                 ",\"roundtrip_sha256\":" + DslCanonEscape(roundtripSha) +
                 ",\"stage\":\"complete\"" +
                 ",\"symbol\":" + DslCanonEscape(sym) +
-                ",\"timeframe\":" + DslCanonEscape(tfStr) + "}\n";
+                ",\"timeframe\":" + DslCanonEscape(tfStr) +
+                ",\"verified_properties\":[" + g_verifyJson + "]}\n";
    if(!WriteTextLF(outPath, doc))
       Print("[import] cannot write ", outPath);
    Print("[import] ", sym, ": ", got, " bars, dataset hash MATCHES manifest ",

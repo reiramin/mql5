@@ -327,7 +327,7 @@ def import_diagnostic_populated(doc: dict) -> dict:
                     "failed_property": None,
                     "reason": "refusal carries no error message"}
         failed = doc.get("failed_property") or None
-        if stage == "set_properties" and not failed:
+        if stage in ("set_properties", "verify_properties") and not failed:
             return {"populated": False, "refused": True,
                     "failed_property": None,
                     "reason": "property-stage refusal names no failed_property"}
@@ -428,7 +428,66 @@ STAGE4_CASE_NO_JSON = "terminal_ran_no_json"
 STAGE4_CASE_REFUSED = "json_refused"
 STAGE4_CASE_HASH_MISMATCH = "roundtrip_hash_mismatch"
 STAGE4_CASE_NOT_POPULATED = "diagnostic_not_populated"
+STAGE4_CASE_UNVERIFIED = "properties_unverified"
 STAGE4_CASE_PASS = "import_ok"
+
+# the two properties MT5 will not let CustomSymbolSetDouble carry (5307
+# ERR_CUSTOM_SYMBOL_PROPERTY_WRONG, "An invalid custom symbol property";
+# ENUM_SYMBOL_INFO_DOUBLE documents both as CALCULATED). The importer must
+# prove the terminal-DERIVED values equal the manifest broker values; a
+# success record without that proof fails CLOSED here (never a silent skip).
+DERIVED_TICK_VALUE_ENUMS = ("SYMBOL_TRADE_TICK_VALUE_PROFIT",
+                            "SYMBOL_TRADE_TICK_VALUE_LOSS")
+
+
+def properties_verified(doc: dict) -> dict:
+    """R5 read-back contract: a SUCCESS import record must carry
+
+      - ``verified_properties``: a non-empty list of read-backs of every
+        property that was SET, each with ``ok`` true, and
+      - ``derived_tick_values.properties``: read-backs of BOTH calculated
+        tick-value properties (not settable, 5307), each with ``ok`` true --
+        the terminal-DERIVED value equalled the manifest broker value.
+
+    Returns {"ok": bool, "reason": str}. Anything missing or diverged is a
+    named fail-closed reason: a skipped or unverified property must never
+    pass as if it were set.
+    """
+    vp = doc.get("verified_properties")
+    if not isinstance(vp, list) or not vp:
+        return {"ok": False,
+                "reason": "success record carries no verified_properties "
+                          "read-back (properties were never proven set)"}
+    bad = [str(p.get("enum") or "?") for p in vp
+           if not (isinstance(p, dict) and p.get("ok") is True)]
+    if bad:
+        return {"ok": False,
+                "reason": "read-back diverged from the value set for: "
+                          + ", ".join(bad)}
+    dv = doc.get("derived_tick_values")
+    props = dv.get("properties") if isinstance(dv, dict) else None
+    if not isinstance(props, list):
+        return {"ok": False,
+                "reason": "success record carries no derived_tick_values "
+                          "read-back (the 5307-calculated tick values were "
+                          "never proven to equal the manifest)"}
+    by_enum = {p.get("enum"): p for p in props if isinstance(p, dict)}
+    for need in DERIVED_TICK_VALUE_ENUMS:
+        rec = by_enum.get(need)
+        if rec is None:
+            return {"ok": False,
+                    "reason": f"derived_tick_values misses {need} (not "
+                              f"settable per 5307; must be verified by "
+                              f"read-back, never skipped)"}
+        if rec.get("ok") is not True:
+            return {"ok": False,
+                    "reason": f"terminal-DERIVED {need} "
+                              f"({rec.get('readback')!r}) != manifest value "
+                              f"({rec.get('manifest_value')!r}); the custom "
+                              f"symbol does not carry the broker tick-value "
+                              f"economics"}
+    return {"ok": True, "reason": "every set property read back equal; both "
+                                  "derived tick values equal the manifest"}
 
 
 def classify_stage4_outcome(*, launched: bool, json_present: bool,
@@ -496,9 +555,18 @@ def classify_stage4_outcome(*, launched: bool, json_present: bool,
         return {"case": STAGE4_CASE_HASH_MISMATCH, "ok": False,
                 "message": f"{symbol}: round-trip dataset hash {rt} != "
                            f"manifest dataset_hash {manifest_hash}"}
+    # R5: a success record must PROVE its properties -- every set property
+    # read back equal, and both 5307-calculated tick values derived equal to
+    # the manifest. Without that proof the import fails CLOSED: a skipped
+    # property must never pass silently as if it were set.
+    verified = properties_verified(doc)
+    if not verified["ok"]:
+        return {"case": STAGE4_CASE_UNVERIFIED, "ok": False,
+                "message": f"{symbol}: import not property-verified: "
+                           f"{verified['reason']}"}
     return {"case": STAGE4_CASE_PASS, "ok": True,
             "message": f"{symbol}: imported; round-trip dataset hash == "
-                       f"manifest"}
+                       f"manifest; {verified['reason']}"}
 
 
 # ---------------------------------------------------------------------------

@@ -107,7 +107,19 @@ function Record-Stage([int]$num, [string]$name, [string]$status,
 function Invoke-Decide([string[]]$deciderArgs) {
     $tmp = Join-Path $Evidence ("decide_" + [Guid]::NewGuid().ToString("N") + ".json")
     $full = @("--repo", $RepoRoot) + $deciderArgs
-    $p = Start-Process -FilePath $Python -ArgumentList (@($Decide) + $full) `
+    # R5 ROOT CAUSE (gate_run7): Start-Process REFUSES an -ArgumentList that
+    # contains a $null or "" element ("Cannot validate argument on parameter
+    # 'ArgumentList'") -- the stage-4 outcome call passed --log-excerpt with
+    # an EMPTY path when the import JSON existed, and the gate died with no
+    # verdict. Empty elements are passed as a literal quoted empty string so
+    # the child still sees an empty argument and the gate can never crash
+    # verdictless here again.
+    $argv = @()
+    foreach ($a in (@($Decide) + $full)) {
+        if ($null -eq $a -or ([string]$a) -eq "") { $argv += '""' }
+        else { $argv += [string]$a }
+    }
+    $p = Start-Process -FilePath $Python -ArgumentList $argv `
         -RedirectStandardOutput $tmp -RedirectStandardError "$tmp.err" `
         -Wait -PassThru -NoNewWindow
     $obj = $null
@@ -139,6 +151,51 @@ function Finish-Gate([string]$gateResult) {
     Write-Host ("  summary: {0}  ({1})" -f $sumPath, (Get-Sha256 $sumPath))
     Write-Host ("GATE_RESULT={0}" -f $gateResult)
     if ($gateResult -eq "certified") { exit 0 } else { exit 1 }
+}
+
+# =====================================================================
+# STRUCTURAL VERDICT CONTRACT (R5): the gate ALWAYS ends with a
+# machine-readable verdict -- stage_<n>.json for the stage in progress,
+# gate_summary.json, and a GATE_RESULT= line -- even on an UNHANDLED
+# error anywhere in the run. Enter-Stage tracks which stage is in
+# progress; the script-scope trap below converts any unhandled
+# terminating error into a recorded FAIL for that stage and finishes
+# the gate instead of dying verdictless (the gate_run7 defect: a
+# Start-Process parameter error at stage 4 exited 1 with no stage_4.json,
+# no summary and no GATE_RESULT line).
+# =====================================================================
+$Script:CurStageNum = 0
+$Script:CurStageName = "self_protection"
+
+function Enter-Stage([int]$num, [string]$name) {
+    $Script:CurStageNum = $num
+    $Script:CurStageName = $name
+    # test hook: MQL5BOT_GATE_FAULT=<stage-name> injects an unhandled throw
+    # at that stage boundary so the always-a-verdict contract is testable
+    # end-to-end (never set in a real owner run).
+    if ($env:MQL5BOT_GATE_FAULT -and ($env:MQL5BOT_GATE_FAULT -eq $name)) {
+        throw ("FAULT_INJECTION: forced unhandled error in stage " + $name)
+    }
+}
+
+trap {
+    $failMsg = "UNHANDLED_ERROR: gate crashed without a recorded reason"
+    try {
+        $failMsg = ("UNHANDLED_ERROR: {0} (script line {1})" -f `
+            $_.Exception.Message, $_.InvocationInfo.ScriptLineNumber)
+    } catch { }
+    try {
+        if (-not (Test-Path -LiteralPath $Evidence)) {
+            New-Item -ItemType Directory -Force -Path $Evidence | Out-Null
+        }
+        Record-Stage $Script:CurStageNum $Script:CurStageName "FAIL" $failMsg @() | Out-Null
+        Finish-Gate $Script:CurStageName    # writes gate_summary.json, prints GATE_RESULT=, exits 1
+    } catch {
+        # last resort: even a broken evidence dir still yields the verdict line
+        Write-Host ("GATE_RESULT={0}" -f $Script:CurStageName)
+        exit 1
+    }
+    exit 1
 }
 
 # locate an exe (Windows) without inventing a path
@@ -233,6 +290,7 @@ function Save-ImporterLog([string]$name, $extraLines = $null) {
 # dirty the tree the stage-0 clean-tree check inspects.
 New-Item -ItemType Directory -Force -Path $Evidence | Out-Null
 Write-Host "[owner-gate] evidence dir: $Evidence"
+Enter-Stage 0 "self_protection"
 
 # =====================================================================
 # STAGE A -- self-protection (abort with a NAMED reason)
@@ -286,6 +344,7 @@ Record-Stage 0 "self_protection" "PASS" $spPass @((New-Artifact $sp.raw)) | Out-
 # =====================================================================
 # STAGE 1 -- strict compile (decision from the LOG, not the exit code)
 # =====================================================================
+Enter-Stage 1 "strict_compile"
 $logDir = Join-Path $RepoRoot "logs"
 $compilePs1 = Join-Path $PSScriptRoot "compile.ps1"
 & powershell -NoProfile -ExecutionPolicy Bypass -File $compilePs1 -Strict -MetaEditorPath $MetaEditorPath -DataFolder $DataFolder | Out-Null
@@ -308,6 +367,7 @@ Record-Stage 1 "strict_compile" "PASS" ("0 errors, 0 warnings; targets clean: " 
 # =====================================================================
 # STAGE 2 -- DSL parity (14/14 EXACT + tampered refused)
 # =====================================================================
+Enter-Stage 2 "dsl_parity"
 $dslArgs = @("-DataFolder", $DataFolder, "-TerminalPath", $TerminalPath)
 if ($Portable) { $dslArgs += "-Portable" }
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "run_dsl_parity.ps1") @dslArgs | Out-Null
@@ -338,6 +398,7 @@ Record-Stage 2 "dsl_parity" "PASS" ("{0}/{1} fixtures EXACT + tampered refused" 
 # =====================================================================
 # the owner attaches Mql5BotExportSymbolSpec to each chart symbol; the
 # committed exports land under data\broker_exports\ (gitignored, owner-side)
+Enter-Stage 3 "broker_parity"
 $parityReport = Join-Path $RepoRoot "data\broker_exports\parity_report.json"
 & $Python (Join-Path $PSScriptRoot "broker_symbol_parity.py") | Out-Null
 if (-not (Test-Path -LiteralPath $parityReport)) {
@@ -363,6 +424,7 @@ if (-not $SymbolSpecExport) {
 # =====================================================================
 # STAGE 4 -- gold fixture import into a custom symbol (round-trip hash)
 # =====================================================================
+Enter-Stage 4 "fixture_import"
 $stage4ok = $true
 $stage4art = New-Object System.Collections.ArrayList
 $golds = @(
@@ -500,12 +562,16 @@ foreach ($g in $golds) {
         [void]$stage4art.Add([ordered]@{ path = $resultJson; sha256 = $shaBefore })
         [void]$stage4art.Add((New-Artifact $resCopy))
     }
-    $oc = Invoke-Decide @("stage4-outcome",
+    # R5: --log-excerpt is appended ONLY when a path exists -- an empty
+    # element in the Start-Process -ArgumentList crashed the whole gate
+    # verdictless in gate_run7 (Invoke-Decide also passes "" safely now).
+    $ocArgs = @("stage4-outcome",
         "--symbol", $g.name,
         "--launched", ($run.launched.ToString().ToLower()),
         "--result", $resultJson,
-        "--manifest-hash", $man.dataset_hash,
-        "--log-excerpt", $logExcerptPath)
+        "--manifest-hash", $man.dataset_hash)
+    if ($logExcerptPath) { $ocArgs += @("--log-excerpt", $logExcerptPath) }
+    $oc = Invoke-Decide $ocArgs
     if (-not $oc.ok) {
         $stage4ok = $false
         $msg = if ($oc.data -and $oc.data.message) { $oc.data.message } else { ("{0}: stage-4 import failed" -f $g.name) }
@@ -526,6 +592,7 @@ Record-Stage 4 "fixture_import" "PASS" "both gold fixtures imported; round-trip 
 #   requested one); real-tick coverage is FULL/PARTIAL/UNKNOWN with
 #   evidence; the dataset hash is re-checked after the legs.
 # =====================================================================
+Enter-Stage 5 "tester_legs"
 $legs = @(
     @{ gold = "gold1"; model = "m1_ohlc";    m = 1 },
     @{ gold = "gold1"; model = "every_tick"; m = 0 },
@@ -577,6 +644,7 @@ Record-Stage 5 "tester_legs" "PASS" "six tester legs produced raw reports + side
 #            evidence CONSUMER. A volume/risk divergence is EXPECTED for
 #            the 4257f1e sizing fix: classify + record, never patch.
 # =====================================================================
+Enter-Stage 8 "reconciliation"
 $evidencePkg = if ($env:MQL5BOT_EVIDENCE_DIR) { $env:MQL5BOT_EVIDENCE_DIR } else { Join-Path $RepoRoot "artifacts\owner_mt5_gate\evidence" }
 $verifyOut = Join-Path $Evidence "reconciliation_verify.json"
 $vp = Start-Process -FilePath $Python `
@@ -618,6 +686,7 @@ if ($recon.verdict -eq "MT5_VALIDATED") {
 # =====================================================================
 # STAGE 9 -- archive manifest (owner_evidence_bind.py only; no hand-typed hash)
 # =====================================================================
+Enter-Stage 9 "archive_manifest"
 $archiveManifest = Join-Path $Evidence "archive_manifest.json"
 $ap = Start-Process -FilePath $Python `
     -ArgumentList (@((Join-Path $PSScriptRoot "owner_evidence_bind.py"), "manifest", $Evidence, "--frozen", (Join-Path $RepoRoot "artifacts\owner_mt5_gate\frozen_inputs.json"))) `
@@ -631,6 +700,7 @@ Record-Stage 9 "archive_manifest" "PASS" "evidence bound by owner_evidence_bind.
 # =====================================================================
 # STAGE 10 -- certify_strategy.py records whatever state it assigns
 # =====================================================================
+Enter-Stage 10 "certify"
 $certConfig = Join-Path $RepoRoot "artifacts\owner_mt5_gate\certify_config.json"
 $certReport = Join-Path $Evidence "certification_report.md"
 if (-not (Test-Path -LiteralPath $certConfig)) {

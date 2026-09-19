@@ -166,6 +166,31 @@ GENERATE ticks in Every-tick mode. Therefore:
 * `REAL_TICK_COVERAGE_UNKNOWN` — coverage cannot be proven. **This is
   the default.** Selecting the mode is NOT evidence of FULL.
 
+## Tick-value certification scope of the Gold tester legs (§16 addendum, R5)
+
+MT5 refuses to store `SYMBOL_TRADE_TICK_VALUE_PROFIT` /
+`SYMBOL_TRADE_TICK_VALUE_LOSS` on a custom symbol
+(`CustomSymbolSetDouble` → `5307 ERR_CUSTOM_SYMBOL_PROPERTY_WRONG`;
+both are documented as *Calculated* in `ENUM_SYMBOL_INFO_DOUBLE`).
+The reconciliation contract for the Gold legs is therefore scoped
+(decision: `docs/DECISIONS.md` 2026-09-19):
+
+* the Gold legs **can certify**: every property the importer SET and
+  read back equal (`verified_properties`, all `ok:true`), and the
+  tick-value **economics by derived-equality** — the terminal-DERIVED
+  `_PROFIT`/`_LOSS` read back equal to
+  `manifest.broker_spec.tick_value_profit`/`tick_value_loss` at import
+  time, under the recorded `trade_calc_mode`;
+* the Gold legs **cannot certify**: the broker's *stored*
+  `_PROFIT`/`_LOSS` fields (no such storage exists for custom symbols),
+  nor a derived value under any other account currency / calc-mode
+  basis than the recorded one — the tester re-derives these at run
+  time from the same basis;
+* if the derived-equality proof is absent or diverged, stage 4
+  REFUSES (`verify_properties` / `properties_unverified`) and NO
+  tick-value claim reaches stage 8. A skipped property never passes
+  as if it were set.
+
 ## First-divergence procedure (§16/§17)
 
 If reconciliation fails: locate the FIRST divergent bar/tick — not the

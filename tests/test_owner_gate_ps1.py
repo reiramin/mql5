@@ -963,11 +963,10 @@ def test_stage4_case2_ran_but_no_json_notes_log_backstop():
 
 
 def test_stage4_faithful_import_is_the_only_pass():
-    doc = {"fixture_file_sha256": "a" * 64, "last_error": 0,
-           "manifest_dataset_hash": "b" * 64, "n_bars": 500, "properties": [],
-           "refused": False, "roundtrip_sha256": "b" * 64,
-           "stage": "complete", "symbol": "GOLD1_EURUSD", "timeframe": "H1"}
-    v = gs.classify_stage4_outcome(launched=True, json_present=True, doc=doc,
+    # R5: a PASS additionally requires the read-back proof (see the
+    # properties_unverified tests below); this doc carries it clean
+    v = gs.classify_stage4_outcome(launched=True, json_present=True,
+                                   doc=_verified_success_doc(),
                                    manifest_hash="b" * 64, symbol="GOLD1_EURUSD")
     assert v["case"] == gs.STAGE4_CASE_PASS and v["ok"]
 
@@ -1400,3 +1399,317 @@ def test_ps1_validates_the_staged_preset_before_launch():
         'Invoke-TerminalScript "Mql5Bot\\Mql5BotImportFixture"', s4)
     assert "_preset_decoded.txt" in src
     assert "preset_invalid" in src
+
+
+# ---------------------------------------------------------------------------
+# STAGE 4 ROUND 5 (A) -- tick-value economics. MT5 docs (looked up, cited in
+# docs/DECISIONS.md 2026-09-19): 5307 = ERR_CUSTOM_SYMBOL_PROPERTY_WRONG "An
+# invalid custom symbol property"; SYMBOL_TRADE_TICK_VALUE_PROFIT/_LOSS are
+# "Calculated tick price for a profitable/losing position" and are NOT
+# settable on a custom symbol (the MQL5 book: "When trying to set a read-only
+# property, we get the error CUSTOM_SYMBOL_PROPERTY_WRONG (5307)"). The
+# importer therefore never calls Set on them; it proves faithfulness by
+# READ-BACK: every SET property re-read equal, and the terminal-DERIVED
+# _PROFIT/_LOSS equal to the manifest broker values -- refusing on any
+# divergence, and the committed classifier fails an unverified success CLOSED.
+# ---------------------------------------------------------------------------
+
+def _verified_success_doc() -> dict:
+    """A success record carrying the full R5 read-back proof."""
+    return {
+        "derived_tick_values": {
+            "limitation": ("SYMBOL_TRADE_TICK_VALUE_PROFIT/"
+                           "SYMBOL_TRADE_TICK_VALUE_LOSS are calculated by "
+                           "MT5 and rejected by CustomSymbolSetDouble (5307 "
+                           "ERR_CUSTOM_SYMBOL_PROPERTY_WRONG); faithfulness "
+                           "is proven by readback equality against the "
+                           "manifest broker values, never by setting"),
+            "properties": [
+                {"enum": "SYMBOL_TRADE_TICK_VALUE_PROFIT",
+                 "manifest_value": "1.0000000000", "ok": True,
+                 "readback": "1.0000000000", "settable": False,
+                 "source": "manifest.broker_spec.tick_value_profit"},
+                {"enum": "SYMBOL_TRADE_TICK_VALUE_LOSS",
+                 "manifest_value": "1.0000000000", "ok": True,
+                 "readback": "1.0000000000", "settable": False,
+                 "source": "manifest.broker_spec.tick_value_loss"},
+            ],
+            "trade_calc_mode": "0",
+        },
+        "fixture_file_sha256": "a" * 64, "last_error": 0,
+        "manifest_dataset_hash": "b" * 64, "n_bars": 500,
+        "properties": [], "refused": False, "roundtrip_sha256": "b" * 64,
+        "stage": "complete", "symbol": "GOLD1_EURUSD", "timeframe": "H1",
+        "verified_properties": [
+            {"enum": "SYMBOL_DIGITS", "expected": "5", "ok": True,
+             "readback": "5"},
+            {"enum": "SYMBOL_TRADE_TICK_VALUE",
+             "expected": "1.0000000000", "ok": True,
+             "readback": "1.0000000000"},
+        ],
+    }
+
+
+def test_stage4_success_without_readback_proof_fails_closed():
+    """The R5 pin: a success JSON WITHOUT the read-back proof (the pre-R5
+    shape) can never pass -- a skipped property must not pass silently as if
+    it were set."""
+    doc = _verified_success_doc()
+    del doc["verified_properties"]
+    del doc["derived_tick_values"]
+    v = gs.classify_stage4_outcome(launched=True, json_present=True, doc=doc,
+                                   manifest_hash="b" * 64,
+                                   symbol="GOLD1_EURUSD")
+    assert v["case"] == gs.STAGE4_CASE_UNVERIFIED
+    assert not v["ok"]
+    assert "verified_properties" in v["message"]
+
+
+def test_stage4_diverged_readback_fails_and_names_the_property():
+    doc = _verified_success_doc()
+    doc["verified_properties"][1]["ok"] = False
+    doc["verified_properties"][1]["readback"] = "0.9000000000"
+    v = gs.classify_stage4_outcome(launched=True, json_present=True, doc=doc,
+                                   manifest_hash="b" * 64,
+                                   symbol="GOLD1_EURUSD")
+    assert v["case"] == gs.STAGE4_CASE_UNVERIFIED and not v["ok"]
+    assert "SYMBOL_TRADE_TICK_VALUE" in v["message"]
+
+
+def test_stage4_missing_derived_tick_value_fails_and_names_it():
+    doc = _verified_success_doc()
+    doc["derived_tick_values"]["properties"] = \
+        doc["derived_tick_values"]["properties"][:1]  # drop _LOSS
+    v = gs.classify_stage4_outcome(launched=True, json_present=True, doc=doc,
+                                   manifest_hash="b" * 64,
+                                   symbol="GOLD1_EURUSD")
+    assert v["case"] == gs.STAGE4_CASE_UNVERIFIED
+    assert "SYMBOL_TRADE_TICK_VALUE_LOSS" in v["message"]
+    assert "5307" in v["message"]
+
+
+def test_stage4_derived_tick_value_divergence_is_an_economics_fail():
+    doc = _verified_success_doc()
+    rec = doc["derived_tick_values"]["properties"][1]
+    rec["ok"] = False
+    rec["readback"] = "0.8700000000"
+    v = gs.classify_stage4_outcome(launched=True, json_present=True, doc=doc,
+                                   manifest_hash="b" * 64,
+                                   symbol="GOLD1_EURUSD")
+    assert v["case"] == gs.STAGE4_CASE_UNVERIFIED
+    assert "SYMBOL_TRADE_TICK_VALUE_LOSS" in v["message"]
+    assert "economics" in v["message"]
+
+
+def test_verify_properties_refusal_must_name_the_property():
+    # a verify_properties-stage refusal without failed_property is vacuous
+    doc = {"error": "read-back diverged", "refused": True, "last_error": 0,
+           "stage": "verify_properties", "symbol": "GOLD1_EURUSD"}
+    verdict = gs.import_diagnostic_populated(doc)
+    assert not verdict["populated"]
+    assert "failed_property" in verdict["reason"]
+    doc["failed_property"] = "SYMBOL_TRADE_TICK_VALUE_LOSS"
+    verdict2 = gs.import_diagnostic_populated(doc)
+    assert verdict2["populated"] and verdict2["refused"]
+
+
+def test_stage4_outcome_decide_cli_fails_unverified_success(tmp_path: Path):
+    # end-to-end through the CLI the .ps1 shells to
+    import subprocess as sp
+    import sys
+    doc = _verified_success_doc()
+    del doc["verified_properties"]
+    result = tmp_path / "GOLD1_EURUSD.json"
+    result.write_text(json.dumps(doc), encoding="utf-8")
+    decide = REPO / "tools" / "owner_gate_decide.py"
+    cp = sp.run([sys.executable, str(decide), "--repo", str(REPO),
+                 "stage4-outcome", "--symbol", "GOLD1_EURUSD",
+                 "--launched", "true", "--result", str(result),
+                 "--manifest-hash", "b" * 64],
+                capture_output=True, text=True, check=False)
+    payload = json.loads(cp.stdout)
+    assert cp.returncode == 1
+    assert payload["case"] == gs.STAGE4_CASE_UNVERIFIED
+
+    ok_doc = tmp_path / "OK.json"
+    ok_doc.write_text(json.dumps(_verified_success_doc()), encoding="utf-8")
+    cp2 = sp.run([sys.executable, str(decide), "--repo", str(REPO),
+                  "stage4-outcome", "--symbol", "GOLD1_EURUSD",
+                  "--launched", "true", "--result", str(ok_doc),
+                  "--manifest-hash", "b" * 64],
+                 capture_output=True, text=True, check=False)
+    payload2 = json.loads(cp2.stdout)
+    assert cp2.returncode == 0
+    assert payload2["case"] == gs.STAGE4_CASE_PASS
+
+
+def test_importer_never_sets_the_calculated_tick_values():
+    src = _importer()
+    # the two 5307-refused calls are GONE (a call documented to fail must
+    # not be issued)...
+    assert "SetD(sym, SYMBOL_TRADE_TICK_VALUE_PROFIT" not in src
+    assert "SetD(sym, SYMBOL_TRADE_TICK_VALUE_LOSS" not in src
+    # ...while the documented-settable SYMBOL_TRADE_TICK_VALUE is still set
+    assert 'SetD(sym, SYMBOL_TRADE_TICK_VALUE, "SYMBOL_TRADE_TICK_VALUE"' in src
+    # the decision and its doc citations live in the source itself
+    assert "ERR_CUSTOM_SYMBOL_PROPERTY_WRONG" in src
+    assert "CUSTOM_SYMBOL_PROPERTY_WRONG (5307)" in src
+
+
+def test_importer_reads_back_every_property_and_refuses_on_divergence():
+    src = _importer()
+    for helper in ("bool VerI(", "bool VerD(", "bool VerS(",
+                   "bool VerDerivedD("):
+        assert helper in src, f"importer must define {helper}"
+    assert '"verify_properties"' in src
+    # read-back runs AFTER the bars are written + symbol selected, and
+    # BEFORE the round-trip CopyRates
+    assert src.index("SymbolSelect(sym, true)") \
+        < src.index("VerI(sym, SYMBOL_DIGITS")
+    assert src.index("VerDerivedD(sym, SYMBOL_TRADE_TICK_VALUE_LOSS") \
+        < src.index("CopyRates(")
+    # the JSON carries the proof the classifier requires
+    assert '\\"verified_properties\\":[' in src or \
+        '"verified_properties\\":[' in src
+    assert "derived_tick_values" in src
+    assert "trade_calc_mode" in src
+    assert '\\"settable\\":false' in src
+    # the derivation basis is recorded, never assumed
+    assert "SYMBOL_TRADE_CALC_MODE" in src
+
+
+def test_importer_derived_verification_covers_both_tick_values():
+    src = _importer()
+    assert "VerDerivedD(sym, SYMBOL_TRADE_TICK_VALUE_PROFIT" in src
+    assert "VerDerivedD(sym, SYMBOL_TRADE_TICK_VALUE_LOSS" in src
+    # divergence refuses with the economics fact, and cleans up the symbol
+    assert "would NOT reproduce broker" in src
+
+
+# ---------------------------------------------------------------------------
+# STAGE 4 ROUND 5 (B) -- the gate crashed VERDICTLESS: Start-Process at
+# Invoke-Decide refused an -ArgumentList carrying the EMPTY $logExcerptPath
+# ("Cannot validate argument on parameter 'ArgumentList'"), exit 1 with no
+# stage_4.json, no gate_summary.json, no GATE_RESULT= line. Fixes pinned
+# here: (1) --log-excerpt only appended when non-empty, (2) Invoke-Decide
+# passes empty elements as literal quoted strings, (3) a STRUCTURAL
+# always-a-verdict contract: Enter-Stage tracking + a script-scope trap that
+# records the in-progress stage as FAIL, writes the summary and prints
+# GATE_RESULT= on ANY unhandled error. The trap contract is exercised for
+# real (fault injection) when a PowerShell host is available.
+# ---------------------------------------------------------------------------
+
+def _pwsh() -> str | None:
+    import shutil
+    exe = shutil.which("pwsh") or shutil.which("powershell")
+    if exe:
+        return exe
+    cand = Path.home() / ".dotnet" / "tools" / "pwsh"
+    return str(cand) if cand.is_file() else None
+
+
+def test_ps1_stage4_outcome_never_passes_an_empty_log_excerpt():
+    src = _ps1()
+    assert 'if ($logExcerptPath) { $ocArgs += @("--log-excerpt", $logExcerptPath) }' in src
+    # the old unconditional form (the R5 crash) is gone
+    assert '"--log-excerpt", $logExcerptPath)\n' not in src
+
+
+def test_ps1_invoke_decide_sanitizes_empty_argumentlist_elements():
+    src = _ps1()
+    fn = src[src.index("function Invoke-Decide"):]
+    fn = fn[:fn.index("\n}")]
+    assert "'\"\"'" in fn, \
+        "Invoke-Decide must pass empty elements as a literal quoted string"
+    assert "Cannot validate argument" in fn  # names the root cause it closes
+
+
+def test_ps1_structural_verdict_contract_is_present():
+    src = _ps1()
+    assert "\ntrap {" in src
+    # every stage boundary updates the tracker the trap reports
+    for num, name in [(0, "self_protection"), (1, "strict_compile"),
+                      (2, "dsl_parity"), (3, "broker_parity"),
+                      (4, "fixture_import"), (5, "tester_legs"),
+                      (8, "reconciliation"), (9, "archive_manifest"),
+                      (10, "certify")]:
+        assert f'Enter-Stage {num} "{name}"' in src, \
+            f"stage {num} must Enter-Stage before its work"
+    t = src.index("\ntrap {")
+    body = src[t:src.index("\n}", t)]
+    # the trap records the in-progress stage, finishes the gate, and still
+    # prints the verdict line even if the evidence dir itself is broken
+    assert "Record-Stage" in body and "Finish-Gate" in body
+    assert "UNHANDLED_ERROR" in body
+    assert "GATE_RESULT=" in body
+    assert "MQL5BOT_GATE_FAULT" in src  # the injection hook the test uses
+
+
+def test_gate_crash_mid_stage_still_emits_stage_summary_and_verdict(
+        tmp_path: Path):
+    """NON-VACUOUS (executes owner_gate.ps1): inject an unhandled throw at a
+    stage boundary and assert the gate STILL writes the stage record, the
+    summary, and prints GATE_RESULT= -- the exact contract gate_run7 broke."""
+    import os
+    import subprocess as sp
+    pwsh = _pwsh()
+    if not pwsh:
+        pytest.skip("no PowerShell host on this machine")
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    (tools / "owner_gate.ps1").write_bytes(
+        (REPO / "tools" / "owner_gate.ps1").read_bytes())
+    env = dict(os.environ, MQL5BOT_GATE_FAULT="self_protection")
+    cp = sp.run([pwsh, "-NoProfile", "-ExecutionPolicy", "Bypass",
+                 "-File", str(tools / "owner_gate.ps1")],
+                capture_output=True, text=True, env=env,
+                cwd=str(tmp_path), check=False)
+    assert cp.returncode == 1, cp.stderr
+    assert "GATE_RESULT=self_protection" in cp.stdout
+    stage0 = list(tmp_path.rglob("stage_0.json"))
+    assert stage0, "the in-progress stage record must still be written"
+    rec = json.loads(stage0[0].read_text(encoding="ascii"))
+    assert rec["status"] == "FAIL"
+    assert "FAULT_INJECTION" in rec["reason"]
+    assert "UNHANDLED_ERROR" in rec["reason"]
+    summaries = list(tmp_path.rglob("gate_summary.json"))
+    assert summaries, "gate_summary.json must still be written"
+    summary = json.loads(summaries[0].read_text(encoding="ascii"))
+    assert summary["gate_result"] == "self_protection"
+    assert summary["first_blocking"] == "self_protection"
+
+
+def test_invoke_decide_survives_an_empty_argument(tmp_path: Path):
+    """NON-VACUOUS (executes the .ps1's own Invoke-Decide): the exact R5
+    crash input -- an ArgumentList element that is "" -- must reach the child
+    process instead of killing Start-Process."""
+    import subprocess as sp
+    import sys
+    pwsh = _pwsh()
+    if not pwsh:
+        pytest.skip("no PowerShell host on this machine")
+    src = _ps1()
+    start = src.index("function Invoke-Decide")
+    fn = src[start:src.index("\n}", start) + 2]
+    stub = tmp_path / "argecho.py"
+    stub.write_text("import json, sys\n"
+                    "print(json.dumps({'argv': sys.argv[1:]}))\n",
+                    encoding="ascii")
+    driver = tmp_path / "driver.ps1"
+    driver.write_text(
+        '$ErrorActionPreference = "Stop"\n'
+        "$Evidence = '" + str(tmp_path) + "'\n"
+        "$Python = '" + sys.executable + "'\n"
+        "$Decide = '" + str(stub) + "'\n"
+        "$RepoRoot = '" + str(tmp_path) + "'\n"
+        + fn + "\n"
+        '$r = Invoke-Decide @("stage4-outcome", "--log-excerpt", "")\n'
+        'if (-not $r.data) { Write-Host "NO_DATA"; exit 3 }\n'
+        'Write-Host ("ARGC=" + $r.data.argv.Count)\n'
+        "exit 0\n", encoding="ascii")
+    cp = sp.run([pwsh, "-NoProfile", "-File", str(driver)],
+                capture_output=True, text=True, check=False)
+    # pre-R5 this died inside Start-Process with "Cannot validate argument"
+    assert cp.returncode == 0, cp.stderr
+    # --repo <root> stage4-outcome --log-excerpt <empty> = 5 arguments
+    assert "ARGC=5" in cp.stdout
