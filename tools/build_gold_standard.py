@@ -30,8 +30,10 @@ import json
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO / "python"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _bootstrap  # pins this repo's python/ ahead of any installed mql5bot
+
+REPO = _bootstrap.REPO_ROOT
 
 import numpy as np
 import pandas as pd

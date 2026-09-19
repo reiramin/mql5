@@ -36,6 +36,8 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _bootstrap  # noqa: F401  pins this repo's python/ ahead of any installed mql5bot
 from mql5bot.mt5tester import (
     EA_INPUT_DEFAULTS,
     MT5_MODEL_LABELS,

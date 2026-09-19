@@ -29,8 +29,8 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
-
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _bootstrap  # noqa: F401  pins this repo's python/ ahead of any installed mql5bot
 import pandas as pd
 from mql5bot.backtest import run_backtest
 from mql5bot.meta_oos import StrategySpec

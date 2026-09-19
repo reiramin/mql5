@@ -17,10 +17,15 @@ Writes docs/REGIME_MATRIX.md + docs/REGIME_MATRIX.json.
 from __future__ import annotations
 
 import json
+import sys
 from collections import defaultdict
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _bootstrap  # noqa: F401  pins this repo's python/ ahead of any installed mql5bot
 from mql5bot.data import generate_ohlc
 from mql5bot.meta_portfolio import MetaPortfolioEngine
 

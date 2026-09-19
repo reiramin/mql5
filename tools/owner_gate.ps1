@@ -400,6 +400,22 @@ Enter-Stage 0 "self_protection"
 # =====================================================================
 # STAGE A -- self-protection (abort with a NAMED reason)
 # =====================================================================
+# STAGE 5 R4: the gate must never again grade a DIFFERENT mql5bot than the repo.
+# gate_run16 imported an INSTALLED mql5bot on the Windows host, so R2's
+# run_backtest changes were absent while R3's tools-file constant applied.
+# Resolve mql5bot the SAME way every tool now does (via tools/_bootstrap) and
+# assert its __file__ is inside the repo root; fail closed naming BOTH the repo
+# root and where mql5bot actually came from. The raw JSON (recorded as evidence)
+# states the resolved path + version, so every run names the code it graded.
+$prov = Invoke-Decide @("provenance")
+if (-not $prov.ok) {
+    $reason = if ($prov.data) {
+        "SELF_PROTECT_MQL5BOT_SOURCE: mql5bot resolved OUTSIDE the repo -- graded code is not shipped code. repo_root={0}; mql5bot_file={1}" -f $prov.data.repo_root, $prov.data.mql5bot_file
+    } else { "SELF_PROTECT_MQL5BOT_SOURCE: mql5bot provenance could not be resolved" }
+    Record-Stage 0 "self_protection" "FAIL" $reason @((New-Artifact $prov.raw)) | Out-Null
+    Finish-Gate "self_protection"
+}
+Write-Host ("[owner-gate] mql5bot resolved IN-REPO: {0} (v{1})" -f $prov.data.mql5bot_file, $prov.data.mql5bot_version) -ForegroundColor Green
 # 0. optional fresh-clone preflight: if the owner named a clone target that
 #    already exists, say so BY NAME and stop -- never leave a `git clone` to
 #    fail deep in its own machinery, never move the owner's directory for them.
@@ -443,8 +459,10 @@ if (-not $DataFolder -or -not (Test-Path -LiteralPath (Join-Path $DataFolder "MQ
     Finish-Gate "self_protection"
 }
 $spPass = "HEAD relates to the frozen anchor (== or newer descendant), tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located"
+# STAGE 5 R4: name the code the gate is grading, in the verdict itself.
+$spPass = "{0}, mql5bot IN-REPO ({1} v{2})" -f $spPass, $prov.data.mql5bot_file, $prov.data.mql5bot_version
 if ($spNotes) { $spPass = "{0}. NOTE: {1}" -f $spPass, $spNotes }
-Record-Stage 0 "self_protection" "PASS" $spPass @((New-Artifact $sp.raw)) | Out-Null
+Record-Stage 0 "self_protection" "PASS" $spPass @((New-Artifact $sp.raw), (New-Artifact $prov.raw)) | Out-Null
 
 # =====================================================================
 # STAGE 1 -- strict compile (decision from the LOG, not the exit code)

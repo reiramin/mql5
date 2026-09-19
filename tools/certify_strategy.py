@@ -33,8 +33,8 @@ import sys
 from dataclasses import fields
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
-
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _bootstrap  # noqa: F401  pins this repo's python/ ahead of any installed mql5bot
 from mql5bot.certify import (
     VERIFIED,
     CertifyConfig,

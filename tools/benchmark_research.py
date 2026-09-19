@@ -23,7 +23,10 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _bootstrap  # noqa: F401  pins this repo's python/ ahead of any installed mql5bot
 from mql5bot.data import generate_ohlc
 from mql5bot.perf import grid_metrics, single_run_metrics
 
@@ -103,5 +106,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
     raise SystemExit(main())

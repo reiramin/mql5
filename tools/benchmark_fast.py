@@ -22,11 +22,15 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import sys
 import time
 import tracemalloc
 from pathlib import Path
 
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _bootstrap  # noqa: F401  pins this repo's python/ ahead of any installed mql5bot
 from mql5bot.data import generate_ohlc
 from mql5bot.fast_engine import run_fast
 from mql5bot.strategies import default_params

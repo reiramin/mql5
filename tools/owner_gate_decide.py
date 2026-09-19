@@ -21,8 +21,8 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
-
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _bootstrap  # pins this repo's python/ ahead of any installed mql5bot
 from mql5bot import gate_selfcheck as gs
 
 
@@ -39,6 +39,11 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--repo", default=".", help="repository root")
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("provenance",
+                   help="stage 0: resolve mql5bot and assert it is THIS repo's "
+                        "copy (fail-closed) + record its file path and version, "
+                        "so the evidence names the code that produced the verdict")
 
     sub.add_parser("self-protection",
                    help="stage A: HEAD/clean/autocrlf/frozen/dsl binding")
@@ -113,6 +118,14 @@ def main(argv: list[str] | None = None) -> int:
     repo = Path(args.repo).resolve()
 
     try:
+        if args.cmd == "provenance":
+            # Resolve mql5bot the SAME way every tool does (via _bootstrap) and
+            # assert it is this repo's copy; the JSON (recorded as evidence)
+            # names both the repo root and where mql5bot actually came from.
+            prov = _bootstrap.mql5bot_provenance()
+            print(json.dumps(prov, indent=2, sort_keys=True))
+            return 0 if prov["ok"] else 1
+
         if args.cmd == "self-protection":
             return _emit(gs.run_self_protection(repo))
 

@@ -27,10 +27,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _bootstrap  # noqa: F401  pins this repo's python/ ahead of any installed mql5bot
 from mql5bot.dsl import build_bundle, parse_spec
 from mql5bot.dsl.normalize import canon_json
 from mql5bot.dsl.parity import parity_trace

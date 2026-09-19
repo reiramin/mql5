@@ -9,6 +9,40 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-19 — The gate must grade THIS repo's mql5bot, not an installed copy: tools/ scripts pin `python/` and stage 0 asserts it, fail-closed (STAGE 5 R4)
+
+**Trigger.** gate_run16 (on HEAD c7aec19) produced per-leg outcome JSON whose
+error was the PRE-R2 text — `"report not found: ...\tester\gold1_m1_ohlc.htm
+— check the terminal log"` — with no `searched:` list and no `exit_code`
+field, both of which R2 (cc70fd7) added to `run_backtest`. Yet the same JSON
+carried `"ea": "Mql5Bot\\Mql5Bot.ex5"`, R3's value. R3 took effect; R2 did not.
+
+**Root cause.** `tools/run_mt5_backtest.py` did `from mql5bot.mt5tester import
+...` with NO `sys.path` setup. R3's constant lives in that tools file, so it
+applied. But `run_backtest` lives in `python/mql5bot/mt5tester.py`, and on the
+Windows host Python resolved `mql5bot` to an INSTALLED copy in site-packages,
+not this repo's `python/` tree — so the leg ran the OLD `run_backtest`. Every
+tool that imports `mql5bot` without pinning the repo had the same hole,
+including `owner_gate_decide.py` → `gate_selfcheck`, which decides stage
+verdicts. A certification gate that grades the repo using a different copy of
+the code is not certifying the repo.
+
+**Decision.**
+- The repo-resolution logic lives in ONE shared place, `tools/_bootstrap.py`,
+  so it cannot drift across the ~15 tools that need it. Every tools/ script
+  that imports `mql5bot` pins `<repo_root>/python` at `sys.path[0]` via a
+  self-locating two-line preamble (`sys.path.insert(0, <this dir>)` then
+  `import _bootstrap`) BEFORE importing `mql5bot`. This wins even when a
+  competing copy sits earlier on `PYTHONPATH` (regression-tested).
+- Stage 0 gains a fail-closed provenance check: it resolves `mql5bot` the same
+  way the tools do and asserts `__file__` is inside the repo root. If it is
+  not, stage 0 FAILs naming BOTH paths — the repo root and where `mql5bot`
+  actually came from. The gate must never again run a library it did not ship.
+- The resolved `mql5bot` file path and package version are recorded in the
+  stage-0 evidence (the provenance JSON artifact) and folded into the stage-0
+  PASS reason, so every future run's evidence states which code produced the
+  verdict — the point of the check: the evidence must name the code it graded.
+
 ## 2026-09-19 — MT5 resolves `[Tester] Expert=` relative to `MQL5\Experts`, not the MQL5 root: the doubled EA path that made all six tester legs run nothing (STAGE 5 R3)
 
 **Trigger.** gate_run14 (HEAD 2c94996) failed all six tester legs with
