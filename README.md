@@ -161,6 +161,28 @@ Windows with a running terminal, `pip install -e ".[live]"`
 
 Full setup details: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
+## Runnable entry points
+
+Every piece has a real way to start. The operator surfaces are **built,
+unit-tested, and never run live**, and none can place an order or mark a
+strategy LIVE.
+
+| Command | What it starts |
+|---|---|
+| `python -m mql5bot ...` | the quant-toolkit CLI (same as the `mql5bot` console script); `--lang fa` for Persian output |
+| `python -m mql5bot.factory.cli ...` | the Factory CLI — research/spec only, never trades |
+| `python -m mql5bot.api` | the operator console (FastAPI): view state, stop trading, run the guided conversation, Persian RTL status page at `?lang=fa` (needs `uvicorn`; not a bundled dependency) |
+| `python -m mql5bot.notify.telegram_ops` | the Telegram operator — daily digest, per-trade notifications, and the `status`/`positions`/`report`/`stop` commands |
+| `python -m mql5bot.telemetry_bridge` | the collector the EA POSTs heartbeat/trade/alert events to |
+
+Stopping is asymmetric: you can `stop` from Telegram immediately, but you can
+never resume from Telegram — resuming is a console action only
+([docs/TELEGRAM.md](docs/TELEGRAM.md), [docs/KILL_SWITCH.md](docs/KILL_SWITCH.md)).
+Describing a strategy in words goes through a guided conversation that requires
+you to accept the restatement and ends at **SCHEMA-VALIDATED (structure only,
+not tested)** — see [docs/FACTORY_GUIDE.md](docs/FACTORY_GUIDE.md) and the
+operator plan [docs/ROADMAP_UX.md](docs/ROADMAP_UX.md).
+
 ## Running the EA (owner environment)
 
 ```bash

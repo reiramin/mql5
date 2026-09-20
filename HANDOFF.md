@@ -1,37 +1,62 @@
 # AEGIS — PROJECT HANDOFF (mental roadmap, decisions, state, todo)
 Read this together with `docs/SPEC.md` (v4). SPEC is canonical for WHAT to build; this file is canonical for WHERE we are, WHY decisions were made, and WHAT to do next. If they conflict, SPEC wins for engineering, this file wins for process/state.
 
-> **CURRENT STATE POINTER (2026-09-20 — first full owner gate run).** The
-> authoritative *current* status is [docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md)
-> (the account that goes to the owner), then `PROGRESS.md` → CURRENT STATE
-> and `docs/DECISIONS.md` (newest on top). The design narrative in §0–§14
-> below is retained as roadmap/rationale; where a §-item predates the
-> current state, the CURRENT STATE pointer wins.
+> **CURRENT STATE POINTER (2026-09-20 — first full owner gate run + the
+> operator-experience wave).** The authoritative *current* status is
+> [docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md) (the account that goes to
+> the owner), then `PROGRESS.md` → CURRENT STATE and `docs/DECISIONS.md`
+> (newest on top). The design narrative in §0–§14 below is retained as
+> roadmap/rationale; where a §-item predates the current state, this pointer
+> wins.
 >
-> **Where it stands.** The owner ran the 11-stage certification gate on
-> 2026-09-20 (MT5 build 6184, Windows 10). Result:
-> `GATE_RESULT=tester_legs` — **stages 0–4 PASS, stage 5 (Strategy Tester
-> legs) FAIL, stages 6–10 never ran.** Nothing is VERIFIED; no strategy
-> has ever been certified.
+> **Where the gate stands.** The owner ran the 11-stage certification gate on
+> 2026-09-20 (MT5 build 6184, Windows 10). Result: `GATE_RESULT=tester_legs`
+> — **stages 0–4 PASS, stage 5 (Strategy Tester legs) FAIL, stages 6–10
+> never ran.** Nothing is VERIFIED; no strategy has ever been certified.
+> Stages 0–4 PASS is owner-side evidence (`evidence\owner_gate\20260920-092713`,
+> gitignored); the hashes are in the delivery note.
 >
-> - **Done (proven on the 2026-09-20 run):** stage 0 self-protection,
->   stage 1 strict compile 0/0, stage 2 DSL parity 14/14, stage 3 broker
->   parity 12 MATCH, stage 4 fixture import. Evidence is owner-side
->   (`evidence\owner_gate\20260920-092713`, gitignored); hashes are in
->   the delivery note.
-> - **Done on Mac, never run against a live system:** the Telegram alert
->   channel (`notify/telegram.py`), the LlmInterpreter
->   (`factory/interpreter.py`), and the Persian/RTL console presentation
->   layer (`i18n.py`). Built and unit-tested only.
-> - **Half-done / blocked:** stage 5 tester legs FAIL — the gold #1 H1
->   fixture (120 bars) is too short (MT5 moved the test start past the end
->   of the data), and MT5 build 6184 writes no `[Tester]` Report file, so
->   the two gold #2 legs that DID run cleanly are BLOCKED_OWNER_ENVIRONMENT
->   (not a pass) with nothing to parse.
-> - **Never run:** stages 6–10 — cross-engine reconciliation (stage 8,
->   the binding Python↔MQL5 parity claim), archive, certify. The DSL
->   bundle path has never been exercised in MT5 (`InpDslBundleFile` was
->   empty; the EA ran its compiled-in default). No demo, no live, no VPS.
+> **Done (proven on the 2026-09-20 run):** stage 0 self-protection, stage 1
+> strict compile 0/0, stage 2 DSL parity 14/14, stage 3 broker parity 12
+> MATCH, stage 4 fixture import.
+>
+> **Built, unit-tested, NEVER run against a live system** (the
+> operator-experience wave, Python/docs/tests only — `mql5/` untouched):
+> - Telegram: the alert channel (`notify/telegram.py`) plus the operator
+>   surface (`notify/telegram_ops.py`) — daily digest, per-trade
+>   notifications, and the `status`/`positions`/`report`/`stop` commands.
+>   Asymmetric friction: `stop` trips the kill switch immediately; there is
+>   NO resume from Telegram (`KillSwitch.manual_stop` escalate-only). Runs as
+>   `python -m mql5bot.notify.telegram_ops` (env-only config).
+> - The FastAPI operator console (`api/`), `python -m mql5bot.api`, and its
+>   opt-in Persian RTL status page (`?lang=fa`); English default is
+>   byte-identical. Presentation layer `i18n.py`; needs `uvicorn` (not a
+>   bundled dep) to serve.
+> - The guided strategy conversation (`factory/conversation.py`, routes
+>   `/guided/start` + `/guided/validate`) and `LlmInterpreter`
+>   (`factory/interpreter.py`). The conversation REQUIRES the owner to accept
+>   the restatement (content-bound `acceptance_token`) and ENDS at
+>   **SCHEMA-VALIDATED — structure only; the strategy has NOT been tested.**
+> - Entry points: `python -m mql5bot`, `python -m mql5bot.api`,
+>   `python -m mql5bot.notify.telegram_ops` (commit `3061ca6`).
+> - Docs: `docs/ROADMAP_UX.md`, `docs/TELEGRAM.md`, `docs/DEPLOYMENT.md`,
+>   `docs/PERSIAN_CONSOLE.md`.
+>
+> **Untouched / not built:** the DSL bundle path in MT5 (the tester ran the
+> compiled-in default, `InpDslBundleFile` empty); the console has **no
+> authentication** and no launcher; the split deployment in `docs/DEPLOYMENT.md`
+> has **never been deployed or drilled**; no telemetry provider is wired into
+> the Telegram/console state (they report "not connected").
+>
+> **Open blockers:**
+> - stage 5 FAIL: MT5 build 6184 writes no `[Tester]` Report file (the two
+>   gold #2 legs ran clean but are BLOCKED_OWNER_ENVIRONMENT — not a pass,
+>   nothing to parse); the gold #1 H1 fixture (120 bars) is too short for
+>   MT5's warm-up reservation (start moved past the end of the data).
+> - stages 6–10 never run — including stage 8, the binding Python↔MQL5
+>   executed-trade reconciliation.
+> - BTC denomination still PENDING (excluded from stage 3).
+> - no demo, no live, no VPS, no recovery drill.
 >
 > **Do not touch `mql5/`.** The 2026-09-20 compile-of-record is valid for
 > HEAD `81520e6`; any change under `mql5/` invalidates it and forces the

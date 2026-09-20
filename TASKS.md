@@ -41,12 +41,25 @@ The real remaining work, in the order it must happen before any real money:
    out-of-sample via the existing gate ladder) needs a dataset and has not
    been connected. Until it is, the conversation cannot say a strategy was
    tested, only that its structure is valid.
+10. **[ ] DEV: add authentication to the operator console — NOT done.**
+   `python -m mql5bot.api` binds loopback by default but has **no login and
+   no auth**; anyone who can reach the host can view state, reset the kill
+   switch, and drive the guided conversation. Before it is exposed beyond a
+   trusted, loopback-only host (e.g. on the split Linux host in
+   `docs/DEPLOYMENT.md`), it needs authentication.
+11. **[ ] OWNER/DEV: first VPS deployment + recovery drill — NEVER done.**
+   The split deployment in `docs/DEPLOYMENT.md` is a procedure only: it has
+   never been stood up, and the recovery drill (reboot each host, kill the
+   terminal to prove a stale-heartbeat alert, prove `stop` works and resume
+   is console-only) has never been run. (Item 8 is the owner-facing demo
+   prerequisite; this is the deployment/infra work behind it.)
 
 The operator-experience layer (Telegram alerts + commands, Persian/RTL
 console, guided strategy conversation) is **built and unit-tested but has
 never run against a live system** — see `docs/ROADMAP_UX.md`. The guided
-conversation validates draft **structure only** (schema/parse); it does
-**not** test a strategy (item 9 above).
+conversation validates draft **structure only** (schema/parse) and requires
+the owner to accept the restatement; it does **not** test a strategy (item 9
+above).
 
 ---
 

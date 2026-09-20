@@ -66,10 +66,29 @@ unit-tested, **never run against a live system**:
   commit `4752140`) — opt-in; English default byte-identical.
 - Owner delivery note refreshed from the gate run (commit `b3f9d3c`),
   plus the roadmap, split-deployment guide, and the guided Persian
-  strategy-conversation flow (this wave). The conversation ends at SCHEMA
-  VALIDATION (draft well-formedness only) — it does NOT test a strategy;
-  the Python research validation (backtest/robustness/OOS, needs a
-  dataset) and the 11-stage MT5 gate are surfaced as not-yet-done.
+  strategy-conversation flow. The conversation ends at SCHEMA VALIDATION
+  (draft well-formedness only) — it does NOT test a strategy; the Python
+  research validation (backtest/robustness/OOS, needs a dataset) and the
+  11-stage MT5 gate are surfaced as not-yet-done. It also REQUIRES the
+  owner to accept the restatement (content-bound `acceptance_token`) —
+  an unaccepted draft is refused (commits `c6545ed`, `5c463a0`, `793ae7a`).
+- Real entry points (commit `3061ca6`): `python -m mql5bot`,
+  `python -m mql5bot.api` (operator console; needs `uvicorn`, not a
+  bundled dep), `python -m mql5bot.notify.telegram_ops` (env-only config,
+  refuses to start naming a missing variable).
+- Operational docs brought up to date (commit `664ae0a`);
+  `docs/TELEGRAM_ALERTS.md` merged into `docs/TELEGRAM.md`.
+
+**`docs/ROADMAP_UX.md` four-phase plan — which phases are built:**
+- Phase 1 (Telegram as the primary interface): **built, unit-tested,
+  never run live** — digest, per-trade notifications, four commands,
+  asymmetric friction.
+- Phase 2 (Persian RTL status page): **built, unit-tested, never run
+  live** — opt-in `?lang=fa`; English default byte-identical.
+- Phase 3 (always-on split deployment): **documented only**
+  (`docs/DEPLOYMENT.md`) — never deployed or drilled.
+- Phase 4 (guided strategy conversation): **built, unit-tested, never run
+  live** — ends at schema-validated (not tested); acceptance required.
 
 **Do not touch `mql5/`.** The 2026-09-20 compile-of-record is valid for
 HEAD `81520e6`; any `mql5/` change forces the whole 0–10 chain re-run.
