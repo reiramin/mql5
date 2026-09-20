@@ -9,6 +9,7 @@ gates + human approval).
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
 
 from ..discovery.safety import AllocationCircuitBreaker, KillSwitch
+from ..factory.conversation import GuidedConversation
 from ..factory.store import FactoryStore, StoreError
 from ..i18n import explain_status, isolate_ltr
 from ..status import EMPIRICAL_VALIDATION_PENDING, certify_status_model
@@ -420,6 +422,46 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
             raise HTTPException(422, "reset requires actor + reason")
         safety.kill_switch.explicit_reset(actor, reason)
         return RedirectResponse("/safety", status_code=303)
+
+    # -- guided strategy conversation (Phase 4 of docs/ROADMAP_UX.md) --------
+    # A step-by-step dialogue over the interpreter + DSL parser. The flow ENDS
+    # at "tested in Python": neither endpoint promotes a strategy toward MT5 or
+    # a live account, and the remaining 11-stage gate is surfaced explicitly.
+    @app.post("/guided/start")
+    def guided_start(idea: str = Form(...), symbol: str = Form(""),
+                     timeframe: str = Form(""),
+                     interpreter: str = Form("auto")):
+        if not idea.strip():
+            raise HTTPException(422, "idea is required")
+        if interpreter not in {"auto", "template", "llm"}:
+            raise HTTPException(422, "interpreter must be auto|template|llm")
+        conv = GuidedConversation(interpreter=interpreter)
+        step = conv.start(idea, symbol=symbol.strip(),
+                          timeframe=timeframe.strip())
+        return JSONResponse({
+            "restatement": step.restatement,
+            "questions": step.questions,
+            "draft": step.draft,
+            "ambiguities": step.ambiguities,
+            "needs_answers": step.needs_answers,
+            "remaining_after_python": list(step.remaining_after_python),
+        })
+
+    @app.post("/guided/validate")
+    def guided_validate(draft: str = Form(...)):
+        try:
+            doc = json.loads(draft)
+        except (ValueError, TypeError):
+            raise HTTPException(422, "draft must be a JSON object") from None
+        if not isinstance(doc, dict):
+            raise HTTPException(422, "draft must be a JSON object")
+        verdict = GuidedConversation().validate(doc)
+        return JSONResponse({
+            "passed": verdict.passed,
+            "verdict_fa": verdict.verdict_fa,
+            "reason": verdict.reason,
+            "remaining_after_python": list(verdict.remaining_after_python),
+        })
 
     return app
 
