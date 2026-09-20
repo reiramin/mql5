@@ -446,18 +446,24 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
             "draft": step.draft,
             "ambiguities": step.ambiguities,
             "needs_answers": step.needs_answers,
+            # the owner echoes this back as `accepted_token` to /guided/validate
+            "acceptance_token": step.acceptance_token,
             "remaining_after_schema": list(step.remaining_after_schema),
         })
 
     @app.post("/guided/validate")
-    def guided_validate(draft: str = Form(...)):
+    def guided_validate(draft: str = Form(...),
+                        accepted_token: str = Form("")):
         try:
             doc = json.loads(draft)
         except (ValueError, TypeError):
             raise HTTPException(422, "draft must be a JSON object") from None
         if not isinstance(doc, dict):
             raise HTTPException(422, "draft must be a JSON object")
-        verdict = GuidedConversation().validate(doc)
+        # Acceptance is REQUIRED and bound to the draft content: an unaccepted
+        # (or mismatched) draft is REFUSED by validate(), never validated.
+        verdict = GuidedConversation().validate(
+            doc, accepted_token=accepted_token or None)
         return JSONResponse({
             "passed": verdict.passed,
             "verdict_fa": verdict.verdict_fa,

@@ -15,7 +15,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from mql5bot.api.main import create_app
 from mql5bot.factory import conversation
-from mql5bot.factory.conversation import GuidedConversation
+from mql5bot.factory.conversation import GuidedConversation, acceptance_token
 from mql5bot.factory.store import FactoryStore
 
 
@@ -38,7 +38,9 @@ def test_ambiguous_parameter_becomes_a_question_never_invented():
 
 def test_failed_validation_is_reported_with_its_reason():
     conv = GuidedConversation()
-    v = conv.validate({})            # empty draft: schema-invalid
+    # accept the (empty) draft so validation actually runs, then it is
+    # schema-invalid — the reason names why
+    v = conv.validate({}, accepted_token=acceptance_token({}))
     assert v.passed is False
     assert "SCHEMA_INVALID" in v.reason or "SchemaInvalid" in v.reason
 
@@ -47,7 +49,7 @@ def test_valid_draft_passes_schema_check_only():
     conv = GuidedConversation(interpreter="template")
     step = conv.start("EMA 10 crosses above EMA 30",
                       symbol="EURUSD", timeframe="H1")
-    v = conv.validate(step.draft)
+    v = conv.validate(step.draft, accepted_token=step.acceptance_token)
     assert v.passed is True
 
 
@@ -56,7 +58,8 @@ def test_pass_headline_does_not_claim_the_strategy_was_tested():
     conv = GuidedConversation(interpreter="template")
     step = conv.start("EMA 10 crosses above EMA 30",
                       symbol="EURUSD", timeframe="H1")
-    headline = conv.validate(step.draft).verdict_fa
+    headline = conv.validate(
+        step.draft, accepted_token=step.acceptance_token).verdict_fa
     # the headline itself names the scope (schema/structure only)
     assert "SCHEMA" in headline
     assert "structure only" in headline
@@ -108,23 +111,70 @@ def test_guided_start_route_asks_a_question(tmp_path):
     assert any("11-stage" in step for step in body["remaining_after_schema"])
 
 
-def test_guided_validate_route_reports_failure_reason(tmp_path):
-    _, c = _client(tmp_path)
-    r = c.post("/guided/validate", data={"draft": "{}"})
-    assert r.status_code == 200
-    body = r.json()
-    assert body["passed"] is False
-    assert body["reason"]
-
-
 def test_guided_validate_route_passes_a_valid_draft(tmp_path):
     _, c = _client(tmp_path)
     start = c.post("/guided/start", data={
         "idea": "EMA 10 crosses above EMA 30",
         "symbol": "EURUSD", "timeframe": "H1"}).json()
+    r = c.post("/guided/validate", data={
+        "draft": json.dumps(start["draft"]),
+        "accepted_token": start["acceptance_token"]})
+    assert r.json()["passed"] is True
+
+
+# -- acceptance of the restatement is REQUIRED -------------------------------
+
+def test_no_ambiguity_draft_cannot_be_validated_without_acceptance():
+    conv = GuidedConversation(interpreter="template")
+    step = conv.start("EMA 10 crosses above EMA 30, stop 2 ATR, take profit 3 ATR",
+                      symbol="EURUSD", timeframe="H1")
+    # a well-formed draft with NO open questions — but still not agreed to
+    assert step.needs_answers is False
+    assert step.ambiguities == []
+    v = conv.validate(step.draft)                 # no accepted_token -> REFUSED
+    assert v.passed is False
+    assert "not accepted" in v.reason
+    # accepting it (the token the owner was shown) then lets validation run
+    ok = conv.validate(step.draft, accepted_token=step.acceptance_token)
+    assert ok.passed is True
+
+
+def test_acceptance_of_one_restatement_does_not_validate_a_different_draft():
+    conv = GuidedConversation(interpreter="template")
+    a = conv.start("EMA 10 crosses above EMA 30",
+                   symbol="EURUSD", timeframe="H1")
+    b = conv.start("EMA 5 crosses above EMA 20",
+                   symbol="EURUSD", timeframe="H1")
+    assert a.acceptance_token != b.acceptance_token
+    # the token accepted for draft A must NOT validate draft B
+    v = conv.validate(b.draft, accepted_token=a.acceptance_token)
+    assert v.passed is False
+    assert "not accepted" in v.reason
+
+
+def test_refusal_names_the_reason_in_both_languages():
+    conv = GuidedConversation(interpreter="template")
+    step = conv.start("EMA 10 crosses above EMA 30",
+                      symbol="EURUSD", timeframe="H1")
+    v = conv.validate(step.draft)                 # unaccepted -> refusal
+    assert v.passed is False
+    assert "RESTATEMENT NOT CONFIRMED" in v.verdict_fa      # English
+    assert "بازنویسی تأیید نشده است" in v.verdict_fa        # Persian
+
+
+def test_guided_validate_route_refuses_an_unaccepted_draft(tmp_path):
+    _, c = _client(tmp_path)
+    start = c.post("/guided/start", data={
+        "idea": "EMA 10 crosses above EMA 30",
+        "symbol": "EURUSD", "timeframe": "H1"}).json()
+    # post the draft WITHOUT the acceptance token
     r = c.post("/guided/validate",
                data={"draft": json.dumps(start["draft"])})
-    assert r.json()["passed"] is True
+    assert r.status_code == 200
+    body = r.json()
+    assert body["passed"] is False
+    assert "not accepted" in body["reason"]
+    assert "RESTATEMENT NOT CONFIRMED" in body["verdict_fa"]
 
 
 def test_no_guided_route_transitions_a_strategy(tmp_path):

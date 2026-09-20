@@ -9,8 +9,18 @@ step-by-step conversation:
          from the owner's words)
       -> a Persian QUESTION for every parameter the owner did not specify
          (naming exactly what is missing; a value is NEVER invented)
+      -> the OWNER ACCEPTS THE RESTATEMENT (required — see below)
       -> the DSL schema/parse check (structure only)
       -> a plain-Persian verdict naming the reason it passed or failed.
+
+ACCEPTANCE IS REQUIRED. The restatement exists to catch a misinterpretation
+BEFORE anything proceeds; one that nobody has to agree with is decoration.
+``validate()`` therefore REFUSES any draft that has not been accepted, even a
+draft with no ambiguities (no ambiguity is not the same as agreement). The
+acceptance is bound to the draft's CONTENT via :func:`acceptance_token`, so
+accepting one restatement never carries over to a draft that has since changed:
+the owner echoes back the token they were shown in :class:`ConversationStep`,
+and a token computed over any other draft is rejected.
 
 HARD BOUNDARY — the flow ENDS at SCHEMA VALIDATION. The only Python check that
 runs here is the DSL schema/parse gate: it proves the draft is well-formed. It
@@ -27,6 +37,8 @@ execution state is reachable from here.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
@@ -34,6 +46,17 @@ from ..dsl import parse_spec
 from ..dsl.errors import DslError
 from .interpreter import select_interpreter
 from .providers import ResearchMaterial
+
+
+def acceptance_token(draft: Mapping[str, object]) -> str:
+    """A stable content fingerprint of the draft the owner is shown alongside
+    the restatement. The owner accepts a restatement by echoing this token
+    back to :meth:`GuidedConversation.validate`. Because it is computed over the
+    draft's canonical content, acceptance of one restatement cannot validate a
+    draft that has since changed — a different draft yields a different token."""
+    canonical = json.dumps(draft, sort_keys=True, ensure_ascii=False,
+                           separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 # The two things that remain AFTER the schema check — shown to the owner as
 # explicit, not-yet-done steps. Neither is taken here.
@@ -65,6 +88,9 @@ class ConversationStep:
     draft: dict
     ambiguities: list[dict]
     needs_answers: bool
+    # the token the owner echoes back to accept THIS restatement; bound to the
+    # draft's content so it cannot accept a draft that has since changed.
+    acceptance_token: str = ""
     remaining_after_schema: tuple[str, ...] = REMAINING_AFTER_SCHEMA
 
 
@@ -118,20 +144,42 @@ class GuidedConversation:
                                     model=self._model or None)
         interp = choice.interpreter.interpret(material, market=market)
         questions = [_question_for(a) for a in interp.ambiguities]
+        draft = dict(interp.draft)
         return ConversationStep(
             restatement=interp.restatement,
             questions=questions,
-            draft=dict(interp.draft),
+            draft=draft,
             ambiguities=[dict(a) for a in interp.ambiguities],
             needs_answers=bool(interp.ambiguities),
+            acceptance_token=acceptance_token(draft),
         )
 
-    def validate(self, draft: Mapping[str, object]) -> ConversationVerdict:
-        """Run the DSL schema/parse check on a confirmed draft — the SAME check
+    def validate(self, draft: Mapping[str, object], *,
+                 accepted_token: str | None = None) -> ConversationVerdict:
+        """Run the DSL schema/parse check on an ACCEPTED draft — the SAME check
         ``gate0_schema`` consumes. This proves the draft is well-formed; it is
         NOT a test of the strategy (no backtest, robustness or out-of-sample,
         no market data). A pass or a fail — with the reason — is the answer;
-        nothing is promoted."""
+        nothing is promoted.
+
+        Acceptance is REQUIRED: ``accepted_token`` must equal
+        :func:`acceptance_token` for THIS draft (the token the owner was shown
+        with the restatement). A missing or mismatched token — including a
+        token accepted for a now-changed draft — is REFUSED, not warned. A draft
+        with no ambiguities is refused too: no ambiguity is not agreement."""
+        expected = acceptance_token(draft)
+        if accepted_token != expected:
+            return ConversationVerdict(
+                passed=False,
+                verdict_fa=(
+                    "بازنویسی تأیید نشده است — پیش از اعتبارسنجی، بازنویسی را "
+                    "تأیید کنید / RESTATEMENT NOT CONFIRMED — accept the "
+                    "restatement before validation"),
+                reason=(
+                    "the restatement was not accepted for this draft; "
+                    "acceptance is required and is bound to the draft content "
+                    "the owner saw (a token accepted for a different or changed "
+                    "draft does not carry over)"))
         # The headline names EXACTLY what ran and what did not, in both
         # languages — never rely on the reason field to carry the qualifier.
         fail_headline = (
@@ -165,4 +213,5 @@ __all__ = [
     "ConversationStep",
     "ConversationVerdict",
     "GuidedConversation",
+    "acceptance_token",
 ]

@@ -62,6 +62,42 @@ IDEA → intake → DSL/spec → schema validation → research runs
    (`EXTERNAL_WATCHDOG.md`, `ALLOCATION_CIRCUIT_BREAKER.md`) guard the
    fleet.
 
+## The guided strategy conversation
+
+For a non-developer owner, the intake is a step-by-step dialogue
+(`factory/conversation.py`, and the routes `POST /guided/start` +
+`POST /guided/validate`). The flow is:
+
+```
+Persian text
+  → a Persian restatement (derived from the scrubbed draft, not the owner's words)
+  → a Persian question for every parameter left unspecified (a value is never invented)
+  → the OWNER ACCEPTS THE RESTATEMENT   ← required
+  → the DSL schema/parse check (structure only)
+  → a plain-Persian verdict naming why it passed or failed
+```
+
+**Acceptance is required, not optional.** The restatement exists to
+catch a misinterpretation *before* anything proceeds, so `validate()`
+**refuses** any draft the owner has not explicitly accepted — including a
+draft with no open questions (no ambiguity is not the same as
+agreement). Acceptance is bound to the draft's *content*: `start()`
+returns an `acceptance_token` fingerprinting the exact draft shown with
+the restatement, and the owner echoes it back to `validate()`. A token
+accepted for one restatement therefore cannot validate a draft that has
+since changed — a different draft yields a different token, and a missing
+or mismatched token is refused in both Persian and English.
+
+**What the verdict means.** A pass is **SCHEMA-VALIDATED — structure
+only; the strategy has NOT been tested.** The only Python check that runs
+here is the DSL schema/parse gate (well-formedness); there is no
+backtest, robustness, out-of-sample or market data. The flow **ends at
+schema validation** and surfaces the two not-yet-done steps explicitly:
+the Python research validation (backtest / robustness / out-of-sample,
+which needs a dataset and has not run) and the owner-run 11-stage MT5
+certification gate. No endpoint here promotes a strategy toward MT5 or a
+live account. This surface is **built and unit-tested; never run live.**
+
 ## What Factory MAY do
 
 - Parse/validate specs, run deterministic research, compute scores
