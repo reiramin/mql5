@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}{{ sid }} — Mql5Bot Console{% endblock %}
+{% block content %}
+<h1 style="font-size:1.15rem"><span class="ltr">{{ sid }}</span>
+  <span class="dim">v{{ version }}</span></h1>
+
+<div class="rail" style="display:flex;flex-wrap:wrap;gap:.25rem;margin:.5rem 0;">
+  {% for st in ladder %}
+  <span class="ltr" style="font-size:.72rem;padding:.15rem .45rem;border-radius:999px;
+        {% if st == state %}background:#1d3b2a;color:#7be0a2;font-weight:700;
+        {% elif loop.index0 < state_index %}background:#232b36;color:#9fb3c8;
+        {% else %}background:#161b22;color:#5b6673;{% endif %}">{{ st }}</span>
+  {% endfor %}
+  {% if state not in ladder %}
+  <span class="ltr" style="font-size:.72rem;padding:.15rem .45rem;border-radius:999px;
+        background:#4b3b19;color:#ffd479;font-weight:700;">{{ state }}</span>
+  {% endif %}
+</div>
+
+<h2 style="font-size:1rem">{{ 'متن اصلی مالک' if lang == 'fa' else "Owner's original text" }}</h2>
+{% if original_text %}
+<div class="card">{{ original_text }}</div>
+{% else %}
+<div class="empty">{{ 'متن اصلی ذخیره نشده است' if lang == 'fa' else 'no original text stored' }}</div>
+{% endif %}
+
+<h2 style="font-size:1rem">{{ 'بازنویسی پذیرفته‌شده' if lang == 'fa' else 'Accepted restatement' }}</h2>
+{% if restatement %}
+<div class="card">{{ restatement }}</div>
+{% else %}
+<div class="empty">{{ 'بازنویسی در دسترس نیست' if lang == 'fa' else 'restatement not available' }}</div>
+{% endif %}
+
+<h2 style="font-size:1rem">{{ 'خط زمانی چرخه‌عمر' if lang == 'fa' else 'Lifecycle timeline' }}</h2>
+{% if timeline %}
+{% for ev in timeline %}
+<div class="card">
+  <div><span class="ltr">{{ ev.from_state }} → {{ ev.to_state }}</span>
+    <span class="dim">({{ ev.kind }})</span>
+    <span class="dim ltr" style="font-size:.8rem">{{ ev.created_at }}</span></div>
+  <div class="dim" style="font-size:.85rem">
+    {{ 'کنشگر' if lang == 'fa' else 'actor' }}: <span class="ltr">{{ ev.actor }}</span>
+    {% if ev.evidence_refs %} · {{ 'شواهد' if lang == 'fa' else 'evidence' }}:
+      <span class="ltr">{{ ev.evidence_refs }}</span>{% endif %}
+    {% if ev.reason %} · <span class="ltr">{{ ev.reason }}</span>{% endif %}
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">{{ 'رویدادی ثبت نشده است' if lang == 'fa' else 'no lifecycle events recorded' }}</div>
+{% endif %}
+
+<h2 style="font-size:1rem">{{ 'اجراهای ثبت‌شده' if lang == 'fa' else 'Recorded runs' }}</h2>
+{% if runs %}
+<div class="card"><table>
+  <thead><tr><th>id</th><th>type</th><th>status</th>
+    <th>{{ 'زمان' if lang == 'fa' else 'finished' }}</th></tr></thead>
+  <tbody>
+  {% for r in runs %}
+  <tr><td class="ltr">{{ r.id }}</td><td class="ltr">{{ r.run_type }}</td>
+      <td class="ltr">{{ r.status }}</td><td class="ltr">{{ r.finished_at }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}
+<div class="empty">{{ 'اجرایی ثبت نشده است' if lang == 'fa' else 'no runs recorded' }}</div>
+{% endif %}
+
+{% if refusal %}
+<div class="card" style="border-inline-start:3px solid #6b2a2a">
+  <strong>{{ 'انتقال رد شد' if lang == 'fa' else 'Transition refused' }}</strong>
+  <div class="ltr">{{ refusal }}</div>
+</div>
+{% endif %}
+
+<h2 style="font-size:1rem">{{ 'اقدام‌ها' if lang == 'fa' else 'Actions' }}</h2>
+<p class="dim" style="font-size:.85rem">
+  {{ 'فقط توقف/بازنشستگی/ازسرگیری — هیچ اقدامی به‌سوی اجرا (SHADOW/DEMO/LIVE) از اینجا ممکن نیست.'
+     if lang == 'fa' else
+     'Pause / retire / resume only — nothing here can move a strategy toward execution (SHADOW/DEMO/LIVE).' }}
+</p>
+<div class="card" style="display:flex;gap:.5rem;flex-wrap:wrap">
+  {% if 'pause' in allowed_actions %}
+  <form method="post" action="/strategies/{{ sid }}/pause">
+    <input type="hidden" name="actor" value="ui:console">
+    <input name="reason" placeholder="{{ 'دلیل' if lang == 'fa' else 'reason' }}" required>
+    <button type="submit">{{ 'توقف' if lang == 'fa' else 'Pause' }}</button>
+  </form>
+  {% endif %}
+  {% if 'resume' in allowed_actions %}
+  <form method="post" action="/strategies/{{ sid }}/resume">
+    <input type="hidden" name="actor" value="ui:console">
+    <input name="reason" placeholder="{{ 'دلیل' if lang == 'fa' else 'reason' }}" required>
+    <button type="submit">{{ 'ازسرگیری' if lang == 'fa' else 'Resume' }}</button>
+  </form>
+  {% endif %}
+  {% if 'retire' in allowed_actions %}
+  <details>
+    <summary class="btn">{{ 'بازنشستگی…' if lang == 'fa' else 'Retire…' }}</summary>
+    <form method="post" action="/strategies/{{ sid }}/retire" style="margin-top:.4rem">
+      <p class="dim">{{ 'بازنشستگی قطعی است — مطمئنید؟' if lang == 'fa'
+                       else 'Retiring is final — are you sure?' }}</p>
+      <input type="hidden" name="actor" value="ui:console">
+      <input name="reason" placeholder="{{ 'دلیل' if lang == 'fa' else 'reason' }}" required>
+      <button type="submit" class="danger">
+        {{ 'بله، بازنشسته شود' if lang == 'fa' else 'Yes, retire it' }}</button>
+    </form>
+  </details>
+  {% endif %}
+  {% if not allowed_actions %}
+  <span class="dim">{{ 'از این وضعیت اقدامی مجاز نیست' if lang == 'fa'
+                       else 'no action is permitted from this state' }}</span>
+  {% endif %}
+</div>
+
+{% if state == 'DRAFT' %}
+<h2 style="font-size:1rem">{{ 'اعتبارسنجی پایتون' if lang == 'fa' else 'Python validation' }}</h2>
+<div class="card" id="pyval">
+  {% if dataset_configured %}
+  <p class="dim">{{ 'اجرای بک‌تست روی دیتاست پیکربندی‌شده؛ نتیجه فقط ثبت می‌شود و وضعیت را جابه‌جا نمی‌کند.'
+                   if lang == 'fa' else
+                   'Runs a backtest on the configured dataset; the result is only RECORDED — it never advances the state by itself.' }}</p>
+  <button id="runval">{{ 'اجرا' if lang == 'fa' else 'Run Python validation' }}</button>
+  <div id="valstatus" class="dim ltr" style="margin-top:.4rem"></div>
+  {% else %}
+  <p>{{ 'دیتاستی پیکربندی نشده است.' if lang == 'fa' else 'No dataset is configured.' }}
+     <span class="dim ltr">set MQL5BOT_CONSOLE_DATASET to a CSV of OHLC bars
+     to enable the backtest; without it nothing runs.</span></p>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var btn = document.getElementById("runval");
+  if (!btn) { return; }
+  var out = document.getElementById("valstatus");
+  btn.onclick = function () {
+    btn.disabled = true;
+    out.textContent = "running…";
+    fetch("/strategy/{{ sid }}/validate-python", { method: "POST" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        out.textContent = j.detail || JSON.stringify(j);
+        btn.disabled = false;
+      })
+      .catch(function (e) { out.textContent = "error: " + e; btn.disabled = false; });
+  };
+})();
+</script>
+{% endif %}
+{% endblock %}

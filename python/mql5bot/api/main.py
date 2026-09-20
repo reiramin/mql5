@@ -25,8 +25,14 @@ from fastapi.responses import (
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
 
+from ..backtest import run_backtest
+from ..data import load_csv
 from ..discovery.safety import AllocationCircuitBreaker, KillSwitch
+from ..dsl import desired_positions, parse_spec
+from ..factory import lifecycle as lc
 from ..factory.conversation import GuidedConversation
+from ..factory.interpreter import restate_from_draft
+from ..factory.models import StrategyVersion, ValidationRun
 from ..factory.store import FactoryStore, StoreError
 from ..i18n import explain_status, isolate_ltr
 from ..status import EMPIRICAL_VALIDATION_PENDING, certify_status_model
@@ -567,6 +573,20 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
               "ROBUSTNESS_PASS", "OOS_SURVIVOR", "SHADOW", "DEMO",
               "LIVE_SMALL", "LIVE")
 
+    def _why_here(sid: str) -> str:
+        """WHY a strategy is in its current state: the last lifecycle event's
+        evidence or refusal, from the store — never invented."""
+        events = store.history(sid)
+        if not events:
+            return "registered as a draft; no lifecycle events yet"
+        ev = events[-1]
+        parts = [f"{ev.kind}: {ev.from_state} → {ev.to_state} by {ev.actor}"]
+        if ev.evidence_refs:
+            parts.append(f"evidence {list(ev.evidence_refs)}")
+        if ev.reason:
+            parts.append(str(ev.reason))
+        return " — ".join(parts)
+
     @app.get("/strategies", response_class=HTMLResponse)
     def strategies_page(request: Request):
         rows = []
@@ -577,11 +597,136 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
                 "version": s.get("version"),
                 "state": state,
                 "state_index": LADDER.index(state) if state in LADDER else -1,
-                "why": "",
+                "why": _why_here(s["strategy_id"]),
             })
         ctx = _shell_ctx(request, "strategies")
         ctx.update({"strategies": rows, "ladder": LADDER})
         return templates.TemplateResponse(request, "strategies_list.html", ctx)
+
+    def _latest_version_row(sid: str):
+        with store.session() as sess:
+            return (sess.query(StrategyVersion)
+                    .filter_by(strategy_id=sid)
+                    .order_by(StrategyVersion.version.desc()).first())
+
+    @app.get("/strategy/{sid}", response_class=HTMLResponse)
+    def strategy_console_detail(request: Request, sid: str):
+        try:
+            state = store.current_state(sid)
+        except StoreError:
+            raise HTTPException(404, "unknown strategy") from None
+        row = _latest_version_row(sid)
+        doc = json.loads(row.spec_json) if row else None
+        restatement = restate_from_draft(doc) if doc else ""
+        timeline = [{
+            "from_state": ev.from_state, "to_state": ev.to_state,
+            "kind": ev.kind, "actor": ev.actor, "reason": ev.reason,
+            "evidence_refs": list(ev.evidence_refs or []),
+            "created_at": str(ev.created_at),
+        } for ev in store.history(sid)]
+        with store.session() as sess:
+            runs = [{"id": r.id, "run_type": r.run_type, "status": r.status,
+                     "finished_at": str(r.finished_at or "")}
+                    for r in sess.query(ValidationRun)
+                    .filter_by(strategy_id=sid)
+                    .order_by(ValidationRun.id.desc()).limit(20)]
+        # Only the actions the lifecycle actually permits from this state —
+        # pause / retire / resume; never anything toward execution.
+        allowed = []
+        if lc.PAUSED in lc.FAILURES.get(state, ()):
+            allowed.append("pause")
+        if state in lc.RECOVERIES:
+            allowed.append("resume")
+        if state in lc.OBSERVATION_STATES:
+            allowed.append("retire")
+        ctx = _shell_ctx(request, "strategies")
+        ctx.update({
+            "sid": sid, "state": state,
+            "version": row.version if row else 0,
+            "state_index": LADDER.index(state) if state in LADDER else -1,
+            "ladder": LADDER,
+            "original_text": store.original_text(sid) or "",
+            "restatement": restatement,
+            "timeline": timeline, "runs": runs,
+            "allowed_actions": allowed,
+            "refusal": request.query_params.get("refused", ""),
+            "dataset_configured": bool(cenv.get(ENV_CONSOLE_DATASET, "")),
+        })
+        return templates.TemplateResponse(request, "strategy_detail.html", ctx)
+
+    @app.post("/guided/register")
+    def guided_register(draft: str = Form(...),
+                        accepted_token: str = Form(""),
+                        original_text: str = Form("")):
+        """Register an ACCEPTED, schema-valid draft as version 0 → DRAFT.
+        Nothing beyond DRAFT is reachable from this endpoint."""
+        try:
+            doc = json.loads(draft)
+        except (ValueError, TypeError):
+            raise HTTPException(422, "draft must be a JSON object") from None
+        if not isinstance(doc, dict):
+            raise HTTPException(422, "draft must be a JSON object")
+        verdict = GuidedConversation().validate(
+            doc, accepted_token=accepted_token or None)
+        if not verdict.passed:
+            return JSONResponse({"registered": False,
+                                 "verdict_fa": verdict.verdict_fa,
+                                 "reason": verdict.reason}, status_code=422)
+        spec = parse_spec(dict(doc, version=0))
+        _vid, created = store.register_strategy(
+            spec, created_by="ui:console-conversation",
+            source={"type": "USER_TEXT"},
+            original_text=original_text or None)
+        return JSONResponse({
+            "registered": True, "created": created,
+            "strategy_id": spec.strategy_id,
+            "state": store.current_state(spec.strategy_id),
+        })
+
+    @app.post("/strategy/{sid}/validate-python")
+    def validate_python(sid: str):
+        """Run the existing backtest on the configured dataset and RECORD the
+        result via store.record_run — honestly, never advancing the lifecycle
+        state. With no dataset configured, nothing runs and the reply says
+        exactly what is missing."""
+        ds = cenv.get(ENV_CONSOLE_DATASET, "")
+        if not ds:
+            return JSONResponse({
+                "ran": False,
+                "detail": ("no dataset configured — set "
+                           f"{ENV_CONSOLE_DATASET} to a CSV of OHLC bars "
+                           "to enable the backtest; nothing was run")})
+        try:
+            state_before = store.current_state(sid)
+        except StoreError:
+            raise HTTPException(404, "unknown strategy") from None
+        row = _latest_version_row(sid)
+        if row is None:
+            raise HTTPException(404, "no stored spec")
+        doc = json.loads(row.spec_json)
+        try:
+            spec = parse_spec(doc)
+            df = load_csv(ds)
+            res = run_backtest(df, "dsl:" + sid, {"sl_atr": 1.5, "tp_atr": 3.0},
+                               signal=desired_positions(spec, df),
+                               risk_percent=0.1)
+            metrics = dict(getattr(res, "metrics", {}) or {})
+            status, detail = "PASS", {"note": "backtest completed"}
+        except Exception as exc:  # noqa: BLE001 — a failed run is recorded, not hidden
+            metrics = {}
+            status = "ERROR"
+            detail = {"error": f"{type(exc).__name__}: {exc}"}
+        run_id = store.record_run(
+            sid, row.version, run_type="backtest", status=status,
+            spec_hash=row.spec_hash, detail=detail,
+            metrics={k: v for k, v in metrics.items()
+                     if isinstance(v, (int, float))})
+        state_after = store.current_state(sid)
+        return JSONResponse({
+            "ran": True, "run_id": run_id, "status": status,
+            "detail": (f"recorded run {run_id} status {status}; lifecycle "
+                       f"state unchanged ({state_before} → {state_after})"),
+        })
 
     @app.get("/new", response_class=HTMLResponse)
     def new_strategy_page(request: Request):

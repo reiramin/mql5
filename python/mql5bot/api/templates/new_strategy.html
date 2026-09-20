@@ -79,6 +79,25 @@ function showRemaining(steps) {
   listBubble(LANG_FA ? "هنوز انجام نشده / not yet done:" : "Not yet done:", steps);
 }
 
+function registerDraft() {
+  post("/guided/register", { draft: JSON.stringify(state.draft),
+                             accepted_token: state.token,
+                             original_text: state.idea || "" })
+    .then(function (r) {
+      if (r.registered) {
+        var d = bubble((LANG_FA ? "به‌عنوان پیش‌نویس ثبت شد / registered as DRAFT: "
+                                : "Registered as DRAFT: "), "sys", false);
+        var a = document.createElement("a");
+        a.href = "/strategy/" + r.strategy_id + (LANG_FA ? "?lang=fa" : "");
+        a.className = "ltr"; a.textContent = r.strategy_id;
+        d.appendChild(a);
+      } else {
+        bubble(r.reason || "refused", "sys", true);
+      }
+    })
+    .catch(function (e) { bubble("error: " + e.message, "sys", true); });
+}
+
 function validateAccepted() {
   post("/guided/validate", { draft: JSON.stringify(state.draft),
                              accepted_token: state.token })
@@ -86,8 +105,11 @@ function validateAccepted() {
       bubble(v.verdict_fa, "sys", false);
       bubble(v.reason, "sys", true);
       showRemaining(v.remaining_after_schema);
-      if (v.passed && document.getElementById("register-hook")) {
-        window.registerDraft && window.registerDraft(state);
+      if (v.passed) {
+        actions([{
+          label: LANG_FA ? "ثبت به‌عنوان پیش‌نویس" : "Register as draft",
+          onclick: registerDraft
+        }]);
       }
     })
     .catch(function (e) { bubble("error: " + e.message, "sys", true); });
@@ -96,6 +118,7 @@ function validateAccepted() {
 document.getElementById("send").onclick = function () {
   var idea = document.getElementById("idea").value.trim();
   if (!idea) { return; }
+  state.idea = idea;
   bubble(idea, "you", false);
   post("/guided/start", {
     idea: idea,
