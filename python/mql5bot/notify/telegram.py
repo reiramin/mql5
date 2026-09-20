@@ -113,6 +113,21 @@ class TelegramChannel:
     # -- Watchdog contract --------------------------------------------------
 
     def __call__(self, alert: dict) -> None:
+        self._deliver(self.format_alert(alert),
+                      alert.get("watchdog_alert", "alert"))
+
+    def send_text(self, text: str) -> None:
+        """Deliver an arbitrary operator message (a digest, a command reply)
+        through the SAME rate-limited, token-scrubbed transport as alerts.
+
+        This is NOT a second delivery path: it shares the minimum-send
+        interval, the bounded timeout and the by-value token scrubbing with
+        ``__call__``. It exists so the operator surface
+        (``mql5bot.notify.telegram_ops``) never reimplements any of them.
+        """
+        self._deliver(text, "text")
+
+    def _deliver(self, text: str, label: object) -> None:
         # Minimum-interval enforcement WITHOUT blocking: a send that arrives
         # sooner than min_interval since the last attempt is skipped, never
         # slept on (a sleep here would freeze the Watchdog).
@@ -124,7 +139,6 @@ class TelegramChannel:
                 f"({now - self._last_send:.3f}s < {self._min_interval:.3f}s)")
             return
         self._last_send = now
-        text = self.format_alert(alert)
         data = urllib.parse.urlencode(
             {"chat_id": self._chat_id, "text": text}).encode("utf-8")
         try:
@@ -139,7 +153,7 @@ class TelegramChannel:
             # Watchdog stores repr(exc) — of THIS scrubbed exception — as a
             # breadcrumb and keeps monitoring.
             raise TelegramSendError(breadcrumb) from None
-        self._log.append(f"sent: {alert.get('watchdog_alert', 'alert')}")
+        self._log.append(f"sent: {label}")
 
     # -- message formatting -------------------------------------------------
 

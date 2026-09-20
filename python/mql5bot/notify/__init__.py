@@ -13,9 +13,19 @@ from .telegram import (
     TelegramConfigError,
     TelegramSendError,
 )
+from .telegram_ops import (
+    COMMANDS,
+    OpenPosition,
+    OpsState,
+    TelegramOperator,
+)
 
 __all__ = [
+    "COMMANDS",
+    "OpenPosition",
+    "OpsState",
     "TelegramChannel",
     "TelegramConfigError",
+    "TelegramOperator",
     "TelegramSendError",
 ]

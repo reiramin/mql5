@@ -149,6 +149,22 @@ class KillSwitch:
                 self._record("clear", obs, "all triggers cleared")
         return self.state
 
+    def manual_stop(self, actor: str, reason: str) -> KillSwitchState:
+        """Owner-initiated immediate halt (e.g. the Telegram ``stop`` command).
+
+        It only ever ESCALATES — to ``EMERGENCY_HALT`` — and there is
+        deliberately no ``manual_start``: leaving a halt still requires
+        :meth:`explicit_reset`, a console action. A lost, unlocked phone can
+        therefore only ever stop the bot, never start it (asymmetric friction,
+        ``docs/ROADMAP_UX.md`` Phase 1)."""
+        prev = self.state
+        self.state = KillSwitchState.EMERGENCY_HALT
+        self.reason = reason or "manual stop"
+        self._record("manual_stop", None,
+                     f"{prev.value} → EMERGENCY_HALT by {actor}: {self.reason}",
+                     actor=actor)
+        return self.state
+
     def explicit_reset(self, actor: str, reason: str) -> KillSwitchState:
         """§42: severe states require an EXPLICIT, audited reset."""
         prev = self.state
