@@ -232,10 +232,12 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
             "alerts": safety.watchdog_alerts[-10:],
         }
         # Persian RTL phone-first status page is OPT-IN (?lang=fa); the English
-        # default (board.html) is byte-identical and unchanged.
+        # default (board.html) renders the same kanban content on the shared
+        # offline base.html shell — no CDN, no external load.
         if request.query_params.get("lang") == "fa":
             ctx.update(_persian_board_context(ks, live_state))
             return templates.TemplateResponse(request, "board_fa.html", ctx)
+        ctx.update(_shell_ctx(request, "home"))
         return templates.TemplateResponse(request, "board.html", ctx)
 
     @app.get("/strategies/{sid}", response_class=HTMLResponse)
@@ -249,11 +251,13 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
                     "reason": e.reason, "ts": str(e.created_at)}
                    for e in store.history(sid)]
         proposable = UI_PROPOSABLE.get(state)
-        return templates.TemplateResponse(request, "strategy.html", {
+        ctx = _shell_ctx(request, "strategies")
+        ctx.update({
             "sid": sid, "state": state, "history": history,
             "proposable": proposable,
             "score": score_fn(sid) if score_fn else None,
             "error": None})
+        return templates.TemplateResponse(request, "strategy.html", ctx)
 
     @app.post("/approvals")
     def approve(sid: str = Form(...), decision: str = Form(...),

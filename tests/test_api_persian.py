@@ -1,7 +1,10 @@
 """Tests for the Persian/RTL operator status page (opt-in) on the console.
 
-English stays the default and its output is unchanged; Persian is reached with
-``?lang=fa`` exactly as the console i18n layer selects language elsewhere.
+English stays the default; Persian is reached with ``?lang=fa`` exactly as
+the console i18n layer selects language elsewhere.  The English board now
+renders on the shared offline base.html shell (the legacy CDN template was
+retired), so these tests pin the shell's English defaults rather than the
+pre-shell bytes.
 """
 
 from __future__ import annotations
@@ -17,11 +20,13 @@ def _client(tmp_path, **kw):
     return store, TestClient(create_app(store, **kw))
 
 
-def test_english_default_is_unchanged(tmp_path):
+def test_english_default_renders_ltr_kanban(tmp_path):
+    # Deliberate change with the CDN removal: the English board moved onto
+    # the base.html shell, so the html tag now carries dir="ltr" explicitly.
     _, c = _client(tmp_path)
     r = c.get("/")
     assert r.status_code == 200
-    assert '<html lang="en">' in r.text
+    assert '<html lang="en" dir="ltr">' in r.text
     assert 'dir="rtl"' not in r.text
     assert "SHADOW" in r.text                 # English kanban still rendered
     assert "هنوز اثبات‌نشده" not in r.text     # no Persian leaks into default

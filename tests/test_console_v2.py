@@ -121,7 +121,7 @@ def test_runner_refuses_non_loopback_host_without_token(capsys):
 
 def test_no_auth_mode_keeps_existing_routes_open(tmp_path):
     # with no token configured the app runs in trusted loopback mode — the
-    # legacy routes behave exactly as before (existing tests pin the bytes)
+    # legacy routes stay open and render on the shared offline shell
     _, c = _client(tmp_path)
     assert c.get("/").status_code == 200
 
