@@ -19,6 +19,8 @@ from jinja2 import Environment, FileSystemLoader
 
 from ..discovery.safety import AllocationCircuitBreaker, KillSwitch
 from ..factory.store import FactoryStore, StoreError
+from ..i18n import explain_status, isolate_ltr
+from ..status import EMPIRICAL_VALIDATION_PENDING, certify_status_model
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -51,10 +53,50 @@ class SafetyHub:
 # (never a silent fake "research done").
 
 
+def _persian_board_context(ks: KillSwitch,
+                           live_state: Callable[[], object] | None) -> dict:
+    """Build the Persian RTL status page context. The traffic light and the
+    'not yet proven' line are sourced from the real kill-switch and status
+    model — never hardcoded. Latin identifiers are bidi-isolated so they stay
+    readable and copyable inside the Persian text."""
+    state = ks.state.value
+    if state == "EMERGENCY_HALT":
+        light_class, headline = "red", "سیستم متوقف است."
+    elif state == "NO_NEW_TRADES":
+        light_class, headline = "amber", "معامله‌ی جدید متوقف است؛ سیستم در حال پایش است."
+    else:
+        light_class, headline = "green", "سیستم فعال است و در محدوده‌ی ریسک کار می‌کند."
+    # nothing here is VERIFIED — the real status model says so, in its words
+    cs = certify_status_model(EMPIRICAL_VALIDATION_PENDING, 0, 0)
+    if live_state is not None:
+        s = live_state()
+        if not getattr(s, "alive", True):
+            light_class, headline = "red", "سیستم پاسخ نمی‌دهد."
+        alive_fa = "بله" if getattr(s, "alive", False) else "خیر"
+        activity_fa = (f"{s.trades_today} معامله / trades، "
+                       f"P&L {s.realised_pnl_today}")
+        distance_fa = f"{s.drawdown_distance_pct} pct"
+    else:
+        alive_fa = activity_fa = distance_fa = "بی‌اتصال / not connected"
+    return {
+        "light_class": light_class,
+        "headline_fa": headline,
+        "alive_fa": alive_fa,
+        "activity_fa": activity_fa,
+        "distance_fa": distance_fa,
+        "unproven_reason": cs["reason"],
+        "status_explained": explain_status(cs["status"], "fa"),
+        "mt5_explained": explain_status(cs["mt5_status"], "fa"),
+        "kill_switch": isolate_ltr(state),
+        "kill_reason": isolate_ltr(ks.reason) if ks.reason else "",
+    }
+
+
 def create_app(store: FactoryStore, safety: SafetyHub | None = None,
                *, score_fn: Callable[[str], dict] | None = None,
                research_runner: Callable[[dict], dict] | None = None,
-               campaign_query: Callable[[], list[dict]] | None = None
+               campaign_query: Callable[[], list[dict]] | None = None,
+               live_state: Callable[[], object] | None = None
                ) -> FastAPI:
     app = FastAPI(title="AEGIS Governance Console", version="1.0")
     env = Environment(autoescape=True,
@@ -82,13 +124,19 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
                      or r["state"] == col]
             columns.append({"name": col, "cards": cards})
         ks = safety.kill_switch
-        return templates.TemplateResponse(request, "board.html", {
+        ctx = {
             "columns": columns,
             "kill_switch": ks.state.value,
             "kill_reason": ks.reason,
             "breaker_frozen": safety.breaker.st.frozen,
             "alerts": safety.watchdog_alerts[-10:],
-        })
+        }
+        # Persian RTL phone-first status page is OPT-IN (?lang=fa); the English
+        # default (board.html) is byte-identical and unchanged.
+        if request.query_params.get("lang") == "fa":
+            ctx.update(_persian_board_context(ks, live_state))
+            return templates.TemplateResponse(request, "board_fa.html", ctx)
+        return templates.TemplateResponse(request, "board.html", ctx)
 
     @app.get("/strategies/{sid}", response_class=HTMLResponse)
     def strategy_detail(request: Request, sid: str):

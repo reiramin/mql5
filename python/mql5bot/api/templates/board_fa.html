@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>کنسول Mql5Bot</title>
+  <style>
+    body { font-family: system-ui, "Vazirmatn", sans-serif; margin: 0; padding: 1rem;
+           background: #101418; color: #e6e6e6; max-width: 40rem; }
+    .light { display: flex; align-items: center; gap: .8rem; margin: .5rem 0 1rem; }
+    .dot { width: 2.2rem; height: 2.2rem; border-radius: 999px; flex: 0 0 auto; }
+    .dot.green { background: #2ecc71; }
+    .dot.amber { background: #f1c40f; }
+    .dot.red { background: #e74c3c; }
+    .headline { font-size: 1.15rem; font-weight: 700; }
+    .answers { display: grid; gap: .6rem; margin: 1rem 0; }
+    .answer { background: #1a2028; border-radius: 8px; padding: .7rem .9rem; }
+    .answer .label { color: #9fb3c8; font-size: .8rem; }
+    .answer .value { font-size: 1.1rem; }
+    .unproven { background: #2a2213; border: 1px solid #6b5418; border-radius: 8px;
+                padding: .7rem .9rem; margin: 1rem 0; color: #ffd479; font-size: .9rem; }
+    .ltr { unicode-bidi: isolate; direction: ltr; }
+    details { margin-top: .4rem; }
+    details summary { cursor: pointer; color: #7fd1ff; }
+    .stop { background: #4b1d1d; border: 1px solid #6b2a2a; border-radius: 8px;
+            padding: .8rem; margin: 1.2rem 0; }
+    .stop h2 { margin: 0 0 .5rem; font-size: 1rem; color: #ff8484; }
+    .stop form { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .stop input { padding: .4rem; border-radius: 6px; border: 1px solid #555;
+                  background: #0c0f13; color: #e6e6e6; }
+    .stop button { padding: .5rem 1rem; border-radius: 6px; border: 0;
+                   background: #e74c3c; color: #fff; font-weight: 700; cursor: pointer; }
+    nav a { color: #7fd1ff; }
+    .terms { margin-top: 1.5rem; font-size: .85rem; color: #9fb3c8; }
+  </style>
+</head>
+<body>
+  <nav><a href="/?lang=fa">داشبورد</a> · <a href="/?lang=en">English</a></nav>
+
+  <!-- above the fold: traffic light + one plain-Persian sentence -->
+  <div class="light">
+    <span class="dot {{ light_class }}"></span>
+    <span class="headline">{{ headline_fa }}</span>
+  </div>
+
+  <!-- the three answers -->
+  <div class="answers">
+    <div class="answer">
+      <div class="label">زنده است؟ (alive)</div>
+      <div class="value">{{ alive_fa }}</div>
+    </div>
+    <div class="answer">
+      <div class="label">فعالیت امروز (today)</div>
+      <div class="value">{{ activity_fa }}</div>
+    </div>
+    <div class="answer">
+      <div class="label">فاصله تا حد ضرر (distance to loss limit)</div>
+      <div class="value">{{ distance_fa }}</div>
+    </div>
+  </div>
+
+  <!-- what is NOT yet proven — sourced from the real status model -->
+  <div class="unproven">
+    <div>هنوز اثبات‌نشده / not yet proven:</div>
+    <div class="ltr">{{ unproven_reason }}</div>
+    <details>
+      <summary>وضعیت گواهی (certification status)</summary>
+      <div>{{ status_explained }}</div>
+      <div>{{ mt5_explained }}</div>
+    </details>
+  </div>
+
+  <!-- kill switch: visible on the page, never behind a menu -->
+  <div class="stop">
+    <h2>کلید توقف / kill switch —
+        <span class="ltr">{{ kill_switch }}</span></h2>
+    {% if kill_reason %}<p class="ltr">{{ kill_reason }}</p>{% endif %}
+    <p>توقف از تلگرام فوری است؛ ازسرگیری فقط از همین کنسول ممکن است.
+       (stop is immediate from Telegram; resuming is only possible here.)</p>
+    <form method="post" action="/safety/killswitch/reset">
+      <input name="actor" placeholder="owner" required>
+      <input name="reason" placeholder="reason" required>
+      <button type="submit">ازسرگیری / reset to NORMAL</button>
+    </form>
+  </div>
+
+  <div class="terms">
+    اصطلاحات گواهی همیشه دست‌نخورده نمایش داده می‌شوند / certification terms are shown verbatim.
+  </div>
+</body>
+</html>
