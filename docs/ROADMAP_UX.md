@@ -70,7 +70,13 @@ environment. A message from any other chat is ignored and logged without
 echoing its content. No account numbers, tokens, chat ids, or file paths
 appear in any message.
 
-## Phase 2 — one Persian RTL status page
+## Phase 2 — one Persian RTL status page — BUILT
+
+> **Status: built, unit-tested, never run live.** The status page and the
+> full operator console around it (six sections, owner-token auth, live
+> SSE updates, the certification rail) are implemented — see
+> [CONSOLE.md](CONSOLE.md). Nothing about being built changes what is
+> proven: the gate still stands at stage 5 FAIL.
 
 A single phone-first, right-to-left Persian page that answers the three
 questions above the fold: a **traffic light** and **one plain-Persian

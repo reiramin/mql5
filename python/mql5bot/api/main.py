@@ -892,10 +892,100 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
             ctx["error"] = f"{type(exc).__name__}: {exc}"
         return templates.TemplateResponse(request, "certification.html", ctx)
 
+    def _last_heartbeat_seen() -> str:
+        """When MT5 was last seen: the newest heartbeat in the telemetry
+        JSONL. 'not connected' when there is none — never a fabricated time."""
+        log = cenv.get(ENV_TELEMETRY_LOG, "")
+        if not log or not Path(log).exists():
+            return "not connected"
+        last = None
+        for line in Path(log).read_text(encoding="utf-8").splitlines():
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(e, dict) and e.get("event") == "heartbeat":
+                last = e.get("received_at", last)
+        if last is None:
+            return "not connected"
+        try:
+            return _dt.datetime.fromtimestamp(
+                float(last), tz=_dt.timezone.utc).strftime(
+                "%Y-%m-%d %H:%M UTC")
+        except (TypeError, ValueError, OSError):
+            return "not connected"
+
     @app.get("/settings", response_class=HTMLResponse)
     def settings_page(request: Request):
+        """A health checklist a non-developer can read top to bottom.
+        Environment variable NAMES only — never a value."""
         ctx = _shell_ctx(request, "settings")
-        ctx.update({"checks": []})
+
+        def _set(name: str) -> bool:
+            return bool(cenv.get(name, ""))
+
+        telemetry_url_set = _set(ENV_TELEMETRY_URL)
+        telemetry_reachable: bool | None = None
+        if telemetry_url_set:
+            try:
+                with urllib.request.urlopen(
+                        cenv[ENV_TELEMETRY_URL].rstrip("/")
+                        + "/telemetry/latest", timeout=2):
+                    telemetry_reachable = True
+            except Exception:  # noqa: BLE001 — unreachable is the honest answer
+                telemetry_reachable = False
+        ev = cenv.get(ENV_EVIDENCE_DIR, "")
+        ev_ok: bool | None = None
+        if ev:
+            ev_ok = (Path(ev) / "gate_summary.json").exists()
+        telegram_ok = (_set("MQL5BOT_TELEGRAM_BOT_TOKEN")
+                       and _set("MQL5BOT_TELEGRAM_CHAT_ID"))
+        checks = [
+            {"ok": auth_enabled,
+             "label_en": "Console authentication",
+             "label_fa": "ورود کنسول",
+             "detail": (f"{ENV_CONSOLE_TOKEN} is "
+                        f"{'SET' if auth_enabled else 'NOT SET — loopback-only mode'}")},
+            {"ok": telegram_ok,
+             "label_en": "Telegram configured",
+             "label_fa": "تلگرام پیکربندی شده",
+             "detail": ("MQL5BOT_TELEGRAM_BOT_TOKEN + MQL5BOT_TELEGRAM_CHAT_ID "
+                        + ("both SET" if telegram_ok else "NOT both set"))},
+            {"ok": telemetry_reachable,
+             "label_en": "Telemetry bridge reachable",
+             "label_fa": "پل تله‌متری در دسترس",
+             "detail": (f"{ENV_TELEMETRY_URL} "
+                        + ("not configured" if not telemetry_url_set else
+                           "reachable" if telemetry_reachable
+                           else "configured but UNREACHABLE"))},
+            {"ok": bool(cenv.get(ENV_TELEMETRY_LOG, "")),
+             "label_en": "Telemetry log (trades history)",
+             "label_fa": "فایل تله‌متری (تاریخچه)",
+             "detail": f"{ENV_TELEMETRY_LOG} "
+                       + ("SET" if _set(ENV_TELEMETRY_LOG) else "NOT SET")},
+            {"ok": ev_ok,
+             "label_en": "Gate evidence directory",
+             "label_fa": "مسیر شواهد گیت",
+             "detail": (f"{ENV_EVIDENCE_DIR} "
+                        + ("not configured" if not ev else
+                           "gate_summary.json found" if ev_ok
+                           else "configured but gate_summary.json MISSING"))},
+            {"ok": bool(cenv.get(ENV_CONSOLE_DATASET, "")),
+             "label_en": "Dataset for Python validation",
+             "label_fa": "دیتاست اعتبارسنجی پایتون",
+             "detail": f"{ENV_CONSOLE_DATASET} "
+                       + ("SET" if _set(ENV_CONSOLE_DATASET) else "NOT SET")},
+            {"ok": None,
+             "label_en": "Console language",
+             "label_fa": "زبان کنسول",
+             "detail": ("MQL5BOT_LANG="
+                        + (cenv.get("MQL5BOT_LANG") or "en (default)"))},
+            {"ok": None,
+             "label_en": "MT5 last seen (latest heartbeat)",
+             "label_fa": "آخرین نشانه MT5",
+             "detail": _last_heartbeat_seen()},
+        ]
+        ctx.update({"checks": checks})
         return templates.TemplateResponse(request, "settings.html", ctx)
 
     # ---- telemetry proxy (same-origin SSE for the pages' live updates) -----

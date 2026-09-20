@@ -113,7 +113,7 @@ order or mark a strategy LIVE.
 |---|---|
 | `python -m mql5bot ...` | the quant-toolkit CLI (data, backtest, compare, optimize, walkforward, dashboard); add `--lang fa` for Persian output |
 | `python -m mql5bot.factory.cli ...` | the Factory CLI — research/spec only, never trades |
-| `python -m mql5bot.api` | the operator console; view state, stop trading, run the guided conversation; Persian RTL status page at `?lang=fa` (needs `uvicorn`) |
+| `python -m mql5bot.api` | the operator console — six pages (home, strategies, new-strategy conversation, trades, certification, settings/health) with owner-token auth and live updates; Persian at `?lang=fa` (needs `uvicorn`). Full guide: [CONSOLE.md](CONSOLE.md) |
 | `python -m mql5bot.notify.telegram_ops` | the Telegram operator — daily digest, per-trade notifications, and the `status`/`positions`/`report`/`stop` commands |
 | `python -m mql5bot.telemetry_bridge` | the collector the EA POSTs heartbeat/trade/alert events to |
 
