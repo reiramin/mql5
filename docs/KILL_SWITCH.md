@@ -20,4 +20,18 @@ Equity/daily-DD/weekly-DD/total-DD, abnormal trade rate, execution failure rate,
 - `close_all_requested` is true ONLY for `EMERGENCY_HALT` AND `close_all_on_emergency=true` — the default policy keeps managing protected positions instead of dumping them (§42).
 - NaN-poisoned observations cannot disarm the trigger logic (attack 24: honest severe inputs still trip).
 
+## Stopping from Telegram (asymmetric friction)
+
+The Telegram operator (`mql5bot.notify.telegram_ops`, see [TELEGRAM.md](TELEGRAM.md))
+exposes a `stop` command that trips the kill switch **immediately, with no
+confirmation**, via `KillSwitch.manual_stop(actor, reason)` — an escalate-only
+call that forces `EMERGENCY_HALT`.
+
+The rule is deliberately asymmetric: **stop from Telegram, resume console-only.**
+There is no `manual_start`, no resume command, and no code path on the Telegram
+surface that can leave a halt. Leaving `EMERGENCY_HALT` still requires
+`explicit_reset(actor, reason)`, which is a console action. The threat model is
+a lost, unlocked phone: the worst it can do is stop the bot, never start it.
+This is built and unit-tested; never run live.
+
 **MQL5 side: PARTIAL** — the EA-side enforcement point exists in the safety chain, but a live-terminal proof is owner-compilable only (§75/§76); no MT5 claims are made.

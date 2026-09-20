@@ -7,7 +7,8 @@
 | `mql5/Experts/Mql5Bot/` | the Expert Advisor |
 | `mql5/Include/Mql5Bot/` | MQL5 modules (Config, Session, SignalEngine, RiskManager, TradeManager, PositionGuard, SlGuard, MagicMap, RetryQueue, Allocation, Kill Switch, Logger, Telemetry) |
 | `mql5/Scripts/`, `mql5/Presets/` | data-export script, strategy presets |
-| `python/mql5bot/` | quant toolkit + AEGIS (factory, discovery, dsl, indicator_universe, api, meta layer, certification, owner_gate) |
+| `python/mql5bot/` | quant toolkit + AEGIS (factory, discovery, dsl, indicator_universe, api, notify, meta layer, certification, owner_gate) |
+| `python/mql5bot/__main__.py`, `api/__main__.py`, `notify/telegram_ops.py` | runnable entry points: `python -m mql5bot`, `python -m mql5bot.api`, `python -m mql5bot.notify.telegram_ops` |
 | `factory/`, `schemas/` | gates config, strategy JSON schema |
 | `examples/strategies/` | example specs (incl. intentionally invalid/unsupported cases) |
 | `tools/` | certification & owner tooling (compile.ps1, certify_strategy.py, run_mt5_backtest.*, build_gold*_standard.py, verify_owner_mt5_gate.py, owner_evidence_bind.py, broker_symbol_parity.py) |
@@ -34,8 +35,15 @@
 
 - Python ≥3.10 idioms; `from __future__ import annotations` where
   needed; type hints on public functions.
-- Lint: `ruff check python tests tools` must stay clean (CI enforces
-  `python tests`).
+- Lint: the **canonical scope is `ruff check python/ tests/ tools/ factory/`**
+  and must stay clean. A bare `ruff check .` additionally reports pre-existing
+  findings under `migrations/` and `scripts/` that are outside that scope — do
+  not treat those as regressions.
+- `tools/` scripts that import `mql5bot` MUST pin the repo's `python/` tree
+  via the two-line `tools/_bootstrap.py` preamble, never an installed copy.
+  A certification gate that grades the repo using a *different* installed copy
+  of the code is not certifying the repo (this really happened — gate run 16;
+  see the module docstring).
 - Tests answer a known defect, contract boundary, safety invariant,
   reconciliation requirement, stale-artifact attack or certification-
   state attack — count ≠ quality; do not add tests for appearance.
@@ -45,8 +53,8 @@
 ## Quality gates (run before every commit)
 
 ```bash
-.venv/bin/python -m pytest           # full suite — must be all green
-.venv/bin/ruff check python tests    # lint
+.venv/bin/python -m pytest                            # full suite — must be all green
+.venv/bin/ruff check python/ tests/ tools/ factory/   # lint (canonical scope)
 .venv/bin/python -m pytest tests/test_docs_contract.py -q   # doc pins
 ```
 

@@ -55,6 +55,19 @@ fix that weakens a safety or certification boundary.
 | position lost after restart | adoption failed | verify magic mapping; restart matrix in `MT5_ROUNDTRIP.md`; never re-enter to "fix" exposure |
 | not enough history for indicators | warmup window | expected: no signal during warmup; extend history, don't shorten warmup semantics |
 
+## Owner gate — things we actually hit (2026-09-20 run)
+
+These are real, observed on the first full owner gate run. None is a bug to
+"fix" by weakening a gate; each has a concrete, honest resolution.
+
+| Symptom | Cause | Resolution |
+|---|---|---|
+| stage 5 leg BLOCKED_OWNER_ENVIRONMENT; no backtest metrics | **MT5 build 6184 writes no `[Tester]` Report file**, so a leg that ran cleanly has nothing to parse | a BLOCKED leg is **not** a pass; use a build/config that emits the report, or an alternate parse source, then re-run. Never relabel BLOCKED as PASS |
+| leg fails: "start time changed … to provide data at beginning" / "0 ticks, 0 bars generated" | **the fixture is too short for MT5's warm-up reservation** — MT5 reserves preceding history and moved the test start past the end of the data (the gold #1 H1 fixture is 120 bars) | rebuild the fixture with enough history for warm-up; do not shorten warm-up semantics |
+| import/tester leg refuses because a custom symbol is already selected | **a stale custom symbol was left SELECTED by a prior run** | the importer now adopts a symbol left selected (STAGE 4 R9/R10); if you hit it on an older path, deselect the symbol in Market Watch and re-run |
+| gate stops at stage 0 with a dirty-tree message | **the gate refuses a dirty working tree** — it must grade exactly the committed source | commit or stash your changes; the gate never grades an uncommitted tree |
+| gate stops at stage 0: `mql5bot` did not resolve in-repo | **the gate refused an out-of-repo `mql5bot`** — an installed copy in site-packages, not this repo's `python/` tree | ensure the repo's `python/` resolves first (tools use `tools/_bootstrap.py`); a gate grading a different copy of the code is not certifying the repo |
+
 ## Environment availability
 
 | Symptom | Meaning |

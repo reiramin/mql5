@@ -38,7 +38,27 @@ Optional extras:
 ```bash
 .venv/bin/pip install -e ".[optimize]"   # optuna-based optimisation tooling
 .venv/bin/pip install -e ".[live]"       # MetaTrader5 bridge (Windows only)
+.venv/bin/pip install uvicorn            # ONLY to run the operator console web server
 ```
+
+`uvicorn` is not a dependency; it is needed only to serve the operator console
+(`python -m mql5bot.api`). If it is absent the console runner refuses to start
+with a clear message naming it.
+
+## Entry points (how to start each piece)
+
+| Command | What it starts |
+|---|---|
+| `python -m mql5bot ...` | the quant-toolkit CLI — identical to the installed `mql5bot` console script |
+| `python -m mql5bot.factory.cli ...` | the Factory CLI (research/spec only — never trades) |
+| `python -m mql5bot.api` | the operator console (FastAPI); `--host`/`--port`/`--db`; needs `uvicorn` |
+| `python -m mql5bot.notify.telegram_ops` | the Telegram operator (digest + commands); reads config from the environment only |
+| `python -m mql5bot.telemetry_bridge` | the telemetry collector the EA POSTs to; `--host`/`--port` |
+
+The console and the Telegram operator are **built, unit-tested, and never run
+live**. See [TELEGRAM.md](TELEGRAM.md) for the Telegram environment variables
+and [PERSIAN_CONSOLE.md](PERSIAN_CONSOLE.md) for the Persian status page
+(`?lang=fa`).
 
 ## What works on Linux / macOS (no MT5)
 
@@ -110,9 +130,13 @@ If you use telemetry, add the collector URL in MT5 under
 ## Verifying the installation
 
 ```bash
-.venv/bin/python -m pytest          # full suite (expected: all green)
-.venv/bin/ruff check python tests   # lint
+.venv/bin/python -m pytest                       # full suite (expected: all green)
+.venv/bin/ruff check python/ tests/ tools/ factory/   # lint (canonical scope)
 ```
+
+The canonical lint scope is `python/ tests/ tools/ factory/`. A bare
+`ruff check .` also flags pre-existing findings under `migrations/` and
+`scripts/` that are outside that scope — see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 If tests fail at install time, see `TROUBLESHOOTING.md` before
 changing anything.

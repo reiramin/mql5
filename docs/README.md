@@ -8,11 +8,24 @@ guides link to them instead of duplicating them).
 
 | Document | Purpose |
 |---|---|
+| [OWNER_DELIVERY.md](OWNER_DELIVERY.md) | **Read first.** The plain-language account of record: what is proven (with hashes), what has never been proven, and the pre-live checklist. Everything else must agree with it. |
 | [INSTALLATION.md](INSTALLATION.md) | Python environment, optional extras, what works on Linux/macOS vs Windows+MT5 |
 | [USER_GUIDE.md](USER_GUIDE.md) | How the system works bar-by-bar: strategies, Risk, Kill Switch, Meta, positions, restarts |
 | [MT5_SETUP_AND_OPERATION.md](MT5_SETUP_AND_OPERATION.md) | Complete owner-side runbook: compile, install, presets, Strategy Tester, safety, evidence |
 | [FACTORY_GUIDE.md](FACTORY_GUIDE.md) | The AEGIS Factory workflow from idea to retirement |
-| [CERTIFICATION_GUIDE.md](CERTIFICATION_GUIDE.md) | The validation ladder: Gold / MT5 runtime / empirical / demo / live |
+| [CERTIFICATION_GUIDE.md](CERTIFICATION_GUIDE.md) | The 11-stage gate and the validation ladder: Gold / MT5 runtime / empirical / demo / live |
+
+## Operator experience
+
+The daily-use surfaces for the owner. Each is **built, unit-tested, and never
+run live**.
+
+| Document | Purpose |
+|---|---|
+| [ROADMAP_UX.md](ROADMAP_UX.md) | The operator-experience plan: Telegram-first, Persian status page, split deployment, guided conversation |
+| [TELEGRAM.md](TELEGRAM.md) | Telegram alerts, daily digest, and the four commands (`status`/`positions`/`report`/`stop`); asymmetric friction |
+| [PERSIAN_CONSOLE.md](PERSIAN_CONSOLE.md) | The opt-in Persian/RTL presentation layer and the Persian status page |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | The split always-on deployment (a procedure — never deployed or drilled) |
 
 ## Architecture / Contracts
 
@@ -69,15 +82,17 @@ guides link to them instead of duplicating them).
 | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) | Final pre-release sequence + owner-side gate |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Contributor guide: layout, standards, canonical files |
 
-## Historical / audit records
+## Historical / audit records — point-in-time, do not edit
 
-The `PHASE3_*`, `MASTER_PRODUCTION_CONVERGENCE_AUDIT.md`,
-`AEGIS_FINAL_CONVERGENCE_AUDIT.md`, `IMPLEMENTATION_AUDIT.md`,
-`STRATEGY_FACTORY_*`, `META_*` validation/audit files are engineering
-evidence of past gates. They remain for attribution but are not
-required reading for operating the project. Where an old document
-describes a state superseded by a later gate, the later document is
-authoritative (see `DECISIONS.md`).
+Every `AEGIS_*`, `PHASE3_*`, `*_AUDIT.md`, `*_REVIEW.md`,
+`*_GAP_ANALYSIS.md`, `MASTER_PRODUCTION_CONVERGENCE_AUDIT.md`,
+`IMPLEMENTATION_AUDIT.md`, `STRATEGY_FACTORY_*` and `META_*` analysis file
+is a **point-in-time record** of a past gate or review. They are engineering
+evidence and are **not edited with later knowledge** — updating a dated audit
+would falsify the record it exists to preserve. They are not required reading
+for operating the project. Where an old document describes a state superseded
+by a later gate, the later document — and above all
+[OWNER_DELIVERY.md](OWNER_DELIVERY.md) — is authoritative (see `DECISIONS.md`).
 
 ## Root-level continuity files
 

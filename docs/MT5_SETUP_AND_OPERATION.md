@@ -5,6 +5,15 @@ TEN-step sequence in `MT5_ROUNDTRIP.md`; the frozen artifact package is
 `artifacts/owner_mt5_gate/`. This guide explains the how; those two are
 authoritative for the what.
 
+> **The bot trades only while MetaTrader 5 is running and connected.** If
+> you close the terminal or the PC sleeps, it stops — there is no
+> background service that keeps trading. For unattended operation you need
+> an always-on host; the recommended split (MT5 on a small Windows host,
+> the Python services on a cheap Linux host) and its restart-on-boot steps
+> are in [DEPLOYMENT.md](DEPLOYMENT.md). That deployment has **never been
+> deployed or drilled** — it is a procedure, not a proven configuration.
+> And nothing here is certified: see [OWNER_DELIVERY.md](OWNER_DELIVERY.md).
+
 ## Before first compile
 
 | Requirement | Detail |

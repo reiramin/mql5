@@ -62,6 +62,30 @@ IDEA → intake → DSL/spec → schema validation → research runs
    (`EXTERNAL_WATCHDOG.md`, `ALLOCATION_CIRCUIT_BREAKER.md`) guard the
    fleet.
 
+## Intake interpreters
+
+Natural-language intake (`factory/interpreter.py`) turns owner text into a
+draft spec, and there are two interchangeable interpreters behind one
+provider-neutral contract:
+
+- **`TemplateInterpreter`** — fully deterministic, no ML and no network. It
+  recognises a small set of phrasings (EMA cross, RSI-above, RSI-low, and an
+  ATR stop/target) in English and Persian.
+- **`LlmInterpreter`** — an optional provider-agnostic interpreter that keeps
+  the template's discipline: it **grounds every number in the source text**,
+  refuses invented structural numbers, and falls back to the template with a
+  visible note on any error or missing API key. Provider keys are read from the
+  environment only. Built and unit-tested; never run against a live provider.
+
+Both **scrub** the input (injection attempts surface as data, never change the
+draft) and never guess the market (`§6`: symbol/timeframe are used only when
+both are supplied). Anything the owner left unspecified is recorded as an
+ambiguity — e.g. `AMBIGUOUS_PARAMETER` for "RSI is low" (which never becomes
+"RSI < 30"), `MISSING_SL`, `UNRESOLVED_MARKET` — and surfaced as a question,
+never filled in. The operator-facing **restatement is derived from the
+SCRUBBED draft**, not echoed from the owner's words, so it reflects exactly
+what the system understood.
+
 ## The guided strategy conversation
 
 For a non-developer owner, the intake is a step-by-step dialogue

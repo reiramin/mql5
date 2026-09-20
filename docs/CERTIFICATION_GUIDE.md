@@ -11,6 +11,24 @@ matrices), `AEGIS_EMPIRICAL_LANE_PACKAGE.md` (empirical package).
 MT5 validation; gold pass ⇏ empirical qualification; empirical pass
 without reconciliation ⇏ VERIFIED; parser success ⇏ anything runtime.
 
+## The 11-stage owner gate — where it actually stands
+
+The owner runs the whole ladder with one command
+(`tools/owner_gate.ps1`); it self-protects, walks stages 0–10, and STOPS
+at the first failure. The first full run (2026-09-20, MT5 build 6184) is
+the account of record in [OWNER_DELIVERY.md](OWNER_DELIVERY.md); this
+guide must not overstate it:
+
+| Stage | Result on the 2026-09-20 run |
+|---|---|
+| 0 self-protection · 1 strict compile (0/0) · 2 DSL parity (14/14) · 3 broker parity (12 MATCH) · 4 fixture import | **PASS** (MT5-VALIDATED for that run; evidence is owner-side, gitignored) |
+| 5 Strategy Tester legs | **FAIL** (`GATE_RESULT=tester_legs`) — 3 legs FAIL, 2 legs BLOCKED_OWNER_ENVIRONMENT (build 6184 wrote no `[Tester]` Report file; a BLOCKED leg is **not** a pass) |
+| 6–10 reconciliation (incl. 8a–8d), archive, certify | **NEVER RUN** — the gate stopped at stage 5 |
+
+**Nothing is VERIFIED.** Stage 8 (the binding Python↔MQL5 executed-trade
+reconciliation) has never run, and only a run that ends
+`GATE_RESULT=certified` can put VERIFIED on anything.
+
 ## Lane 1 — GOLD semantic lane
 
 Question: *do the Python, DSL and MQL5 implementations agree on the

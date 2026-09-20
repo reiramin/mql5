@@ -11,6 +11,18 @@
 - **Rate-limited**: per-alert-kind, `alert_rate_limit_seconds` (default 300s) — an attacker cannot spam the operator channel into silence.
 - **No secrets**: the default channel is stdout/log; a webhook URL may be injected via environment by the host process, never hardcoded.
 
+## Concrete channel: Telegram
+
+`mql5bot.notify.telegram.TelegramChannel` is a ready-made `channel` for the
+Watchdog — `Watchdog(channel=TelegramChannel())` delivers each alert to a
+Telegram chat. It reads its credentials from the environment only, scrubs the
+bot token by value from every error, bounds each send with a timeout (never
+blocking the Watchdog), and skips sends that arrive inside its minimum
+interval. See [TELEGRAM.md](TELEGRAM.md). Built and unit-tested; never run live.
+When the Telegram operator (`mql5bot.notify.telegram_ops`) is running, the same
+channel also carries the daily digest and the `status/positions/report/stop`
+commands.
+
 ## External hosting (§44)
 
 The component takes injected `clock` and `channel`, holds no global state, and is safe to run in a separate process (`python -c "from mql5bot.discovery.safety import Watchdog; ..."`). The shipped deployment harness (systemd/container) is **NOT_IMPLEMENTED** in this mission; when hosted externally it must use a read-only view of equity/telemetry and its own clock, so a Factory crash cannot silence it (§81 failure-model: engine-dead and watchdog-dead are independently observable).

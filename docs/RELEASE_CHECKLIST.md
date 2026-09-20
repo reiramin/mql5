@@ -12,7 +12,8 @@ checkable; none may be skipped or softened.
  3. Python dependencies coherent         pyproject extras == real imports;
                                           no drift with requirements.txt
  4. Tests pass                           python -m pytest  (0 failed / 0 errors)
- 5. Static checks pass                   ruff check python tests (clean);
+ 5. Static checks pass                   ruff check python/ tests/ tools/ factory/
+                                          (clean, canonical scope);
                                           authority/order-sending scans clean
  6. Docs consistency checks pass         tests/test_docs_contract.py green
  7. Gold fixtures intact                 Gold #1 regen byte-identical;
@@ -32,6 +33,19 @@ checkable; none may be skipped or softened.
 14. Main pushed                          origin main == local main
 15. Final commit recorded                CHANGELOG entry names the release
 ```
+
+## Before any real money — the pre-live checklist
+
+This checklist aligns with, and does not replace, the ordered pre-live
+checklist in [OWNER_DELIVERY.md](OWNER_DELIVERY.md) §5 — that is the
+account of record. As of the 2026-09-20 gate run, stages 0–4 PASS, stage
+5 FAILs, and stages 6–10 have never run, so **nothing is VERIFIED**. In
+order: rebuild the gold #1 fixture long enough for MT5's warm-up
+reservation; get MT5 to write the `[Tester]` Report file; run stage 5 to
+a real PASS (including a leg with a generated DSL bundle); run stage 8
+reconciliation; get the BTC denomination verdict; let stages 9–10
+complete; then ≥4 weeks demo / ≥30 trades; then a VPS deployment and an
+uptime/recovery drill (see [DEPLOYMENT.md](DEPLOYMENT.md) — never done).
 
 ## Owner-side MT5 release gate
 

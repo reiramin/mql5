@@ -5,6 +5,15 @@ Written for the project owner. Exact contracts live in `SPEC.md`,
 how the pieces behave together. Numbers and semantics here always defer
 to those documents.
 
+> **Status — read first.** Nothing in this project is certified. The first
+> full owner gate run (2026-09-20) reached stages 0–4 PASS, stage 5 FAIL,
+> and stages 6–10 never ran; no strategy is VERIFIED and none has traded a
+> demo or a live account. The account of record is
+> [OWNER_DELIVERY.md](OWNER_DELIVERY.md). The bot trades **only while
+> MetaTrader 5 is running and connected** — close the terminal or sleep the
+> PC and it stops (see [MT5_SETUP_AND_OPERATION.md](MT5_SETUP_AND_OPERATION.md)
+> and [DEPLOYMENT.md](DEPLOYMENT.md)).
+
 ## High level
 
 On every new bar (and, depending on the engine, on tick events), the EA:
@@ -94,6 +103,31 @@ legal stop is rejected, not approximated.
 | Insufficient history/indicators warming up | warmup semantics: no signal until the indicator contract is computable (see `DECISIONS.md`) |
 | Risk veto | entry rejected; the veto is journaled |
 | Defensive state (daily loss / drawdown / manual latch) | Kill Switch latched: zero new orders until explicitly reset; exits still managed |
+
+## The owner surfaces you can run
+
+Each is **built, unit-tested, and never run live**, and none can place an
+order or mark a strategy LIVE.
+
+| Command | What it is |
+|---|---|
+| `python -m mql5bot ...` | the quant-toolkit CLI (data, backtest, compare, optimize, walkforward, dashboard); add `--lang fa` for Persian output |
+| `python -m mql5bot.factory.cli ...` | the Factory CLI — research/spec only, never trades |
+| `python -m mql5bot.api` | the operator console; view state, stop trading, run the guided conversation; Persian RTL status page at `?lang=fa` (needs `uvicorn`) |
+| `python -m mql5bot.notify.telegram_ops` | the Telegram operator — daily digest, per-trade notifications, and the `status`/`positions`/`report`/`stop` commands |
+| `python -m mql5bot.telemetry_bridge` | the collector the EA POSTs heartbeat/trade/alert events to |
+
+**Stopping vs starting is asymmetric.** You can stop trading from Telegram
+(`stop`, immediate, no confirmation), but you can never resume from Telegram —
+resuming is a console action only. See [TELEGRAM.md](TELEGRAM.md) and
+[KILL_SWITCH.md](KILL_SWITCH.md).
+
+**Describing a strategy in words.** The guided conversation
+([FACTORY_GUIDE.md](FACTORY_GUIDE.md)) takes Persian text → a restatement you
+must accept → a question for anything you left unspecified → a schema check.
+Its pass means **SCHEMA-VALIDATED — structure only; the strategy has NOT been
+tested**. Testing it (backtest/robustness/out-of-sample) and reaching MT5 are
+separate, not-yet-done steps.
 
 ## Safety rules for operators
 

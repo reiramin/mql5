@@ -63,6 +63,31 @@ MT5 Broker
 The twins agree by construction on completed-bar semantics and are
 pinned by the gold fixtures (`artifacts/gold/`, `artifacts/gold_2/`).
 
+## Operator surfaces (`notify/`, `api/`)
+
+Built for the owner; each is **built, unit-tested, and never run live**,
+and none has order authority.
+
+- **`notify/`** — the alert/notification channels. `telegram.py` delivers
+  Watchdog alerts to Telegram (env-only creds, token scrubbed by value,
+  bounded timeout, min-send interval). `telegram_ops.py` adds the daily
+  digest, per-trade notifications and the `status/positions/report/stop`
+  commands, and trips the Kill Switch on `stop` — asymmetric friction:
+  stop from Telegram, resume console-only (see [TELEGRAM.md](TELEGRAM.md),
+  [KILL_SWITCH.md](KILL_SWITCH.md)).
+- **`api/`** — the FastAPI operator console (`python -m mql5bot.api`): a
+  read-and-control surface over the store and the safety chain. It can
+  view state, stop the bot, and drive the guided conversation; it can
+  never mark a strategy LIVE (source-scan tested). It also serves the
+  opt-in Persian RTL status page (`?lang=fa`, see
+  [PERSIAN_CONSOLE.md](PERSIAN_CONSOLE.md)).
+
+**Split deployment.** Because the EA POSTs telemetry outward via
+`WebRequest` to `telemetry_bridge.py`, the Python side never has to run on
+the MT5 machine: MT5 on a small Windows host, the Python services on a
+cheap Linux host. This is a documented procedure, never deployed or
+drilled — see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## Data flow (certification)
 
 ```
