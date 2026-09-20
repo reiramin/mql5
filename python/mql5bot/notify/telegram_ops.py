@@ -28,14 +28,20 @@ allow-list is ignored and logged WITHOUT echoing its content.
 
 from __future__ import annotations
 
+import argparse
 import datetime as _dt
+import json
 import logging
 import os
+import sys
+import time
+import urllib.parse
+import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from ..discovery.safety import KillSwitch
-from .telegram import TelegramChannel
+from .telegram import ENV_BOT_TOKEN, TelegramChannel, TelegramConfigError
 
 _LOG = logging.getLogger("mql5bot.notify.telegram_ops")
 
@@ -265,7 +271,96 @@ class TelegramOperator:
         ])
 
 
+# ---------------------------------------------------------------------------
+# Runner: ``python -m mql5bot.notify.telegram_ops``
+# ---------------------------------------------------------------------------
+
+BANNER = (
+    "AEGIS Telegram operator\n"
+    "  WHAT IT IS : the owner's phone surface — daily digest, per-trade\n"
+    "               notifications, and the commands status/positions/report/stop.\n"
+    "  ASYMMETRIC FRICTION : you CAN stop trading from Telegram; you CANNOT\n"
+    "               resume from Telegram — resuming is only possible from the\n"
+    "               console. A lost phone can only ever stop the bot.\n"
+    "  Nothing here is certified. Built and unit-tested; never run live."
+)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="mql5bot.notify.telegram_ops",
+        description="Run the AEGIS Telegram operator (digest + commands).")
+    p.add_argument("--poll-interval", type=float, default=2.0,
+                   help="seconds between getUpdates polls (default: 2.0)")
+    p.add_argument("--long-poll-timeout", type=int, default=30,
+                   help="Telegram long-poll timeout seconds (default: 30)")
+    return p
+
+
+def _placeholder_state() -> OpsState:
+    """A conservative snapshot used until live telemetry is wired: it reports
+    NOT connected rather than inventing activity. Honest by construction."""
+    return OpsState(alive=False, trades_today=0, realised_pnl_today=0.0,
+                    open_positions=(), drawdown_limit_pct=0.0,
+                    drawdown_used_pct=0.0)
+
+
+def poll_forever(operator: TelegramOperator, token: str, *,
+                 poll_interval: float = 2.0,
+                 long_poll_timeout: int = 30) -> None:  # pragma: no cover
+    """Long-poll Telegram getUpdates and dispatch commands to ``operator``.
+
+    Never run in the test suite (no network). The bot token is used only to
+    build the request URL and is never logged."""
+    base = f"https://api.telegram.org/bot{token}/getUpdates"
+    offset = 0
+    while True:
+        try:
+            query = urllib.parse.urlencode(
+                {"offset": offset, "timeout": long_poll_timeout})
+            req = urllib.request.Request(f"{base}?{query}")
+            with urllib.request.urlopen(
+                    req, timeout=long_poll_timeout + 5) as resp:
+                payload = json.loads(resp.read() or b"{}")
+            for update in payload.get("result", []):
+                offset = max(offset, int(update.get("update_id", 0)) + 1)
+                msg = update.get("message") or {}
+                chat_id = (msg.get("chat") or {}).get("id")
+                text = msg.get("text", "")
+                if chat_id is not None and text:
+                    operator.on_command(chat_id, text)
+        except Exception as exc:  # noqa: BLE001 — keep polling on any error
+            _LOG.warning("telegram poll error: %r", type(exc).__name__)
+            time.sleep(poll_interval)
+
+
+def main(argv: list[str] | None = None, *,
+         env: Mapping[str, str] | None = None) -> int:
+    """Entry point for ``python -m mql5bot.notify.telegram_ops``.
+
+    Reads ALL configuration from the environment. If a required variable is
+    missing it refuses to start with a message naming the variable (never its
+    value) and returns a non-zero code — it does not poll."""
+    args = build_parser().parse_args(argv)
+    source = os.environ if env is None else env
+    print(BANNER)
+    try:
+        channel = TelegramChannel(env=source)
+    except TelegramConfigError as exc:
+        # the message names the missing variable and NOT its value
+        print(f"refusing to start: {exc}", file=sys.stderr)
+        return 2
+    operator = TelegramOperator(
+        channel=channel, kill_switch=KillSwitch(),
+        state_provider=_placeholder_state, env=source)
+    token = source.get(ENV_BOT_TOKEN, "")
+    poll_forever(operator, token, poll_interval=args.poll_interval,
+                 long_poll_timeout=args.long_poll_timeout)
+    return 0
+
+
 __all__ = [
+    "BANNER",
     "COMMANDS",
     "ENV_ALLOWED_CHATS",
     "ENV_DIGEST_TIME",
@@ -273,4 +368,10 @@ __all__ = [
     "OpenPosition",
     "OpsState",
     "TelegramOperator",
+    "build_parser",
+    "main",
 ]
+
+
+if __name__ == "__main__":
+    sys.exit(main())
