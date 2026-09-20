@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Strategies — Mql5Bot Console{% endblock %}
+{% block content %}
+<h1 style="font-size:1.15rem">{{ 'استراتژی‌ها' if lang == 'fa' else 'Strategies' }}</h1>
+<p><a class="btn" href="/new{{ '?lang=fa' if lang == 'fa' else '' }}">
+  {{ 'استراتژی جدید (گفت‌وگو)' if lang == 'fa' else 'New strategy (conversation)' }}</a></p>
+{% if strategies %}
+  {% for s in strategies %}
+  <div class="card">
+    <div><a href="/strategy/{{ s.strategy_id }}{{ '?lang=fa' if lang == 'fa' else '' }}"
+            class="ltr">{{ s.strategy_id }}</a>
+         <span class="dim">v{{ s.version }}</span></div>
+    <div class="rail" style="display:flex;flex-wrap:wrap;gap:.25rem;margin:.5rem 0;">
+      {% for st in ladder %}
+      <span class="ltr" style="font-size:.72rem;padding:.15rem .45rem;border-radius:999px;
+            {% if st == s.state %}background:#1d3b2a;color:#7be0a2;font-weight:700;
+            {% elif loop.index0 < s.state_index %}background:#232b36;color:#9fb3c8;
+            {% else %}background:#161b22;color:#5b6673;{% endif %}">{{ st }}</span>
+      {% endfor %}
+      {% if s.state not in ladder %}
+      <span class="ltr" style="font-size:.72rem;padding:.15rem .45rem;border-radius:999px;
+            background:#4b3b19;color:#ffd479;font-weight:700;">{{ s.state }}</span>
+      {% endif %}
+    </div>
+    <div class="dim" style="font-size:.85rem">
+      {{ 'چرا اینجاست:' if lang == 'fa' else 'Why it is here:' }}
+      <span class="ltr">{{ s.why }}</span>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="empty">{{ 'هنوز استراتژی‌ای ثبت نشده است — از «استراتژی جدید» شروع کنید'
+                     if lang == 'fa' else
+                     'no strategies registered yet — start with “New strategy”' }}</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Trades — Mql5Bot Console{% endblock %}
+{% block content %}
+<h1 style="font-size:1.15rem">{{ 'معاملات / trades' if lang == 'fa' else 'Trades' }}</h1>
+<p><span class="live-dot" data-live-dot></span>
+   <span data-live-text
+         data-live-on="{{ 'اتصال زنده' if lang == 'fa' else 'live' }}"
+         data-live-off="{{ 'وصل نیست / not connected' if lang == 'fa' else 'not connected' }}">
+     {{ 'وصل نیست / not connected' if lang == 'fa' else 'not connected' }}</span></p>
+
+<h2 style="font-size:1rem">{{ 'موقعیت‌های باز' if lang == 'fa' else 'Open positions' }}</h2>
+{% if open_positions %}
+<div class="card"><table>
+  <thead><tr>
+    <th>{{ 'نماد' if lang == 'fa' else 'symbol' }}</th>
+    <th>{{ 'جهت' if lang == 'fa' else 'side' }}</th>
+    <th>{{ 'حجم' if lang == 'fa' else 'lots' }}</th>
+    <th>P&amp;L</th>
+    <th>{{ 'فاصله تا حد ضرر' if lang == 'fa' else 'distance to loss limit' }}</th>
+  </tr></thead>
+  <tbody>
+  {% for p in open_positions %}
+    <tr><td class="ltr">{{ p.symbol }}</td><td>{{ p.side }}</td>
+        <td class="ltr">{{ p.lots }}</td><td class="ltr">{{ p.pnl }}</td>
+        <td class="ltr">{{ distance_pct }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}
+<div class="empty">{{ 'وصل نیست / not connected — هیچ منبع موقعیت زنده‌ای پیکربندی نشده است'
+                     if lang == 'fa' else
+                     'not connected — no live position source is configured' }}</div>
+{% endif %}
+
+<h2 style="font-size:1rem">{{ 'معاملات امروز' if lang == 'fa' else "Today's closed trades" }}</h2>
+<div id="today-trades">
+{% if today_trades %}
+<div class="card"><table>
+  <thead><tr><th>{{ 'زمان' if lang == 'fa' else 'time' }}</th>
+      <th>{{ 'نماد' if lang == 'fa' else 'symbol' }}</th>
+      <th>{{ 'اقدام' if lang == 'fa' else 'action' }}</th>
+      <th>{{ 'حجم' if lang == 'fa' else 'lots' }}</th><th>P&amp;L</th></tr></thead>
+  <tbody>
+  {% for t in today_trades %}
+    <tr><td class="ltr">{{ t.time }}</td><td class="ltr">{{ t.symbol }}</td>
+        <td>{{ t.action }}</td><td class="ltr">{{ t.lots }}</td>
+        <td class="ltr">{{ t.pnl }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="dim">{{ 'فاصله تا حد ضرر' if lang == 'fa' else 'distance to loss limit' }}:
+   <span class="ltr">{{ distance_pct }}</span></p>
+{% else %}
+<div class="empty">{{ 'داده‌ای نیست — پل تله‌متری وصل نیست / not connected'
+                     if lang == 'fa' else
+                     'no data — the telemetry bridge is not connected' }}</div>
+{% endif %}
+</div>
+
+<h2 style="font-size:1rem">{{ 'تاریخچه' if lang == 'fa' else 'History' }}</h2>
+{% if history_rows %}
+<div class="card"><table>
+  <thead><tr><th>{{ 'زمان' if lang == 'fa' else 'time' }}</th>
+      <th>{{ 'نماد' if lang == 'fa' else 'symbol' }}</th>
+      <th>{{ 'اقدام' if lang == 'fa' else 'action' }}</th>
+      <th>{{ 'حجم' if lang == 'fa' else 'lots' }}</th><th>P&amp;L</th></tr></thead>
+  <tbody>
+  {% for t in history_rows %}
+    <tr><td class="ltr">{{ t.time }}</td><td class="ltr">{{ t.symbol }}</td>
+        <td>{{ t.action }}</td><td class="ltr">{{ t.lots }}</td>
+        <td class="ltr">{{ t.pnl }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p>
+  {% if page > 0 %}<a href="/trades?page={{ page - 1 }}{{ '&lang=fa' if lang == 'fa' else '' }}">&larr; {{ 'جدیدتر' if lang == 'fa' else 'newer' }}</a>{% endif %}
+  {% if has_more %}<a href="/trades?page={{ page + 1 }}{{ '&lang=fa' if lang == 'fa' else '' }}">{{ 'قدیمی‌تر' if lang == 'fa' else 'older' }} &rarr;</a>{% endif %}
+</p>
+{% else %}
+<div class="empty">{{ 'تاریخچه‌ای نیست — فایل تله‌متری پیکربندی نشده یا خالی است / not configured'
+                     if lang == 'fa' else
+                     'no history — the telemetry log is not configured or empty' }}</div>
+{% endif %}
+
+<script>
+window.onTelemetryEvent = function (data) {
+  if (!data || data.event !== "trade") { return; }
+  var tbl = document.querySelector("#today-trades tbody");
+  if (!tbl) { window.location.reload(); return; }
+  var tr = document.createElement("tr");
+  function td(v, ltr) { var c = document.createElement("td");
+    if (ltr) { c.className = "ltr"; } c.textContent = (v === undefined || v === null) ? "" : v; return c; }
+  tr.appendChild(td(new Date().toLocaleTimeString(), true));
+  tr.appendChild(td(data.symbol, true));
+  tr.appendChild(td(data.action, false));
+  tr.appendChild(td(data.lots, true));
+  tr.appendChild(td(data.pnl, true));
+  tbl.insertBefore(tr, tbl.firstChild);
+};
+</script>
+{% endblock %}

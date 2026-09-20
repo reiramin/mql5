@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Settings — Mql5Bot Console{% endblock %}
+{% block content %}
+<h1 style="font-size:1.15rem">{{ 'تنظیمات و سلامت' if lang == 'fa' else 'Settings & health' }}</h1>
+<p class="dim">{{ 'نام متغیرها نمایش داده می‌شود، هرگز مقدارشان.' if lang == 'fa'
+                 else 'Variable NAMES are shown, never their values.' }}</p>
+{% if checks %}
+{% for c in checks %}
+<div class="card">
+  <div>
+    {% if c.ok %}<span style="color:var(--green)">●</span>
+    {% elif c.ok is none %}<span style="color:var(--dim)">●</span>
+    {% else %}<span style="color:var(--amber)">●</span>{% endif %}
+    <strong>{{ c.label_fa if lang == 'fa' else c.label_en }}</strong>
+  </div>
+  <div class="dim" style="font-size:.85rem">
+    <span class="ltr">{{ c.detail }}</span>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">{{ 'داده‌ای نیست' if lang == 'fa' else 'nothing to show' }}</div>
+{% endif %}
+{% endblock %}

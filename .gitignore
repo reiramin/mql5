@@ -20,6 +20,13 @@ results/
 reports/
 *.log
 
+# Local databases (the console/factory SQLite store must never enter the
+# tree — a stray factory.db makes stage 0 of the owner gate refuse the
+# dirty working tree). The console runner also defaults its DB to a
+# per-user data directory OUTSIDE the repo (api/__main__.py).
+*.db
+factory.db*
+
 # owner_gate.ps1 append-only run output. The gate creates
 # evidence/owner_gate/<UTC>/ on every run; without this entry its own output
 # would make the working tree dirty and the stage-0 clean-tree self-check

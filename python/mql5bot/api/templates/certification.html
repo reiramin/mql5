@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Certification — Mql5Bot Console{% endblock %}
+{% block content %}
+<h1 style="font-size:1.15rem">{{ 'گواهی — گیت ۱۱ مرحله‌ای' if lang == 'fa' else 'Certification — the 11-stage gate' }}</h1>
+<p class="dim">{{ 'این صفحه فقط‌خواندنی است: شواهد را نمایش می‌دهد و هیچ چیزی را اجرا یا تغییر نمی‌دهد.'
+                 if lang == 'fa' else
+                 'This page is READ-ONLY: it displays evidence and runs or changes nothing.' }}</p>
+{% if not evidence_configured %}
+<div class="empty">{{ 'مسیر شواهد پیکربندی نشده است / not configured — متغیر MQL5BOT_EVIDENCE_DIR را تنظیم کنید'
+                     if lang == 'fa' else
+                     'evidence directory not configured — set MQL5BOT_EVIDENCE_DIR to the gate run to display' }}</div>
+{% elif error %}
+<div class="empty"><span class="ltr">{{ error }}</span></div>
+{% else %}
+<p class="dim">{{ 'مسیر شواهد' if lang == 'fa' else 'Evidence dir' }}:
+   <span class="ltr">{{ evidence_dir }}</span>
+   {% if gate_result %} — <span class="ltr">GATE_RESULT={{ gate_result }}</span>{% endif %}</p>
+{% for st in stages %}
+<div class="card">
+  <div><strong class="ltr">stage {{ st.stage }} — {{ st.name }}</strong>
+    <span class="ltr" style="padding:.1rem .5rem;border-radius:999px;font-size:.75rem;
+      {% if st.status == 'PASS' %}background:#1d3b2a;color:#7be0a2;
+      {% elif st.status == 'FAIL' %}background:#4b1d1d;color:#ff8484;
+      {% elif 'BLOCKED' in st.status %}background:#4b3b19;color:#ffd479;
+      {% else %}background:#161b22;color:#5b6673;{% endif %}">{{ st.status }}</span>
+    {% if st.status_explained %}<span class="dim" style="font-size:.85rem"> — {{ st.status_explained }}</span>{% endif %}
+  </div>
+  {% if st.reason %}<div class="dim" style="margin-top:.3rem"><span class="ltr">{{ st.reason }}</span></div>{% endif %}
+  {% if st.artifacts %}
+  <details style="margin-top:.3rem"><summary class="dim">{{ 'آرتیفکت‌ها و هش‌ها' if lang == 'fa' else 'artifacts & hashes' }}</summary>
+    <ul style="font-size:.8rem">
+    {% for a in st.artifacts %}
+      <li><span class="ltr">{{ a.sha256 }} — {{ a.path }}</span></li>
+    {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  {% if st.legs %}
+  <div style="margin-top:.4rem">
+    {% for leg in st.legs %}
+    <div style="border-inline-start:3px solid #3a4654;padding:.3rem .6rem;margin:.3rem 0;">
+      <div><span class="ltr"><strong>{{ leg.name }}</strong></span>
+        — <span class="ltr">{{ leg.verdict }}</span>
+        {% if leg.verdict_explained %}<span class="dim" style="font-size:.85rem"> — {{ leg.verdict_explained }}</span>{% endif %}</div>
+      {% if leg.reason %}<div class="dim" style="font-size:.85rem"><span class="ltr">{{ leg.reason }}</span></div>{% endif %}
+      {% for line in leg.log_lines %}
+      <pre class="ltr" style="font-size:.75rem;overflow-x:auto;background:#0c0f13;
+           padding:.3rem .5rem;border-radius:4px;margin:.2rem 0;">{{ line }}</pre>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

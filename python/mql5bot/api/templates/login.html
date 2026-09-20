@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'fa' else 'ltr' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mql5Bot Console — login</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background:#101418; color:#e6e6e6;
+           display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+    form { background:#1a2028; border-radius:8px; padding:1.2rem; width:min(22rem, 92vw); }
+    input { width:100%; background:#0c0f13; color:#e6e6e6; border:1px solid #3a4654;
+            border-radius:6px; padding:.55rem; margin:.6rem 0; }
+    button { width:100%; background:#232b36; color:#e6e6e6; border:1px solid #3a4654;
+             border-radius:6px; padding:.6rem; cursor:pointer; }
+    .err { color:#ff8484; font-size:.9rem; }
+    .dim { color:#9fb3c8; font-size:.85rem; }
+  </style>
+</head>
+<body>
+  <form method="post" action="/login">
+    <h1 style="font-size:1.1rem">ورود به کنسول / Console login</h1>
+    <p class="dim">توکن مالک را وارد کنید / enter the owner token
+       (<span dir="ltr">MQL5BOT_CONSOLE_TOKEN</span>)</p>
+    {% if error %}<p class="err">{{ error }}</p>{% endif %}
+    <input type="password" name="token" autocomplete="off" autofocus
+           aria-label="owner token">
+    <button type="submit">ورود / log in</button>
+  </form>
+</body>
+</html>

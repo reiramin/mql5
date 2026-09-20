@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'fa' else 'ltr' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Mql5Bot Console{% endblock %}</title>
+  <style>
+    /* Self-contained: no CDN, no external font or script. */
+    :root { --bg:#101418; --panel:#1a2028; --card:#232b36; --fg:#e6e6e6;
+            --dim:#9fb3c8; --link:#7fd1ff; --warn-bg:#2a2213; --warn-bd:#6b5418;
+            --warn-fg:#ffd479; --red:#e74c3c; --green:#2ecc71; --amber:#f1c40f; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin:0; background:var(--bg);
+           color:var(--fg); min-height:100vh; }
+    a { color: var(--link); }
+    a:focus, button:focus, input:focus { outline: 2px solid var(--link); outline-offset: 2px; }
+    nav.console { display:flex; flex-wrap:wrap; gap:.25rem; align-items:center;
+                  background:var(--panel); padding:.5rem .8rem; }
+    nav.console a { text-decoration:none; padding:.45rem .7rem; border-radius:6px;
+                    font-size:.95rem; }
+    nav.console a[aria-current="page"] { background:var(--card); font-weight:700; }
+    nav.console .spacer { flex:1; }
+    .banner { background:var(--warn-bg); border-bottom:1px solid var(--warn-bd);
+              color:var(--warn-fg); padding:.5rem .8rem; font-size:.85rem; }
+    .banner .ltr { unicode-bidi:isolate; direction:ltr; }
+    main { padding:1rem .8rem; max-width:52rem; margin:0 auto; }
+    .card { background:var(--card); border-radius:8px; padding:.8rem .9rem;
+            margin:.6rem 0; }
+    .dim { color:var(--dim); }
+    .ltr { unicode-bidi:isolate; direction:ltr; }
+    .empty { border:1px dashed #3a4654; border-radius:8px; padding:1rem;
+             color:var(--dim); text-align:center; margin:.8rem 0; }
+    button, .btn { background:var(--card); color:var(--fg); border:1px solid #3a4654;
+             border-radius:6px; padding:.5rem .9rem; cursor:pointer; font-size:.95rem; }
+    button.danger { background:#4b1d1d; border-color:#6b2a2a; color:#ff8484; }
+    input, textarea, select { background:#0c0f13; color:var(--fg); border:1px solid #3a4654;
+             border-radius:6px; padding:.45rem; font-size:.95rem; max-width:100%; }
+    .live-dot { display:inline-block; width:.6rem; height:.6rem; border-radius:999px;
+                background:var(--dim); vertical-align:middle; }
+    .live-dot.on { background:var(--green); }
+    table { border-collapse:collapse; width:100%; font-size:.9rem; }
+    th, td { text-align:start; padding:.35rem .5rem; border-bottom:1px solid #2c3542; }
+    @media (max-width: 40rem) { nav.console a { padding:.4rem .5rem; font-size:.85rem; } }
+  </style>
+</head>
+<body>
+<nav class="console" aria-label="console">
+  {% for item in nav_items %}
+  <a href="{{ item.href }}{{ '?lang=fa' if lang == 'fa' else '' }}"
+     {% if item.current %}aria-current="page"{% endif %}>{{ item.label }}</a>
+  {% endfor %}
+  <span class="spacer"></span>
+  {% if lang == 'fa' %}
+  <a href="{{ request.url.path }}">English</a>
+  {% else %}
+  <a href="{{ request.url.path }}?lang=fa">فارسی</a>
+  {% endif %}
+  {% if auth_enabled %}<a href="/logout">{{ 'خروج / logout' if lang == 'fa' else 'logout' }}</a>{% endif %}
+</nav>
+<div class="banner">
+  {{ 'هنوز اثبات‌نشده / not yet proven:' if lang == 'fa' else 'Not yet proven:' }}
+  <span class="ltr">{{ unproven_reason }}</span>
+  — <span class="ltr">{{ unproven_status }}</span>
+</div>
+<main>
+{% block content %}{% endblock %}
+</main>
+<script>
+/* Live updates: ONE EventSource per page, reconnect with backoff, and an
+   honest disconnected state — never a fabricated number. A page opts in by
+   defining window.onTelemetryEvent(data). */
+(function () {
+  "use strict";
+  if (typeof window.onTelemetryEvent !== "function") { return; }
+  var delay = 1000, maxDelay = 30000, es = null;
+  function setLive(on, lastSeen) {
+    document.querySelectorAll("[data-live-dot]").forEach(function (d) {
+      d.classList.toggle("on", on);
+    });
+    document.querySelectorAll("[data-live-text]").forEach(function (t) {
+      t.textContent = on ? t.getAttribute("data-live-on")
+                         : t.getAttribute("data-live-off") +
+                           (lastSeen ? " (" + lastSeen + ")" : "");
+    });
+  }
+  function connect() {
+    try { es = new EventSource("/telemetry/stream"); } catch (e) { retry(); return; }
+    es.onopen = function () { delay = 1000; setLive(true, null); };
+    es.onmessage = function (ev) {
+      try { window.onTelemetryEvent(JSON.parse(ev.data)); } catch (e) {}
+    };
+    es.onerror = function () {
+      es.close();
+      setLive(false, new Date().toLocaleTimeString());
+      retry();
+    };
+  }
+  function retry() {
+    setTimeout(connect, delay);
+    delay = Math.min(delay * 2, maxDelay);
+  }
+  setLive(false, null);
+  connect();
+})();
+</script>
+</body>
+</html>

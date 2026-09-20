@@ -10,11 +10,18 @@ gates + human approval).
 from __future__ import annotations
 
 import json
+import os
+import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
 
@@ -23,6 +30,31 @@ from ..factory.conversation import GuidedConversation
 from ..factory.store import FactoryStore, StoreError
 from ..i18n import explain_status, isolate_ltr
 from ..status import EMPIRICAL_VALIDATION_PENDING, certify_status_model
+from .auth import (
+    ENV_CONSOLE_TOKEN,
+    SESSION_COOKIE,
+    session_valid,
+    session_value,
+    token_matches,
+)
+
+# Console data-source configuration — environment variable NAMES (the console
+# never renders a value, only whether the name is set).
+ENV_TELEMETRY_URL = "MQL5BOT_TELEMETRY_URL"      # the telemetry bridge base URL
+ENV_TELEMETRY_LOG = "MQL5BOT_TELEMETRY_LOG"      # the bridge's JSONL file
+ENV_EVIDENCE_DIR = "MQL5BOT_EVIDENCE_DIR"        # an owner gate evidence dir
+ENV_CONSOLE_DATASET = "MQL5BOT_CONSOLE_DATASET"  # CSV for Python validation
+
+# The six console sections. English default of the EXISTING routes is
+# untouched; these drive the shared shell of the NEW pages.
+_NAV = (
+    ("home", "/", "Home", "خانه / home"),
+    ("strategies", "/strategies", "Strategies", "استراتژی‌ها"),
+    ("new", "/new", "New strategy", "استراتژی جدید"),
+    ("trades", "/trades", "Trades", "معاملات"),
+    ("certification", "/certification", "Certification", "گواهی"),
+    ("settings", "/settings", "Settings", "تنظیمات"),
+)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -98,13 +130,72 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
                *, score_fn: Callable[[str], dict] | None = None,
                research_runner: Callable[[dict], dict] | None = None,
                campaign_query: Callable[[], list[dict]] | None = None,
-               live_state: Callable[[], object] | None = None
+               live_state: Callable[[], object] | None = None,
+               console_token: str | None = None,
+               console_env: dict | None = None
                ) -> FastAPI:
     app = FastAPI(title="AEGIS Governance Console", version="1.0")
     env = Environment(autoescape=True,
                       loader=FileSystemLoader(str(TEMPLATES_DIR)))
     templates = Jinja2Templates(env=env)
     safety = safety or SafetyHub(KillSwitch(), AllocationCircuitBreaker())
+    cenv = os.environ if console_env is None else console_env
+
+    # ---- authentication (opt-in via MQL5BOT_CONSOLE_TOKEN) ------------------
+    # With no token configured the console runs in trusted loopback-only mode
+    # (the runner refuses any non-loopback bind in that mode). With a token,
+    # EVERY route except /login requires the signed session cookie. The token
+    # is never logged and never rendered.
+    _token = (console_token if console_token is not None
+              else cenv.get(ENV_CONSOLE_TOKEN, ""))
+    auth_enabled = bool(_token)
+
+    @app.middleware("http")
+    async def _require_session(request: Request, call_next):
+        if (auth_enabled and request.url.path not in ("/login", "/logout")
+                and not session_valid(
+                    request.cookies.get(SESSION_COOKIE), _token)):
+            return RedirectResponse("/login", status_code=303)
+        return await call_next(request)
+
+    @app.get("/login", response_class=HTMLResponse)
+    def login_page(request: Request):
+        lang = "fa" if request.query_params.get("lang") == "fa" else "en"
+        return templates.TemplateResponse(request, "login.html",
+                                          {"lang": lang, "error": ""})
+
+    @app.post("/login")
+    def login_submit(request: Request, token: str = Form("")):
+        # constant-time check (both sides hashed — length does not leak)
+        if auth_enabled and token_matches(token, _token):
+            resp = RedirectResponse("/", status_code=303)
+            resp.set_cookie(SESSION_COOKIE, session_value(_token),
+                            httponly=True, samesite="lax")
+            return resp
+        lang = "fa" if request.query_params.get("lang") == "fa" else "en"
+        return templates.TemplateResponse(
+            request, "login.html",
+            {"lang": lang,
+             "error": "توکن نادرست است / wrong token"},
+            status_code=403)
+
+    @app.get("/logout")
+    def logout():
+        resp = RedirectResponse("/login", status_code=303)
+        resp.delete_cookie(SESSION_COOKIE)
+        return resp
+
+    # ---- shared shell context for the NEW console pages --------------------
+    def _shell_ctx(request: Request, section: str) -> dict:
+        lang = "fa" if request.query_params.get("lang") == "fa" else "en"
+        cs = certify_status_model(EMPIRICAL_VALIDATION_PENDING, 0, 0)
+        nav = [{"href": href,
+                "label": label_fa if lang == "fa" else label_en,
+                "current": key == section}
+               for key, href, label_en, label_fa in _NAV]
+        return {"lang": lang, "nav_items": nav, "auth_enabled": auth_enabled,
+                "unproven_reason": cs["reason"],
+                "unproven_status": explain_status(cs["status"], lang)}
 
     def _strategy_rows() -> list[dict]:
         rows = []
@@ -470,6 +561,121 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
             "reason": verdict.reason,
             "remaining_after_schema": list(verdict.remaining_after_schema),
         })
+
+    # ---- console v2 sections (new pages; the legacy routes are untouched) --
+    LADDER = ("DRAFT", "PARSED", "VALIDATED", "BACKTESTED",
+              "ROBUSTNESS_PASS", "OOS_SURVIVOR", "SHADOW", "DEMO",
+              "LIVE_SMALL", "LIVE")
+
+    @app.get("/strategies", response_class=HTMLResponse)
+    def strategies_page(request: Request):
+        rows = []
+        for s in store.list_strategies():
+            state = s["state"]
+            rows.append({
+                "strategy_id": s["strategy_id"],
+                "version": s.get("version"),
+                "state": state,
+                "state_index": LADDER.index(state) if state in LADDER else -1,
+                "why": "",
+            })
+        ctx = _shell_ctx(request, "strategies")
+        ctx.update({"strategies": rows, "ladder": LADDER})
+        return templates.TemplateResponse(request, "strategies_list.html", ctx)
+
+    @app.get("/new", response_class=HTMLResponse)
+    def new_strategy_page(request: Request):
+        return templates.TemplateResponse(request, "new_strategy.html",
+                                          _shell_ctx(request, "new"))
+
+    @app.get("/trades", response_class=HTMLResponse)
+    def trades_page(request: Request, page: int = 0):
+        # Honest empty states until the sources are wired: a source that is
+        # not connected renders "not connected", never 0.
+        ctx = _shell_ctx(request, "trades")
+        distance = "وصل نیست / not connected"
+        open_positions: list = []
+        if live_state is not None:
+            s = live_state()
+            distance = f"{s.drawdown_distance_pct} pct"
+            open_positions = [
+                {"symbol": p.symbol, "side": p.side, "lots": p.lots,
+                 "pnl": ""} for p in s.open_positions]
+        ctx.update({"open_positions": open_positions, "today_trades": [],
+                    "history_rows": [], "page": page, "has_more": False,
+                    "distance_pct": distance})
+        return templates.TemplateResponse(request, "trades.html", ctx)
+
+    @app.get("/certification", response_class=HTMLResponse)
+    def certification_page(request: Request):
+        ctx = _shell_ctx(request, "certification")
+        ev = cenv.get(ENV_EVIDENCE_DIR, "")
+        ctx.update({"evidence_configured": bool(ev), "evidence_dir": ev,
+                    "gate_result": "", "stages": [], "error": ""})
+        if ev:
+            summary = Path(ev) / "gate_summary.json"
+            if not summary.exists():
+                ctx["error"] = f"gate_summary.json not found under {ev}"
+            else:
+                try:
+                    doc = json.loads(summary.read_text(encoding="utf-8"))
+                    ctx["gate_result"] = str(doc.get("gate_result", ""))
+                    lang = ctx["lang"]
+                    ctx["stages"] = [{
+                        "stage": st.get("stage"),
+                        "name": st.get("name", ""),
+                        "status": str(st.get("status", "NOT RUN")),
+                        "status_explained":
+                            explain_status(str(st.get("status", "")), lang)
+                            if lang == "fa" else "",
+                        "reason": str(st.get("reason", "") or ""),
+                        "artifacts": [a for a in (st.get("artifacts") or [])
+                                      if isinstance(a, dict)],
+                        "legs": [],
+                    } for st in doc.get("stages", [])]
+                except (ValueError, OSError) as exc:
+                    ctx["error"] = f"{type(exc).__name__}: {exc}"
+        return templates.TemplateResponse(request, "certification.html", ctx)
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings_page(request: Request):
+        ctx = _shell_ctx(request, "settings")
+        ctx.update({"checks": []})
+        return templates.TemplateResponse(request, "settings.html", ctx)
+
+    # ---- telemetry proxy (same-origin SSE for the pages' live updates) -----
+    @app.get("/telemetry/latest")
+    def telemetry_latest():
+        url = cenv.get(ENV_TELEMETRY_URL, "")
+        if not url:
+            raise HTTPException(503, "telemetry not configured "
+                                     f"(set {ENV_TELEMETRY_URL})")
+        try:
+            with urllib.request.urlopen(
+                    url.rstrip("/") + "/telemetry/latest", timeout=5) as r:
+                return JSONResponse(json.loads(r.read() or b"{}"))
+        except Exception:  # noqa: BLE001 — unreachable is an honest 503
+            raise HTTPException(503, "telemetry bridge unreachable") from None
+
+    @app.get("/telemetry/stream")
+    def telemetry_stream():
+        url = cenv.get(ENV_TELEMETRY_URL, "")
+        if not url:
+            raise HTTPException(503, "telemetry not configured "
+                                     f"(set {ENV_TELEMETRY_URL})")
+        try:
+            upstream = urllib.request.urlopen(
+                url.rstrip("/") + "/telemetry/stream", timeout=10)
+        except Exception:  # noqa: BLE001 — unreachable is an honest 503
+            raise HTTPException(503, "telemetry bridge unreachable") from None
+
+        def gen():
+            try:
+                with upstream:
+                    yield from upstream
+            except Exception:  # noqa: BLE001 — the browser reconnects
+                return
+        return StreamingResponse(gen(), media_type="text/event-stream")
 
     return app
 

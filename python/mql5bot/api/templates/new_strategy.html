@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}New strategy — Mql5Bot Console{% endblock %}
+{% block content %}
+<h1 style="font-size:1.15rem">{{ 'استراتژی جدید — گفت‌وگو' if lang == 'fa' else 'New strategy — a conversation' }}</h1>
+<p class="dim">
+  {{ 'استراتژی را به زبان خودتان بنویسید. سیستم بازنویسی می‌کند؛ هر چیزِ نامشخص را می‌پرسد؛ هیچ عددی از طرف شما اختراع نمی‌شود.'
+     if lang == 'fa' else
+     'Describe the strategy in your own words. The system restates it, asks about anything unspecified, and never invents a number for you.' }}
+</p>
+
+<div id="chat"></div>
+
+<div class="card" id="composer">
+  <label for="idea">{{ 'متن استراتژی' if lang == 'fa' else 'Strategy text' }}</label><br>
+  <textarea id="idea" rows="3" style="width:100%"
+    placeholder="{{ 'مثلاً: EMA 10 از EMA 30 بالا برود، حد ضرر ۲ ATR، حد سود ۳ ATR' if lang == 'fa' else 'e.g. EMA 10 crosses above EMA 30, stop 2 ATR, take profit 3 ATR' }}"></textarea>
+  <div style="display:flex;gap:.4rem;margin-top:.4rem;flex-wrap:wrap">
+    <input id="symbol" placeholder="symbol (EURUSD)" style="flex:1">
+    <input id="timeframe" placeholder="timeframe (H1)" style="flex:1">
+  </div>
+  <button id="send" style="margin-top:.5rem">{{ 'بفرست' if lang == 'fa' else 'Send' }}</button>
+</div>
+
+<script>
+(function () {
+"use strict";
+var chat = document.getElementById("chat");
+var LANG_FA = {{ 'true' if lang == 'fa' else 'false' }};
+var state = { draft: null, token: null };
+
+function bubble(text, who, ltr) {
+  var d = document.createElement("div");
+  d.className = "card";
+  d.style.borderInlineStart = who === "you" ? "3px solid #7fd1ff" : "3px solid #3a4654";
+  if (ltr) { d.classList.add("ltr"); }
+  d.textContent = text;
+  chat.appendChild(d);
+  d.scrollIntoView({behavior: "smooth", block: "end"});
+  return d;
+}
+
+function listBubble(title, items) {
+  var d = document.createElement("div");
+  d.className = "card";
+  d.style.borderInlineStart = "3px solid #6b5418";
+  var h = document.createElement("div"); h.textContent = title; d.appendChild(h);
+  items.forEach(function (q) {
+    var li = document.createElement("div");
+    li.style.margin = ".3rem 0"; li.textContent = "• " + q;
+    d.appendChild(li);
+  });
+  chat.appendChild(d);
+  return d;
+}
+
+function actions(buttons) {
+  var d = document.createElement("div");
+  d.className = "card";
+  buttons.forEach(function (b) {
+    var btn = document.createElement("button");
+    btn.textContent = b.label; btn.style.marginInlineEnd = ".4rem";
+    if (b.danger) { btn.className = "danger"; }
+    btn.onclick = function () { d.remove(); b.onclick(); };
+    d.appendChild(btn);
+  });
+  chat.appendChild(d);
+}
+
+function post(url, fields) {
+  var body = new URLSearchParams();
+  Object.keys(fields).forEach(function (k) { body.append(k, fields[k]); });
+  return fetch(url, { method: "POST", body: body }).then(function (r) {
+    if (!r.ok) { throw new Error("HTTP " + r.status); }
+    return r.json();
+  });
+}
+
+function showRemaining(steps) {
+  listBubble(LANG_FA ? "هنوز انجام نشده / not yet done:" : "Not yet done:", steps);
+}
+
+function validateAccepted() {
+  post("/guided/validate", { draft: JSON.stringify(state.draft),
+                             accepted_token: state.token })
+    .then(function (v) {
+      bubble(v.verdict_fa, "sys", false);
+      bubble(v.reason, "sys", true);
+      showRemaining(v.remaining_after_schema);
+      if (v.passed && document.getElementById("register-hook")) {
+        window.registerDraft && window.registerDraft(state);
+      }
+    })
+    .catch(function (e) { bubble("error: " + e.message, "sys", true); });
+}
+
+document.getElementById("send").onclick = function () {
+  var idea = document.getElementById("idea").value.trim();
+  if (!idea) { return; }
+  bubble(idea, "you", false);
+  post("/guided/start", {
+    idea: idea,
+    symbol: document.getElementById("symbol").value.trim(),
+    timeframe: document.getElementById("timeframe").value.trim()
+  }).then(function (s) {
+    state.draft = s.draft; state.token = s.acceptance_token;
+    bubble((LANG_FA ? "بازنویسی: " : "Restatement: ") + s.restatement, "sys", false);
+    if (s.needs_answers) {
+      listBubble(LANG_FA ? "پرسش‌ها — پاسخ را در متن بالا اضافه کنید و دوباره بفرستید:"
+                         : "Questions — add the answer to your text above and send again:",
+                 s.questions);
+    } else {
+      actions([{
+        label: LANG_FA ? "بله، منظورم همین بود" : "Yes, that is what I meant",
+        onclick: validateAccepted
+      }, {
+        label: LANG_FA ? "نه، اصلاح می‌کنم" : "No, let me rephrase",
+        onclick: function () {
+          bubble(LANG_FA ? "متن را اصلاح کنید و دوباره بفرستید." :
+                           "Edit your text above and send again.", "sys", false);
+        }
+      }]);
+    }
+  }).catch(function (e) { bubble("error: " + e.message, "sys", true); });
+};
+})();
+</script>
+{% endblock %}
