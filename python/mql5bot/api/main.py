@@ -9,6 +9,7 @@ gates + human approval).
 
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import os
 import urllib.request
@@ -733,10 +734,42 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
         return templates.TemplateResponse(request, "new_strategy.html",
                                           _shell_ctx(request, "new"))
 
+    _PAGE_SIZE = 50
+
+    def _telemetry_rows() -> list[dict]:
+        """Trade events from the telemetry JSONL, newest first. A missing or
+        unconfigured log yields an empty list (the page renders its honest
+        empty state); malformed lines are skipped, never repaired."""
+        log = cenv.get(ENV_TELEMETRY_LOG, "")
+        if not log or not Path(log).exists():
+            return []
+        rows = []
+        for line in Path(log).read_text(encoding="utf-8").splitlines():
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(e, dict) and e.get("event") == "trade":
+                rows.append(e)
+        rows.reverse()
+        return rows
+
+    def _trade_view(e: dict) -> dict:
+        ts = e.get("received_at")
+        try:
+            when = _dt.datetime.fromtimestamp(
+                float(ts), tz=_dt.timezone.utc).strftime("%Y-%m-%d %H:%M")
+        except (TypeError, ValueError, OSError):
+            when = str(ts or "")
+        return {"time": when, "symbol": e.get("symbol", ""),
+                "action": e.get("action", ""), "lots": e.get("lots", ""),
+                "pnl": e.get("pnl", "")}
+
     @app.get("/trades", response_class=HTMLResponse)
     def trades_page(request: Request, page: int = 0):
-        # Honest empty states until the sources are wired: a source that is
-        # not connected renders "not connected", never 0.
+        # Honest sources only: a source that is not connected renders
+        # "not connected", never 0. P&L never appears without the distance
+        # to the loss limit beside it.
         ctx = _shell_ctx(request, "trades")
         distance = "وصل نیست / not connected"
         open_positions: list = []
@@ -746,10 +779,55 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
             open_positions = [
                 {"symbol": p.symbol, "side": p.side, "lots": p.lots,
                  "pnl": ""} for p in s.open_positions]
-        ctx.update({"open_positions": open_positions, "today_trades": [],
-                    "history_rows": [], "page": page, "has_more": False,
-                    "distance_pct": distance})
+        rows = _telemetry_rows()
+        today = _dt.datetime.now(tz=_dt.timezone.utc).date()
+
+        def _is_today(e: dict) -> bool:
+            try:
+                return _dt.datetime.fromtimestamp(
+                    float(e.get("received_at")),
+                    tz=_dt.timezone.utc).date() == today
+            except (TypeError, ValueError, OSError):
+                return False
+
+        today_trades = [_trade_view(e) for e in rows if _is_today(e)][:100]
+        page = max(0, int(page))
+        window = rows[page * _PAGE_SIZE:(page + 1) * _PAGE_SIZE]
+        ctx.update({
+            "open_positions": open_positions,
+            "today_trades": today_trades,
+            "history_rows": [_trade_view(e) for e in window],
+            "page": page,
+            "has_more": len(rows) > (page + 1) * _PAGE_SIZE,
+            "distance_pct": distance,
+        })
         return templates.TemplateResponse(request, "trades.html", ctx)
+
+    # The gate's canonical rail. Stages 6-7 are the extra tester models —
+    # they run INSIDE stage 5 as six legs (the gate's own numbering).
+    _GATE_RAIL = (
+        (0, "self_protection"), (1, "strict_compile"), (2, "dsl_parity"),
+        (3, "broker_parity"), (4, "fixture_import"),
+        (5, "tester_legs (stages 5–7: the six tester legs)"),
+        (8, "reconciliation (incl. 8a–8d)"), (9, "archive_manifest"),
+        (10, "certify"))
+
+    def _leg_outcomes(ev_dir: Path) -> list[dict]:
+        """Per-leg outcome records written by the gate's classifier — found by
+        their content (outcome+leg+reason keys), never guessed by filename."""
+        legs = []
+        for p in sorted(ev_dir.glob("*.json")):
+            if p.name == "gate_summary.json" or p.name.startswith("stage_"):
+                continue
+            try:
+                doc = json.loads(p.read_text(encoding="utf-8"))
+            except (ValueError, OSError):
+                continue
+            if (isinstance(doc, dict)
+                    and {"outcome", "leg", "reason"} <= set(doc)):
+                legs.append(doc)
+        legs.sort(key=lambda d: str(d.get("leg", "")))
+        return legs
 
     @app.get("/certification", response_class=HTMLResponse)
     def certification_page(request: Request):
@@ -757,29 +835,61 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
         ev = cenv.get(ENV_EVIDENCE_DIR, "")
         ctx.update({"evidence_configured": bool(ev), "evidence_dir": ev,
                     "gate_result": "", "stages": [], "error": ""})
-        if ev:
-            summary = Path(ev) / "gate_summary.json"
-            if not summary.exists():
-                ctx["error"] = f"gate_summary.json not found under {ev}"
-            else:
-                try:
-                    doc = json.loads(summary.read_text(encoding="utf-8"))
-                    ctx["gate_result"] = str(doc.get("gate_result", ""))
-                    lang = ctx["lang"]
-                    ctx["stages"] = [{
-                        "stage": st.get("stage"),
-                        "name": st.get("name", ""),
-                        "status": str(st.get("status", "NOT RUN")),
+        if not ev:
+            return templates.TemplateResponse(request,
+                                              "certification.html", ctx)
+        ev_dir = Path(ev)
+        summary = ev_dir / "gate_summary.json"
+        if not summary.exists():
+            ctx["error"] = f"gate_summary.json not found under {ev}"
+            return templates.TemplateResponse(request,
+                                              "certification.html", ctx)
+        lang = ctx["lang"]
+        try:
+            doc = json.loads(summary.read_text(encoding="utf-8"))
+            ctx["gate_result"] = str(doc.get("gate_result", ""))
+            recorded = {int(st.get("stage", -1)): st
+                        for st in doc.get("stages", [])
+                        if isinstance(st, dict)}
+            legs = [{
+                "name": str(leg.get("leg", "")),
+                "verdict": str(leg.get("outcome", "")),
+                "verdict_explained":
+                    explain_status(str(leg.get("outcome", "")), lang)
+                    if lang == "fa" else "",
+                "reason": str(leg.get("reason", "") or ""),
+                "log_lines": [str(x) for x in
+                              (leg.get("evidence_lines") or [])],
+            } for leg in _leg_outcomes(ev_dir)]
+            stages = []
+            for num, rail_name in _GATE_RAIL:
+                st = recorded.get(num)
+                if st is None:
+                    stages.append({
+                        "stage": num, "name": rail_name,
+                        "status": "NOT RUN",
                         "status_explained":
-                            explain_status(str(st.get("status", "")), lang)
+                            explain_status("NOT RUN", lang)
                             if lang == "fa" else "",
-                        "reason": str(st.get("reason", "") or ""),
-                        "artifacts": [a for a in (st.get("artifacts") or [])
-                                      if isinstance(a, dict)],
-                        "legs": [],
-                    } for st in doc.get("stages", [])]
-                except (ValueError, OSError) as exc:
-                    ctx["error"] = f"{type(exc).__name__}: {exc}"
+                        "reason": ("the gate stopped before this stage"
+                                   if ctx["gate_result"] else ""),
+                        "artifacts": [], "legs": []})
+                    continue
+                stages.append({
+                    "stage": num,
+                    "name": str(st.get("name", rail_name)),
+                    "status": str(st.get("status", "NOT RUN")),
+                    "status_explained":
+                        explain_status(str(st.get("status", "")), lang)
+                        if lang == "fa" else "",
+                    "reason": str(st.get("reason", "") or ""),
+                    "artifacts": [a for a in (st.get("artifacts") or [])
+                                  if isinstance(a, dict)],
+                    "legs": legs if num == 5 else [],
+                })
+            ctx["stages"] = stages
+        except (ValueError, OSError) as exc:
+            ctx["error"] = f"{type(exc).__name__}: {exc}"
         return templates.TemplateResponse(request, "certification.html", ctx)
 
     @app.get("/settings", response_class=HTMLResponse)
