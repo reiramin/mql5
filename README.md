@@ -44,15 +44,27 @@ another:
 
 ## Current status (honest, not collapsed)
 
+The owner ran the full certification gate on 2026-09-20 (MT5 build 6184,
+Windows 10). The gate is an **11-stage ladder (stages 0–10)** that
+self-protects, walks the stages, and STOPS at the first failure. This
+run reached `GATE_RESULT=tester_legs`: **stages 0–4 PASS, stage 5 FAIL,
+stages 6–10 never ran.** The complete plain-language account — with the
+per-stage hashes and every per-leg verdict — is
+[docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md); this table is a summary
+of it and must not be read as more.
+
 | Item | State | Evidence |
 |---|---|---|
 | Python toolkit + tests | **IMPLEMENTED, RESEARCH-VALIDATED** | deterministic suite (see CI) |
 | Gold #1 / Gold #2 semantic parity (Python↔DSL) | **GOLD_SEMANTIC_PASS** (local) | `artifacts/gold/`, `artifacts/gold_2/` — frozen, hash-chained |
-| MQL5 compile / Strategy Tester / reconciliation | **BLOCKED_OWNER_ENVIRONMENT** | no owner artifacts committed to this repo (owner has captured probe/compile evidence outside the repo; `data/` is gitignored — see `docs/BROKER_SYMBOL_PARITY.md`); strict 0/0 EA compile-of-record still owner-pending |
-| Real-tick coverage | **REAL_TICK_COVERAGE_UNKNOWN** | honest default until owner evidence |
+| Gate stage 0 self-protection · 1 strict compile (0/0) · 2 DSL parity (14/14) · 3 broker parity (12 MATCH) · 4 fixture import | **MT5-VALIDATED** on the 2026-09-20 run | owner-side evidence dir `evidence\owner_gate\20260920-092713` (gitignored, not committed); hashes in `docs/OWNER_DELIVERY.md` |
+| Gate stage 5 Strategy Tester legs | **FAIL** (`GATE_RESULT=tester_legs`) | 3 legs FAIL (gold #1 fixture too short / no proving line), 2 legs BLOCKED_OWNER_ENVIRONMENT (build 6184 wrote no Report file — a BLOCKED leg is **not** a pass) |
+| Gate stages 6–10 (reconciliation incl. 8a–8d, archive, certify) | **NEVER RUN** | gate stopped at stage 5 |
+| Cross-engine reconciliation (Python↔MQL5 executed trades, stage 8) | **NEVER RUN** | the binding parity claim of the architecture is unproven |
 | Empirical lane | **PENDING_OWNER** | package defined (`docs/AEGIS_EMPIRICAL_LANE_PACKAGE.md`), not executed |
+| Operator interfaces (Telegram alerts, Persian/RTL console) | **IMPLEMENTED, unit-tested, NEVER RUN LIVE** | `python/mql5bot/notify/telegram.py`, `python/mql5bot/i18n.py` + console templates |
 | Demo / Live | **NOT_READY** | demo never auto-starts; no live capital in this workflow |
-| Overall | **REALITY_GATE_BLOCKED · PRODUCTION = NOT_READY · verifier OWNER_EXECUTION_READY** | `docs/AEGIS_REALITY_GATE_AUDIT.md` §85–§90 |
+| Overall | **NOT CERTIFIED · PRODUCTION = NOT_READY · nothing is VERIFIED** | `docs/OWNER_DELIVERY.md` |
 
 **Status vocabulary — these are NOT synonyms:**
 

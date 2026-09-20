@@ -11,7 +11,69 @@
 
 ---
 
-## CURRENT STATE (authoritative) — 2026-09-17, branch `master`
+## CURRENT STATE (authoritative) — 2026-09-20, branch `master`
+
+**Lane.** CODE-COMPLETE / RESEARCH-COMPLETE on Mac; the first full owner
+gate run is DONE and stopped at stage 5. RUNTIME-PENDING and OWNER-PENDING
+items remain Windows/owner responsibilities (see below). The plain-language
+account of record is [docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md).
+
+**First full owner certification gate run — 2026-09-20 (MT5 build 6184,
+Windows 10, evidence `evidence\owner_gate\20260920-092713`, gitignored).**
+HEAD `81520e6`, frozen anchor `a85cba3`. Result: `GATE_RESULT=tester_legs`.
+Stage-by-stage:
+
+- **stage 0 self_protection — PASS.** Anchor ok, tree clean, autocrlf ok,
+  frozen hashes + 42 DSL-bound files verified, toolchain located, `mql5bot`
+  resolved IN-REPO (v1.0.0).
+- **stage 1 strict_compile — PASS.** 0 errors, 0 warnings; 5 targets
+  (`DslParityRunner`, `Mql5Bot`, `Mql5BotDownloadData`,
+  `Mql5BotExportSymbolSpec`, `Mql5BotImportFixture`).
+- **stage 2 dsl_parity — PASS.** 14/14 fixtures EXACT + tampered bundle
+  refused.
+- **stage 3 broker_parity — PASS.** 12 MATCH rows; crypto PENDING excluded
+  (`BTC:sizer.behaviour`, `BTC:tick_value_denomination`).
+- **stage 4 fixture_import — PASS.** Both gold fixtures imported; round-trip
+  dataset hash == manifest; both intact after the tester legs.
+- **stage 5 tester_legs — FAIL.** Six legs, four distinct verdicts:
+  `gold1_m1_ohlc`/`gold1_every_tick` FAIL (INSUFFICIENT_FIXTURE_HISTORY —
+  the 120-bar H1 fixture is too short; MT5 moved the start past the data),
+  `gold1_real_ticks` FAIL (no proving line in its window),
+  `gold2_m1_ohlc`/`gold2_every_tick` BLOCKED_OWNER_ENVIRONMENT (ran to
+  completion, 2880 bars, but build 6184 wrote no Report file — **not** a
+  pass), `gold2_real_ticks` FAIL. Zero trades on the legs that ran.
+- **stages 6–10 (reconciliation incl. 8a–8d, archive, certify) — NEVER
+  RUN.** Stage 8 is the binding Python↔MQL5 executed-trade parity claim;
+  it has never run, so cross-engine parity on real trades is unproven.
+
+**Nothing is VERIFIED.** No strategy has ever been certified; the Python
+funnel produces `SOFTWARE_PASS` / `EMPIRICAL_VALIDATION_PENDING` only. The
+DSL bundle path was never exercised in MT5 (`InpDslBundleFile` empty → the
+EA ran its compiled-in default). No demo, no live, no VPS, no recovery
+drill.
+
+**Feature Wave 3 (2026-09-20, Python/tools/docs/tests only — `mql5/`
+frozen anchor untouched):** operator-experience layer, each built and
+unit-tested, **never run against a live system**:
+- Telegram alert channel (`notify/telegram.py`) — env-only creds,
+  token-scrubbed, bounded timeout, min send interval (commit `d22a783`);
+  extended in Wave 3 with trade open/close notifications, a daily digest,
+  and read-only status/positions/report/stop commands under asymmetric
+  friction (stop is easy; there is no Telegram path that can resume).
+- LlmInterpreter (`factory/interpreter.py`, commit `73df61a`) plus the
+  restatement-from-scrubbed-draft fix (commit `5a946b3`).
+- Persian/RTL console presentation layer (`i18n.py` + console templates,
+  commit `4752140`) — opt-in; English default byte-identical.
+- Owner delivery note refreshed from the gate run (commit `b3f9d3c`),
+  plus the roadmap, split-deployment guide, and the guided Persian
+  strategy-conversation flow (this wave).
+
+**Do not touch `mql5/`.** The 2026-09-20 compile-of-record is valid for
+HEAD `81520e6`; any `mql5/` change forces the whole 0–10 chain re-run.
+
+---
+
+## PRIOR STATE — 2026-09-17, branch `master`
 
 **Lane.** CODE-COMPLETE / RESEARCH-COMPLETE on Mac; RUNTIME-PENDING and
 OWNER-PENDING items remain Windows/owner responsibilities (see below).

@@ -1,7 +1,47 @@
 # TASKS
 
+## CURRENT BACKLOG — ordered, blockers named (2026-09-20)
+
+The first full owner certification gate ran on 2026-09-20 and stopped at
+stage 5 (`GATE_RESULT=tester_legs`). See
+[docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md) for the account of record.
+The real remaining work, in the order it must happen before any real money:
+
+1. **[ ] OWNER: rebuild the gold #1 fixture with enough H1 history.**
+   Blocker measured on the 2026-09-20 run: the 120-bar H1 fixture is too
+   short — MT5 reserves preceding history for warm-up and logged
+   "start time changed … to provide data at beginning" / "0 ticks, 0 bars
+   generated". Until the fixture is long enough, three of the six stage-5
+   legs cannot run.
+2. **[ ] OWNER: get MT5 to write the `[Tester]` Report file.** Blocker:
+   build 6184 wrote none, so the two gold #2 legs that ran to completion
+   are BLOCKED_OWNER_ENVIRONMENT — a BLOCKED leg is **not** a pass, and
+   there are no parsed backtest metrics anywhere. Needs a build/config
+   that emits the report, or an alternate parse source.
+3. **[ ] OWNER: run stage 5 to a real PASS**, including one leg with
+   `InpDslBundleFile` pointing at a generated bundle — otherwise the
+   tester only ever proves the compiled-in default strategy. The DSL
+   bundle path has never been exercised in MT5.
+4. **[ ] OWNER: run stage 8 reconciliation** (Python↔MQL5 executed trades,
+   field by field). This is the binding parity claim of the whole
+   architecture and has NEVER run; nothing is certified without it.
+5. **[ ] OWNER: BTC denomination verdict** — `BTC:sizer.behaviour` and
+   `BTC:tick_value_denomination` are still PENDING (excluded from stage 3).
+   Do not size BTC trades until it exists.
+6. **[ ] OWNER: let stages 9–10 (archive, certify) complete** — only a run
+   ending `GATE_RESULT=certified` puts VERIFIED on anything.
+7. **[ ] OWNER: ≥4 weeks demo, ≥30 trades** before any conclusion.
+8. **[ ] OWNER: VPS deployment + uptime/recovery drill** (see
+   `docs/DEPLOYMENT.md`) before connecting a real account. Never done.
+
+The operator-experience layer (Telegram alerts + commands, Persian/RTL
+console, guided strategy conversation) is **built and unit-tested but has
+never run against a live system** — see `docs/ROADMAP_UX.md`.
+
+---
+
 > **STATUS BANNER — READ FIRST (2026-09-16).**
-> **This file is an ARCHIVAL checklist, NOT the current backlog.** It is the
+> **The section below is an ARCHIVAL checklist, NOT the current backlog.** It is the
 > Phase 2.5 "Research Foundation Correction" plan from an earlier session
 > (branch `arena/01a06cdc-mql5bot`). Its checkbox states are **frozen as
 > written** and are deliberately **not** updated — a `[ ]` here does **not**

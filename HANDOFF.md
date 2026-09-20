@@ -1,14 +1,41 @@
 # AEGIS — PROJECT HANDOFF (mental roadmap, decisions, state, todo)
 Read this together with `docs/SPEC.md` (v4). SPEC is canonical for WHAT to build; this file is canonical for WHERE we are, WHY decisions were made, and WHAT to do next. If they conflict, SPEC wins for engineering, this file wins for process/state.
 
-> **CURRENT STATE POINTER (2026-09-16, Wave 2.1 — Mac freeze).** The
-> authoritative *current* status is `PROGRESS.md` → CURRENT STATE and
-> `docs/DECISIONS.md` (newest on top). The Mac code side is **FROZEN,
-> CODE-COMPLETE / RESEARCH-COMPLETE**; the next phase is the **Windows Owner
-> Certification Campaign** — its precise inputs and the canonical protocol
-> are in `docs/WINDOWS_OWNER_HANDOFF.md`. The design narrative in §0–§14
+> **CURRENT STATE POINTER (2026-09-20 — first full owner gate run).** The
+> authoritative *current* status is [docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md)
+> (the account that goes to the owner), then `PROGRESS.md` → CURRENT STATE
+> and `docs/DECISIONS.md` (newest on top). The design narrative in §0–§14
 > below is retained as roadmap/rationale; where a §-item predates the
 > current state, the CURRENT STATE pointer wins.
+>
+> **Where it stands.** The owner ran the 11-stage certification gate on
+> 2026-09-20 (MT5 build 6184, Windows 10). Result:
+> `GATE_RESULT=tester_legs` — **stages 0–4 PASS, stage 5 (Strategy Tester
+> legs) FAIL, stages 6–10 never ran.** Nothing is VERIFIED; no strategy
+> has ever been certified.
+>
+> - **Done (proven on the 2026-09-20 run):** stage 0 self-protection,
+>   stage 1 strict compile 0/0, stage 2 DSL parity 14/14, stage 3 broker
+>   parity 12 MATCH, stage 4 fixture import. Evidence is owner-side
+>   (`evidence\owner_gate\20260920-092713`, gitignored); hashes are in
+>   the delivery note.
+> - **Done on Mac, never run against a live system:** the Telegram alert
+>   channel (`notify/telegram.py`), the LlmInterpreter
+>   (`factory/interpreter.py`), and the Persian/RTL console presentation
+>   layer (`i18n.py`). Built and unit-tested only.
+> - **Half-done / blocked:** stage 5 tester legs FAIL — the gold #1 H1
+>   fixture (120 bars) is too short (MT5 moved the test start past the end
+>   of the data), and MT5 build 6184 writes no `[Tester]` Report file, so
+>   the two gold #2 legs that DID run cleanly are BLOCKED_OWNER_ENVIRONMENT
+>   (not a pass) with nothing to parse.
+> - **Never run:** stages 6–10 — cross-engine reconciliation (stage 8,
+>   the binding Python↔MQL5 parity claim), archive, certify. The DSL
+>   bundle path has never been exercised in MT5 (`InpDslBundleFile` was
+>   empty; the EA ran its compiled-in default). No demo, no live, no VPS.
+>
+> **Do not touch `mql5/`.** The 2026-09-20 compile-of-record is valid for
+> HEAD `81520e6`; any change under `mql5/` invalidates it and forces the
+> whole 0–10 chain to be re-run on the owner's Windows machine.
 
 ---
 ## 0. One-paragraph summary

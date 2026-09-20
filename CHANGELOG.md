@@ -3,6 +3,68 @@
 All notable changes to mql5bot are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased — Feature Wave 3 + first full owner gate run (2026-09-20)
+
+The MQL5 sources under `mql5/` are unchanged (frozen anchor `a85cba3`); the
+2026-09-20 compile-of-record for HEAD `81520e6` stays valid. Everything below
+is Python / tools / docs / tests. No profit claim is made anywhere.
+
+- **First full owner certification gate run (2026-09-20, MT5 build 6184,
+  Windows 10).** Stages 0–4 PASS, stage 5 FAIL (`GATE_RESULT=tester_legs`),
+  stages 6–10 never ran. Nothing is VERIFIED. Recorded verbatim, with the
+  per-stage hashes and per-leg verdicts, in `docs/OWNER_DELIVERY.md`; a
+  BLOCKED leg is not presented as a pass.
+- **STAGE 4 fixture-import hardening, R7–R10** (custom-symbol import into MT5):
+  - R7 (`63f2faa`): custom-symbol currency inference fixed by naming the
+    symbol `XXXYYY`+suffix so `verify_properties` reads the intended
+    base/profit currencies.
+  - R8 (`b439f97`): a bars-only Forex custom symbol reads its CALCULATED
+    tick values (`SYMBOL_TRADE_TICK_VALUE_PROFIT/_LOSS`) back as 0; recorded
+    as a NAMED, scoped limitation (available/authoritative:false) — stage 4
+    PASSES, economics certified by stage 3, never a silent pass.
+  - R9 (`96125a0`): survive a symbol left SELECTED by a prior successful run
+    (adopt in place, never a blind refusal).
+  - R10 (`2c94996`): verify-first adoption — a re-run needs nothing from
+    Market Watch; the async ChartClose is polled, never assumed.
+- **STAGE 5 tester-legs hardening, R1–R6** (the Strategy Tester stage that
+  FAILED on the 2026-09-20 run):
+  - R1 (`10ec10a`): quote every path handed to an external process; each leg
+    attaches evidence and records the ACTUAL model/coverage.
+  - R2 (`cc70fd7`): make a failed tester leg diagnosable; stop guessing the
+    report path.
+  - R3 (`c7aec19`): the tester ran nothing — the EA path was doubled; fixed.
+  - R4 (`aac9fb9`): the gate was grading a DIFFERENT `mql5bot` than the repo
+    shipped; stage 0 now requires the package to resolve IN-REPO.
+  - R5 (`c9fef7d`): config-file Model enum, populated `[TesterInputs]`, and
+    an honest BLOCKED_OWNER_ENVIRONMENT when the report file is absent.
+  - R6 (`81520e6`): scope the BLOCKED classifier to ONE leg — a day-wide log
+    dump was laundering a neighbour's evidence into a leg that proved nothing.
+- **Interpreter restatement fix** (`5a946b3`): the operator-facing restatement
+  is derived FROM the scrubbed draft (defects A + B) — never from the
+  provider's own words, and a number appears only if it is in the draft.
+- **LlmInterpreter** (`73df61a`): provider-agnostic natural-language intake
+  with the deterministic template's discipline — grounds every number in the
+  source text, refuses invented structural numbers, falls back to the template
+  with a visible note on any error, keeps market §6 no-guess. Python only.
+  **Built and unit-tested; never run against a live provider in production.**
+- **Telegram alert channel** (`d22a783`): env-only credentials, token
+  scrubbed by value, bounded timeout, min-send interval that SKIPS rather
+  than sleeps; wired to the Watchdog; transport and clock injectable for
+  tests. Extended in this wave with trade open/close notifications, a daily
+  digest, and read-only status/positions/report/stop commands under
+  asymmetric friction (stop is immediate; no Telegram path can resume a
+  stopped system). **Built and unit-tested; never run against a live bot.**
+- **Persian / RTL console presentation layer** (`4752140`): opt-in
+  (`MQL5BOT_LANG=fa` or `--lang fa`); English output stays byte-identical.
+  Certification terms are shown verbatim and explained alongside, never
+  translated away; Latin identifiers/hashes are bidi-isolated, never
+  reordered or digit-substituted. **Built and unit-tested; never run live.**
+- **Owner delivery note refreshed** (`b3f9d3c`) from the 2026-09-20 gate run.
+- Roadmap `docs/ROADMAP_UX.md`, split-deployment guide `docs/DEPLOYMENT.md`,
+  and a guided Persian strategy-conversation flow added this wave (docs +
+  Python/tests). The conversation flow ENDS at "tested in Python" and cannot
+  promote a strategy toward MT5 or a live account.
+
 ## Unreleased — Wave 2.2 (final pre-certification: owner-gate verifier hardening)
 
 - Certification integrity (P0/P1): the owner-evidence verifier now COMPUTES
