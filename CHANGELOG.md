@@ -62,8 +62,12 @@ is Python / tools / docs / tests. No profit claim is made anywhere.
 - **Owner delivery note refreshed** (`b3f9d3c`) from the 2026-09-20 gate run.
 - Roadmap `docs/ROADMAP_UX.md`, split-deployment guide `docs/DEPLOYMENT.md`,
   and a guided Persian strategy-conversation flow added this wave (docs +
-  Python/tests). The conversation flow ENDS at "tested in Python" and cannot
-  promote a strategy toward MT5 or a live account.
+  Python/tests). The conversation flow ENDS at SCHEMA VALIDATION: the only
+  Python check it runs is the DSL schema/parse gate (the draft is well-formed);
+  it is NOT a test of the strategy — no backtest, robustness, out-of-sample or
+  market data. It cannot promote a strategy toward MT5 or a live account, and
+  it surfaces the two not-yet-done steps explicitly: the Python research
+  validation (needs a dataset) and the owner-run 11-stage MT5 gate.
 
 ## Unreleased — Wave 2.2 (final pre-certification: owner-gate verifier hardening)
 

@@ -425,8 +425,10 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
 
     # -- guided strategy conversation (Phase 4 of docs/ROADMAP_UX.md) --------
     # A step-by-step dialogue over the interpreter + DSL parser. The flow ENDS
-    # at "tested in Python": neither endpoint promotes a strategy toward MT5 or
-    # a live account, and the remaining 11-stage gate is surfaced explicitly.
+    # at SCHEMA VALIDATION (a well-formedness check, NOT a test of the
+    # strategy): neither endpoint promotes a strategy toward MT5 or a live
+    # account, and the two not-yet-done steps — the Python research validation
+    # and the owner-run 11-stage MT5 gate — are surfaced explicitly.
     @app.post("/guided/start")
     def guided_start(idea: str = Form(...), symbol: str = Form(""),
                      timeframe: str = Form(""),
@@ -444,7 +446,7 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
             "draft": step.draft,
             "ambiguities": step.ambiguities,
             "needs_answers": step.needs_answers,
-            "remaining_after_python": list(step.remaining_after_python),
+            "remaining_after_schema": list(step.remaining_after_schema),
         })
 
     @app.post("/guided/validate")
@@ -460,7 +462,7 @@ def create_app(store: FactoryStore, safety: SafetyHub | None = None,
             "passed": verdict.passed,
             "verdict_fa": verdict.verdict_fa,
             "reason": verdict.reason,
-            "remaining_after_python": list(verdict.remaining_after_python),
+            "remaining_after_schema": list(verdict.remaining_after_schema),
         })
 
     return app

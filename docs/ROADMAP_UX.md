@@ -132,23 +132,28 @@ it should be a dialogue:
    understood — derived from the scrubbed draft, not echoed from the
    owner's words.
 3. The owner confirms or corrects.
-4. The Python validation runs.
-5. The system gives a **plain-Persian verdict** naming the reason it
-   passed or failed.
+4. The **DSL schema/parse check** runs — the one Python check that needs
+   no market data. It proves the draft is well-formed; it is **not** a
+   test of the strategy.
+5. The system gives a **plain-Persian verdict** whose headline names
+   exactly what ran: schema-validated (structure only), or a schema
+   failure with its reason. The headline must never read as "it was
+   tested and it works".
 
 Any parameter the owner did not specify is surfaced as a **question, in
 Persian, naming what is missing** — never filled in silently. "RSI is
 low" does not become "RSI < 30"; it becomes "you didn't say how low —
 what threshold?"
 
-**The hard boundary — record it and make it visible.** This flow **ends
-at "tested in Python".** It must never end at "added to MetaTrader".
-Reaching MT5 goes through the full 11-stage certification gate, which is
-a separate, owner-run, not-yet-passed step. The UI must make that
-boundary **visible**, not hide it: the remaining path is shown as an
-explicit, not-yet-done stage with its own label. If the owner ever feels
-that one button in this conversation made their strategy live, the entire
-value of this project is gone.
+**The hard boundary — record it and make it visible.** As built today,
+this flow **ends at SCHEMA VALIDATION** — a well-formedness check, nothing
+more. Two things have **not** happened and must be shown as explicit,
+not-yet-done steps: **(a)** the Python research validation — backtest,
+robustness, out-of-sample — which needs a dataset and has not run; and
+**(b)** the owner-run 11-stage MT5 certification gate. The flow must
+never end at "added to MetaTrader". If the owner ever feels that one
+button in this conversation tested their strategy or made it live, the
+entire value of this project is gone.
 
 ## The rule that binds every screen
 

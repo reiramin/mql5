@@ -43,7 +43,7 @@ def test_failed_validation_is_reported_with_its_reason():
     assert "SCHEMA_INVALID" in v.reason or "SchemaInvalid" in v.reason
 
 
-def test_valid_draft_passes_python_validation():
+def test_valid_draft_passes_schema_check_only():
     conv = GuidedConversation(interpreter="template")
     step = conv.start("EMA 10 crosses above EMA 30",
                       symbol="EURUSD", timeframe="H1")
@@ -51,10 +51,37 @@ def test_valid_draft_passes_python_validation():
     assert v.passed is True
 
 
-def test_remaining_path_shows_the_11_stage_gate_as_not_done():
+def test_pass_headline_does_not_claim_the_strategy_was_tested():
+    # A schema pass must not read, in EITHER language, as "it was tested".
+    conv = GuidedConversation(interpreter="template")
+    step = conv.start("EMA 10 crosses above EMA 30",
+                      symbol="EURUSD", timeframe="H1")
+    headline = conv.validate(step.draft).verdict_fa
+    # the headline itself names the scope (schema/structure only)
+    assert "SCHEMA" in headline
+    assert "structure only" in headline
+    # and it explicitly says the strategy was NOT tested, in both languages
+    assert "NOT been tested" in headline
+    assert "آزمایش نشده" in headline          # Persian: "has not been tested"
+    # it must NOT overstate — no unqualified "Python validation PASSED",
+    # no bare Persian "اعتبارسنجی پایتون گذشت" (Python validation passed)
+    assert "Python validation PASSED" not in headline
+    assert "اعتبارسنجی پایتون گذشت" not in headline
+    # "tested"/"validated" never appear as an unqualified positive claim
+    lowered = headline.lower()
+    assert "tested" not in lowered.replace("not been tested", "")
+    assert "validated" not in lowered.replace("schema-validated", "")
+
+
+def test_remaining_steps_list_research_validation_and_the_mt5_gate():
     conv = GuidedConversation()
-    v = conv.validate({})
-    joined = " ".join(v.remaining_after_python)
+    steps = conv.validate({}).remaining_after_schema
+    joined = " ".join(steps)
+    # (a) the Python research validation — backtest/robustness/OOS, not run
+    assert any("research validation" in s for s in steps)
+    assert "backtest" in joined
+    assert "NOT run here" in joined
+    # (b) the owner-run 11-stage MT5 gate
     assert "11-stage" in joined
     assert "NOT yet passed" in joined
 
@@ -78,7 +105,7 @@ def test_guided_start_route_asks_a_question(tmp_path):
     assert body["needs_answers"] is True
     assert any("rsi_threshold" in q for q in body["questions"])
     # the remaining path (incl. the MT5 gate) is surfaced, not hidden
-    assert any("11-stage" in step for step in body["remaining_after_python"])
+    assert any("11-stage" in step for step in body["remaining_after_schema"])
 
 
 def test_guided_validate_route_reports_failure_reason(tmp_path):

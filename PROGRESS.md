@@ -66,7 +66,10 @@ unit-tested, **never run against a live system**:
   commit `4752140`) — opt-in; English default byte-identical.
 - Owner delivery note refreshed from the gate run (commit `b3f9d3c`),
   plus the roadmap, split-deployment guide, and the guided Persian
-  strategy-conversation flow (this wave).
+  strategy-conversation flow (this wave). The conversation ends at SCHEMA
+  VALIDATION (draft well-formedness only) — it does NOT test a strategy;
+  the Python research validation (backtest/robustness/OOS, needs a
+  dataset) and the 11-stage MT5 gate are surfaced as not-yet-done.
 
 **Do not touch `mql5/`.** The 2026-09-20 compile-of-record is valid for
 HEAD `81520e6`; any `mql5/` change forces the whole 0–10 chain re-run.

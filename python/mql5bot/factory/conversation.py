@@ -9,16 +9,20 @@ step-by-step conversation:
          from the owner's words)
       -> a Persian QUESTION for every parameter the owner did not specify
          (naming exactly what is missing; a value is NEVER invented)
-      -> the Python validation (the DSL schema/parse gate)
+      -> the DSL schema/parse check (structure only)
       -> a plain-Persian verdict naming the reason it passed or failed.
 
-HARD BOUNDARY — the flow ENDS at "tested in Python". Nothing in this module
-promotes a strategy toward MetaTrader or a live account: it never calls a
-lifecycle transition and never names an execution state (SHADOW/DEMO/
-LIVE_SMALL/LIVE). The remaining path — the deeper research gates and then the
-owner-run 11-stage MT5 certification gate — is surfaced as an EXPLICIT,
-not-yet-done step (:data:`REMAINING_AFTER_PYTHON`) so the boundary is visible,
-never hidden. A test pins that no execution state is reachable from here.
+HARD BOUNDARY — the flow ENDS at SCHEMA VALIDATION. The only Python check that
+runs here is the DSL schema/parse gate: it proves the draft is well-formed. It
+is NOT a test of the strategy — no backtest, no robustness check, no
+out-of-sample test, no market data at all. Nothing in this module promotes a
+strategy toward MetaTrader or a live account: it never calls a lifecycle
+transition and never names an execution state (SHADOW/DEMO/LIVE_SMALL/LIVE).
+Two things that have NOT happened yet are surfaced as EXPLICIT, not-yet-done
+steps (:data:`REMAINING_AFTER_SCHEMA`): (a) the Python research validation —
+backtest, robustness, out-of-sample — which needs market data and has not run;
+(b) the owner-run 11-stage MT5 certification gate. A test pins that no
+execution state is reachable from here.
 """
 
 from __future__ import annotations
@@ -31,12 +35,11 @@ from ..dsl.errors import DslError
 from .interpreter import select_interpreter
 from .providers import ResearchMaterial
 
-# The path that remains AFTER this conversation — shown to the owner as an
-# explicit, not-yet-done step. It is NEVER taken here.
-REMAINING_AFTER_PYTHON: tuple[str, ...] = (
-    "backtest (Python)",
-    "robustness (Python)",
-    "out-of-sample (Python)",
+# The two things that remain AFTER the schema check — shown to the owner as
+# explicit, not-yet-done steps. Neither is taken here.
+REMAINING_AFTER_SCHEMA: tuple[str, ...] = (
+    ("Python research validation — backtest, robustness, out-of-sample — "
+     "needs market data, NOT run here"),
     "11-stage MT5 certification gate — owner-run, NOT yet passed",
 )
 
@@ -62,18 +65,19 @@ class ConversationStep:
     draft: dict
     ambiguities: list[dict]
     needs_answers: bool
-    remaining_after_python: tuple[str, ...] = REMAINING_AFTER_PYTHON
+    remaining_after_schema: tuple[str, ...] = REMAINING_AFTER_SCHEMA
 
 
 @dataclass
 class ConversationVerdict:
-    """The result of the Python validation — a pass or a fail WITH its reason,
-    plus the explicit not-yet-done remainder."""
+    """The result of the DSL schema/parse check — a pass or a fail WITH its
+    reason, plus the explicit not-yet-done remainder. A pass means the draft is
+    well-formed, NOT that the strategy was tested."""
 
     passed: bool
     verdict_fa: str
     reason: str
-    remaining_after_python: tuple[str, ...] = REMAINING_AFTER_PYTHON
+    remaining_after_schema: tuple[str, ...] = REMAINING_AFTER_SCHEMA
     ambiguities: list[dict] = field(default_factory=list)
 
 
@@ -123,29 +127,41 @@ class GuidedConversation:
         )
 
     def validate(self, draft: Mapping[str, object]) -> ConversationVerdict:
-        """Run the Python validation (the DSL schema/parse gate) on a confirmed
-        draft. This is the SAME check ``gate0_schema`` consumes. A pass or a
-        fail — with the reason — is the answer; nothing is promoted."""
+        """Run the DSL schema/parse check on a confirmed draft — the SAME check
+        ``gate0_schema`` consumes. This proves the draft is well-formed; it is
+        NOT a test of the strategy (no backtest, robustness or out-of-sample,
+        no market data). A pass or a fail — with the reason — is the answer;
+        nothing is promoted."""
+        # The headline names EXACTLY what ran and what did not, in both
+        # languages — never rely on the reason field to carry the qualifier.
+        fail_headline = (
+            "بررسی شِمای طرح رد شد — ساختار طرح نامعتبر است / "
+            "SCHEMA CHECK FAILED — the draft's structure is invalid")
         try:
             parse_spec(dict(draft, version=0))
         except DslError as exc:
             return ConversationVerdict(
-                passed=False,
-                verdict_fa="اعتبارسنجی پایتون رد شد / Python validation FAILED",
+                passed=False, verdict_fa=fail_headline,
                 reason=f"{type(exc).__name__}: {exc}")
         except Exception as exc:  # noqa: BLE001 — any parse failure is a FAIL
             return ConversationVerdict(
-                passed=False,
-                verdict_fa="اعتبارسنجی پایتون رد شد / Python validation FAILED",
+                passed=False, verdict_fa=fail_headline,
                 reason=f"{type(exc).__name__}: {exc}")
         return ConversationVerdict(
             passed=True,
-            verdict_fa="اعتبارسنجی پایتون گذشت / Python validation PASSED",
-            reason="draft parses and satisfies the DSL schema at version 0")
+            verdict_fa=(
+                "شِمای طرح معتبر است — فقط بررسی ساختار؛ "
+                "استراتژی هنوز آزمایش نشده / "
+                "SCHEMA-VALIDATED — structure only; "
+                "the strategy has NOT been tested"),
+            reason=(
+                "draft parses and satisfies the DSL schema at version 0; "
+                "no backtest, robustness or out-of-sample validation has run "
+                "(those need market data)"))
 
 
 __all__ = [
-    "REMAINING_AFTER_PYTHON",
+    "REMAINING_AFTER_SCHEMA",
     "ConversationStep",
     "ConversationVerdict",
     "GuidedConversation",

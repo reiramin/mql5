@@ -33,10 +33,20 @@ The real remaining work, in the order it must happen before any real money:
 7. **[ ] OWNER: ≥4 weeks demo, ≥30 trades** before any conclusion.
 8. **[ ] OWNER: VPS deployment + uptime/recovery drill** (see
    `docs/DEPLOYMENT.md`) before connecting a real account. Never done.
+9. **[ ] DEV: wire the guided conversation to the actual Python research
+   validation — NOT done.** Today `factory/conversation.py` runs only the
+   DSL schema/parse check (well-formedness); its pass headline says
+   "SCHEMA-VALIDATED — structure only; the strategy has NOT been tested".
+   Running the real research validation (backtest, robustness,
+   out-of-sample via the existing gate ladder) needs a dataset and has not
+   been connected. Until it is, the conversation cannot say a strategy was
+   tested, only that its structure is valid.
 
 The operator-experience layer (Telegram alerts + commands, Persian/RTL
 console, guided strategy conversation) is **built and unit-tested but has
-never run against a live system** — see `docs/ROADMAP_UX.md`.
+never run against a live system** — see `docs/ROADMAP_UX.md`. The guided
+conversation validates draft **structure only** (schema/parse); it does
+**not** test a strategy (item 9 above).
 
 ---
 
