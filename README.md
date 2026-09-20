@@ -234,7 +234,10 @@ documents: `docs/SPEC.md`, `docs/SYSTEM_INVARIANTS.md`,
 `docs/MT5_SETUP_AND_OPERATION.md`, `docs/FACTORY_GUIDE.md`,
 `docs/CERTIFICATION_GUIDE.md`, `docs/TROUBLESHOOTING.md`,
 `docs/ARCHITECTURE.md`, `docs/DEVELOPMENT.md`,
-`docs/RELEASE_CHECKLIST.md`.
+`docs/RELEASE_CHECKLIST.md`. Operator experience:
+`docs/ROADMAP_UX.md` (the plan), `docs/TELEGRAM.md` (alerts, digest,
+commands) and `docs/DEPLOYMENT.md` (the split always-on deployment —
+a procedure, never deployed or drilled).
 
 Historical state: `HANDOFF.md` (agent/engineering continuity),
 `PROGRESS.md` (execution history), `TASKS.md` (work queue),
