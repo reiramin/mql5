@@ -45,11 +45,13 @@ FAIL_INSUFFICIENT_FIXTURE_HISTORY or BLOCKED_OWNER_ENVIRONMENT).
   records `PASS_FROM_LOG`, not `PASS`. Its summary counts legs passed from
   report versus from log. A gate that reaches the end on it reports
   `GATE_RESULT=certified_with_log_graded_legs`, not `certified`.
-- It does **not** change the record above. On the captured 2026-09-20
-  lines the gold2 legs stay BLOCKED: their excerpt has no model statement,
-  and the grader never infers the model. Stage 8 still requires the raw
-  `.htm` hash for every model, so a log-only leg cannot pass stage 8 as
-  that stage is written today.
+- It does **not** change the record above. On the lines captured from
+  gate runs 16/17 the gold2 M1-OHLC window does grade PASS_FROM_LOG, but
+  the gold1 legs still FAIL, so stage 5 is still FAIL.
+- Stage 8 accepts a PASS_FROM_LOG log trade list as a leg's trade source
+  when no report exists, and names the source as the tester agent log. A
+  list with zero deals is compared, not rejected. Against gold2's frozen
+  56-trade contract, zero deals is a **divergence**.
 
 **Nothing is VERIFIED.** Stage 8 (the binding Python↔MQL5 executed-trade
 reconciliation) has never run, and only a run that ends

@@ -25,19 +25,22 @@ what the EA itself printed. It is never relabelled as the report-based PASS.
 
 Line formats and where they come from:
 
-* MEASURED from gate_run17 / the delivery run (docs/DECISIONS.md): the
+* MEASURED on the owner's gate runs 16/17 (2026-09-19, build 6184; captured
+  in tests/data/owner_gate/tester_log_gate_runs_16_17.txt): the
   ``quality of analyzed history is N%`` line, the ``<SYM>,<TF>: N ticks, M
-  bars generated`` line, the ``successfully finished`` line, and ``math
-  calculations test mode means no history and no symbol info for <SYM>``.
+  bars generated`` line, the ``successfully finished`` line, ``final balance
+  <N> <CCY>``, and the model statement ``<SYM>,<TF> (<server>): <phrase>
+  generating`` for ``1 minutes OHLC ticks`` (model 1) and ``every tick``
+  (model 0). Also measured (docs/DECISIONS.md): ``math calculations test mode
+  means no history and no symbol info for <SYM>`` (model 3).
 * FROM THIS REPO'S EA SOURCE (mql5/Experts/Mql5Bot/Mql5Bot.mq5
   ``OnTradeTransaction`` through ``Logger.Write``): ``[<time>] [INFO] DEAL
   #<ticket> <symbol> vol=<v> price=<p> pnl=<pnl>``.
-* MT5 TESTER JOURNAL FORMAT, NOT YET SEEN IN A CAPTURED ARTIFACT HERE:
-  ``final balance <N> <CCY>``, ``deal #<n> <buy|sell> <vol> <sym> at <price>``
-  and the ``..., close #<n> ...`` order-request line, plus a model statement
-  that names one of the canonical ``MT5_MODEL_LABELS``. If the owner's
-  window does not contain them, the matching field stays ``None`` and — for
-  the model — the leg does not pass.
+* UNCONFIRMED — MT5 journal format, not yet seen in a captured artifact:
+  the model-4 phrase ``every tick based on real ticks``, ``deal #<n>
+  <buy|sell> <vol> <sym> at <price>`` and the ``..., close #<n> ...``
+  order-request line. If the owner's window does not contain them, the
+  matching field stays ``None`` and — for the model — the leg does not pass.
 """
 
 from __future__ import annotations
@@ -61,6 +64,19 @@ _FINAL_BALANCE_RE = re.compile(
 # MEASURED: `Core 1\tmath calculations test mode means no history and no
 # symbol info for EURUSD.G1` — MT5 stating it ran config-file Model=3.
 _MATH_MODE_RE = re.compile(r"math(?:ematical)? calculations", re.IGNORECASE)
+# MEASURED (gate runs 16/17): `EURUSD.G2,M1 (MetaQuotes-Demo): 1 minutes OHLC
+# ticks generating` / `EURUSD.G1,H1 (MetaQuotes-Demo): every tick generating`.
+# The phrase is the text after the LAST colon: agent-log lines carry
+# timestamp columns (`12:34:56.789`) before the message.
+_TICKS_GENERATING_RE = re.compile(r":\s*([^:]+?)\s+generating\b",
+                                  re.IGNORECASE)
+# phrase (lower-case prefix of the text before "generating") -> model int,
+# longest first so model 4's phrase is never read as model 0's "every tick".
+_GENERATING_PHRASES = (
+    ("every tick based on real ticks", 4),  # UNCONFIRMED: not yet captured
+    ("1 minutes ohlc", 1),                  # MEASURED, gate runs 16/17
+    ("every tick", 0),                      # MEASURED, gate runs 16/17
+)
 # EA SOURCE (Mql5Bot.mq5 OnTradeTransaction via Logger.Write):
 #   `[2024.01.02 10:00:00] [INFO] DEAL #12 EURUSD.G2 vol=0.10 price=1.10010 pnl=0.00`
 _EA_DEAL_RE = re.compile(
@@ -101,11 +117,14 @@ def _actual_model(lines: list[str], symbol: str | None) -> dict:
         if _MATH_MODE_RE.search(line):
             found.append((3, line))
             continue
-        low = line.lower()
-        if any(lbl.lower() in low for lbl in mt.MT5_MODEL_LABELS.values()):
-            mi = mt.model_int_from_text(line)
-            if mi is not None:
-                found.append((mi, line))
+        m = _TICKS_GENERATING_RE.search(line)
+        if not m:
+            continue
+        phrase = m.group(1).strip().lower()
+        for prefix, model in _GENERATING_PHRASES:
+            if phrase.startswith(prefix):
+                found.append((model, line))
+                break
     models = {m for m, _ in found}
     if len(models) != 1:
         return {"model": None,
@@ -287,8 +306,8 @@ def grade_leg_from_log(*, window_text: str, symbol: str | None,
 def log_trade_list(grade: dict, window_bytes: bytes) -> dict | None:
     """The deal list a PASS_FROM_LOG leg hands to stage 8 in place of a report.
 
-    Shaped like the parsed-report sidecar (``settings``/``fields``/``metrics``)
-    so it can occupy the leg's ``parsed/<gold>_<model>.json`` slot, and flagged
+    Shaped like the parsed-report sidecar (``settings``/``fields``/``metrics``);
+    stage 8 reads it at ``log_trades/<gold>_<model>.json``. Flagged
     ``from_log: true`` / ``report_present: false`` so no consumer can mistake
     it for a report. ``metrics`` is empty: nothing a report would state is
     invented. Returns None for any leg that is not PASS_FROM_LOG.
@@ -317,8 +336,8 @@ def log_trade_list(grade: dict, window_bytes: bytes) -> dict | None:
         "deals": p["deals"],
         "note": ("Trade list read from the EA's own tester-log lines because "
                  "MT5 wrote no report for this leg. Not a report: no report "
-                 "metrics exist, and stage 8's raw-report binding still "
-                 "requires the .htm."),
+                 "metrics exist. Stage 8 accepts it at log_trades/<gold>_"
+                 "<model>.json and records the trade source as the log."),
     }
 
 

@@ -1071,6 +1071,14 @@ if (-not $recon) {
     Record-Stage 8 "reconciliation" "FAIL" "verify_owner_mt5_gate.py produced no report (owner evidence package missing?)" @() | Out-Null
     Finish-Gate "reconciliation"
 }
+# STAGE 5 R7: name the trade source in the stage-8 record. A leg with no
+# report whose PASS_FROM_LOG log trade list sits in the package at
+# log_trades/<gold>_<model>.json was compared from the tester agent log --
+# the record says so, so it can never read as report-backed.
+$srcNote = ""
+if ($recon.log_sourced_legs -and @($recon.log_sourced_legs).Count -gt 0) {
+    $srcNote = (" [trade source for {0}: tester agent log (log trade list, from_log=true; no report)]" -f (@($recon.log_sourced_legs) -join ", "))
+}
 # classify any first divergence; a SIZING/RISK class is the EXPECTED 4257f1e
 # outcome -> record + owner/build follow-up, never a silent pass, never patched
 $divClass = ""
@@ -1085,16 +1093,16 @@ foreach ($gld in @("gold1", "gold2")) {
     }
 }
 if ($recon.verdict -eq "MT5_VALIDATED") {
-    Record-Stage 8 "reconciliation" "PASS" "bindings + 8a-8d verified; gold parity holds on the owner terminal" @((New-Artifact $verifyOut)) | Out-Null
+    Record-Stage 8 "reconciliation" "PASS" ("bindings + 8a-8d verified; gold parity holds on the owner terminal" + $srcNote) @((New-Artifact $verifyOut)) | Out-Null
 } elseif ($divClass -eq "SIZING_MISMATCH" -or $divClass -eq "RISK_MISMATCH") {
     $note = ("EXPECTED for the 4257f1e sizing fix: first divergence on '{0}' -> {1}. Regenerate the affected expected_execution with NEW provenance (owner/build side); NEVER revert the fix, NEVER patch the gold artifacts here." -f $divField, $divClass)
-    Record-Stage 8 "reconciliation" "DIVERGENCE_EXPECTED" $note @((New-Artifact $verifyOut)) | Out-Null
+    Record-Stage 8 "reconciliation" "DIVERGENCE_EXPECTED" ($note + $srcNote) @((New-Artifact $verifyOut)) | Out-Null
     # a recorded expected divergence still blocks MT5 certification until the
     # owner regenerates expected_execution + re-anchors; stop here, fail-closed
     $Script:Blocked = "reconciliation"
     Finish-Gate "reconciliation"
 } else {
-    Record-Stage 8 "reconciliation" "FAIL" ("verdict {0}: {1}" -f $recon.verdict, ($recon.reasons -join "; ")) @((New-Artifact $verifyOut)) | Out-Null
+    Record-Stage 8 "reconciliation" "FAIL" (("verdict {0}: {1}" -f $recon.verdict, ($recon.reasons -join "; ")) + $srcNote) @((New-Artifact $verifyOut)) | Out-Null
     Finish-Gate "reconciliation"
 }
 

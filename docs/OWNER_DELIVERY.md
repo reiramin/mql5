@@ -93,8 +93,8 @@ blurred into one another:
   proves **nothing a report states**: there are no report metrics, and
   its trade list is only the EA's own `DEAL` log lines, flagged
   `from_log: true`. It is never counted as, or relabelled to, the
-  report-based pass. Status: built, unit-tested, never run live. On the
-  2026-09-20 lines no leg qualifies (see the stage-5 note below).
+  report-based pass. Status: built, unit-tested, never run live. See the
+  stage-5 note below for what it shows on the captured lines.
 
 ### The 2026-09-20 run, stage by stage
 
@@ -161,11 +161,14 @@ grade — and an ungraded run is never accepted as a passing one.
 
 *Log-based grading, added after this run (built, unit-tested, never run
 live):* the gate can now grade a no-report leg as **PASS_FROM_LOG** from
-its own window. Applied to the lines captured on 2026-09-20, the result
-does **not** change: the gold2 excerpts contain no line in which MT5
-states the model it ran, and the model check is required. They stay
-BLOCKED_OWNER_ENVIRONMENT, and the gold1 legs stay FAIL. The next owner
-run's window will show whether build 6184 logs the model.
+its own window. On the tester-log lines captured from gate runs 16/17,
+the gold2 M1-OHLC window grades PASS_FROM_LOG: MT5 logged "1 minutes
+OHLC ticks generating". The other gold2 legs have no captured model
+line. The gold1 legs stay FAIL, so stage 5 stays FAIL. That run ended
+with "final balance 10000.00 USD", which means no trades, while gold2's
+frozen contract is 56 trades. Stage 8 would report that as a divergence,
+not a match. Runs 16/17 also predate the fix that makes the EA run
+gold2's configured inputs, so the zero-trade result must be re-measured.
 
 **Stages 6–10 — reconciliation (incl. 8a–8d), archive, certify: NEVER
 RUN.**

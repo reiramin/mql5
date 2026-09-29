@@ -94,6 +94,30 @@ for _g in GOLDS:
 for _t in SAFETY_TESTS:
     LAYOUT[f"safety_{_t}"] = f"safety/{_t}.json"
 
+# STAGE 5 R7: a leg for which MT5 wrote NO report but whose own tester-log
+# window graded PASS_FROM_LOG hands stage 8 a log trade list instead
+# (tools/owner_gate_decide.py stage5-leg --trades-out). It stands in for that
+# leg's raw + parsed report ONLY when no raw report exists, and every place
+# that accepts it records the trade source as the log — it is never read as
+# a report. The comparison (first_divergence / _field_divergent) is unchanged.
+LOG_SOURCED = "LOG_SOURCED"
+TRADE_SOURCE_REPORT = "report"
+TRADE_SOURCE_LOG = "tester agent log"
+LOG_TRADE_LIST_SCHEMA = "mql5bot.log_trade_list/1"
+
+
+def log_trades_rel(gold: str, model: str) -> str:
+    return f"log_trades/{gold}_{model}.json"
+
+
+def log_sourced_legs(root: Path | str) -> set[tuple[str, str]]:
+    """(gold, model) legs whose trade source is a log trade list: the list
+    exists AND no raw report exists (a report, when present, always wins)."""
+    root = Path(root)
+    return {(g, m) for g in GOLDS for m in MODELS
+            if (root / log_trades_rel(g, m)).is_file()
+            and not (root / LAYOUT[f"raw_{g}_{m}"]).exists()}
+
 # ---------------------------------------------------------------------------
 # mismatch taxonomy (§15 — the closed canonical set, no CLOSE_ENOUGH)
 # ---------------------------------------------------------------------------
@@ -261,6 +285,15 @@ def scan_package(root: Path | str) -> dict[str, dict]:
             state = INVALID if variants or len(siblings) > 1 \
                 else PRESENT_UNVERIFIED
         out[key] = {"path": rel, "state": state}
+    # a log-sourced leg's report slots are not missing: the log trade list
+    # replaces them, and is itself listed so it is visibly the source
+    for gold, model in sorted(log_sourced_legs(root)):
+        out[f"raw_{gold}_{model}"]["state"] = LOG_SOURCED
+        if out[f"parsed_{gold}_{model}"]["state"] == MISSING:
+            out[f"parsed_{gold}_{model}"]["state"] = LOG_SOURCED
+        out[f"log_trades_{gold}_{model}"] = {
+            "path": log_trades_rel(gold, model), "state": PRESENT_UNVERIFIED,
+            "trade_source": TRADE_SOURCE_LOG}
     return out
 
 
@@ -651,6 +684,35 @@ _BINDING_FIELDS = ("source_commit", "fixture_sha256", "config_hash",
                    "raw_report_hashes", "parsed_report_hashes")
 
 
+def _verify_log_trades(root: Path, gold: str, log_models: set[str],
+                       bindings: dict) -> tuple[dict, list[str]]:
+    """Bind + validate each log-sourced leg's trade list. The list must be
+    the stage-5 PASS_FROM_LOG output (flagged from_log / no report), and its
+    bytes must equal the hash the reconciliation declares."""
+    lth = bindings.get("log_trade_hashes") or {}
+    problems: list[str] = []
+    docs: dict = {}
+    if log_models and (not isinstance(lth, dict) or set(lth) != log_models):
+        return docs, [("log_trade_hashes must bind exactly the "
+                       f"log-sourced models {sorted(log_models)}")]
+    for model in sorted(log_models):
+        path = root / log_trades_rel(gold, model)
+        if lth[model] != sha256_file(path):
+            problems.append(f"{model}: log trade list bytes changed")
+            continue
+        doc = _load_json(path)
+        if not isinstance(doc, dict) or doc.get("from_log") is not True \
+                or doc.get("report_present") is not False \
+                or doc.get("evidence_class") != "PASS_FROM_LOG" \
+                or doc.get("schema") != LOG_TRADE_LIST_SCHEMA \
+                or not isinstance(doc.get("deals"), list):
+            problems.append(f"{model}: not a PASS_FROM_LOG log trade list "
+                            "(from_log/report_present/evidence_class/deals)")
+            continue
+        docs[model] = doc
+    return docs, problems
+
+
 def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
                           model_identities: dict) -> dict:
     """Binding chain + field-by-field reconciliation for one gold.
@@ -684,13 +746,22 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
         return {"state": INVALID, "reasons": [("reconciliation "
                                               "unparsable")]}
 
+    log_models = {m for g, m in log_sourced_legs(root) if g == gold}
+    report_models = set(MODELS) - log_models
     report: dict = {"state": PRESENT_UNVERIFIED, "reasons": [],
-                    "gold": gold}
+                    "gold": gold,
+                    "trade_sources": {
+                        m: (TRADE_SOURCE_LOG if m in log_models
+                            else TRADE_SOURCE_REPORT) for m in MODELS}}
 
     # --- binding chain (§22) -------------------------------------------
     bindings = doc.get("bindings") or {}
+    # the report-hash maps may be empty only when EVERY model is log-sourced
+    optional = ({"raw_report_hashes", "parsed_report_hashes"}
+                if not report_models else set())
     broken = [f for f in _BINDING_FIELDS
-              if not bindings.get(f) or bindings.get(f) == "PENDING_OWNER"]
+              if f not in optional and (not bindings.get(f)
+                                        or bindings.get(f) == "PENDING_OWNER")]
     if broken:
         report["state"] = INVALID
         report["reasons"].append(f"binding chain broken at: {broken}")
@@ -736,14 +807,22 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
         report["reasons"].append("symbolspec_sha256 binding does not "
                                  "match the actual SymbolSpec bytes")
         return report
-    rrh = bindings.get("raw_report_hashes")
-    if not isinstance(rrh, dict) or set(rrh) != set(MODELS):
+    rrh = bindings.get("raw_report_hashes") or {}
+    if not isinstance(rrh, dict) or set(rrh) != report_models:
         report["state"] = INVALID
-        report["reasons"].append("raw_report_hashes must bind every "
-                                 f"model: {sorted(MODELS)}")
+        report["reasons"].append(
+            "raw_report_hashes must bind every report-sourced model: "
+            f"{sorted(report_models)} (log-sourced: {sorted(log_models)})")
+        return report
+    log_docs, log_problems = _verify_log_trades(root, gold, log_models,
+                                                bindings)
+    if log_problems:
+        report["state"] = MISMATCHED
+        report["reasons"].append("log trade list binding broken: "
+                                 + "; ".join(log_problems))
         return report
     bad_raw = []
-    for model in MODELS:
+    for model in sorted(report_models):
         rpath = root / LAYOUT[f"raw_{gold}_{model}"]
         if not rpath.is_file():
             bad_raw.append(f"{model}: missing raw report")
@@ -754,14 +833,15 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
         report["reasons"].append("raw report binding broken: "
                                  + "; ".join(bad_raw))
         return report
-    prh = bindings.get("parsed_report_hashes")
-    if not isinstance(prh, dict) or set(prh) != set(MODELS):
+    prh = bindings.get("parsed_report_hashes") or {}
+    if not isinstance(prh, dict) or set(prh) != report_models:
         report["state"] = INVALID
-        report["reasons"].append("parsed_report_hashes must bind every "
-                                 f"model: {sorted(MODELS)}")
+        report["reasons"].append(
+            "parsed_report_hashes must bind every report-sourced model: "
+            f"{sorted(report_models)} (log-sourced: {sorted(log_models)})")
         return report
     bad_reports = []
-    for model in MODELS:
+    for model in sorted(report_models):
         rpath = root / LAYOUT[f"parsed_{gold}_{model}"]
         if not rpath.is_file():
             bad_reports.append(f"{model}: missing parsed report")
@@ -784,7 +864,23 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
             f"tester_models must bind every model: {sorted(MODELS)}")
         return report
     for model, triad in tmods.items():
+        if model in log_models:
+            # no report states the model: the log trade list does (the model
+            # MT5 said it ran, from the leg's own window). The triad must
+            # carry it as `log_reported` and agree with the list.
+            stated = (log_docs[model].get("settings") or {}).get("model")
+            log_reported = triad.get("log_reported")
+            if log_reported is None or stated is None or \
+                    str(log_reported).lower() != str(stated).lower():
+                report["state"] = MISMATCHED
+                report["reasons"].append(
+                    f"{model}: log_reported {log_reported!r} does not equal "
+                    f"the model the log trade list states ({stated!r})")
+                continue
+            triad = {**triad, "report_reported": log_reported}
         ident = verify_model_identity(triad)
+        ident["model_source"] = (TRADE_SOURCE_LOG if model in log_models
+                                 else TRADE_SOURCE_REPORT)
         model_identities[f"{gold}:{model}"] = ident
         if ident["state"] != VALID:
             report["state"] = MISMATCHED
@@ -794,10 +890,35 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
 
     # --- events: python column must equal the frozen expectation -------
     events = doc.get("events")
-    if not isinstance(events, list) or not events:
+    derived: list[dict] = []
+    if log_models:
+        # A log trade list with ZERO deals is an honest observation ("MT5
+        # made no trades"), not missing evidence. Put its trade count beside
+        # the frozen Python trade count as one more event, so the UNCHANGED
+        # comparison below decides: 0 vs 0 matches, 0 vs 56 diverges.
+        py_count = fman.get("python_trade_count")
+        if not isinstance(py_count, int):
+            report["state"] = INVALID
+            report["reasons"].append(
+                f"{gold}: no hash-verified Python trade count in the frozen "
+                "record, so log-sourced trade counts cannot be compared")
+            return report
+        derived.append({
+            "index": -1, "symbol": None, "derived": True,
+            "source": TRADE_SOURCE_LOG,
+            "fields": {f"trade_count:{m}": {
+                "python": py_count, "mt5": len(log_docs[m]["deals"])}
+                for m in sorted(log_models)}})
+        report["log_trade_counts"] = {
+            m: len(log_docs[m]["deals"]) for m in sorted(log_models)}
+        report["python_trade_count"] = py_count
+    if not isinstance(events, list) or (not events and report_models):
+        # empty owner events are acceptable only when every model's trades
+        # come from a log list (the derived counts then carry the comparison)
         report["state"] = INVALID
         report["reasons"].append("reconciliation carries no events")
         return report
+    events = derived + events
 
     # A real python<->MT5 reconciliation must actually carry the MT5 side.
     # `_field_divergent` treats a field with no `mt5` key (or mt5 null) as
@@ -952,8 +1073,13 @@ def verify_archive_manifest(root: Path | str, frozen: dict) -> dict:
                 "reasons": [("archive manifest lists no artifact hash "
                             "map — filenames alone are not a binding")]}
     # every mandatory artifact except the manifest itself must be bound
-    unbound = [rel for key, rel in LAYOUT.items()
-               if key != "archive_manifest" and rel not in arts]
+    log_legs = log_sourced_legs(root)
+    replaced = {f"{kind}_{g}_{m}" for g, m in log_legs
+                for kind in ("raw", "parsed")}
+    required = [rel for key, rel in LAYOUT.items()
+                if key != "archive_manifest" and key not in replaced]
+    required += [log_trades_rel(g, m) for g, m in sorted(log_legs)]
+    unbound = [rel for rel in required if rel not in arts]
     if unbound:
         return {"state": INVALID,
                 "reasons": [(f"archive manifest does not bind: "
@@ -1123,6 +1249,11 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict) -> dict:
     if verdict == MT5_VALIDATED:
         reasons = [("all owner evidence verified against the frozen "
                    "record — gold parity holds on the owner terminal")]
+    log_legs = sorted(f"{g}:{m}" for g, m in log_sourced_legs(root))
+    if log_legs:
+        # never let a log-sourced leg read as report-backed evidence
+        reasons.append(f"trade source for {log_legs}: {TRADE_SOURCE_LOG} "
+                       "(PASS_FROM_LOG log trade list; no report exists)")
 
     return {
         "verdict": verdict,
@@ -1139,6 +1270,9 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict) -> dict:
         "missing": missing,
         "first_divergence": {g: r.get("first_divergence")
                              for g, r in gold_reps.items()},
+        "trade_sources": {g: r.get("trade_sources")
+                          for g, r in gold_reps.items()},
+        "log_sourced_legs": log_legs,
     }
 
 
@@ -1152,6 +1286,8 @@ __all__ = [
     "GOLDS",
     "INVALID",
     "LAYOUT",
+    "LOG_SOURCED",
+    "LOG_TRADE_LIST_SCHEMA",
     "MISMATCHED",
     "MISSING",
     "MODELS",
@@ -1171,12 +1307,16 @@ __all__ = [
     "SYMBOLSPEC_CLASSES",
     "SYMBOLSPEC_REQUIRED",
     "TAXONOMY",
+    "TRADE_SOURCE_LOG",
+    "TRADE_SOURCE_REPORT",
     "UNSUPPORTED_BROKER_DIFFERENCE",
     "VALID",
     "VERIFIED",
     "classify_anchor_changes",
     "classify_field",
     "first_divergence",
+    "log_sourced_legs",
+    "log_trades_rel",
     "run_gate",
     "scan_package",
     "sha256_file",

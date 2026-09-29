@@ -2259,3 +2259,22 @@ def test_ps1_stage5_pass_from_log_is_its_own_status_and_counted():
     tail = src[src.rindex("STAGE 10"):]
     assert tail.index('Finish-Gate "certified_with_log_graded_legs"') \
         < tail.index('Finish-Gate "certified"')
+
+
+def test_ps1_stage8_records_a_log_trade_source_in_every_verdict():
+    """Stage 8 names the tester agent log as the trade source for any
+    log-sourced leg, in each of its PASS / DIVERGENCE_EXPECTED / FAIL
+    records (the verifier's log_sourced_legs drives it)."""
+    src = _ps1()
+    s8 = src.index('Enter-Stage 8 "reconciliation"')
+    s9 = src.index("STAGE 9", s8)
+    body = src[s8:s9]
+    assert "$recon.log_sourced_legs" in body
+    assert "tester agent log" in body
+    for status in ('"PASS"', '"DIVERGENCE_EXPECTED"'):
+        rec = [ln for ln in body.splitlines()
+               if f'Record-Stage 8 "reconciliation" {status}' in ln]
+        assert rec and all("$srcNote" in ln for ln in rec), status
+    fails = [ln for ln in body.splitlines()
+             if 'Record-Stage 8 "reconciliation" "FAIL" ((' in ln]
+    assert fails and all("$srcNote" in ln for ln in fails)
