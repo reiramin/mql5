@@ -4,7 +4,7 @@ cannot touch pre-existing strategies; Meta stays the sole authority."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from mql5bot.factory.adapter import certification_for, meta_input
 from mql5bot.meta_layer import (
@@ -35,7 +35,7 @@ def test_live_states_map_to_verified_only_when_approved():
 
 def test_meta_blocks_uncertified_and_rewards_earned():
     layer = MetaLayer()
-    as_of = datetime(2026, 9, 6, tzinfo=UTC)
+    as_of = datetime(2026, 9, 6, tzinfo=timezone.utc)
     base = {"strategy_id": "s1", "symbol": "EURUSD", "signal": 1,
             "regime": "TREND_UP",
             "regimes_allowed": frozenset(
