@@ -9,6 +9,65 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-29 — PASS_FROM_LOG: a second, log-based grading path for stage 5, as its own evidence class (STAGE 5 R7)
+
+**Problem.** MT5 build 6184 writes no `[Tester]` Report file (R5, DEFECT 3).
+So legs that ran a complete backtest sit at `BLOCKED_OWNER_ENVIRONMENT`
+with nothing to grade. The tester agent log and the tester log still hold
+the facts a grader needs.
+
+**Decision.**
+- `python/mql5bot/tester_log_grader.py` parses ONE leg's window capture
+  into: finished, bars, ticks, history quality, final balance, the model
+  MT5 stated, and the deals the EA printed. It scopes symbol-bearing lines
+  with `gate_selfcheck._leg_scoped_lines`, the same function the R6
+  classifier uses. The model and deal lines count only when they name the
+  leg's symbol. A field the window does not state is `None`. No default is
+  ever filled in.
+- A leg is `PASS_FROM_LOG` only when ALL of these hold: "successfully
+  finished" in its window, bars > 0 for its symbol, a history-quality line,
+  and a stated model equal to the requested one. It can only upgrade a
+  window the R6 classifier calls BLOCKED, so a zero-bars window can never
+  be graded up. Any other leg keeps its R6 verdict. The verdict records
+  the source ("tester agent log"), the checks, and the exact lines.
+- `PASS_FROM_LOG` is its own evidence class, never the report-based PASS.
+  `owner_gate_decide.py stage5-leg --window` grades a no-report leg. The
+  stage-5 record is `PASS_FROM_LOG`, never `PASS`, when any leg passed from
+  log. Its reason starts with a tally of legs passed from report, passed
+  from log, blocked, and failed. A gate that reaches the end on it reports
+  `GATE_RESULT=certified_with_log_graded_legs`, not `certified`.
+- Stage-8 input: a PASS_FROM_LOG leg writes
+  `tester_<leg>_log_trades.json`. It is shaped like the parsed-report
+  sidecar (settings/fields/metrics) so it can fill the leg's
+  `parsed/<gold>_<model>.json` slot. It is flagged `from_log: true` and
+  `report_present: false`, bound to the window's sha256, and has empty
+  `metrics`. Stage 8's comparison logic is unchanged and was not run. That
+  stage's binding chain still requires the raw `.htm` hash for every model,
+  so a log-only leg cannot pass stage 8 as written. Changing that is a
+  separate decision.
+
+**Line provenance (what is measured and what is not).** These lines are
+MEASURED (quoted in the R5/R6 entries): history quality, `N ticks, M bars
+generated`, "successfully finished", and `math calculations test mode ...
+for <SYM>`. The EA's `[time] [INFO] DEAL #<t> <sym> vol= price= pnl=` line
+comes from `Mql5Bot.mq5` `OnTradeTransaction`, and a test pins the format
+to that source. These lines are in MT5's journal format but have NOT been
+seen in a captured artifact here: `final balance`, `deal #N buy|sell`,
+`..., close #N`, and a model statement such as `1 minute OHLC ticks
+generating`. When they are absent, their fields stay `None`.
+
+**Consequence on the record.** The captured gold2 excerpts contain no model
+statement, so under this rule they do **not** grade PASS_FROM_LOG. They
+stay BLOCKED. The grader does not infer the model from the tick count, even
+though 11520 ticks / 2880 M1 bars is exactly 4 ticks per bar. The gold1
+legs stay FAIL / FAIL_INSUFFICIENT_FIXTURE_HISTORY. Nothing on the record
+became greener. Built, unit-tested, never run live.
+
+**Scope.** Python, tools, tests and docs only. `mql5/`, `artifacts/`,
+`evidence/`, `logs_owner/`, frozen inputs and manifests are untouched.
+
+---
+
 ## 2026-09-20 — A classifier that reads outside the unit it judges can manufacture a verdict; the fix is SCOPING, not a stricter threshold (STAGE 5 R6)
 
 **The defect, plainly.** The R5 BLOCKED classifier was laundering evidence. In

@@ -2152,7 +2152,9 @@ def test_ps1_stage5_classifies_blocked_owner_environment():
     s5 = src.index('Enter-Stage 5 "tester_legs"')
     s8 = src.index("STAGE 8", s5)
     body = src[s5:s8]
-    assert "stage5-leg-outcome" in body
+    # no-report legs go through the log grader, which keeps the R6
+    # classifier's verdict for any leg it does not pass
+    assert '"stage5-leg", "--window"' in body
     assert "BLOCKED_OWNER_ENVIRONMENT" in body
     assert "tester_legs_blocked" in body
     assert 'Record-Stage 5 "tester_legs" "BLOCKED"' in body
@@ -2182,7 +2184,9 @@ def test_ps1_stage5_scopes_classification_to_the_leg_window():
     assert '"--window", $windowArt.path' in body
     # the day-wide excerpts no longer feed stage5-leg-outcome at all
     assert "--journal-tail" not in src
-    for chunk in body.split("stage5-leg-outcome")[1:]:
+    chunks = body.split('"stage5-leg", "--window"')[1:]
+    assert len(chunks) == 2, "both no-report branches grade from the window"
+    for chunk in chunks:
         # no journal/tail argument anywhere in an outcome call's arg list
         assert '"--journal"' not in chunk.split(")")[0]
 
@@ -2231,3 +2235,27 @@ def test_ps1_quotes_a_path_with_spaces_end_to_end(tmp_path: Path):
     # the spaced path is ONE argument, not three; the empty arg survives
     assert argv == ["--terminal-dir", spaced, "--symbol", "EURUSD",
                     "--empty", ""]
+
+
+def test_ps1_stage5_pass_from_log_is_its_own_status_and_counted():
+    """PASS_FROM_LOG is a distinct evidence class: the stage never records it
+    as "PASS", the summary counts log vs report passes, the log trade list is
+    attached, and the gate cannot end in plain "certified" on it."""
+    src = _ps1()
+    s5 = src.index('Enter-Stage 5 "tester_legs"')
+    s8 = src.index("STAGE 8", s5)
+    body = src[s5:s8]
+    assert '"--trades-out", $tradesPath' in body
+    assert body.count('if ($outcome -eq "PASS_FROM_LOG")') == 2
+    assert "[void]$legArt.Add((New-Artifact $tradesPath))" in body
+    assert "passed from report" in body and "passed from log" in body
+    assert 'Record-Stage 5 "tester_legs" "PASS_FROM_LOG"' in body
+    # a leg that passed from log is never counted as a report pass
+    pfl = body.index('if ($outcome -eq "PASS_FROM_LOG")')
+    assert "$legFromReport++" not in body[pfl:body.index("continue", pfl)]
+    # the PASS record is only reachable when no leg passed from log
+    assert body.index("if ($legFromLog -gt 0)") \
+        < body.index('Record-Stage 5 "tester_legs" "PASS" (')
+    tail = src[src.rindex("STAGE 10"):]
+    assert tail.index('Finish-Gate "certified_with_log_graded_legs"') \
+        < tail.index('Finish-Gate "certified"')

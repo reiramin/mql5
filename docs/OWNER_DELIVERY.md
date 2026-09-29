@@ -85,6 +85,16 @@ blurred into one another:
 - **BLOCKED_OWNER_ENVIRONMENT** — the leg's own tester log proves a
   clean run, but the owner environment withheld the proving artifact
   (here: the Report file). **This is not a pass.** The gate stops on it.
+- **PASS_FROM_LOG** — a stage-5 leg with no Report file, graded from its
+  own tester-log window (source: "tester agent log"). It requires ALL of:
+  "successfully finished", bars > 0 for the leg's symbol, a
+  history-quality line, and MT5's stated model equal to the requested
+  one. It proves the leg ran to completion in the requested model. It
+  proves **nothing a report states**: there are no report metrics, and
+  its trade list is only the EA's own `DEAL` log lines, flagged
+  `from_log: true`. It is never counted as, or relabelled to, the
+  report-based pass. Status: built, unit-tested, never run live. On the
+  2026-09-20 lines no leg qualifies (see the stage-5 note below).
 
 ### The 2026-09-20 run, stage by stage
 
@@ -148,6 +158,14 @@ each judged only on its own window of the tester log:
 A BLOCKED leg is not a pass: the gold #2 backtests ran to completion,
 but build 6184 wrote no Report file, so there is no parseable result to
 grade — and an ungraded run is never accepted as a passing one.
+
+*Log-based grading, added after this run (built, unit-tested, never run
+live):* the gate can now grade a no-report leg as **PASS_FROM_LOG** from
+its own window. Applied to the lines captured on 2026-09-20, the result
+does **not** change: the gold2 excerpts contain no line in which MT5
+states the model it ran, and the model check is required. They stay
+BLOCKED_OWNER_ENVIRONMENT, and the gold1 legs stay FAIL. The next owner
+run's window will show whether build 6184 logs the model.
 
 **Stages 6–10 — reconciliation (incl. 8a–8d), archive, certify: NEVER
 RUN.**

@@ -24,6 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _bootstrap  # pins this repo's python/ ahead of any installed mql5bot
 from mql5bot import gate_selfcheck as gs
+from mql5bot import tester_log_grader as tlg
 
 
 def _emit(payload: dict) -> int:
@@ -90,9 +91,18 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("stage5-leg",
                        help="stage 5: read the ACTUAL model + real-tick "
                             "coverage a tester leg achieved from its report "
-                            "sidecar + journal (never the requested model)")
-    p.add_argument("--report-json", required=True,
+                            "sidecar + journal (never the requested model); "
+                            "with no report, grade the leg from its OWN "
+                            "window capture (PASS_FROM_LOG, a distinct "
+                            "evidence class)")
+    p.add_argument("--report-json", default="",
                    help="path to the leg's parsed report.json sidecar")
+    p.add_argument("--window", default="",
+                   help="no-report path: THIS leg's window capture (the "
+                        "lines appended to the tester logs while it ran)")
+    p.add_argument("--trades-out", default="",
+                   help="no-report path: write the log trade list here when "
+                        "the leg grades PASS_FROM_LOG")
     p.add_argument("--journal", default="",
                    help="path to the leg's tester-journal excerpt, if any")
     p.add_argument("--requested-model", required=True, type=int,
@@ -196,6 +206,28 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.cmd == "tester-inputs":
             return _emit(gs.derive_tester_inputs(args.manifest, args.fixture))
+
+        if args.cmd == "stage5-leg" and not (
+                args.report_json and Path(args.report_json).is_file()):
+            # No report: grade from THIS leg's own window only (R6 scoping).
+            # Without a window there is nothing to grade — fail closed.
+            if not (args.window and Path(args.window).is_file()):
+                return _emit({"ok": False, "outcome": gs.STAGE5_OUTCOME_FAIL,
+                              "reason": "no report and no window capture to "
+                                        "grade the leg from"})
+            raw = _read_bytes(args.window)
+            grade = tlg.grade_leg_from_log(
+                window_text=gs.decode_bom_aware(raw),
+                symbol=args.symbol or None,
+                requested_model=args.requested_model, leg=args.leg or None)
+            trades = tlg.log_trade_list(grade, raw)
+            if trades is not None and args.trades_out:
+                Path(args.trades_out).write_text(
+                    json.dumps(trades, indent=2, sort_keys=True),
+                    encoding="utf-8")
+                grade = {**grade, "trades_out": args.trades_out}
+            print(json.dumps(grade, indent=2, sort_keys=True))
+            return 0 if grade["ok"] else 1
 
         if args.cmd == "stage5-leg":
             verdict = gs.tester_leg_evidence(

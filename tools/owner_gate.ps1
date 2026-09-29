@@ -67,6 +67,7 @@ $Evidence = Join-Path $RepoRoot ("evidence\owner_gate\" + $Stamp)
 
 # ordered stage ledger; each entry: name/status/reason/artifacts
 $Script:Stages = New-Object System.Collections.ArrayList
+$Script:Stage5FromLog = $false
 $Script:Blocked = $null
 
 function Get-Sha256([string]$path) {
@@ -115,7 +116,7 @@ function Record-Stage([int]$num, [string]$name, [string]$status,
     $rec = [ordered]@{
         stage      = $num
         name       = $name
-        status     = $status       # PASS | FAIL | SKIP | DIVERGENCE_EXPECTED | BLOCKED
+        status     = $status       # PASS | PASS_FROM_LOG | FAIL | SKIP | DIVERGENCE_EXPECTED | BLOCKED
         reason     = $reason
         artifacts  = @($artifacts)
         utc        = (Get-Date).ToUniversalTime().ToString("o")
@@ -126,6 +127,7 @@ function Record-Stage([int]$num, [string]$name, [string]$status,
     $color = switch ($status) {
         "PASS" { "Green" } "FAIL" { "Red" }
         "DIVERGENCE_EXPECTED" { "Yellow" } "BLOCKED" { "Magenta" }
+        "PASS_FROM_LOG" { "Cyan" }
         default { "Gray" }
     }
     Write-Host ("[owner-gate] stage {0} {1}: {2} -- {3}" -f $num, $name, $status, $reason) -ForegroundColor $color
@@ -809,6 +811,13 @@ $legOk = $true
 # BLOCKED_OWNER_ENVIRONMENT -- NOT a pass and NOT a plain FAIL. $legBlocked
 # records that at least one leg earned that classification from its tester log.
 $legBlocked = $false
+# Per-leg evidence-class tallies for the stage-5 summary. PASS_FROM_LOG (graded
+# from the leg's own tester-log window, no report) is counted apart from the
+# report-based pass and is never folded into it.
+$legFromReport = 0
+$legFromLog = 0
+$legBlockedN = 0
+$legFailN = 0
 $terminalDir = Split-Path -Parent $TerminalPath
 $testerOut = Join-Path $Evidence "tester"
 
@@ -920,17 +929,26 @@ foreach ($leg in $legs) {
         if ($tailArt) { [void]$legArt.Add($tailArt) }
         $windowArt = Save-TesterWindowLog $legTag $legMarks $legStart
         if ($windowArt) { [void]$legArt.Add($windowArt) }
-        $oc = Invoke-Decide @("stage5-leg-outcome", "--symbol", $sym,
-            "--leg", $legTag, "--report-present", "false",
-            "--window", $windowArt.path)
+        # Log-based grading (PASS_FROM_LOG): the same window, graded by
+        # tester_log_grader; a leg that does not pass keeps the R6 verdict.
+        $tradesPath = Join-Path $Evidence ("tester_" + $legTag + "_log_trades.json")
+        $oc = Invoke-Decide @("stage5-leg", "--window", $windowArt.path,
+            "--requested-model", ([string]$leg.m), "--symbol", $sym,
+            "--leg", $legTag, "--trades-out", $tradesPath)
         [void]$legArt.Add((New-Artifact $oc.raw))
         $outcome = if ($oc.data -and $oc.data.outcome) { $oc.data.outcome } else { "FAIL" }
         $ocReason = if ($oc.data -and $oc.data.reason) { $oc.data.reason } else { "no classification available" }
-        if ($outcome -eq "BLOCKED_OWNER_ENVIRONMENT") {
+        if ($outcome -eq "PASS_FROM_LOG") {
+            $legFromLog++
+            if (Test-Path -LiteralPath $tradesPath) { [void]$legArt.Add((New-Artifact $tradesPath)) }
+            [void]$legReasons.Add(("{0}: exit {1}; {2}" -f $legTag, $p.ExitCode, $ocReason))
+        } elseif ($outcome -eq "BLOCKED_OWNER_ENVIRONMENT") {
             $legBlocked = $true
+            $legBlockedN++
             [void]$legReasons.Add(("{0}: exit {1}; {2}" -f $legTag, $p.ExitCode, $ocReason))
         } else {
             $legOk = $false
+            $legFailN++
             [void]$legReasons.Add(("{0}: exit {1}; {2}" -f $legTag, $p.ExitCode, $ocReason))
         }
         continue
@@ -944,17 +962,26 @@ foreach ($leg in $legs) {
         if ($tailArt) { [void]$legArt.Add($tailArt) }
         $windowArt = Save-TesterWindowLog $legTag $legMarks $legStart
         if ($windowArt) { [void]$legArt.Add($windowArt) }
-        $oc = Invoke-Decide @("stage5-leg-outcome", "--symbol", $sym,
-            "--leg", $legTag, "--report-present", "false",
-            "--window", $windowArt.path)
+        # Log-based grading (PASS_FROM_LOG): the same window, graded by
+        # tester_log_grader; a leg that does not pass keeps the R6 verdict.
+        $tradesPath = Join-Path $Evidence ("tester_" + $legTag + "_log_trades.json")
+        $oc = Invoke-Decide @("stage5-leg", "--window", $windowArt.path,
+            "--requested-model", ([string]$leg.m), "--symbol", $sym,
+            "--leg", $legTag, "--trades-out", $tradesPath)
         [void]$legArt.Add((New-Artifact $oc.raw))
         $outcome = if ($oc.data -and $oc.data.outcome) { $oc.data.outcome } else { "FAIL" }
         $ocReason = if ($oc.data -and $oc.data.reason) { $oc.data.reason } else { "no classification available" }
-        if ($outcome -eq "BLOCKED_OWNER_ENVIRONMENT") {
+        if ($outcome -eq "PASS_FROM_LOG") {
+            $legFromLog++
+            if (Test-Path -LiteralPath $tradesPath) { [void]$legArt.Add((New-Artifact $tradesPath)) }
+            [void]$legReasons.Add(("{0}: exited 0 but produced no report.json sidecar; {1}" -f $legTag, $ocReason))
+        } elseif ($outcome -eq "BLOCKED_OWNER_ENVIRONMENT") {
             $legBlocked = $true
+            $legBlockedN++
             [void]$legReasons.Add(("{0}: exited 0 but produced no report.json sidecar; {1}" -f $legTag, $ocReason))
         } else {
             $legOk = $false
+            $legFailN++
             [void]$legReasons.Add(("{0}: exited 0 but produced no report.json sidecar; {1}" -f $legTag, $ocReason))
         }
         continue
@@ -970,10 +997,12 @@ foreach ($leg in $legs) {
     if ($le.ok -and $le.data) {
         $am = if ($le.data.actual_model) { $le.data.actual_model.label } else { "?" }
         $cov = $le.data.coverage
+        $legFromReport++
         [void]$legReasons.Add(("{0}: actual model={1} (src {2}), real-tick coverage={3}" -f `
             $legTag, $am, $le.data.actual_model.source, $cov))
     } else {
         $legOk = $false
+        $legFailN++
         $tailArt = Save-TesterFailLog $legTag $legStart
         if ($tailArt) { [void]$legArt.Add($tailArt) }
         $why = if ($le.data -and $le.data.reasons) { ($le.data.reasons -join "; ") } else { "actual model unreadable" }
@@ -996,8 +1025,10 @@ foreach ($gk in @("gold1", "gold2")) {
     }
 }
 
+$legTally = ("legs: {0} passed from report, {1} passed from log (PASS_FROM_LOG, source: tester agent log), {2} blocked, {3} failed. " -f `
+    $legFromReport, $legFromLog, $legBlockedN, $legFailN)
 if (-not $legOk) {
-    Record-Stage 5 "tester_legs" "FAIL" (($legReasons -join "; ")) @($legArt) | Out-Null
+    Record-Stage 5 "tester_legs" "FAIL" ($legTally + ($legReasons -join "; ")) @($legArt) | Out-Null
     Finish-Gate "tester_legs"
 }
 if ($legBlocked) {
@@ -1006,11 +1037,21 @@ if ($legBlocked) {
     # and none FAILed. A BLOCKED leg is NOT a pass: the gate STOPS here, stages
     # 6-10 stay not-run, and GATE_RESULT distinguishes this from both PASS and
     # FAIL. The stage reason quotes the tester-log lines that justify it.
-    Record-Stage 5 "tester_legs" "BLOCKED" (($legReasons -join "; ")) @($legArt) | Out-Null
+    Record-Stage 5 "tester_legs" "BLOCKED" ($legTally + ($legReasons -join "; ")) @($legArt) | Out-Null
     $Script:Blocked = "tester_legs"
     Finish-Gate "tester_legs_blocked"
 }
-Record-Stage 5 "tester_legs" "PASS" ("six tester legs; actual models + real-tick coverage read from report+journal; dataset hash intact after the legs. " + ($legReasons -join "; ")) @($legArt) | Out-Null
+if ($legFromLog -gt 0) {
+    # PASS_FROM_LOG is its own evidence class: at least one leg had no report
+    # and was graded from its own tester-log window. The stage records that
+    # status, never "PASS"; its log trade lists (tester_<leg>_log_trades.json,
+    # from_log=true) are the trade input for stage 8, and the gate can never
+    # end in plain "certified" on it.
+    $Script:Stage5FromLog = $true
+    Record-Stage 5 "tester_legs" "PASS_FROM_LOG" ($legTally + "dataset hash intact after the legs. " + ($legReasons -join "; ")) @($legArt) | Out-Null
+} else {
+    Record-Stage 5 "tester_legs" "PASS" ($legTally + "six tester legs; actual models + real-tick coverage read from report+journal; dataset hash intact after the legs. " + ($legReasons -join "; ")) @($legArt) | Out-Null
+}
 
 # =====================================================================
 # STAGE 8 -- reconciliation (full bindings + 8a kill-switch, 8b restart,
@@ -1088,4 +1129,5 @@ $certStatus = if ($cp.ExitCode -eq 0) { "PASS" } else { "FAIL" }
 Record-Stage 10 "certify" $certStatus ("certify_strategy.py exit {0} (state recorded as assigned)" -f $cp.ExitCode) @((New-Artifact $certReport)) | Out-Null
 if ($certStatus -eq "FAIL") { Finish-Gate "certify" }
 
+if ($Script:Stage5FromLog) { Finish-Gate "certified_with_log_graded_legs" }
 Finish-Gate "certified"

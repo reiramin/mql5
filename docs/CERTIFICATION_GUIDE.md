@@ -25,6 +25,32 @@ guide must not overstate it:
 | 5 Strategy Tester legs | **FAIL** (`GATE_RESULT=tester_legs`) — 3 legs FAIL, 2 legs BLOCKED_OWNER_ENVIRONMENT (build 6184 wrote no `[Tester]` Report file; a BLOCKED leg is **not** a pass) |
 | 6–10 reconciliation (incl. 8a–8d), archive, certify | **NEVER RUN** — the gate stopped at stage 5 |
 
+**PASS_FROM_LOG — its own evidence class (built, unit-tested, never run
+live).** Because build 6184 writes no Report file, stage 5 can now grade a
+no-report leg from its OWN tester-log window
+(`python/mql5bot/tester_log_grader.py`). A leg is `PASS_FROM_LOG` only when
+that window shows ALL of: "successfully finished", bars > 0 for the leg's
+symbol, a history-quality line, and a model statement equal to the
+requested model. Anything less keeps the leg's existing verdict (FAIL,
+FAIL_INSUFFICIENT_FIXTURE_HISTORY or BLOCKED_OWNER_ENVIRONMENT).
+
+- It **proves**: MT5 ran this leg to completion, on this symbol, with
+  bars > 0, at the stated history quality, in the requested model. The
+  verdict quotes the exact lines and names the source ("tester agent log").
+- It does **not** prove: anything a report states. There are no report
+  metrics (profit factor, drawdown, trade statistics). The deal list is
+  only what the EA printed (`DEAL #…` lines). Side and open/close come
+  only from MT5's own deal lines and are otherwise left empty.
+- It is **never** the report-based PASS. A stage with any log-graded leg
+  records `PASS_FROM_LOG`, not `PASS`. Its summary counts legs passed from
+  report versus from log. A gate that reaches the end on it reports
+  `GATE_RESULT=certified_with_log_graded_legs`, not `certified`.
+- It does **not** change the record above. On the captured 2026-09-20
+  lines the gold2 legs stay BLOCKED: their excerpt has no model statement,
+  and the grader never infers the model. Stage 8 still requires the raw
+  `.htm` hash for every model, so a log-only leg cannot pass stage 8 as
+  that stage is written today.
+
 **Nothing is VERIFIED.** Stage 8 (the binding Python↔MQL5 executed-trade
 reconciliation) has never run, and only a run that ends
 `GATE_RESULT=certified` can put VERIFIED on anything.
@@ -97,7 +123,9 @@ BLOCKED_OWNER_ENVIRONMENT / PENDING; F not begun.
 
 `GOLD_SEMANTIC_PASS` · `MT5_VALIDATED` · `EMPIRICAL_VALIDATED` ·
 `DEMO_VALIDATED` · `VERIFIED` · `NOT_VERIFIED_*` (with exact reasons) ·
-`BLOCKED_OWNER_ENVIRONMENT` · `REALITY_GATE_BLOCKED` ·
+`BLOCKED_OWNER_ENVIRONMENT` · `PASS_FROM_LOG` (stage-5 leg graded from
+its own tester-log window, no report; never the report-based PASS) ·
+`REALITY_GATE_BLOCKED` ·
 `REALITY_GATE_INCOMPLETE` · `OWNER_EXECUTION_READY` ·
 `PRODUCTION = NOT_READY`. These are distinct states, not synonyms.
 
