@@ -159,3 +159,61 @@ that branch and needs retargeting to `master` after #3 merges.
   package. The owner places it at `log_trades/<gold>_<model>.json`.
 - Nothing ran on MT5. Record unchanged: stages 0–4 PASS, stage 5 FAIL,
   stages 6–10 never run, nothing certified.
+
+## 2026-09-30 — branch `feat/stage5-legs-run-gold-strategy`
+
+Stacked on `feat/stage5-log-real-lines` (PR #4). PRs #2, #3 and #4 were
+all still open and unmerged, so the PR for this branch targets #4's branch
+and needs retargeting as they merge.
+
+**Commits**
+- `ff26973` — STAGE 5 R9: each tester leg runs the strategy its gold
+  manifest pins.
+- the commit that adds this entry.
+
+**Checks (exit codes read)** — tree of `ff26973`, macOS, Python 3.13.1
+(`.venv`), ruff 0.16.1:
+- `ruff check python/ tests/ tools/ factory/`: exit 0.
+- `python -m pytest tests/`: exit 0. The progress output shows 2187 passed
+  and 1 skipped; 27 of the passes are new tests.
+- `owner_gate.ps1` parsed with pwsh's parser: 0 errors. ASCII-only.
+
+**Done**
+- Leg inputs are derived from the gold manifest (read-only). Strategy:
+  spec_hash → `examples/strategies/<spec>.json` → DSL bundle →
+  `InpDslBundleFile`. Also sizing mode, risk %, allow-short and deposit,
+  each recorded with its source. An underivable field fails the leg
+  before launch, naming it. A pre-launch assertion requires a non-empty
+  selector naming the manifest's `strategy_id`.
+- The bundle is staged into `MQL5\Files` and every tester agent sandbox,
+  sha-checked. The rendered gold2 .ini carries
+  `InpDslBundleFile=Mql5Bot\gold_bundles\gold2_multifactor_v1_EURUSD.G2.bundle.json`
+  (tested).
+- The window is captured and attached for every leg. Log trade lists are
+  copied into the package at `log_trades/<gold>_<model>.json`
+  automatically before stage 8.
+- With an expected strategy, the grader requires the EA's `generic DSL
+  execution enabled: <id>` line to pass from log.
+
+**NOT done, and why**
+- **Gold1 legs now fail before launch on `engine_config.allow_short`.**
+  The gold1 manifest does not pin it, and no EA default may substitute.
+  Adding it would edit a frozen manifest, which is the owner's call.
+- **The bundle's `spec_hash` differs from the manifest's.** The EA's frozen
+  market guard requires the bundle symbol to equal the chart symbol
+  (`EURUSD.G2`), and the market is part of the hash. The retarget is proven
+  to change only `market.symbol` and is recorded. The owner should accept
+  or reject this explicitly.
+- **Agent-sandbox staging is unmeasured.** Nobody has confirmed that MT5
+  keeps a file placed in `Tester\...\Agent-*\MQL5\Files` for the next test.
+  The EA does not declare `#property tester_file`, and `mql5/` is frozen.
+  The next owner run's window will show "generic DSL execution enabled"
+  or "DSL bundle refused".
+- **The rest of the stage-8 package is not built** (reconciliation events
+  and bindings, compile/symbolspec/safety evidence, archive manifest).
+  Stage 8 still reports what is missing.
+- **The package default moved** from `artifacts\owner_mt5_gate\evidence`
+  (tracked and frozen, and writing there dirties the tree) to the
+  gitignored `evidence\owner_mt5_package`.
+- Nothing ran on MT5. Record unchanged: stages 0–4 PASS, stage 5 FAIL,
+  stages 6–10 never run, nothing certified.

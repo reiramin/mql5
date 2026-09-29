@@ -53,6 +53,15 @@ FAIL_INSUFFICIENT_FIXTURE_HISTORY or BLOCKED_OWNER_ENVIRONMENT).
   list with zero deals is compared, not rejected. Against gold2's frozen
   56-trade contract, zero deals is a **divergence**.
 
+**Legs run the gold strategy (built, unit-tested, never run live).** The
+measured gate_run17 root cause was that the EA ran its compiled-in default
+strategy (`InpDslBundleFile` empty). Each leg now derives its strategy and
+risk inputs from the gold manifest, loads the gold's DSL bundle, and fails
+before launch if any input cannot be derived. Gold1's manifest pins no
+`engine_config.allow_short`, so its legs now fail before launch on that
+field. A leg only passes from log if the EA logged that it loaded the
+expected strategy. See DECISIONS.md (STAGE 5 R9).
+
 **Nothing is VERIFIED.** Stage 8 (the binding Python↔MQL5 executed-trade
 reconciliation) has never run, and only a run that ends
 `GATE_RESULT=certified` can put VERIFIED on anything.

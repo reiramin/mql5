@@ -169,6 +169,10 @@ with "final balance 10000.00 USD", which means no trades, while gold2's
 frozen contract is 56 trades. Stage 8 would report that as a divergence,
 not a match. Runs 16/17 also predate the fix that makes the EA run
 gold2's configured inputs, so the zero-trade result must be re-measured.
+The legs now load the gold strategy from the manifest (STAGE 5 R9). Until
+the next owner run shows `generic DSL execution enabled: gold2_multifactor`
+in a leg's window, no gold2 leg passes from log. Gold1's legs now fail
+before launch: its manifest does not pin `engine_config.allow_short`.
 
 **Stages 6–10 — reconciliation (incl. 8a–8d), archive, certify: NEVER
 RUN.**

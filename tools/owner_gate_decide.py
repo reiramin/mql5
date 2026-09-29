@@ -24,12 +24,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _bootstrap  # pins this repo's python/ ahead of any installed mql5bot
 from mql5bot import gate_selfcheck as gs
+from mql5bot import gold_leg_inputs as gli
 from mql5bot import tester_log_grader as tlg
 
 
 def _emit(payload: dict) -> int:
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0 if payload.get("ok") else 1
+
+
+def _ini_value(value: object) -> str:
+    """How run_mt5_backtest's --input coercion reads a value back."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
 
 
 def _read_bytes(path: str) -> bytes:
@@ -100,6 +108,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--window", default="",
                    help="no-report path: THIS leg's window capture (the "
                         "lines appended to the tester logs while it ran)")
+    p.add_argument("--expected-strategy", default="",
+                   help="no-report path: the DSL strategy_id the leg's "
+                        "window must show the EA loaded")
     p.add_argument("--trades-out", default="",
                    help="no-report path: write the log trade list here when "
                         "the leg grades PASS_FROM_LOG")
@@ -109,6 +120,31 @@ def main(argv: list[str] | None = None) -> int:
                    help="the model the gate requested (0..4)")
     p.add_argument("--symbol", default="", help="the custom symbol under test")
     p.add_argument("--leg", default="", help="a label for this leg")
+
+    p = sub.add_parser("stage5-leg-inputs",
+                       help="stage 5 R9: derive a gold leg's EA inputs + "
+                            "tester deposit from the gold manifest (strategy "
+                            "via its DSL bundle), stage the bundle, assert "
+                            "the strategy selector; fail-closed naming the "
+                            "manifest field (never an EA default)")
+    p.add_argument("--manifest", required=True)
+    p.add_argument("--symbol", required=True,
+                   help="the tester chart (custom) symbol")
+    p.add_argument("--leg", default="")
+    p.add_argument("--out-dir", required=True,
+                   help="evidence dir: the bundle copy is written here")
+    p.add_argument("--data-folder", default="",
+                   help="MT5 data folder: stage the bundle under MQL5\\Files "
+                        "and every tester agent sandbox")
+
+    p = sub.add_parser("place-log-trades",
+                       help="stage 8 input: copy a leg's PASS_FROM_LOG log "
+                            "trade list into the evidence package at "
+                            "log_trades/<gold>_<model>.json")
+    p.add_argument("--trades", required=True)
+    p.add_argument("--package", required=True)
+    p.add_argument("--gold", required=True)
+    p.add_argument("--model", required=True)
 
     p = sub.add_parser("stage5-leg-outcome",
                        help="stage 5: classify a tester leg that produced no "
@@ -219,7 +255,8 @@ def main(argv: list[str] | None = None) -> int:
             grade = tlg.grade_leg_from_log(
                 window_text=gs.decode_bom_aware(raw),
                 symbol=args.symbol or None,
-                requested_model=args.requested_model, leg=args.leg or None)
+                requested_model=args.requested_model, leg=args.leg or None,
+                expected_strategy=args.expected_strategy or None)
             trades = tlg.log_trade_list(grade, raw)
             if trades is not None and args.trades_out:
                 Path(args.trades_out).write_text(
@@ -236,6 +273,43 @@ def main(argv: list[str] | None = None) -> int:
                 leg=args.leg or None)
             print(json.dumps({**verdict}, indent=2, sort_keys=True))
             return 0 if verdict["ok"] else 1
+
+        if args.cmd == "stage5-leg-inputs":
+            d = gli.derive_gold_leg_inputs(args.repo, args.manifest,
+                                           args.symbol)
+            d["leg"] = args.leg or None
+            if d["ok"]:
+                raw = gli.bundle_bytes(d["bundle"])
+                name = f"tester_{args.leg or 'leg'}_bundle.json"
+                ev = Path(args.out_dir) / name
+                ev.write_bytes(raw)
+                d["bundle_evidence"] = str(ev)
+                sel = gli.selector_check(d["inputs"], d["bundle"],
+                                         d["strategy_id"])
+                d["selector"] = sel
+                if not sel["ok"]:
+                    d["ok"] = False
+                    d["missing"] = "strategy selector"
+                    d["reasons"] = sel["reasons"]
+                elif args.data_folder:
+                    st = gli.stage_bundle(raw, d["bundle_rel"],
+                                          args.data_folder)
+                    d["staging"] = st
+                    if not st["ok"]:
+                        d["ok"] = False
+                        d["missing"] = "bundle staging"
+                        d["reasons"] = [("staged copy sha256 mismatch: "
+                                         f"{st['bad']}")]
+                # the exact --input list the .ps1 passes, in a stable order
+                d["input_args"] = [f"{k}={_ini_value(v)}"
+                                   for k, v in sorted(d["inputs"].items())]
+            d.pop("bundle", None)
+            return _emit(d)
+
+        if args.cmd == "place-log-trades":
+            return _emit(tlg.place_log_trades(args.trades, args.package,
+                                              args.gold, args.model,
+                                              args.repo))
 
         if args.cmd == "stage5-leg-outcome":
             # R6: the ONLY text a leg may be judged by is its own window

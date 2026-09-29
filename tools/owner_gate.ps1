@@ -852,6 +852,37 @@ foreach ($leg in $legs) {
     $reportName = "{0}_{1}" -f $gk, $leg.model
     $legTag = $reportName
 
+    # (0) STAGE 5 R9 -- run the strategy the gold manifest PINS. gate_run17
+    # measured the EA starting with InpStrategy=0 and an EMPTY
+    # InpDslBundleFile (its compiled-in default), so stage 8 compared two
+    # different strategies. stage5-leg-inputs derives the strategy (the
+    # manifest's spec_hash -> committed spec -> DSL bundle, market retargeted
+    # to the custom symbol, verified), sizing, risk, allow-short and the
+    # deposit from the manifest (read-only), stages the bundle into
+    # MQL5\Files and every tester agent sandbox, and asserts the selector is
+    # non-empty and names the manifest's strategy_id. Any input it cannot
+    # derive FAILS THIS LEG BEFORE LAUNCH naming the field -- never an EA
+    # default.
+    $li = Invoke-Decide @("stage5-leg-inputs", "--manifest", (Join-Path $RepoRoot $meta.manifest),
+        "--symbol", $sym, "--leg", $legTag, "--out-dir", $Evidence,
+        "--data-folder", $DataFolder)
+    [void]$legArt.Add((New-Artifact $li.raw))
+    if ($li.data -and $li.data.bundle_evidence -and (Test-Path -LiteralPath $li.data.bundle_evidence)) {
+        [void]$legArt.Add((New-Artifact $li.data.bundle_evidence))
+    }
+    if (-not $li.ok) {
+        $legOk = $false
+        $legFailN++
+        $miss = if ($li.data -and $li.data.missing) { $li.data.missing } else { "unknown" }
+        $why = if ($li.data -and $li.data.reasons) { ($li.data.reasons -join "; ") } else { "leg inputs underivable" }
+        [void]$legReasons.Add(("{0}: [input_underivable] {1}: {2} -- leg NOT launched" -f $legTag, $miss, $why))
+        continue
+    }
+    $legInputArgs = @()
+    foreach ($kv in @($li.data.input_args)) { $legInputArgs += @("--input", [string]$kv) }
+    $legInputArgs += @("--deposit", ([string]$li.data.deposit))
+    $legStrategy = [string]$li.data.strategy_id
+
     # (i) ALWAYS-present intended tester .ini (pure Python, no terminal): the
     # exact [Tester]/[TesterInputs] the gate intends, so a leg that never
     # produces a report still attaches the config it was asked to run.
@@ -861,7 +892,7 @@ foreach ($leg in $legs) {
     # that silently runs the EA's compiled-in defaults).
     $genArgs = @($runBacktest, "generate-ini", "--symbol", $sym,
         "--timeframe", $tf, "--model", ([string]$leg.m), "--from", $from,
-        "--to", $to, "--report", $reportName, "--defaults", "--output", $iniEvidence)
+        "--to", $to, "--report", $reportName, "--defaults", "--output", $iniEvidence) + $legInputArgs
     $gp = Start-Process -FilePath $Python -ArgumentList (Get-ProcArgs $genArgs) `
         -Wait -PassThru -NoNewWindow
     if (Test-Path -LiteralPath $iniEvidence) { [void]$legArt.Add((New-Artifact $iniEvidence)) }
@@ -876,7 +907,7 @@ foreach ($leg in $legs) {
     # run_mt5_backtest refuses (before launch) if [TesterInputs] would be empty.
     $runArgs = @("run", "--terminal-dir", $terminalDir, "--data-folder", $DataFolder,
         "--symbol", $sym, "--timeframe", $tf, "--model", ([string]$leg.m),
-        "--from", $from, "--to", $to, "--report", $reportName, "--defaults", "--out-dir", $testerOut)
+        "--from", $from, "--to", $to, "--report", $reportName, "--defaults", "--out-dir", $testerOut) + $legInputArgs
     $cmdArgv = @($Python, $runBacktest) + $runArgs
     $cmdlinePath = Join-Path $Evidence ("tester_" + $legTag + "_cmdline.txt")
     [IO.File]::WriteAllText($cmdlinePath, ((Get-ProcArgs $cmdArgv) -join " ") + "`r`n", [Text.Encoding]::ASCII)
@@ -902,6 +933,11 @@ foreach ($leg in $legs) {
     # (iv) the tester-journal excerpt (always attached; empty = "nothing found")
     $journalArt = Save-TesterLog $legTag $reportName $sym
     if ($journalArt) { [void]$legArt.Add($journalArt) }
+    # STAGE 5 R9: capture + attach THIS leg's window for EVERY leg (report or
+    # not), so each model's "... generating" line and the EA's "generic DSL
+    # execution enabled: <strategy>" line are kept from every owner run.
+    $windowArt = Save-TesterWindowLog $legTag $legMarks $legStart
+    if ($windowArt) { [void]$legArt.Add($windowArt) }
 
     # (v) the run-dir artifacts (tool tester.ini, raw .htm, report.json sidecar)
     $runRoot = Join-Path $testerOut "runs"
@@ -927,14 +963,13 @@ foreach ($leg in $legs) {
         # leg's lines must never clear another.
         $tailArt = Save-TesterFailLog $legTag $legStart
         if ($tailArt) { [void]$legArt.Add($tailArt) }
-        $windowArt = Save-TesterWindowLog $legTag $legMarks $legStart
-        if ($windowArt) { [void]$legArt.Add($windowArt) }
         # Log-based grading (PASS_FROM_LOG): the same window, graded by
         # tester_log_grader; a leg that does not pass keeps the R6 verdict.
         $tradesPath = Join-Path $Evidence ("tester_" + $legTag + "_log_trades.json")
         $oc = Invoke-Decide @("stage5-leg", "--window", $windowArt.path,
             "--requested-model", ([string]$leg.m), "--symbol", $sym,
-            "--leg", $legTag, "--trades-out", $tradesPath)
+            "--leg", $legTag, "--trades-out", $tradesPath,
+            "--expected-strategy", $legStrategy)
         [void]$legArt.Add((New-Artifact $oc.raw))
         $outcome = if ($oc.data -and $oc.data.outcome) { $oc.data.outcome } else { "FAIL" }
         $ocReason = if ($oc.data -and $oc.data.reason) { $oc.data.reason } else { "no classification available" }
@@ -960,14 +995,13 @@ foreach ($leg in $legs) {
         # when the leg's own window shows a clean run.
         $tailArt = Save-TesterFailLog $legTag $legStart
         if ($tailArt) { [void]$legArt.Add($tailArt) }
-        $windowArt = Save-TesterWindowLog $legTag $legMarks $legStart
-        if ($windowArt) { [void]$legArt.Add($windowArt) }
         # Log-based grading (PASS_FROM_LOG): the same window, graded by
         # tester_log_grader; a leg that does not pass keeps the R6 verdict.
         $tradesPath = Join-Path $Evidence ("tester_" + $legTag + "_log_trades.json")
         $oc = Invoke-Decide @("stage5-leg", "--window", $windowArt.path,
             "--requested-model", ([string]$leg.m), "--symbol", $sym,
-            "--leg", $legTag, "--trades-out", $tradesPath)
+            "--leg", $legTag, "--trades-out", $tradesPath,
+            "--expected-strategy", $legStrategy)
         [void]$legArt.Add((New-Artifact $oc.raw))
         $outcome = if ($oc.data -and $oc.data.outcome) { $oc.data.outcome } else { "FAIL" }
         $ocReason = if ($oc.data -and $oc.data.reason) { $oc.data.reason } else { "no classification available" }
@@ -1060,7 +1094,28 @@ if ($legFromLog -gt 0) {
 #            the 4257f1e sizing fix: classify + record, never patch.
 # =====================================================================
 Enter-Stage 8 "reconciliation"
-$evidencePkg = if ($env:MQL5BOT_EVIDENCE_DIR) { $env:MQL5BOT_EVIDENCE_DIR } else { Join-Path $RepoRoot "artifacts\owner_mt5_gate\evidence" }
+# STAGE 5 R9: the default package lives under the gitignored evidence\ tree.
+# The former default (artifacts\owner_mt5_gate\evidence) is inside a frozen,
+# tracked path: the gate writing log trade lists there would dirty the tree
+# the next run's stage-0 check inspects.
+$evidencePkg = if ($env:MQL5BOT_EVIDENCE_DIR) { $env:MQL5BOT_EVIDENCE_DIR } else { Join-Path $RepoRoot "evidence\owner_mt5_package" }
+# STAGE 5 R9: copy every PASS_FROM_LOG leg's log trade list into the package
+# at log_trades/<gold>_<model>.json -- the operator places no file by hand.
+$s8Art = New-Object System.Collections.ArrayList
+$placeNotes = New-Object System.Collections.ArrayList
+foreach ($leg in $legs) {
+    $tp = Join-Path $Evidence ("tester_{0}_{1}_log_trades.json" -f $leg.gold, $leg.model)
+    if (-not (Test-Path -LiteralPath $tp)) { continue }
+    $pl = Invoke-Decide @("place-log-trades", "--trades", $tp, "--package", $evidencePkg,
+        "--gold", $leg.gold, "--model", $leg.model)
+    [void]$s8Art.Add((New-Artifact $pl.raw))
+    if ($pl.ok) {
+        [void]$placeNotes.Add(("{0}_{1}: log trade list placed ({2} deals)" -f $leg.gold, $leg.model, $pl.data.deals))
+    } else {
+        $why = if ($pl.data -and $pl.data.reasons) { ($pl.data.reasons -join "; ") } else { "placement failed" }
+        [void]$placeNotes.Add(("{0}_{1}: log trade list NOT placed: {2}" -f $leg.gold, $leg.model, $why))
+    }
+}
 $verifyOut = Join-Path $Evidence "reconciliation_verify.json"
 $vp = Start-Process -FilePath $Python `
     -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "verify_owner_mt5_gate.py"), $evidencePkg, "--repo", $RepoRoot, "--out", $verifyOut))) `
@@ -1068,7 +1123,7 @@ $vp = Start-Process -FilePath $Python `
 $recon = $null
 try { $recon = Get-Content -LiteralPath $verifyOut -Raw | ConvertFrom-Json } catch { }
 if (-not $recon) {
-    Record-Stage 8 "reconciliation" "FAIL" "verify_owner_mt5_gate.py produced no report (owner evidence package missing?)" @() | Out-Null
+    Record-Stage 8 "reconciliation" "FAIL" ("verify_owner_mt5_gate.py produced no report (owner evidence package missing?) " + ($placeNotes -join "; ")) @($s8Art) | Out-Null
     Finish-Gate "reconciliation"
 }
 # STAGE 5 R7: name the trade source in the stage-8 record. A leg with no
@@ -1076,8 +1131,9 @@ if (-not $recon) {
 # log_trades/<gold>_<model>.json was compared from the tester agent log --
 # the record says so, so it can never read as report-backed.
 $srcNote = ""
+if ($placeNotes.Count -gt 0) { $srcNote = " [" + ($placeNotes -join "; ") + "]" }
 if ($recon.log_sourced_legs -and @($recon.log_sourced_legs).Count -gt 0) {
-    $srcNote = (" [trade source for {0}: tester agent log (log trade list, from_log=true; no report)]" -f (@($recon.log_sourced_legs) -join ", "))
+    $srcNote += (" [trade source for {0}: tester agent log (log trade list, from_log=true; no report)]" -f (@($recon.log_sourced_legs) -join ", "))
 }
 # classify any first divergence; a SIZING/RISK class is the EXPECTED 4257f1e
 # outcome -> record + owner/build follow-up, never a silent pass, never patched
@@ -1093,16 +1149,16 @@ foreach ($gld in @("gold1", "gold2")) {
     }
 }
 if ($recon.verdict -eq "MT5_VALIDATED") {
-    Record-Stage 8 "reconciliation" "PASS" ("bindings + 8a-8d verified; gold parity holds on the owner terminal" + $srcNote) @((New-Artifact $verifyOut)) | Out-Null
+    Record-Stage 8 "reconciliation" "PASS" ("bindings + 8a-8d verified; gold parity holds on the owner terminal" + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
 } elseif ($divClass -eq "SIZING_MISMATCH" -or $divClass -eq "RISK_MISMATCH") {
     $note = ("EXPECTED for the 4257f1e sizing fix: first divergence on '{0}' -> {1}. Regenerate the affected expected_execution with NEW provenance (owner/build side); NEVER revert the fix, NEVER patch the gold artifacts here." -f $divField, $divClass)
-    Record-Stage 8 "reconciliation" "DIVERGENCE_EXPECTED" ($note + $srcNote) @((New-Artifact $verifyOut)) | Out-Null
+    Record-Stage 8 "reconciliation" "DIVERGENCE_EXPECTED" ($note + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
     # a recorded expected divergence still blocks MT5 certification until the
     # owner regenerates expected_execution + re-anchors; stop here, fail-closed
     $Script:Blocked = "reconciliation"
     Finish-Gate "reconciliation"
 } else {
-    Record-Stage 8 "reconciliation" "FAIL" (("verdict {0}: {1}" -f $recon.verdict, ($recon.reasons -join "; ")) + $srcNote) @((New-Artifact $verifyOut)) | Out-Null
+    Record-Stage 8 "reconciliation" "FAIL" (("verdict {0}: {1}" -f $recon.verdict, ($recon.reasons -join "; ")) + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
     Finish-Gate "reconciliation"
 }
 

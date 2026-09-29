@@ -46,6 +46,7 @@ Line formats and where they come from:
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 
 from mql5bot import gate_selfcheck as gs
@@ -58,6 +59,10 @@ LOG_TRADE_LIST_SCHEMA = "mql5bot.log_trade_list/1"
 # MEASURED: `Tester\tquality of analyzed history is 100%`
 _HISTORY_QUALITY_RE = re.compile(
     r"quality of analyzed history is\s+(\d+(?:\.\d+)?)\s*%", re.IGNORECASE)
+# EA SOURCE (Mql5Bot.mq5 OnInit, via Logger.Write): the DSL bundle loaded —
+#   `[<time>] [INFO] generic DSL execution enabled: gold2_multifactor`
+# (UNCONFIRMED in a captured window: gate runs 16/17 ran with no bundle).
+_DSL_ENABLED_RE = re.compile(r"generic DSL execution enabled:\s*(\S+)")
 # MT5 journal format (not yet captured here): `final balance 10000.00 USD`
 _FINAL_BALANCE_RE = re.compile(
     r"final balance\s+(-?\d+(?:\.\d+)?)(?:\s+([A-Z]{3}))?", re.IGNORECASE)
@@ -216,6 +221,9 @@ def parse_leg_window(window_text: str, symbol: str | None) -> dict:
             balance, currency, balance_line = (
                 float(m.group(1)), m.group(2), line)
     model = _actual_model(lines, symbol)
+    loaded = [(m.group(1), line) for line in lines
+              for m in [_DSL_ENABLED_RE.search(line)] if m]
+    loaded_ids = {sid for sid, _ in loaded}
 
     return {
         "symbol": symbol,
@@ -229,6 +237,9 @@ def parse_leg_window(window_text: str, symbol: str | None) -> dict:
         "actual_model_label": model["label"],
         "model_conflict": model["conflict"],
         "deals": _deals(lines, symbol),
+        # the DSL strategy the EA says it loaded; None when no such line, or
+        # when the window names two different strategies
+        "loaded_strategy": (loaded[0][0] if len(loaded_ids) == 1 else None),
         "lines": {
             "finished": scoped["finished"][:1],
             "bars": bars_lines,
@@ -236,12 +247,14 @@ def parse_leg_window(window_text: str, symbol: str | None) -> dict:
             "history_quality": [hq_line] if hq_line else [],
             "final_balance": [balance_line] if balance_line else [],
             "model": model["lines"],
+            "loaded_strategy": [ln for _, ln in loaded][:2],
         },
     }
 
 
 def grade_leg_from_log(*, window_text: str, symbol: str | None,
-                       requested_model: int, leg: str | None = None) -> dict:
+                       requested_model: int, leg: str | None = None,
+                       expected_strategy: str | None = None) -> dict:
     """Grade a leg that has NO report from its own window.
 
     ``PASS_FROM_LOG`` only when ALL of: "successfully finished" in the window,
@@ -249,6 +262,10 @@ def grade_leg_from_log(*, window_text: str, symbol: str | None,
     it ran equals ``requested_model``. It is reachable only from a window the
     R6 classifier would call BLOCKED (so a zero-bars window is never graded
     up). Otherwise the leg keeps that classifier's verdict unchanged.
+
+    ``expected_strategy`` (STAGE 5 R9, passed by the gate): the window must
+    also show the EA loaded THAT DSL strategy. A run on the EA's compiled-in
+    defaults (the gate_run17 root cause) then can never pass from log.
     """
     base = gs.classify_tester_leg_outcome(
         report_present=False, window_text=window_text, symbol=symbol, leg=leg)
@@ -263,17 +280,21 @@ def grade_leg_from_log(*, window_text: str, symbol: str | None,
                                     and parsed["actual_model"]
                                     == requested_model),
     }
+    if expected_strategy is not None:
+        checks["strategy_loaded"] = (
+            parsed["loaded_strategy"] == expected_strategy)
     failed = [name for name, ok in checks.items() if not ok]
     common = {"leg": leg, "symbol": symbol, "source": EVIDENCE_SOURCE,
               "report_present": False, "requested_model": requested_model,
               "requested_model_label": requested_label,
+              "expected_strategy": expected_strategy,
               "base_outcome": base["outcome"], "checks": checks,
               "failed_checks": failed, "parsed": parsed}
 
     if base["outcome"] == gs.STAGE5_OUTCOME_BLOCKED_ENV and not failed:
         lp = parsed["lines"]
         evidence = (lp["finished"] + lp["bars"][:1] + lp["history_quality"]
-                    + lp["model"])
+                    + lp["model"] + lp["loaded_strategy"][:1])
         return {**common,
                 "outcome": STAGE5_OUTCOME_PASS_FROM_LOG, "ok": True,
                 "evidence_class": STAGE5_OUTCOME_PASS_FROM_LOG,
@@ -295,6 +316,9 @@ def grade_leg_from_log(*, window_text: str, symbol: str | None,
             "two different models" if parsed["model_conflict"]
             else "no model line naming this symbol")
         why += f" (requested {requested_label!r}; MT5 stated {stated})"
+    if "strategy_loaded" in failed:
+        why += (f" (expected DSL strategy {expected_strategy!r}; the EA "
+                f"logged {parsed['loaded_strategy']!r})")
     return {**common,
             "outcome": base["outcome"], "ok": False,
             "evidence_class": base["outcome"],
@@ -341,6 +365,57 @@ def log_trade_list(grade: dict, window_bytes: bytes) -> dict | None:
     }
 
 
+def place_log_trades(trades_path, package_dir, gold: str, model: str,
+                     repo_root) -> dict:
+    """Copy a leg's log trade list into the owner evidence package at
+    ``log_trades/<gold>_<model>.json`` (the path stage 8 reads), verifying
+    the copy's sha256 — so the Windows operator places nothing by hand.
+
+    Refuses a package inside the repository unless it sits under the
+    gitignored ``evidence/`` tree: writing anywhere else in the repo would
+    dirty the tree (stage 0's clean-tree check) or touch a frozen path
+    (``artifacts/``). Refuses a list that is not a PASS_FROM_LOG list.
+    """
+    from pathlib import Path
+    src = Path(trades_path)
+    pkg = Path(package_dir).resolve()
+    repo = Path(repo_root).resolve()
+    out = {"ok": False, "source": str(src), "package": str(pkg),
+           "gold": gold, "model": model, "reasons": []}
+    try:
+        raw = src.read_bytes()
+        doc = json.loads(raw.decode("utf-8"))
+    except (OSError, ValueError) as exc:
+        out["reasons"].append(f"log trade list unreadable: {exc}")
+        return out
+    if not (isinstance(doc, dict) and doc.get("from_log") is True
+            and doc.get("evidence_class") == STAGE5_OUTCOME_PASS_FROM_LOG):
+        out["reasons"].append("not a PASS_FROM_LOG log trade list")
+        return out
+    inside = pkg == repo or repo in pkg.parents
+    allowed = repo / "evidence"
+    if inside and not (pkg == allowed or allowed in pkg.parents):
+        out["reasons"].append(
+            f"package {pkg} is inside the repository outside evidence/; "
+            "writing there would dirty the tree or touch a frozen path — "
+            "set MQL5BOT_EVIDENCE_DIR to a package outside the repo")
+        return out
+    dest = pkg / "log_trades" / f"{gold}_{model}.json"
+    previous = (hashlib.sha256(dest.read_bytes()).hexdigest()
+                if dest.is_file() else None)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(raw)
+    want = hashlib.sha256(raw).hexdigest()
+    got = hashlib.sha256(dest.read_bytes()).hexdigest()
+    out.update({"ok": got == want, "dest": str(dest), "sha256": got,
+                "replaced_sha256": previous,
+                "deals": len(doc.get("deals") or []),
+                "trade_source": EVIDENCE_SOURCE})
+    if got != want:
+        out["reasons"].append("copy sha256 does not match the source")
+    return out
+
+
 __all__ = [
     "EVIDENCE_SOURCE",
     "LOG_TRADE_LIST_SCHEMA",
@@ -348,4 +423,5 @@ __all__ = [
     "grade_leg_from_log",
     "log_trade_list",
     "parse_leg_window",
+    "place_log_trades",
 ]

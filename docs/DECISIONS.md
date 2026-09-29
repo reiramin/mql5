@@ -9,6 +9,86 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-30 — Each stage-5 leg runs the strategy its gold manifest pins (STAGE 5 R9)
+
+**Measured root cause.** The gate_run17 tester log shows the EA starting
+with `InpStrategy=0, InpDslBundleFile= (empty), InpFastEma=10,
+InpSlowEma=30`, its compiled-in default strategy. R5 filled
+`[TesterInputs]` from `EA_INPUT_DEFAULTS`, but nothing fed the gold
+strategy into a leg; `EA_INPUT_DEFAULTS` did not even list
+`InpDslBundleFile`. Stage 8's 56-vs-0 gold2 divergence therefore compared
+two different strategies, and it was right to refuse.
+
+**Decision.**
+- `python/mql5bot/gold_leg_inputs.py` derives each leg's inputs from the
+  gold manifest (read-only). The strategy comes from `strategy_id` +
+  `strategy_version` + `spec_hash`: exactly one committed spec in
+  `examples/strategies/` must reproduce that `spec_hash` (gold2 →
+  `gold2_multifactor.json`, gold1 → `ema_crossover.json`). It is built into
+  the EA's DSL bundle, and `InpDslBundleFile` points at it. The other
+  derived inputs are `InpSizingMode` ← `risk_config.mode`,
+  `InpRiskPercent` ← `risk_config.risk_percent`, `InpAllowShort` ←
+  `engine_config.allow_short`, and the tester `Deposit` ←
+  `risk_config.equity_start`. `InpSlAtr`/`InpTpAtr` come from the spec's
+  `exit.*.mult`; the bundle drives stops. `InpUseSession=false`, because
+  the bundle carries the session filter. `InpDslBars` is the EA default
+  (500), checked to be ≥ 10× the longest period. Every input is recorded
+  with its source.
+- A field that cannot be derived FAILS THE LEG BEFORE LAUNCH, naming the
+  field (`[input_underivable] <field> -- leg NOT launched`). **Gold1's
+  manifest has no `engine_config`**, so its allow-short rule is
+  underivable and the three gold1 legs now fail before launch on
+  `engine_config.allow_short`, instead of running on defaults.
+  Previously they failed on insufficient fixture history. Adding the
+  field would change a frozen manifest, which is the owner's decision.
+- Pre-launch assertion: `InpDslBundleFile` must be non-empty, and the
+  bundle's `identity.strategy_id` must equal the manifest's.
+- **The one unavoidable transformation, verified.** The EA refuses a bundle
+  whose market differs from the chart (`CDslBundleLoader.MarketMatches`,
+  exact match; `mql5/` is frozen). The chart is the custom symbol
+  (`EURUSD.G2`), and the custom symbols cannot be named `EURUSD` (STAGE 4
+  R7). So the bundle is the committed spec with `market.symbol` set to the
+  custom symbol, and the two normalized documents are proven identical
+  otherwise. Because the market is part of the hash, the bundle's
+  `spec_hash` (gold2: `97509dcd…`) differs from the manifest's
+  (`1ed001b8…`). Both are recorded in the leg evidence.
+- **Staging.** The EA opens the bundle with `FileOpen` (no `FILE_COMMON`)
+  and declares no `#property tester_file`. The bundle is therefore written
+  to `<DataFolder>\MQL5\Files\Mql5Bot\gold_bundles\` and to the same path
+  in every `Tester\...\Agent-*\MQL5\Files`, and each copy is
+  sha256-checked. **Not yet measured:** whether MT5 keeps a file placed
+  in an agent sandbox for the next test. The EA's log decides it:
+  `generic DSL execution enabled: <strategy_id>` means loaded, and
+  `DSL bundle refused` means INIT_FAILED (never a silent default).
+- **Post-run check.** The gate passes `--expected-strategy`, and
+  PASS_FROM_LOG then also requires the EA's `generic DSL execution
+  enabled: <strategy_id>` line naming that strategy. The runs 16/17
+  window therefore no longer passes under the gate: that run loaded no
+  bundle. That is the measured root cause, now caught by the grader.
+- **The window is captured and attached for EVERY leg**, not only
+  no-report legs, so the every-tick and real-ticks model lines are kept
+  from the next owner run.
+- **Stage 8 input.** Before stage 8 verifies, the gate copies each
+  PASS_FROM_LOG leg's list into the package at
+  `log_trades/<gold>_<model>.json` (sha-checked, via `place-log-trades`).
+  The operator places nothing by hand. The package defaults to the
+  gitignored `evidence\owner_mt5_package` unless `MQL5BOT_EVIDENCE_DIR`
+  is set. The former default `artifacts\owner_mt5_gate\evidence` is
+  inside a tracked, frozen path: writing there would dirty the tree the
+  next stage 0 checks. `place-log-trades` refuses any in-repo path
+  outside `evidence/`.
+- `EA_INPUT_DEFAULTS` now mirrors every EA input: `InpDslBundleFile`,
+  `InpDslBars`, `InpAllocationFile` and `InpBaseGateWeight` were missing.
+  A test pins the set to the EA source.
+
+**What this does NOT do.** It does not build the rest of the stage-8
+package (reconciliation events and bindings, compile/symbolspec/safety
+evidence, the archive manifest). Stage 8 still reports what is missing.
+`mql5/`, the manifests, `artifacts/` and frozen inputs are untouched.
+Built, unit-tested, never run live.
+
+---
+
 ## 2026-09-29 — Captured tester-log line formats (gate runs 16/17) and stage 8 accepting a log trade list (STAGE 5 R8)
 
 **The captured lines.** The owner supplied these verbatim from the real

@@ -23,6 +23,11 @@ Optional overrides: `-TerminalPath`, `-MetaEditorPath`, `-SymbolSpecExport`,
 `MQL5BOT_METAEDITOR`, `MQL5BOT_DATA_FOLDER`, `MQL5BOT_PYTHON`,
 `MQL5BOT_EVIDENCE_DIR`.
 
+Stage 8 reads its owner evidence package from `MQL5BOT_EVIDENCE_DIR`, or
+by default from the gitignored `evidence\owner_mt5_package\`. Stage 5
+copies each PASS_FROM_LOG leg's log trade list there automatically
+(`log_trades/<gold>_<model>.json`).
+
 All output lands under `evidence\owner_gate\<UTC>\`, append-only: one
 `stage_<n>.json` per stage, a `gate_summary.json`, and a final line
 `GATE_RESULT=<stage-name>`.
