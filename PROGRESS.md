@@ -11,6 +11,30 @@
 
 ---
 
+## Verification of the reviewed tree — 2026-09-29
+
+Branch `autonomous/2026-09-29`. Verified tree: commit `52cb00b` (the
+review-polish commit; this entry is added on top of it as a text-only
+commit and tagged `v0.1-review`).
+
+| Check | Command | Exit code | Output seen |
+|---|---|---|---|
+| Lint | `ruff check python/ tests/ tools/ factory/` (ruff 0.16.9) | **0** | no findings |
+| Tests | `python -m pytest tests/` | **0** | 2105 passed, 4 skipped, 16 warnings |
+
+Python 3.11.15, Linux. Note: the older ruff 0.15.8 that was preinstalled
+in this container reports 99 findings (E741/E402/E731/E702/E712) on the same
+tree; CI installs the current ruff, which is the one recorded above.
+Separately, GitHub Actions CI on `master` (run for `b06c7b3`) is red on the
+Python 3.10 job with a collection error in `tests/test_factory_adapter.py`;
+that was not reproduced here (3.11 only) and is not fixed by this branch.
+
+What this verifies: the Python suite and lint on this tree. It says nothing
+about MT5: the gate result is unchanged — stages 0–4 PASS, stage 5 FAIL,
+stages 6–10 never run; nothing is certified.
+
+---
+
 ## CURRENT STATE (authoritative) — 2026-09-20, branch `master`
 
 **Lane.** CODE-COMPLETE / RESEARCH-COMPLETE on Mac; the first full owner
