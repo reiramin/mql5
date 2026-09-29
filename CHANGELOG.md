@@ -3,6 +3,29 @@
 All notable changes to mql5bot are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased — CONSOLE v2, CDN fix, review polish (2026-09-29)
+
+The MQL5 sources under `mql5/` are unchanged (frozen anchor `a85cba3`). The
+gate result is unchanged: stages 0–4 PASS, stage 5 FAIL, stages 6–10 never
+ran; nothing is certified. No profit claim is made anywhere.
+
+- **CONSOLE v2** (`920c139`, `087572d`, `a103bdd`, `fb5cdc1`) — the operator
+  console rebuilt: token authentication (`MQL5BOT_CONSOLE_TOKEN`, signed
+  session cookie, non-loopback bind refused without it), the shared offline
+  shell with the not-yet-proven banner, live updates via a same-origin
+  telemetry proxy, strategies rail + detail, the `/new` conversation through
+  register-as-DRAFT, `/trades`, the read-only `/certification` gate rail, and
+  the `/settings` health checklist. See [docs/CONSOLE.md](docs/CONSOLE.md).
+  **Built, unit-tested, never run live.**
+- **CDN fix** (`b06c7b3`): `board.html` and `strategy.html` no longer load htmx
+  from unpkg.com; `tests/test_templates_offline.py` guards every template.
+- **Review polish**: `CLAUDE.md` (rules for any agent working here);
+  repository identity corrected to `reiramin/mql5` outside `mql5/` (the frozen
+  `Mql5Bot.mq5` `#property link` is left as a known cosmetic item); README
+  "Reading this repository in 15 minutes"; HANDOFF process section rewritten
+  (Mac agent / Windows agent / human reviewer); `ml_interfaces.py` module
+  docstring marks the interfaces as deliberate seams.
+
 ## Unreleased — Feature Wave 3 + first full owner gate run (2026-09-20)
 
 The MQL5 sources under `mql5/` are unchanged (frozen anchor `a85cba3`); the
@@ -999,7 +1022,7 @@ is Python / tools / docs / tests. No profit claim is made anywhere.
 - `scripts/install_mql5.py` — one-command deployment into the MT5 data
   folder (auto-detection on Windows/macOS/Linux-Wine)
 
-[1.0.0]: https://github.com/raminhdev/mql5bot/releases/tag/v1.0.0
+[1.0.0]: https://github.com/reiramin/mql5 "No v1.0.0 tag exists in reiramin/mql5; the link points at the repository"
 
 ## 2026-09-06 — AEGIS Strategy Factory integration gate
 - Security red team: evidence refs bound to (strategy, version,

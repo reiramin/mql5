@@ -24,7 +24,7 @@ run live**.
 |---|---|
 | [ROADMAP_UX.md](ROADMAP_UX.md) | The operator-experience plan: Telegram-first, Persian status page, split deployment, guided conversation |
 | [TELEGRAM.md](TELEGRAM.md) | Telegram alerts, daily digest, and the four commands (`status`/`positions`/`report`/`stop`); asymmetric friction |
-| [CONSOLE.md](CONSOLE.md) | The operator console: six pages, auth, live updates, the certification rail — and the three hard rules |
+| [CONSOLE.md](CONSOLE.md) | The operator console (CONSOLE v2, commits `920c139`..`fb5cdc1`; offline since `b06c7b3`): six pages, auth, live updates, the certification rail — and the three hard rules |
 | [PERSIAN_CONSOLE.md](PERSIAN_CONSOLE.md) | The opt-in Persian/RTL presentation layer and the Persian status page |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | The split always-on deployment (a procedure — never deployed or drilled) |
 
@@ -104,6 +104,8 @@ by a later gate, the later document — and above all
 | `HANDOFF.md` | Agent/engineering continuity |
 | `PROGRESS.md` | Execution history/status |
 | `TASKS.md` | Active work queue |
+| `CLAUDE.md` | Rules for any agent working in this repository |
+| `AUTONOMOUS_LOG.md` | Dated per-session log of agent work (branch, commits, exit codes, what was not done) |
 
 **Rule:** documentation must never become more optimistic than the
 implementation and the evidence.

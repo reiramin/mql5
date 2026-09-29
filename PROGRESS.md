@@ -78,6 +78,17 @@ unit-tested, **never run against a live system**:
   refuses to start naming a missing variable).
 - Operational docs brought up to date (commit `664ae0a`);
   `docs/TELEGRAM_ALERTS.md` merged into `docs/TELEGRAM.md`.
+- **CONSOLE v2** (commits `920c139`..`fb5cdc1`) — built, unit-tested, never
+  run live. Token authentication (`MQL5BOT_CONSOLE_TOKEN`; the runner refuses
+  a non-loopback bind without it), the shared offline shell with the
+  not-yet-proven banner, live updates through a same-origin telemetry proxy,
+  the strategies rail + detail pages, the `/new` conversation through
+  register-as-DRAFT, `/trades`, the read-only `/certification` gate rail,
+  and the `/settings` health checklist. Documented in
+  [docs/CONSOLE.md](docs/CONSOLE.md).
+- **CDN fix** (commit `b06c7b3`) — the two legacy templates no longer load
+  htmx from unpkg.com; `tests/test_templates_offline.py` refuses any external
+  script/link load in any template.
 
 **`docs/ROADMAP_UX.md` four-phase plan — which phases are built:**
 - Phase 1 (Telegram as the primary interface): **built, unit-tested,

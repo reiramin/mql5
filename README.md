@@ -4,7 +4,7 @@
 Expert Advisor, a deterministic Python research/certification toolkit,
 and an evidence-bound certification gate.**
 
-[![CI](https://github.com/raminhdev/mql5bot/actions/workflows/ci.yml/badge.svg)](https://github.com/raminhdev/mql5bot/actions/workflows/ci.yml)
+[![CI](https://github.com/reiramin/mql5/actions/workflows/ci.yml/badge.svg)](https://github.com/reiramin/mql5/actions/workflows/ci.yml)
 
 One codebase, two layers that stay in lockstep:
 
@@ -21,6 +21,31 @@ One codebase, two layers that stay in lockstep:
 > (setup), [docs/USER_GUIDE.md](docs/USER_GUIDE.md) (how the system
 > works), [docs/MT5_SETUP_AND_OPERATION.md](docs/MT5_SETUP_AND_OPERATION.md)
 > (owner runbook), [docs/README.md](docs/README.md) (documentation map).
+
+---
+
+## Reading this repository in 15 minutes
+
+For a reviewer. **The thesis:** the value here is a system that refuses its
+own evidence, not one that claims to be finished. The certification gate ran
+on the owner's machine and stopped itself at stage 5 — stages 0–4 PASS,
+stage 5 FAIL, stages 6–10 never ran, nothing certified — and the repository
+says so everywhere instead of rounding it up.
+
+1. **[docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md)** (5 min) — the account
+   of record: what is proven, with hashes, and what has never been proven.
+2. **[tools/owner_gate.ps1](tools/owner_gate.ps1)** (5 min) — the 11-stage
+   gate itself: it self-protects (stage 0 refuses a dirty tree or a changed
+   frozen hash), walks the stages, and stops at the first failure.
+3. **One `stage_5.json`** (2 min) — the gate writes one `stage_<n>.json` per
+   stage plus `gate_summary.json` into `evidence\owner_gate\<UTC>\` (layout:
+   [docs/OWNER_GATE.md](docs/OWNER_GATE.md)). Evidence is owner-side and
+   gitignored; the 2026-09-20 run is `evidence\owner_gate\20260920-092713`.
+   Read how a BLOCKED leg is recorded as BLOCKED — not as a pass.
+4. **The console** (3 min) — `pip install uvicorn`, set
+   `MQL5BOT_CONSOLE_TOKEN` in your environment, run `python -m mql5bot.api`,
+   and open `http://127.0.0.1:8000/` (add `?lang=fa` for Persian). See
+   [docs/CONSOLE.md](docs/CONSOLE.md). Built, unit-tested, never run live.
 
 ---
 
