@@ -54,3 +54,46 @@ checked before it was committed:
 - Nothing was merged to `master`. No PR was opened. The gate result is
   unchanged: stages 0–4 PASS, stage 5 FAIL, stages 6–10 never run, and
   nothing is certified.
+
+## 2026-09-29 — branch `feat/stage5-log-grading`
+
+Based on `autonomous/2026-09-29` (d8f7e0d), because `CLAUDE.md` and this log
+exist only on that branch. Its PR #1 is closed and not merged.
+
+**Commits**
+- `67b579e` — STAGE 5 R7: PASS_FROM_LOG, a log-based grading path for stage 5
+  (`python/mql5bot/tester_log_grader.py`, `owner_gate_decide.py stage5-leg
+  --window`, the stage-5 flow in `owner_gate.ps1`, tests, and docs).
+- the commit that adds this entry.
+
+**Checks (exit codes read)** — on the tree of `67b579e`, macOS, Python
+3.13.1 (`.venv`), ruff 0.16.1:
+- `ruff check python/ tests/ tools/ factory/`: exit 0.
+- `python -m pytest tests/`: exit 0. The progress output shows 2136 passed
+  and 1 skipped (`addopts = "-q"` plus `-q` suppresses the summary line).
+- `owner_gate.ps1` parsed with pwsh's parser: 0 errors.
+
+**Done**
+- PASS_FROM_LOG is its own evidence class. It requires all of: "successfully
+  finished", bars > 0 for the leg's symbol, a history-quality line, and a
+  stated model equal to the requested one. Anything less keeps the R6
+  verdict. Stage 5 records `PASS_FROM_LOG`, never `PASS`, and the gate
+  cannot end in `certified` on it.
+- A PASS_FROM_LOG leg writes `tester_<leg>_log_trades.json`, flagged
+  `from_log: true`, for stage 8's parsed-report slot. Stage 8 is unchanged
+  and was not run.
+
+**NOT done, and why**
+- **The captured gold2 window does not grade PASS_FROM_LOG.** The only
+  real gold2 lines in the repo (DECISIONS.md) contain no line in which MT5
+  states the model it ran, and rule 2 requires one. The grader does not
+  infer the model. That test asserts BLOCKED. The PASS_FROM_LOG test adds
+  a model line in MT5's format, marked as not captured.
+- **No real captured deal or final-balance line exists in the repo.** The
+  `tester_*_window.txt` artifacts are owner-side and gitignored. The EA
+  DEAL format is pinned to `Mql5Bot.mq5` by a test. The MT5 journal formats
+  are unverified.
+- **Stage 8 still cannot pass a log-only leg.** Its binding chain requires
+  the raw `.htm` hash for every model. Changing that is out of scope.
+- Nothing ran on MT5. The gate record is unchanged: stages 0–4 PASS,
+  stage 5 FAIL, stages 6–10 never run, and nothing is certified.
