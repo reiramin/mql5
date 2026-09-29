@@ -82,6 +82,7 @@ run live**.
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Failure classes: symptom, cause, inspection, safe resolution |
 | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) | Final pre-release sequence + owner-side gate |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Contributor guide: layout, standards, canonical files |
+| [AUTONOMOUS_WORKER.md](AUTONOMOUS_WORKER.md) | The daily "AEGIS autonomous worker" task: its self-contained prompt (one DEV task per run) |
 
 ## Historical / audit records — point-in-time, do not edit
 
