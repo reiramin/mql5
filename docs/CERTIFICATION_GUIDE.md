@@ -62,6 +62,19 @@ before launch if any input cannot be derived. Gold1's manifest pins no
 field. A leg only passes from log if the EA logged that it loaded the
 expected strategy. See DECISIONS.md (STAGE 5 R9).
 
+**Partial (scoped) runs certify nothing.** `owner_gate.ps1 -Golds gold2`
+runs only gold2's import, legs and stage-8 comparison. This exists so a
+first real Python↔MQL5 comparison can happen while gold1 awaits
+regeneration. Such a run is evidence about gold2 only:
+- It ends `GATE_RESULT=partial_<stage>` and never `certified`.
+- Stage 8 can at best report `MT5_VALIDATED_PARTIAL_SCOPE`, which is not a
+  positive verdict.
+- Stages 9 and 10 are refused (recorded `REFUSED`, not run), and
+  `gate_summary.json` says `"certifiable": false`.
+
+A partial result says nothing about the excluded golds and is never
+MT5-VALIDATED, VERIFIED or certified. (Built, unit-tested, never run live.)
+
 **Nothing is VERIFIED.** Stage 8 (the binding Python↔MQL5 executed-trade
 reconciliation) has never run, and only a run that ends
 `GATE_RESULT=certified` can put VERIFIED on anything.
@@ -134,7 +147,8 @@ BLOCKED_OWNER_ENVIRONMENT / PENDING; F not begun.
 
 `GOLD_SEMANTIC_PASS` · `MT5_VALIDATED` · `EMPIRICAL_VALIDATED` ·
 `DEMO_VALIDATED` · `VERIFIED` · `NOT_VERIFIED_*` (with exact reasons) ·
-`BLOCKED_OWNER_ENVIRONMENT` · `PASS_FROM_LOG` (stage-5 leg graded from
+`BLOCKED_OWNER_ENVIRONMENT` · `MT5_VALIDATED_PARTIAL_SCOPE` (scoped stage-8
+verification; not positive, certifies nothing) · `PASS_FROM_LOG` (stage-5 leg graded from
 its own tester-log window, no report; never the report-based PASS) ·
 `REALITY_GATE_BLOCKED` ·
 `REALITY_GATE_INCOMPLETE` · `OWNER_EXECUTION_READY` ·

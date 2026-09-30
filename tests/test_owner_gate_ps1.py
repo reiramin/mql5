@@ -2269,7 +2269,7 @@ def test_ps1_stage8_records_a_log_trade_source_in_every_verdict():
     s8 = src.index('Enter-Stage 8 "reconciliation"')
     s9 = src.index("STAGE 9", s8)
     body = src[s8:s9]
-    assert "$recon.log_sourced_legs" in body
+    assert '(Get-DataProp $recon "log_sourced_legs")' in body
     assert "tester agent log" in body
     for status in ('"PASS"', '"DIVERGENCE_EXPECTED"'):
         rec = [ln for ln in body.splitlines()

@@ -249,3 +249,41 @@ work on `feat/gate-scoped-gold2-run` was left untouched.
   retarget. It must be retargeted or closed by hand.
 - No code changed and nothing ran on MT5. Record unchanged: stage 5 FAIL,
   stages 6–10 never run, nothing certified.
+
+## 2026-09-30 — branch `fix/stage5-strictmode-and-gold-scope` (from `origin/master` 0c5da2f)
+
+Worked in a separate worktree. The uncommitted scoped-run draft on
+`feat/gate-scoped-gold2-run` in the main checkout was left untouched. Its
+code and docs diff was copied in as the starting point for Task B, then
+changed to match the spec: stages 9–10 REFUSED, `certifiable` added.
+
+**Commits**
+- `44a712b` — STAGE 5 R10 + scoped runs.
+- the commit that adds this entry.
+
+**Checks (exit codes read)** — macOS, `.venv` Python, ruff 0.16.1:
+- `ruff check python tests tools factory` → exit 0.
+- `pytest tests/` (full suite) → exit 0. The progress output shows 2221
+  passed and 1 skipped.
+
+**Done (checkable in tests)**
+- R10: `Get-DataProp` in `tools/owner_gate.ps1`. No bare `.data.<prop>`,
+  `$recon.<prop>` or `$fd.<prop>` read remains
+  (`tests/test_gate_strictmode.py`). The stage-5 leg-input block is
+  EXECUTED under StrictMode 2.0 with the real decider on the real
+  manifests. The three gold1 legs are recorded `[input_underivable]
+  engine_config.allow_short ... -- leg NOT launched`, all three gold2 legs
+  derive `gold2_multifactor`, and `$legOk` stays false, so stage 5 is still
+  FAIL. The old bare read reproduces the gate_run21 crash.
+- Scoped runs: `-Golds gold2` ends `GATE_RESULT=partial_<stage>`, and
+  `gate_summary.json` has `"scope": ["gold2"]` and `"certifiable": false`.
+  Stages 9 and 10 are recorded REFUSED and not run; the refusal block is
+  executed in a test. The default run is unchanged (tests in
+  `tests/test_gate_scope.py`).
+
+**NOT done, and why**
+- No doc contained `pip install -e python`. `git grep` found none, so
+  nothing was changed.
+- Nothing ran on MT5 or Windows. Built, unit-tested, never run live.
+  Record unchanged: stage 5 FAIL, stages 6–10 never run, nothing
+  certified.
