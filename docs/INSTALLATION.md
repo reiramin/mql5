@@ -21,8 +21,8 @@ Factory and certification tooling work without them.
 
 ```bash
 # clone
-git clone https://github.com/raminhdev/mql5bot.git
-cd mql5bot
+git clone https://github.com/reiramin/mql5.git
+cd mql5
 
 # virtualenv + editable install with dev/test dependencies
 python3 -m venv .venv

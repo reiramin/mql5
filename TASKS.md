@@ -41,18 +41,25 @@ The real remaining work, in the order it must happen before any real money:
    out-of-sample via the existing gate ladder) needs a dataset and has not
    been connected. Until it is, the conversation cannot say a strategy was
    tested, only that its structure is valid.
-10. **[ ] DEV: add authentication to the operator console — NOT done.**
-   `python -m mql5bot.api` binds loopback by default but has **no login and
-   no auth**; anyone who can reach the host can view state, reset the kill
-   switch, and drive the guided conversation. Before it is exposed beyond a
-   trusted, loopback-only host (e.g. on the split Linux host in
-   `docs/DEPLOYMENT.md`), it needs authentication.
+10. **[x] DEV: add authentication to the operator console — DONE (built,
+   unit-tested, never run live).** CONSOLE v2 commit `920c139`:
+   `MQL5BOT_CONSOLE_TOKEN` → `/login` → signed session cookie (stdlib hmac,
+   constant-time compare); every route except `/login` requires the
+   session; the runner refuses a non-loopback bind without the token.
+   Checkable: `tests/test_console_v2.py`; docs `docs/CONSOLE.md`. It has
+   never been exposed on a real host.
 11. **[ ] OWNER/DEV: first VPS deployment + recovery drill — NEVER done.**
    The split deployment in `docs/DEPLOYMENT.md` is a procedure only: it has
    never been stood up, and the recovery drill (reboot each host, kill the
    terminal to prove a stale-heartbeat alert, prove `stop` works and resume
    is console-only) has never been run. (Item 8 is the owner-facing demo
    prerequisite; this is the deployment/infra work behind it.)
+
+12. **[x] DEV: retire the unpkg.com CDN load from the console — DONE
+   (built, unit-tested, never run live).** Commit `b06c7b3`: `board.html`
+   and `strategy.html` extend the offline `base.html` shell; checkable by
+   `tests/test_templates_offline.py`, which walks every template and
+   refuses any external script/link load.
 
 The operator-experience layer (Telegram alerts + commands, Persian/RTL
 console, guided strategy conversation) is **built and unit-tested but has

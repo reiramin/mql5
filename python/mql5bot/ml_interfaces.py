@@ -1,4 +1,7 @@
-"""mql5bot.ml_interfaces — ML interfaces ONLY (plan Phase E).
+"""Deliberate interface seams with NO implementation — by design, not unfinished work.
+See docs/ML_VS_LLM_BOUNDARY.md for why ML stays behind these seams.
+
+mql5bot.ml_interfaces — ML interfaces ONLY (plan Phase E).
 
 The owner brief is explicit: machine learning interfaces are defined,
 implementations are NOT (no neural networks / LSTM / RL / transformers

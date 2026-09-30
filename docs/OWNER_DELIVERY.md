@@ -85,6 +85,16 @@ blurred into one another:
 - **BLOCKED_OWNER_ENVIRONMENT** — the leg's own tester log proves a
   clean run, but the owner environment withheld the proving artifact
   (here: the Report file). **This is not a pass.** The gate stops on it.
+- **PASS_FROM_LOG** — a stage-5 leg with no Report file, graded from its
+  own tester-log window (source: "tester agent log"). It requires ALL of:
+  "successfully finished", bars > 0 for the leg's symbol, a
+  history-quality line, and MT5's stated model equal to the requested
+  one. It proves the leg ran to completion in the requested model. It
+  proves **nothing a report states**: there are no report metrics, and
+  its trade list is only the EA's own `DEAL` log lines, flagged
+  `from_log: true`. It is never counted as, or relabelled to, the
+  report-based pass. Status: built, unit-tested, never run live. See the
+  stage-5 note below for what it shows on the captured lines.
 
 ### The 2026-09-20 run, stage by stage
 
@@ -148,6 +158,21 @@ each judged only on its own window of the tester log:
 A BLOCKED leg is not a pass: the gold #2 backtests ran to completion,
 but build 6184 wrote no Report file, so there is no parseable result to
 grade — and an ungraded run is never accepted as a passing one.
+
+*Log-based grading, added after this run (built, unit-tested, never run
+live):* the gate can now grade a no-report leg as **PASS_FROM_LOG** from
+its own window. On the tester-log lines captured from gate runs 16/17,
+the gold2 M1-OHLC window grades PASS_FROM_LOG: MT5 logged "1 minutes
+OHLC ticks generating". The other gold2 legs have no captured model
+line. The gold1 legs stay FAIL, so stage 5 stays FAIL. That run ended
+with "final balance 10000.00 USD", which means no trades, while gold2's
+frozen contract is 56 trades. Stage 8 would report that as a divergence,
+not a match. Runs 16/17 also predate the fix that makes the EA run
+gold2's configured inputs, so the zero-trade result must be re-measured.
+The legs now load the gold strategy from the manifest (STAGE 5 R9). Until
+the next owner run shows `generic DSL execution enabled: gold2_multifactor`
+in a leg's window, no gold2 leg passes from log. Gold1's legs now fail
+before launch: its manifest does not pin `engine_config.allow_short`.
 
 **Stages 6–10 — reconciliation (incl. 8a–8d), archive, certify: NEVER
 RUN.**

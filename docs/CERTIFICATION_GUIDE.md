@@ -25,6 +25,43 @@ guide must not overstate it:
 | 5 Strategy Tester legs | **FAIL** (`GATE_RESULT=tester_legs`) — 3 legs FAIL, 2 legs BLOCKED_OWNER_ENVIRONMENT (build 6184 wrote no `[Tester]` Report file; a BLOCKED leg is **not** a pass) |
 | 6–10 reconciliation (incl. 8a–8d), archive, certify | **NEVER RUN** — the gate stopped at stage 5 |
 
+**PASS_FROM_LOG — its own evidence class (built, unit-tested, never run
+live).** Because build 6184 writes no Report file, stage 5 can now grade a
+no-report leg from its OWN tester-log window
+(`python/mql5bot/tester_log_grader.py`). A leg is `PASS_FROM_LOG` only when
+that window shows ALL of: "successfully finished", bars > 0 for the leg's
+symbol, a history-quality line, and a model statement equal to the
+requested model. Anything less keeps the leg's existing verdict (FAIL,
+FAIL_INSUFFICIENT_FIXTURE_HISTORY or BLOCKED_OWNER_ENVIRONMENT).
+
+- It **proves**: MT5 ran this leg to completion, on this symbol, with
+  bars > 0, at the stated history quality, in the requested model. The
+  verdict quotes the exact lines and names the source ("tester agent log").
+- It does **not** prove: anything a report states. There are no report
+  metrics (profit factor, drawdown, trade statistics). The deal list is
+  only what the EA printed (`DEAL #…` lines). Side and open/close come
+  only from MT5's own deal lines and are otherwise left empty.
+- It is **never** the report-based PASS. A stage with any log-graded leg
+  records `PASS_FROM_LOG`, not `PASS`. Its summary counts legs passed from
+  report versus from log. A gate that reaches the end on it reports
+  `GATE_RESULT=certified_with_log_graded_legs`, not `certified`.
+- It does **not** change the record above. On the lines captured from
+  gate runs 16/17 the gold2 M1-OHLC window does grade PASS_FROM_LOG, but
+  the gold1 legs still FAIL, so stage 5 is still FAIL.
+- Stage 8 accepts a PASS_FROM_LOG log trade list as a leg's trade source
+  when no report exists, and names the source as the tester agent log. A
+  list with zero deals is compared, not rejected. Against gold2's frozen
+  56-trade contract, zero deals is a **divergence**.
+
+**Legs run the gold strategy (built, unit-tested, never run live).** The
+measured gate_run17 root cause was that the EA ran its compiled-in default
+strategy (`InpDslBundleFile` empty). Each leg now derives its strategy and
+risk inputs from the gold manifest, loads the gold's DSL bundle, and fails
+before launch if any input cannot be derived. Gold1's manifest pins no
+`engine_config.allow_short`, so its legs now fail before launch on that
+field. A leg only passes from log if the EA logged that it loaded the
+expected strategy. See DECISIONS.md (STAGE 5 R9).
+
 **Nothing is VERIFIED.** Stage 8 (the binding Python↔MQL5 executed-trade
 reconciliation) has never run, and only a run that ends
 `GATE_RESULT=certified` can put VERIFIED on anything.
@@ -97,7 +134,9 @@ BLOCKED_OWNER_ENVIRONMENT / PENDING; F not begun.
 
 `GOLD_SEMANTIC_PASS` · `MT5_VALIDATED` · `EMPIRICAL_VALIDATED` ·
 `DEMO_VALIDATED` · `VERIFIED` · `NOT_VERIFIED_*` (with exact reasons) ·
-`BLOCKED_OWNER_ENVIRONMENT` · `REALITY_GATE_BLOCKED` ·
+`BLOCKED_OWNER_ENVIRONMENT` · `PASS_FROM_LOG` (stage-5 leg graded from
+its own tester-log window, no report; never the report-based PASS) ·
+`REALITY_GATE_BLOCKED` ·
 `REALITY_GATE_INCOMPLETE` · `OWNER_EXECUTION_READY` ·
 `PRODUCTION = NOT_READY`. These are distinct states, not synonyms.
 

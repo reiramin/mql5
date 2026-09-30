@@ -9,6 +9,234 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-30 — Each stage-5 leg runs the strategy its gold manifest pins (STAGE 5 R9)
+
+**Measured root cause.** The gate_run17 tester log shows the EA starting
+with `InpStrategy=0, InpDslBundleFile= (empty), InpFastEma=10,
+InpSlowEma=30`, its compiled-in default strategy. R5 filled
+`[TesterInputs]` from `EA_INPUT_DEFAULTS`, but nothing fed the gold
+strategy into a leg; `EA_INPUT_DEFAULTS` did not even list
+`InpDslBundleFile`. Stage 8's 56-vs-0 gold2 divergence therefore compared
+two different strategies, and it was right to refuse.
+
+**Decision.**
+- `python/mql5bot/gold_leg_inputs.py` derives each leg's inputs from the
+  gold manifest (read-only). The strategy comes from `strategy_id` +
+  `strategy_version` + `spec_hash`: exactly one committed spec in
+  `examples/strategies/` must reproduce that `spec_hash` (gold2 →
+  `gold2_multifactor.json`, gold1 → `ema_crossover.json`). It is built into
+  the EA's DSL bundle, and `InpDslBundleFile` points at it. The other
+  derived inputs are `InpSizingMode` ← `risk_config.mode`,
+  `InpRiskPercent` ← `risk_config.risk_percent`, `InpAllowShort` ←
+  `engine_config.allow_short`, and the tester `Deposit` ←
+  `risk_config.equity_start`. `InpSlAtr`/`InpTpAtr` come from the spec's
+  `exit.*.mult`; the bundle drives stops. `InpUseSession=false`, because
+  the bundle carries the session filter. `InpDslBars` is the EA default
+  (500), checked to be ≥ 10× the longest period. Every input is recorded
+  with its source.
+- A field that cannot be derived FAILS THE LEG BEFORE LAUNCH, naming the
+  field (`[input_underivable] <field> -- leg NOT launched`). **Gold1's
+  manifest has no `engine_config`**, so its allow-short rule is
+  underivable and the three gold1 legs now fail before launch on
+  `engine_config.allow_short`, instead of running on defaults.
+  Previously they failed on insufficient fixture history. Adding the
+  field would change a frozen manifest, which is the owner's decision.
+- Pre-launch assertion: `InpDslBundleFile` must be non-empty, and the
+  bundle's `identity.strategy_id` must equal the manifest's.
+- **The one unavoidable transformation, verified.** The EA refuses a bundle
+  whose market differs from the chart (`CDslBundleLoader.MarketMatches`,
+  exact match; `mql5/` is frozen). The chart is the custom symbol
+  (`EURUSD.G2`), and the custom symbols cannot be named `EURUSD` (STAGE 4
+  R7). So the bundle is the committed spec with `market.symbol` set to the
+  custom symbol, and the two normalized documents are proven identical
+  otherwise. Because the market is part of the hash, the bundle's
+  `spec_hash` (gold2: `97509dcd…`) differs from the manifest's
+  (`1ed001b8…`). Both are recorded in the leg evidence.
+- **Staging.** The EA opens the bundle with `FileOpen` (no `FILE_COMMON`)
+  and declares no `#property tester_file`. The bundle is therefore written
+  to `<DataFolder>\MQL5\Files\Mql5Bot\gold_bundles\` and to the same path
+  in every `Tester\...\Agent-*\MQL5\Files`, and each copy is
+  sha256-checked. **Not yet measured:** whether MT5 keeps a file placed
+  in an agent sandbox for the next test. The EA's log decides it:
+  `generic DSL execution enabled: <strategy_id>` means loaded, and
+  `DSL bundle refused` means INIT_FAILED (never a silent default).
+- **Post-run check.** The gate passes `--expected-strategy`, and
+  PASS_FROM_LOG then also requires the EA's `generic DSL execution
+  enabled: <strategy_id>` line naming that strategy. The runs 16/17
+  window therefore no longer passes under the gate: that run loaded no
+  bundle. That is the measured root cause, now caught by the grader.
+- **The window is captured and attached for EVERY leg**, not only
+  no-report legs, so the every-tick and real-ticks model lines are kept
+  from the next owner run.
+- **Stage 8 input.** Before stage 8 verifies, the gate copies each
+  PASS_FROM_LOG leg's list into the package at
+  `log_trades/<gold>_<model>.json` (sha-checked, via `place-log-trades`).
+  The operator places nothing by hand. The package defaults to the
+  gitignored `evidence\owner_mt5_package` unless `MQL5BOT_EVIDENCE_DIR`
+  is set. The former default `artifacts\owner_mt5_gate\evidence` is
+  inside a tracked, frozen path: writing there would dirty the tree the
+  next stage 0 checks. `place-log-trades` refuses any in-repo path
+  outside `evidence/`.
+- `EA_INPUT_DEFAULTS` now mirrors every EA input: `InpDslBundleFile`,
+  `InpDslBars`, `InpAllocationFile` and `InpBaseGateWeight` were missing.
+  A test pins the set to the EA source.
+
+**What this does NOT do.** It does not build the rest of the stage-8
+package (reconciliation events and bindings, compile/symbolspec/safety
+evidence, the archive manifest). Stage 8 still reports what is missing.
+`mql5/`, the manifests, `artifacts/` and frozen inputs are untouched.
+Built, unit-tested, never run live.
+
+---
+
+## 2026-09-29 — Captured tester-log line formats (gate runs 16/17) and stage 8 accepting a log trade list (STAGE 5 R8)
+
+**The captured lines.** The owner supplied these verbatim from the real
+tester logs of gate runs 16 and 17 (2026-09-19, MT5 build 6184,
+MetaQuotes-Demo). They are committed as
+`tests/data/owner_gate/tester_log_gate_runs_16_17.txt`:
+
+```
+EURUSD.G2,M1 (MetaQuotes-Demo): 1 minutes OHLC ticks generating
+EURUSD.G1,H1 (MetaQuotes-Demo): every tick generating
+final balance 10000.00 USD
+EURUSD.G2,M1: 11520 ticks, 2880 bars generated. Environment synchronized in 0:00:00.039. Test passed in 0:00:03.561.
+Tester    quality of analyzed history is 100%
+Tester    last test passed with result "successfully finished" in 0:00:03.561
+```
+
+**Formats now measured.**
+- Model statement: `<SYM>,<TF> (<server>): <phrase> generating`. The
+  phrase is the text after the LAST colon, because agent-log lines carry
+  timestamp columns first. The measured phrases are `1 minutes OHLC ticks`
+  (model 1; MT5 writes "minutes", not the report's "1 minute OHLC") and
+  `every tick` (model 0). The model-4 phrase, expected to be `every tick
+  based on real ticks`, is UNCONFIRMED. It is matched before `every tick`,
+  so it can never read as model 0.
+- `final balance <N> <CCY>`.
+- The bars line can carry extra clauses (`Environment synchronized in …`).
+  The existing regex already reads it.
+- Still UNCONFIRMED, never captured: MT5's own `deal #N buy|sell …` and
+  `…, close #N …` lines, and an EA `DEAL #…` line with real values. The EA
+  format stays pinned to `Mql5Bot.mq5` by a test.
+
+**Grader change.** The model is now read ONLY from a `… generating`
+statement that names the leg's symbol (or from the measured
+math-calculations line). The earlier fallback that matched any line naming
+a canonical label is gone, because it could not read the real "1 minutes
+OHLC" spelling and was looser than the measured form. With the real lines,
+the gold2 M1-OHLC window grades **PASS_FROM_LOG**. The same lines without
+the model statement stay BLOCKED. Gold1's real "every tick generating"
+line cannot speak for gold2. Only gold2_m1_ohlc has a captured model line.
+The other gold2 legs are unchanged until their windows are captured.
+
+**Stage 8 accepts a log trade list.** This applies to a leg whose raw
+report is absent and whose package holds `log_trades/<gold>_<model>.json`
+(the stage-5 `tester_<leg>_log_trades.json`: from_log true, report_present
+false, evidence_class PASS_FROM_LOG, bound by `log_trade_hashes`).
+- That list replaces the leg's raw/parsed report bindings. The scan marks
+  the report slots `LOG_SOURCED`, not missing. The archive manifest must
+  bind the list.
+- The model triad reads `log_reported`, which must equal the list's
+  stated model.
+- `trade_sources`, `log_sourced_legs` and a verdict reason name the source
+  as "tester agent log". The .ps1 stage-8 record says so too.
+- A report, when present, always wins.
+
+**Zero deals is valid input, compared, never rejected.** Stage 8 puts each
+log-sourced leg's deal count beside the frozen Python trade count as one
+more event (`trade_count:<model>`), and the UNCHANGED comparison
+(`first_divergence` / `_field_divergent`) decides it: 0 vs 0 is MATCH.
+Empty owner `events` are accepted only when every model of the gold is
+log-sourced. The Python count is taken only from bytes the frozen record
+pins: `verify_owner_mt5_gate.py` reads `artifacts/gold_2/reconciliation.json`
+only if its sha256 equals the frozen `artifact_hash_chain` entry. Otherwise
+the count is absent and a log-sourced leg is INVALID. Gold1 has no hash
+chain in the frozen record, so its count is always absent (fail-closed).
+
+**What this means for gold2 — read this.** The frozen gold2 record says
+"56 trades is the semantic contract". So a gold2 leg whose log shows zero
+deals is not "no trades on both sides": stage 8 reports `DIVERGENT` at
+`trade_count:<model>`, python=56, mt5=0, class UNKNOWN (the taxonomy is
+unchanged). This is correct. Note also that runs 16/17 predate the R5
+DEFECT 2 fix: the EA then started on its compiled-in defaults
+(`InpStrategy=0`, empty `InpDslBundleFile`), not gold2's strategy. The
+zero-trade result (final balance = the 10000 start) is therefore expected
+to reproduce only after a re-run with `--defaults` in place. That is an
+inference from the R5 record, not a measurement.
+
+**Known inconsistency, not changed here.** `owner_gate.MODEL_LABELS` still
+uses the GUI enum (3 = "Every tick based on real ticks", 4 = "Real ticks"),
+while `mt5tester.MT5_MODEL_LABELS` uses the config-file enum (R5 DEFECT 1).
+A real-ticks log-sourced triad must therefore state the label, not the
+int. Aligning the two is a separate decision.
+
+**Scope.** Python, tools, tests and docs. `mql5/`, `artifacts/`,
+`evidence/`, `logs_owner/`, frozen inputs and manifests are untouched.
+Stage 8's comparison functions and mismatch taxonomy are untouched. Built,
+unit-tested, never run live.
+
+---
+
+## 2026-09-29 — PASS_FROM_LOG: a second, log-based grading path for stage 5, as its own evidence class (STAGE 5 R7)
+
+**Problem.** MT5 build 6184 writes no `[Tester]` Report file (R5, DEFECT 3).
+So legs that ran a complete backtest sit at `BLOCKED_OWNER_ENVIRONMENT`
+with nothing to grade. The tester agent log and the tester log still hold
+the facts a grader needs.
+
+**Decision.**
+- `python/mql5bot/tester_log_grader.py` parses ONE leg's window capture
+  into: finished, bars, ticks, history quality, final balance, the model
+  MT5 stated, and the deals the EA printed. It scopes symbol-bearing lines
+  with `gate_selfcheck._leg_scoped_lines`, the same function the R6
+  classifier uses. The model and deal lines count only when they name the
+  leg's symbol. A field the window does not state is `None`. No default is
+  ever filled in.
+- A leg is `PASS_FROM_LOG` only when ALL of these hold: "successfully
+  finished" in its window, bars > 0 for its symbol, a history-quality line,
+  and a stated model equal to the requested one. It can only upgrade a
+  window the R6 classifier calls BLOCKED, so a zero-bars window can never
+  be graded up. Any other leg keeps its R6 verdict. The verdict records
+  the source ("tester agent log"), the checks, and the exact lines.
+- `PASS_FROM_LOG` is its own evidence class, never the report-based PASS.
+  `owner_gate_decide.py stage5-leg --window` grades a no-report leg. The
+  stage-5 record is `PASS_FROM_LOG`, never `PASS`, when any leg passed from
+  log. Its reason starts with a tally of legs passed from report, passed
+  from log, blocked, and failed. A gate that reaches the end on it reports
+  `GATE_RESULT=certified_with_log_graded_legs`, not `certified`.
+- Stage-8 input: a PASS_FROM_LOG leg writes
+  `tester_<leg>_log_trades.json`. It is shaped like the parsed-report
+  sidecar (settings/fields/metrics) so it can fill the leg's
+  `parsed/<gold>_<model>.json` slot. It is flagged `from_log: true` and
+  `report_present: false`, bound to the window's sha256, and has empty
+  `metrics`. Stage 8's comparison logic is unchanged and was not run. That
+  stage's binding chain still requires the raw `.htm` hash for every model,
+  so a log-only leg cannot pass stage 8 as written. Changing that is a
+  separate decision.
+
+**Line provenance (what is measured and what is not).** These lines are
+MEASURED (quoted in the R5/R6 entries): history quality, `N ticks, M bars
+generated`, "successfully finished", and `math calculations test mode ...
+for <SYM>`. The EA's `[time] [INFO] DEAL #<t> <sym> vol= price= pnl=` line
+comes from `Mql5Bot.mq5` `OnTradeTransaction`, and a test pins the format
+to that source. These lines are in MT5's journal format but have NOT been
+seen in a captured artifact here: `final balance`, `deal #N buy|sell`,
+`..., close #N`, and a model statement such as `1 minute OHLC ticks
+generating`. When they are absent, their fields stay `None`.
+
+**Consequence on the record.** The captured gold2 excerpts contain no model
+statement, so under this rule they do **not** grade PASS_FROM_LOG. They
+stay BLOCKED. The grader does not infer the model from the tick count, even
+though 11520 ticks / 2880 M1 bars is exactly 4 ticks per bar. The gold1
+legs stay FAIL / FAIL_INSUFFICIENT_FIXTURE_HISTORY. Nothing on the record
+became greener. Built, unit-tested, never run live.
+
+**Scope.** Python, tools, tests and docs only. `mql5/`, `artifacts/`,
+`evidence/`, `logs_owner/`, frozen inputs and manifests are untouched.
+
+---
+
 ## 2026-09-20 — A classifier that reads outside the unit it judges can manufacture a verdict; the fix is SCOPING, not a stricter threshold (STAGE 5 R6)
 
 **The defect, plainly.** The R5 BLOCKED classifier was laundering evidence. In

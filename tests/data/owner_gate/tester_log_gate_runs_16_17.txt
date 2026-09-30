@@ -1,0 +1,10 @@
+# CAPTURED — MT5 Strategy Tester log lines from the owner's real gate runs 16
+# and 17 (2026-09-19, MT5 terminal build 6184, MetaQuotes-Demo), supplied
+# verbatim by the owner. Lines starting with '#' are this header, not log.
+# The lines come from several legs; tests assemble a leg window from them.
+EURUSD.G2,M1 (MetaQuotes-Demo): 1 minutes OHLC ticks generating
+EURUSD.G1,H1 (MetaQuotes-Demo): every tick generating
+final balance 10000.00 USD
+EURUSD.G2,M1: 11520 ticks, 2880 bars generated. Environment synchronized in 0:00:00.039. Test passed in 0:00:03.561.
+Tester    quality of analyzed history is 100%
+Tester    last test passed with result "successfully finished" in 0:00:03.561

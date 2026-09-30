@@ -42,9 +42,26 @@ Read this together with `docs/SPEC.md` (v4). SPEC is canonical for WHAT to build
 > - Docs: `docs/ROADMAP_UX.md`, `docs/TELEGRAM.md`, `docs/DEPLOYMENT.md`,
 >   `docs/PERSIAN_CONSOLE.md`.
 >
+>
+> **CONSOLE v2 (commits `920c139`..`fb5cdc1`) — built, unit-tested, never run
+> live.** Token authentication (`MQL5BOT_CONSOLE_TOKEN`, signed session
+> cookie, the runner refuses a non-loopback bind without it), a shared
+> offline shell with the not-yet-proven banner, live updates via a
+> same-origin telemetry proxy, and the pages `/strategies`, `/strategy/{sid}`,
+> `/new`, `/trades`, `/certification` (read-only gate rail) and `/settings`
+> (health checklist, env var names only). See `docs/CONSOLE.md`.
+> **CDN fix `b06c7b3`** — the two legacy templates no longer load htmx from
+> unpkg.com; every template is offline, guarded by
+> `tests/test_templates_offline.py`.
+>
+> **Known cosmetic item (frozen, deliberately not fixed):**
+> `mql5/Experts/Mql5Bot/Mql5Bot.mq5` line 24 still carries
+> `#property link "https://github.com/raminhdev/mql5bot"`. The repository is
+> `reiramin/mql5`. Editing it would invalidate the compile-of-record, so it
+> waits for the next owner recompile.
+>
 > **Untouched / not built:** the DSL bundle path in MT5 (the tester ran the
-> compiled-in default, `InpDslBundleFile` empty); the console has **no
-> authentication** and no launcher; the split deployment in `docs/DEPLOYMENT.md`
+> compiled-in default, `InpDslBundleFile` empty); the split deployment in `docs/DEPLOYMENT.md`
 > has **never been deployed or drilled**; no telemetry provider is wired into
 > the Telegram/console state (they report "not connected").
 >
@@ -72,7 +89,7 @@ Owner (Persian-speaking, non-programmer, trades via MetaTrader 5) wants an autom
 - Wants: multiple strategies checked simultaneously; automatic selection of the one(s) fitting current market conditions, or a combination.
 - Wants: SL/TP and "everything needed for profitability" — we translated that into: risk engine, cost model, execution quality, regime engine, meta-layer, drift detection, statistical gates.
 - Wants: zero tolerance for bugs incl. UI, because it is real money.
-- Environment: agent runs on **Arena AI**, connected to GitHub repo `raminhdev/mql5bot`. Arena has an ephemeral sandbox and pushes to its own branch `arena/<id>-mql5bot`. Arena's chat paste fields DROP long text → long documents must be put in the repo via GitHub web UI by the owner, not pasted in chat.
+- Environment: the repository is `reiramin/mql5` on GitHub. The working process (a Mac agent, a Windows agent, a human reviewer) is described in §7.
 
 ---
 ## 2. Honest assumptions we told the owner (keep repeating them)
@@ -115,30 +132,44 @@ Contradictions removed: two repo layouts → one; three workflows → one; three
 Money-losing bugs fixed: index-based Magic; attribution in comment; weight clamp vs zero weights; Gate3 "OR"; Sleep vs retry; DSL files unavailable in tester sandbox; duplicate bot token; WebRequest/Calendar in tester; lot tests tied to broker symbol names; Python/TA-Lib indicator init mismatch (own Wilder implementation + tolerance); undefined data source for visual verification (headless tester exports CSV, Python renders); no EA⇄Factory contract (added File Contract with atomic writes + schemas); Factory offline/no LLM key behavior; recovery via comment; uncapped Kelly; missing GMT offset API; Factory web security.
 
 ---
-## 6. What ACTUALLY happened with the Arena agent (state history)
-1. Session 1: agent received the giant prompt, generated a lot, **pushed nothing**; connection dropped; everything lost.
-2. Diagnosis: (a) huge single-session prompt → agent deferred first push; (b) possible read-only/insufficient git scope; (c) ephemeral sandbox. Fix: split into tiny sessions, first push within 2 minutes, spec lives in repo.
-3. Bootstrap session: **push works**. Agent created `PING.md` on branch `arena/01a06c21-mql5bot`, based on latest `main` (`a82c1cd`).
-4. Next session: agent (correctly) refused to invent `TASKS.md`/`docs/SPEC.md` because instructions said "do not re-plan", and reported both are **absent from the repo**. Owner's pastes into Arena arrived empty.
-5. Owner found 6 external repos (mt5-docker ×2, highcharts, paper_trading_view, BTC target builder, AutoTradeSignal/core). Evaluated in §4.17 / SPEC §19: reference only, no imports.
-
-### Current repo state (as far as known — VERIFY FIRST)
-- `main`: README (+ whatever owner added). Commit `a82c1cd` was latest main at bootstrap time.
-- `arena/01a06c21-mql5bot`: `PING.md` only.
-- **Missing:** `docs/SPEC.md`, `TASKS.md`, `PROGRESS.md`, any code. Nothing has been merged back to main yet (unless owner did it).
+## 6. How the project got here (short history)
+The first sessions ran on a hosted agent ("Arena") with an ephemeral sandbox
+that lost unpushed work and dropped long pastes; that is why every rule below
+insists on small commits and on everything living in the repository. That
+process is retired. Its branch names (`arena/<id>-mql5bot`) and the old
+repository name (`raminhdev/mql5bot`) still appear in historical logs and in
+one frozen file (see the known cosmetic item in the CURRENT STATE pointer);
+they are provenance, not the current setup.
 
 ---
 ## 7. Operating model (process rules — mandatory)
-- Long documents (SPEC, HANDOFF) go into the repo via GitHub web UI by the owner; chat carries only short session prompts.
-- **Session size:** ≤10–12 files per session. One file → `git add <file> TASKS.md PROGRESS.md` → commit → push → paste hash. Stop after 3 failed pushes.
-- Each session starts from latest `main`; Arena will create/use its own `arena/*` branch — acceptable. **After every session the owner opens a PR `arena/* → main` and merges.** main = source of truth.
-- Owner's per-session check: number of commits ≈ number of files; PROGRESS.md updated; no files outside the list.
-- Release gating: A (ea-core) → B (dsl) → C (factory-core) → D (regime-meta) → E (nocode). Tag each. Put Release A on a demo account before investing in later releases.
-- After each release: run a **Red Team review** session with a fresh agent ("how can this system lose money?"), fix findings, then proceed.
-- Never paste external repo links into work-session prompts (derails the agent); policy lives in SPEC §19.
+Three roles, each with one job. No role does another's.
+- **Mac agent (edits and pushes).** Writes Python, tools, docs and tests;
+  runs ruff and the full pytest suite; commits on a branch and pushes. It
+  cannot run MetaTrader 5 and never claims a compile, a tester result or a
+  reconciliation. It never touches `mql5/`, `artifacts/`, `evidence/`,
+  `logs_owner/` or any frozen manifest (see `CLAUDE.md`).
+- **Windows agent (runs the gate, returns raw evidence).** On the owner's
+  Windows machine with the MT5 terminal, it runs `tools/owner_gate.ps1`
+  against a pushed commit and returns the raw evidence directory
+  (`evidence\owner_gate\<UTC>\` — one `stage_<n>.json` per stage plus
+  `gate_summary.json` and the `GATE_RESULT=` line) unedited. It does not
+  interpret, summarise away, or repair evidence.
+- **Human reviewer (audits every commit).** Reads every commit the agents
+  push, checks each claim against a file, a test or a hash, and decides
+  what merges to `master`. The gate result is truth; the reviewer never
+  accepts a BLOCKED leg as a pass or one unit's result as evidence for
+  another.
+- Work happens on branches; `master` changes only after review. No amend,
+  no force-push. Every "done" names the file, test or hash that proves it;
+  anything built but never run against a live system is written "built,
+  unit-tested, never run live".
+- Each session ends with a dated entry in `AUTONOMOUS_LOG.md`.
 
 ---
-## 8. Session prompt templates (use verbatim)
+## 8. Session prompt templates (HISTORICAL — Arena era)
+> Retained for provenance. The current process is §7 and `CLAUDE.md`; where these templates mention Arena or `main`, they are superseded (the default branch is `master`).
+
 ### 8.1 Planning session (run once, after SPEC.md is in main)
 PLANNING SESSION — the only outputs are TASKS.md and PROGRESS.md. No project code.
 1. git fetch; git checkout main; git pull. Paste `git log --oneline -5` (must include "docs: add master spec v4").
@@ -162,7 +193,7 @@ WORK SESSION.
 RED TEAM REVIEW — no new features. Read docs/SPEC.md and the code of Release <X>. Produce docs/REDTEAM_<X>.md listing every way this release could lose money or violate SPEC §3 principles (execution, sizing, stops, recovery, netting/hedging, tester vs live, file contract, UI), each with severity, evidence (file:line), and a concrete fix. Then fix CRITICAL/HIGH items one file per commit, re-run tests, update CHANGELOG.
 
 ---
-## 9. TODO — intended but NOT yet applied (ordered)
+## 9. TODO — intended but NOT yet applied (HISTORICAL, Arena era — the current backlog is `TASKS.md`)
 **Immediate (owner + agent)**
 - [ ] Owner: create `docs/SPEC.md` on `main` via GitHub web UI (full v4 text + §19). Verify not truncated (ends with §19).
 - [ ] Owner: create `HANDOFF.md` on `main` (this file).
@@ -182,12 +213,12 @@ RED TEAM REVIEW — no new features. Read docs/SPEC.md and the code of Release <
 **Process**
 - [ ] Red Team session after Release A, B, C, D, E.
 - [ ] Owner: ≥4 weeks demo on the target broker for Release A before enabling anything from C/D/E on live money; verify restart recovery, kill switch, netting/hedging manually.
-- [ ] Consider moving from Arena to a local agent (Claude Code / Codex CLI / Cursor on the owner's PC or Windows VPS) so files persist on disk even if the agent disconnects; the same prompts work.
+- [x] Move from Arena to local agents — superseded by the Mac agent / Windows agent / human reviewer process in §7.
 
 ---
 ## 10. Risks & warnings for the next AI
 - MetaEditor compile cannot run in the agent sandbox; agent must write code carefully and the owner (or a Windows agent) runs `tools/compile.ps1` and feeds back errors. Never claim "compiles" without a log.
-- Arena chat loses long pastes; keep everything in the repo.
+- Keep everything in the repo; chat is not a record.
 - Wine/Docker MT5 results may differ from Windows; only Windows portable MT5 is the reference for gates.
 - Do not add ML before the rule-based system is stable (meta-labeling is v1.1, flagged, ≥300 live trades).
 - Do not "simplify" the risk engine, magic map, attribution persistence or file contract — each fix in §5 corresponds to a real-money failure mode.
@@ -199,10 +230,8 @@ RED TEAM REVIEW — no new features. Read docs/SPEC.md and the code of Release <
 - `main` has SPEC.md, HANDOFF.md, TASKS.md, PROGRESS.md and code; `git log` shows one commit per file.
 - Current release's phase in PROGRESS.md matches ticked items in TASKS.md.
 - A strict 0/0 compile log SHOULD exist for the latest EA state (this is an owner-pending target, not a current fact — see the CURRENT STATE pointer above); MQL5 unit tests and pytest pass.
-- No unmerged `arena/*` branch older than one session.
+- No unreviewed agent branch older than one session.
 - Release tags exist for finished releases; Red Team doc exists per finished release.
-
-- Merging the PR closes the Arena session and cuts its network. Never send further prompts to a closed session; always open a NEW session after each merge. New sessions start from main, so all shared documents must live on main.
 
 ---
 ## (Convergence mission, 2026-09-06) Where the system stands NOW

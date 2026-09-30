@@ -65,6 +65,10 @@ MT5_MODEL_LABELS = {0: "Every tick", 1: "1 minute OHLC", 2: "Open prices only",
 EA_INPUT_DEFAULTS: dict[str, object] = {
     # --- Strategy ---
     "InpStrategy": 0,              # STRAT_EMA_CROSSOVER
+    # STAGE 5 R9: the DSL strategy selector. Empty = the EA runs its compiled
+    # strategy (InpStrategy); a gold leg sets it (gold_leg_inputs).
+    "InpDslBundleFile": "",
+    "InpDslBars": 500,
     "InpFastEma": 10,
     "InpSlowEma": 30,
     "InpRsiPeriod": 14,
@@ -86,6 +90,8 @@ EA_INPUT_DEFAULTS: dict[str, object] = {
     "InpKellyWinRate": 0.55,
     "InpKellyPayoff": 1.5,
     "InpMaxLots": 10.0,
+    "InpAllocationFile": "in/allocation.json",
+    "InpBaseGateWeight": 1.0,
     "InpDailyLossPct": 0.0,
     "InpMaxDrawdownPct": 0.0,
     "InpMaxSpreadPoints": 0.0,

@@ -46,6 +46,28 @@ def _symbolspec_expectations(repo: Path) -> dict:
     return spec if isinstance(spec, dict) else {}
 
 
+def _bind_python_trade_counts(repo: Path, frozen: dict) -> None:
+    """Add each gold's Python trade count to the frozen record — ONLY when
+    the gold's reconciliation.json bytes equal the hash the frozen record
+    pins (artifact_hash_chain). Stage 8 compares a log-sourced leg's trade
+    count against it; an unverifiable count is left absent (fail-closed)."""
+    for key in ("gold_1", "gold_2"):
+        entry = frozen.get(key)
+        if not isinstance(entry, dict) or not entry.get("fixture"):
+            continue
+        want = (entry.get("artifact_hash_chain") or {}).get(
+            "reconciliation.json")
+        path = (repo / entry["fixture"]).parent / "reconciliation.json"
+        if not want or not path.is_file() or og.sha256_file(path) != want:
+            continue
+        try:
+            trades = json.loads(path.read_text(encoding="utf-8"))["trades"]
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if isinstance(trades, list):
+            entry["python_trade_count"] = len(trades)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("evidence_dir",
@@ -73,6 +95,8 @@ def main(argv: list[str] | None = None) -> int:
     # bind the frozen broker-spec expectations for SymbolSpec comparison
     frozen.setdefault("symbolspec_expectations",
                       _symbolspec_expectations(repo))
+
+    _bind_python_trade_counts(repo, frozen)
 
     report = og.run_gate(Path(args.evidence_dir), frozen)
     report["frozen_source_commit"] = frozen.get("source", {}).get(
