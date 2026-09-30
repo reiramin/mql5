@@ -695,16 +695,19 @@ $stage4art = New-Object System.Collections.ArrayList
 # so MT5's own inference yields EUR/USD: "EURUSD.G1" -> base "EUR", profit
 # "USD". The ".G1"/".G2" suffix keeps each unique and non-colliding with the
 # broker's own "EURUSD". See docs/DECISIONS.md 2026-09-19 (R7).
-$golds = @(
+$goldImports = @(
     @{ gold = "gold1"; name = "EURUSD.G1"; fixture = "artifacts\gold\gold_fixture.csv";   manifest = "artifacts\gold\manifest.json" },
     @{ gold = "gold2"; name = "EURUSD.G2"; fixture = "artifacts\gold_2\gold2_fixture.csv"; manifest = "artifacts\gold_2\manifest.json" }
 )
-# SCOPED RUN: only the scoped golds' fixtures are imported
-$golds = @($golds | Where-Object { $Script:Scope -contains $_.gold })
+# SCOPED RUN: only the scoped golds' fixtures are imported. This list is
+# $goldImports, NOT $golds: PowerShell names are case-insensitive, so $golds IS
+# the [string[]]$Golds parameter and its type constraint would turn each
+# hashtable into the string "System.Collections.Hashtable" (gate_run22).
+$goldImports = @($goldImports | Where-Object { $Script:Scope -contains $_.gold })
 $filesImport = Join-Path $DataFolder "MQL5\Files\Mql5Bot\gold_import"
 $importOut = Join-Path $DataFolder "MQL5\Files\Mql5Bot\gold_import_out"
 $presetsDir = Join-Path $DataFolder "MQL5\Presets"
-foreach ($g in $golds) {
+foreach ($g in $goldImports) {
     New-Item -ItemType Directory -Force -Path $filesImport | Out-Null
     if (Test-Path -LiteralPath $importOut) { Remove-Item -LiteralPath $importOut -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $importOut | Out-Null
