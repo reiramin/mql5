@@ -9,6 +9,50 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-30 — A script-scope local must never share a name with a script parameter (gate_run22)
+
+**Measured failure.** gate_run22 (HEAD 6416d6b, `-Golds gold2`) failed stage 4
+with `UNHANDLED_ERROR: The property 'gold' cannot be found on this object
+(script line 703)`.
+
+**Root cause.** The reviewer found it and it was confirmed by reading the code.
+PowerShell variable names are case-insensitive. PR #7 added the
+parameter `[string[]]$Golds`. Stage 4 still assigned a local
+`$golds = @( @{ gold = ...; name = ... }, ... )`, which is the SAME variable. The
+`[string[]]` type constraint stays on the variable, so each hashtable became
+the string `"System.Collections.Hashtable"`, and `$_.gold` threw under
+`Set-StrictMode -Version 2.0`. This broke the DEFAULT (unscoped) run as well,
+not only `-Golds` runs.
+
+**Why the earlier tests missed it.** PR #7's scope tests ran the script only
+up to stage 0 (via the `MQL5BOT_GATE_FAULT` hook) and checked stage 4 by TEXT:
+`tests/test_gate_scope.py` asserted that the filter line was present. No test
+EXECUTED the stage-4 gold list together with the real param block, so the type
+constraint never applied in any test. A snippet that runs without the
+declarations it depends on can pass while the script fails.
+
+**Decision.**
+- The stage-4 list is renamed `$goldImports` (every use). The parameter
+  `$Golds` is unchanged. The whole script was audited, and `$golds` was the
+  only collision.
+- New rule: outside the param block, no assignment or `foreach` iterator may
+  case-insensitively name a script parameter. The only exceptions are the
+  intentional reassignments `$DataFolder`, `$TerminalPath`, `$MetaEditorPath`
+  and `$SymbolSpecExport`, listed explicitly in
+  `tests/test_gate_param_shadowing.py`. A static test parses the param block
+  and enforces the rule, and it catches the gate_run22 spelling.
+- An executed pwsh test cuts the REAL param block, scope block and stage-4
+  gold list out of the script and runs them under StrictMode 2.0. The default
+  run gives gold1/gold2, and `-Golds gold2` gives one entry, `EURUSD.G2`. The
+  old `$golds` spelling fails in the same harness with the gate_run22 error.
+  Any test that executes a slice of `owner_gate.ps1` which reads a script
+  parameter must include the real param block.
+- The 2026-09-19 entry below that names `$golds` in `tools/owner_gate.ps1` is
+  history. The variable is now `$goldImports`.
+
+Built, unit-tested, never run live. Record unchanged: stage 5 FAIL, stages
+6–10 never run, nothing certified.
+
 ## 2026-09-30 — StrictMode-safe reads of decider output (R10, gate_run21)
 
 **Measured root cause.** gate_run21 (HEAD 0c5da2f) failed stage 5 with

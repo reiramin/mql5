@@ -250,7 +250,7 @@ def test_ps1_finish_gate_always_resolves_through_the_scope():
 
 def test_ps1_scopes_imports_legs_and_the_stage_8_comparison():
     s4 = _stage('Enter-Stage 4 "fixture_import"', 'Enter-Stage 5')
-    assert "$golds = @($golds | Where-Object { $Script:Scope -contains $_.gold })" in s4
+    assert "$goldImports = @($goldImports | Where-Object { $Script:Scope -contains $_.gold })" in s4
     s5 = _stage('Enter-Stage 5 "tester_legs"', "STAGE 8")
     assert "$legs = @($legs | Where-Object { $Script:Scope -contains $_.gold })" in s5
     assert 'foreach ($gk in @("gold1", "gold2"))' not in s5

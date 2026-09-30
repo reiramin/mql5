@@ -287,3 +287,38 @@ changed to match the spec: stages 9–10 REFUSED, `certifiable` added.
 - Nothing ran on MT5 or Windows. Built, unit-tested, never run live.
   Record unchanged: stage 5 FAIL, stages 6–10 never run, nothing
   certified.
+
+## 2026-09-30 — branch `fix/golds-param-shadowing` (from `origin/master` 6416d6b)
+
+Worked in a separate worktree. The uncommitted draft in the main checkout
+was left untouched.
+
+**Evidence acted on:** gate_run22 (HEAD 6416d6b, `-Golds gold2`), stage 4
+FAIL: `The property 'gold' cannot be found on this object (script line 703)`.
+The stage-4 local `$golds` is the `[string[]]$Golds` parameter, because
+PowerShell names are case-insensitive.
+
+**Commits**
+- `5a58a39` — rename the stage-4 local to `$goldImports`; add
+  `tests/test_gate_param_shadowing.py` (a static shadowing check and a pwsh
+  run of the real param block, scope block and gold list); update the
+  `test_gate_scope.py` text check; add a DECISIONS.md entry.
+- the commit that adds this entry.
+
+**Checks (exit codes read)** — macOS, `.venv` Python, ruff 0.16.1:
+- `ruff check python tests tools factory` → exit 0.
+- full `pytest` → exit 0. The only skip is `tests/test_pipeline.py:444`
+  (optuna).
+- PowerShell tests: 27 ran, 0 skipped. Hiding pwsh (`env -i`, empty HOME)
+  makes those 4 files skip exactly 27 tests.
+
+**PRs**
+- #9 (this branch) is open and not merged.
+- A comment on #8 (the log-only PR for the PR #7 merge) says to merge it
+  together with #9.
+
+**NOT done, and why**
+- Nothing was merged, as instructed.
+- Nothing ran on MT5 or Windows. The fix is built, unit-tested, never run
+  live, and gate_run22's stage 4 has not been re-run. Record unchanged: stage
+  5 FAIL, stages 6–10 never run, nothing certified.
