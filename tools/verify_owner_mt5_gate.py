@@ -78,6 +78,10 @@ def main(argv: list[str] | None = None) -> int:
                     help="frozen-inputs record (default: repo package)")
     ap.add_argument("--repo", default=".",
                     help="repository root (default: cwd)")
+    ap.add_argument("--golds", default=",".join(og.GOLDS),
+                    help="comma list of golds to verify (default: all). A "
+                         "scoped run is PARTIAL: its best verdict is "
+                         "MT5_VALIDATED_PARTIAL_SCOPE, never positive")
     ap.add_argument("--out", default="",
                     help="write the machine-readable report here")
     args = ap.parse_args(argv)
@@ -98,7 +102,12 @@ def main(argv: list[str] | None = None) -> int:
 
     _bind_python_trade_counts(repo, frozen)
 
-    report = og.run_gate(Path(args.evidence_dir), frozen)
+    golds = [g.strip() for g in args.golds.split(",") if g.strip()]
+    if not golds or set(golds) - set(og.GOLDS):
+        print(f"error: --golds must name golds from {list(og.GOLDS)}",
+              file=sys.stderr)
+        return 2
+    report = og.run_gate(Path(args.evidence_dir), frozen, golds)
     report["frozen_source_commit"] = frozen.get("source", {}).get(
         "commit", "")
     report["verifier"] = "mql5bot.owner_gate"

@@ -60,6 +60,11 @@ NOT_VERIFIED_ARTIFACT_MISMATCH = "NOT_VERIFIED_ARTIFACT_MISMATCH"
 NOT_VERIFIED_REAL_TICK_COVERAGE_UNKNOWN = \
     "NOT_VERIFIED_REAL_TICK_COVERAGE_UNKNOWN"
 MT5_VALIDATED = "MT5_VALIDATED"
+# A SCOPED (partial) verification that would otherwise be MT5_VALIDATED: the
+# scoped golds' evidence verified, the excluded golds not examined at all. It
+# is deliberately NOT a positive verdict and certifies nothing.
+MT5_VALIDATED_PARTIAL_SCOPE = "MT5_VALIDATED_PARTIAL_SCOPE"
+OUT_OF_SCOPE = "OUT_OF_SCOPE"
 EMPIRICAL_VALIDATED = "EMPIRICAL_VALIDATED"
 DEMO_VALIDATED = "DEMO_VALIDATED"
 VERIFIED = "VERIFIED"
@@ -1054,7 +1059,14 @@ def verify_environment(root: Path | str) -> dict:
     return {"state": VALID, "reasons": []}
 
 
-def verify_archive_manifest(root: Path | str, frozen: dict) -> dict:
+def _gold_keys(gold: str) -> set[str]:
+    """LAYOUT keys that belong to one gold (reports + reconciliation)."""
+    return ({f"{kind}_{gold}_{m}" for kind in ("raw", "parsed")
+             for m in MODELS} | {f"reconciliation_{gold}"})
+
+
+def verify_archive_manifest(root: Path | str, frozen: dict,
+                            golds: tuple[str, ...] = GOLDS) -> dict:
     """The manifest must bind EVERY required artifact by hash plus the
     source/fixture/config identities — a manifest that merely lists
     filenames proves nothing (§10)."""
@@ -1073,9 +1085,11 @@ def verify_archive_manifest(root: Path | str, frozen: dict) -> dict:
                 "reasons": [("archive manifest lists no artifact hash "
                             "map — filenames alone are not a binding")]}
     # every mandatory artifact except the manifest itself must be bound
-    log_legs = log_sourced_legs(root)
+    log_legs = {(g, m) for g, m in log_sourced_legs(root) if g in golds}
     replaced = {f"{kind}_{g}_{m}" for g, m in log_legs
                 for kind in ("raw", "parsed")}
+    for gold in set(GOLDS) - set(golds):     # a scoped run binds its golds
+        replaced |= _gold_keys(gold)
     required = [rel for key, rel in LAYOUT.items()
                 if key != "archive_manifest" and key not in replaced]
     required += [log_trades_rel(g, m) for g, m in sorted(log_legs)]
@@ -1136,18 +1150,41 @@ def classify_anchor_changes(changed_paths: list[str]) -> dict:
 # 9. the gate: completeness -> identity -> reconciliation -> verdict
 # ---------------------------------------------------------------------------
 
-def run_gate(evidence_dir: Path | str, frozen_inputs: dict) -> dict:
+def run_gate(evidence_dir: Path | str, frozen_inputs: dict,
+             golds: tuple[str, ...] | list[str] = GOLDS) -> dict:
     """Consume the owner directory; produce the machine-readable report
     and the explainable verdict. Never returns a positive verdict on
-    missing, stale, wrong, partial or simulated evidence."""
+    missing, stale, wrong, partial or simulated evidence.
+
+    ``golds`` scopes the verification (owner_gate.ps1 -Golds). A scoped run
+    examines ONLY those golds; the others are OUT_OF_SCOPE (not missing, not
+    verified), and the best verdict it can reach is
+    MT5_VALIDATED_PARTIAL_SCOPE, which is not a positive verdict."""
+    unknown = sorted(set(golds) - set(GOLDS))
+    if unknown or not golds:
+        raise ValueError(f"unknown or empty gold scope: {list(golds)}")
+    scope = tuple(g for g in GOLDS if g in golds)
+    partial = scope != GOLDS
+    excluded = [{"gold": g, "reason": "excluded from this scoped "
+                 "verification: not examined, not validated"}
+                for g in GOLDS if g not in scope]
+    scope_fields = {"scope": list(scope), "partial": partial,
+                    "excluded": excluded}
     root = Path(evidence_dir)
     if not root.is_dir():
         return {"verdict": NOT_VERIFIED_MISSING_MT5_EVIDENCE,
                 "reasons": [f"evidence directory missing: {root}"],
                 "artifacts": {}, "gold": {}, "safety": {},
-                "missing": sorted(LAYOUT)}
+                "missing": sorted(LAYOUT), **scope_fields}
 
     scan = scan_package(root)
+    for gold in GOLDS:
+        if gold in scope:
+            continue
+        for key in _gold_keys(gold):
+            scan[key]["state"] = OUT_OF_SCOPE
+        for key in [k for k in scan if k.startswith(f"log_trades_{gold}_")]:
+            scan[key]["state"] = OUT_OF_SCOPE
     missing = sorted(k for k, v in scan.items() if v["state"] == MISSING)
     ambiguous = sorted(k for k, v in scan.items()
                        if v["state"] == INVALID)
@@ -1165,7 +1202,7 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict) -> dict:
             "source_commit": frozen_source,
             "gold1": frozen_inputs.get("gold_1", {}),
             "gold2": frozen_inputs.get("gold_2", {}),
-        }, model_identities) for g in GOLDS}
+        }, model_identities) for g in scope}
 
     safety_rep = verify_safety(root)
     env_rep = verify_environment(root)
@@ -1173,7 +1210,7 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict) -> dict:
         "source_commit": frozen_source,
         "gold_1": frozen_inputs.get("gold_1", {}),
         "gold_2": frozen_inputs.get("gold_2", {}),
-    })
+    }, scope)
 
     # ---- verdict ladder (fail-closed, explainable) --------------------
     reasons: list[str] = []
@@ -1249,7 +1286,16 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict) -> dict:
     if verdict == MT5_VALIDATED:
         reasons = [("all owner evidence verified against the frozen "
                    "record — gold parity holds on the owner terminal")]
-    log_legs = sorted(f"{g}:{m}" for g, m in log_sourced_legs(root))
+    if partial:
+        if verdict == MT5_VALIDATED:
+            verdict = MT5_VALIDATED_PARTIAL_SCOPE
+            reasons = [(f"scoped verification of {list(scope)} only: its "
+                        "evidence verified against the frozen record")]
+        reasons.append(f"PARTIAL: excluded {[e['gold'] for e in excluded]} "
+                       "were not examined — this verifies nothing about "
+                       "them and certifies nothing")
+    log_legs = sorted(f"{g}:{m}" for g, m in log_sourced_legs(root)
+                      if g in scope)
     if log_legs:
         # never let a log-sourced leg read as report-backed evidence
         reasons.append(f"trade source for {log_legs}: {TRADE_SOURCE_LOG} "
@@ -1273,6 +1319,7 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict) -> dict:
         "trade_sources": {g: r.get("trade_sources")
                           for g, r in gold_reps.items()},
         "log_sourced_legs": log_legs,
+        **scope_fields,
     }
 
 
@@ -1293,10 +1340,12 @@ __all__ = [
     "MODELS",
     "MODEL_LABELS",
     "MT5_VALIDATED",
+    "MT5_VALIDATED_PARTIAL_SCOPE",
     "NOT_VERIFIED_ARTIFACT_MISMATCH",
     "NOT_VERIFIED_MISSING_MT5_EVIDENCE",
     "NOT_VERIFIED_REAL_TICK_COVERAGE_UNKNOWN",
     "NOT_VERIFIED_RECONCILIATION_MISSING",
+    "OUT_OF_SCOPE",
     "PENDING_OWNER",
     "POSITIVE_VERDICTS",
     "PRESENT_UNVERIFIED",

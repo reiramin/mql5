@@ -9,6 +9,77 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-09-30 — StrictMode-safe reads of decider output (R10, gate_run21)
+
+**Measured root cause.** gate_run21 (HEAD 0c5da2f) failed stage 5 with
+`UNHANDLED_ERROR: The property 'bundle_evidence' cannot be found on this
+object`. `stage5-leg-inputs` refuses gold1 (`ok=false`,
+`missing=engine_config.allow_short`), and that answer has no
+`bundle_evidence` key. `owner_gate.ps1` runs under `Set-StrictMode -Version
+2.0`, where reading an absent property throws. The trap therefore failed the
+whole stage before any gold2 leg launched.
+
+**Decision.**
+- One helper, `Get-DataProp $obj "name"`, reads every property of decider
+  and verifier output. It returns `$null` when the property is absent, which
+  it checks with `PSObject.Properties.Name -contains`. The whole file was
+  audited, and no bare `.data.<prop>`, `$recon.<prop>` or `$fd.<prop>` read
+  remains. A test pins that.
+- Fields the success path cannot do without (tester timeframe/period, leg
+  `input_args`/`deposit`/`strategy_id`) use `Get-DataProp -Required`. An
+  absent field throws a named `DECIDER_OUTPUT_MISSING` error, which the trap
+  records, and is never passed on as `$null` to a tester run.
+- On gate_run21's input, each gold1 leg is recorded as `[input_underivable]
+  engine_config.allow_short ... -- leg NOT launched`, and the gold2 legs
+  still run. **Stage 5 is still FAIL**, because gold1's legs did not run.
+  This is not weakened.
+
+**Scope.** `tools/owner_gate.ps1` and tests only. Built, unit-tested, never
+run live.
+
+---
+
+## 2026-09-30 — Scoped owner-gate runs (`-Golds`): partial evidence that certifies nothing
+
+**Why.** Gold1's legs now fail before launch: its manifest lacks
+`engine_config.allow_short`, and its fixture is too short for MT5's
+warm-up. The gate stops at the first FAIL, so stage 8 cannot run until
+gold1 is regenerated, which is a separate owner decision. A scoped mode
+lets the first real Python↔MQL5 comparison happen on gold2 now.
+
+**Decision.**
+- `owner_gate.ps1 -Golds gold2` (default: all). Stage 4 imports, and
+  stage 5 runs, only the scoped golds. Stage 8 passes `--golds` to
+  `verify_owner_mt5_gate.py`, whose `run_gate(golds=...)` examines only
+  the scoped golds. The excluded golds' package keys are `OUT_OF_SCOPE`
+  (neither missing nor verified), and the archive manifest need not bind
+  them.
+- A scoped verification's best verdict is `MT5_VALIDATED_PARTIAL_SCOPE`.
+  It is not in `POSITIVE_VERDICTS`, and the tool exits 1. The .ps1 accepts
+  it as stage-8 PASS only when the run itself is partial.
+- **A partial run can never end certified.** `Finish-Gate` resolves every
+  result through `Resolve-GateResult`, which yields
+  `partial_<last stage reached>` whenever the run is partial.
+  `gate_summary.json` records `scope`, `certifiable` (false for every
+  partial run), `partial`, `excluded` (with the reason), `unscoped_result`
+  and `scope_error`. Every stage record
+  carries `scope` and `partial`, and its reason is prefixed with the
+  scope.
+- **Stages 9 and 10 are refused in a partial run.** The archive manifest
+  and `certify_strategy.py` bind and certify the whole gold set; a
+  partial run examined only its scope. After stage 8 both are recorded
+  `REFUSED` (`[refused_scoped_run]`), neither tool runs, and the run ends
+  `partial_reconciliation`. (The gate has no stages 6 and 7; the 8a–8d
+  sub-checks live in stage 8.)
+- An unknown gold name fails stage 0 (`[invalid_scope]`). A comma list
+  works through `-File`.
+
+**Scope.** Python, tools, tests and docs. `mql5/`, `artifacts/`, frozen
+inputs and manifests are untouched. The default (all-golds) behaviour is
+unchanged, and tests pin it. Built, unit-tested, never run live.
+
+---
+
 ## 2026-09-30 — Each stage-5 leg runs the strategy its gold manifest pins (STAGE 5 R9)
 
 **Measured root cause.** The gate_run17 tester log shows the EA starting

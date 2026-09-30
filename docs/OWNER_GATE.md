@@ -81,6 +81,35 @@ All output lands under `evidence\owner_gate\<UTC>\`, append-only: one
   hash.
 - **10. Certify** — `certify_strategy.py` records whatever state it assigns.
 
+## Scoped (partial) runs: `-Golds`
+
+```
+powershell -ExecutionPolicy Bypass -File tools\owner_gate.ps1 -DataFolder <MT5 data folder> -Golds gold2
+```
+
+`-Golds` names the golds whose fixtures are imported (stage 4) and whose
+tester legs run (stage 5). The default is all golds. Stage 8 verifies only
+the scoped golds (`verify_owner_mt5_gate.py --golds`). Stages 9 (archive
+manifest) and 10 (certify) are **refused**: each is recorded `REFUSED` with
+`[refused_scoped_run]` and neither tool runs. The gate has no stages 6 and 7.
+
+**A partial run is evidence about the scoped golds only, and it certifies
+nothing.**
+- It can never end `GATE_RESULT=certified` or
+  `certified_with_log_graded_legs`. It always ends
+  `GATE_RESULT=partial_<last stage reached>`, for example
+  `partial_tester_legs` or `partial_reconciliation`. The exit code is always 1.
+- `gate_summary.json` carries `"scope"` (e.g. `["gold2"]`),
+  `"certifiable": false`, `"partial": true`, `"excluded"`
+  (each excluded gold with the reason) and `"unscoped_result"` (what an
+  unscoped run would have reported at that point).
+- Every `stage_<n>.json` carries `scope` and `partial`, and its reason
+  starts `[scope: gold2; PARTIAL run -- certifies nothing]`.
+- The best stage-8 verdict for a scoped verification is
+  `MT5_VALIDATED_PARTIAL_SCOPE`. That is not a positive verdict: the
+  excluded golds were not examined at all.
+- An unknown gold name fails stage 0 (`[invalid_scope]`).
+
 ## Hard rules (in the script, not the operator)
 
 The script never writes `frozen_inputs.json`; never edits

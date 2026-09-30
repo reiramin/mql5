@@ -44,7 +44,11 @@ param(
     # If it already exists (non-empty), the gate names it and exits cleanly
     # instead of letting a later `git clone` fail deep in its own machinery and
     # leaving the owner to move directories by hand.
-    [string]$CloneInto = ""
+    [string]$CloneInto = "",
+    # SCOPED RUN: only the named golds' legs run (default: all). A scoped run
+    # is PARTIAL: it can never end certified; see Resolve-GateResult.
+    # "-Golds gold2" or "-Golds gold1,gold2" (comma list also works via -File).
+    [string[]]$Golds = @("gold1", "gold2")
 )
 
 Set-StrictMode -Version 2.0
@@ -68,6 +72,34 @@ $Evidence = Join-Path $RepoRoot ("evidence\owner_gate\" + $Stamp)
 # ordered stage ledger; each entry: name/status/reason/artifacts
 $Script:Stages = New-Object System.Collections.ArrayList
 $Script:Stage5FromLog = $false
+
+# ---- scope (-Golds) ----------------------------------------------------
+# A run over fewer than all golds is PARTIAL: evidence about the scoped golds
+# only. It never ends certified / certified_with_log_graded_legs -- its
+# GATE_RESULT is partial_<last stage reached> -- and every stage record and
+# the summary state the scope and the excluded golds with the reason.
+$Script:AllGolds = @("gold1", "gold2")
+$Script:ScopeError = ""
+$scopeAsked = New-Object System.Collections.ArrayList
+foreach ($g in @($Golds)) {
+    foreach ($part in ([string]$g).Split(",")) {
+        $t = $part.Trim().ToLowerInvariant()
+        if (-not $t) { continue }
+        if ($Script:AllGolds -notcontains $t) {
+            $Script:ScopeError = ("-Golds names an unknown gold '{0}' (known: {1})" -f $t, ($Script:AllGolds -join ", "))
+        } elseif (-not $scopeAsked.Contains($t)) {
+            [void]$scopeAsked.Add($t)
+        }
+    }
+}
+if (-not $Script:ScopeError -and $scopeAsked.Count -eq 0) { $Script:ScopeError = "-Golds names no gold" }
+$Script:Scope = @($Script:AllGolds | Where-Object { $scopeAsked.Contains($_) })
+$Script:Partial = [bool]($Script:ScopeError -or ($Script:Scope.Count -lt $Script:AllGolds.Count))
+$Script:Excluded = @(foreach ($g in $Script:AllGolds) {
+    if ($Script:Scope -notcontains $g) {
+        [ordered]@{ gold = $g; reason = "excluded by -Golds (scoped run): its legs were not run, and it is not compared, validated or certified by this run" }
+    }
+})
 $Script:Blocked = $null
 
 function Get-Sha256([string]$path) {
@@ -116,8 +148,10 @@ function Record-Stage([int]$num, [string]$name, [string]$status,
     $rec = [ordered]@{
         stage      = $num
         name       = $name
-        status     = $status       # PASS | PASS_FROM_LOG | FAIL | SKIP | DIVERGENCE_EXPECTED | BLOCKED
-        reason     = $reason
+        status     = $status       # PASS | PASS_FROM_LOG | FAIL | SKIP | DIVERGENCE_EXPECTED | BLOCKED | REFUSED
+        reason     = $(if ($Script:Partial) { ("[scope: {0}; PARTIAL run -- certifies nothing] " -f ((@($Script:Scope) -join ",") -replace '^$', 'none')) + $reason } else { $reason })
+        scope      = @($Script:Scope)
+        partial    = $Script:Partial
         artifacts  = @($artifacts)
         utc        = (Get-Date).ToUniversalTime().ToString("o")
     }
@@ -158,14 +192,53 @@ function Invoke-Decide([string[]]$deciderArgs) {
     return [pscustomobject]@{ ok = ($p.ExitCode -eq 0); exit = $p.ExitCode; data = $obj; raw = $tmp }
 }
 
+# R10 (gate_run21): read ONE property of decider / verifier JSON output.
+# The script runs under Set-StrictMode 2.0, where reading a property the
+# object does not have THROWS -- gate_run21 died at stage 5 on a bare
+# bundle_evidence read: a refused stage5-leg-inputs answer (ok=false,
+# missing=engine_config.allow_short) carries no bundle_evidence, so the trap
+# failed the whole stage before any gold2 leg launched. Every
+# read of decider output goes through here: an absent property (or a $null
+# object) is $null. -Required is for fields the success path cannot do
+# without: absent -> a NAMED throw (the trap records it), never a silent $null
+# passed on to a tester run.
+function Get-DataProp($obj, [string]$name, [switch]$Required) {
+    $has = $false
+    if ($null -ne $obj) {
+        if ($obj -is [System.Collections.IDictionary]) { $has = $obj.Contains($name) }
+        else { $has = (@($obj.PSObject.Properties.Name) -contains $name) }
+    }
+    if (-not $has) {
+        if ($Required) { throw ("DECIDER_OUTPUT_MISSING: required property '{0}' absent" -f $name) }
+        return $null
+    }
+    return $obj.$name
+}
+
+# A PARTIAL (scoped) run never reports a certified result: whatever stage it
+# ends on, GATE_RESULT is partial_<last stage reached>.
+function Resolve-GateResult([string]$gateResult) {
+    if ($Script:Partial) { return ("partial_" + $Script:CurStageName) }
+    return $gateResult
+}
+
 # print the machine-readable summary and exit with GATE_RESULT
 function Finish-Gate([string]$gateResult) {
+    $unscoped = $gateResult
+    $gateResult = Resolve-GateResult $gateResult
     $summary = [ordered]@{
         gate            = "owner_mt5_certification"
         utc             = (Get-Date).ToUniversalTime().ToString("o")
         evidence_dir    = $Evidence
         first_blocking  = $Script:Blocked
         gate_result     = $gateResult
+        scope           = @($Script:Scope)
+        partial         = $Script:Partial
+        # a scoped run can never certify, whatever stage it reaches
+        certifiable     = (-not $Script:Partial)
+        excluded        = @($Script:Excluded)
+        scope_error     = $Script:ScopeError
+        unscoped_result = $unscoped
         stages          = @($Script:Stages)
     }
     $sumPath = Join-Path $Evidence "gate_summary.json"
@@ -455,6 +528,10 @@ function Save-TesterWindowLog([string]$name, $marks, [datetime]$since) {
 New-Item -ItemType Directory -Force -Path $Evidence | Out-Null
 Write-Host "[owner-gate] evidence dir: $Evidence"
 Enter-Stage 0 "self_protection"
+if ($Script:ScopeError) {
+    Record-Stage 0 "self_protection" "FAIL" ("[invalid_scope] " + $Script:ScopeError) @() | Out-Null
+    Finish-Gate "self_protection"
+}
 
 # =====================================================================
 # STAGE A -- self-protection (abort with a NAMED reason)
@@ -469,36 +546,36 @@ Enter-Stage 0 "self_protection"
 $prov = Invoke-Decide @("provenance")
 if (-not $prov.ok) {
     $reason = if ($prov.data) {
-        "SELF_PROTECT_MQL5BOT_SOURCE: mql5bot resolved OUTSIDE the repo -- graded code is not shipped code. repo_root={0}; mql5bot_file={1}" -f $prov.data.repo_root, $prov.data.mql5bot_file
+        "SELF_PROTECT_MQL5BOT_SOURCE: mql5bot resolved OUTSIDE the repo -- graded code is not shipped code. repo_root={0}; mql5bot_file={1}" -f (Get-DataProp $prov.data "repo_root"), (Get-DataProp $prov.data "mql5bot_file")
     } else { "SELF_PROTECT_MQL5BOT_SOURCE: mql5bot provenance could not be resolved" }
     Record-Stage 0 "self_protection" "FAIL" $reason @((New-Artifact $prov.raw)) | Out-Null
     Finish-Gate "self_protection"
 }
-Write-Host ("[owner-gate] mql5bot resolved IN-REPO: {0} (v{1})" -f $prov.data.mql5bot_file, $prov.data.mql5bot_version) -ForegroundColor Green
+Write-Host ("[owner-gate] mql5bot resolved IN-REPO: {0} (v{1})" -f (Get-DataProp $prov.data "mql5bot_file"), (Get-DataProp $prov.data "mql5bot_version")) -ForegroundColor Green
 # 0. optional fresh-clone preflight: if the owner named a clone target that
 #    already exists, say so BY NAME and stop -- never leave a `git clone` to
 #    fail deep in its own machinery, never move the owner's directory for them.
 if ($CloneInto) {
     $cp = Invoke-Decide @("clone-preflight", $CloneInto)
     if (-not $cp.ok) {
-        $reason = if ($cp.data) { "{0}: {1}" -f $cp.data.reason, $cp.data.detail } else { "SELF_PROTECT_CLONE_TARGET_EXISTS: $CloneInto" }
+        $reason = if ($cp.data) { "{0}: {1}" -f (Get-DataProp $cp.data "reason"), (Get-DataProp $cp.data "detail") } else { "SELF_PROTECT_CLONE_TARGET_EXISTS: $CloneInto" }
         Record-Stage 0 "self_protection" "FAIL" $reason @((New-Artifact $cp.raw)) | Out-Null
         Finish-Gate "self_protection"
     }
-    Write-Host ("[owner-gate] clone target OK: {0}" -f ($cp.data.detail)) -ForegroundColor Green
+    Write-Host ("[owner-gate] clone target OK: {0}" -f ((Get-DataProp $cp.data "detail"))) -ForegroundColor Green
 }
 
 $sp = Invoke-Decide @("self-protection")
 if (-not $sp.ok) {
-    $reason = if ($sp.data) { "{0}: {1}" -f $sp.data.reason, $sp.data.detail } else { "self-protection could not run" }
+    $reason = if ($sp.data) { "{0}: {1}" -f (Get-DataProp $sp.data "reason"), (Get-DataProp $sp.data "detail") } else { "self-protection could not run" }
     Record-Stage 0 "self_protection" "FAIL" $reason @((New-Artifact $sp.raw)) | Out-Null
     Finish-Gate "self_protection"
 }
 # non-fatal self-protection NOTES (e.g. HEAD is a newer commit that descends
 # from the frozen anchor after a re-anchor) -- a PASS the operator should see.
 $spNotes = ""
-if ($sp.data -and ($sp.data.PSObject.Properties.Name -contains "notes") -and $sp.data.notes) {
-    $spNotes = ($sp.data.notes -join "; ")
+if (Get-DataProp $sp.data "notes") {
+    $spNotes = ((Get-DataProp $sp.data "notes") -join "; ")
     Write-Host ("[owner-gate] NOTE: {0}" -f $spNotes) -ForegroundColor Cyan
 }
 # locate the toolchain (Windows only); missing exe is a named abort
@@ -519,7 +596,7 @@ if (-not $DataFolder -or -not (Test-Path -LiteralPath (Join-Path $DataFolder "MQ
 }
 $spPass = "HEAD relates to the frozen anchor (== or newer descendant), tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located"
 # STAGE 5 R4: name the code the gate is grading, in the verdict itself.
-$spPass = "{0}, mql5bot IN-REPO ({1} v{2})" -f $spPass, $prov.data.mql5bot_file, $prov.data.mql5bot_version
+$spPass = "{0}, mql5bot IN-REPO ({1} v{2})" -f $spPass, (Get-DataProp $prov.data "mql5bot_file"), (Get-DataProp $prov.data "mql5bot_version")
 if ($spNotes) { $spPass = "{0}. NOTE: {1}" -f $spPass, $spNotes }
 Record-Stage 0 "self_protection" "PASS" $spPass @((New-Artifact $sp.raw), (New-Artifact $prov.raw)) | Out-Null
 
@@ -540,11 +617,11 @@ $logCopy = Join-Path $Evidence $log.Name
 Copy-Item -LiteralPath $log.FullName -Destination $logCopy -Force
 $d = Invoke-Decide @("parse-compile", $logCopy)
 if (-not $d.ok) {
-    $r = if ($d.data) { ($d.data.reasons -join "; ") } else { "compile log parse failed" }
+    $r = if ($d.data) { ((Get-DataProp $d.data "reasons") -join "; ") } else { "compile log parse failed" }
     Record-Stage 1 "strict_compile" "FAIL" $r @((New-Artifact $logCopy)) | Out-Null
     Finish-Gate "strict_compile"
 }
-Record-Stage 1 "strict_compile" "PASS" ("0 errors, 0 warnings; targets clean: " + ($d.data.targets_passed -join ", ")) @((New-Artifact $logCopy)) | Out-Null
+Record-Stage 1 "strict_compile" "PASS" ("0 errors, 0 warnings; targets clean: " + ((Get-DataProp $d.data "targets_passed") -join ", ")) @((New-Artifact $logCopy)) | Out-Null
 
 # =====================================================================
 # STAGE 2 -- DSL parity (14/14 EXACT + tampered refused)
@@ -568,11 +645,11 @@ if (Test-Path -LiteralPath $shaManifest) {
 }
 $d = Invoke-Decide @("parse-dsl", $dslCopy)
 if (-not $d.ok) {
-    $r = if ($d.data) { ($d.data.reasons -join "; ") } else { "dsl parity parse failed" }
+    $r = if ($d.data) { ((Get-DataProp $d.data "reasons") -join "; ") } else { "dsl parity parse failed" }
     Record-Stage 2 "dsl_parity" "FAIL" $r @((New-Artifact $dslCopy)) | Out-Null
     Finish-Gate "dsl_parity"
 }
-Record-Stage 2 "dsl_parity" "PASS" ("{0}/{1} fixtures EXACT + tampered refused" -f $d.data.exact, $d.data.total) @((New-Artifact $dslCopy)) | Out-Null
+Record-Stage 2 "dsl_parity" "PASS" ("{0}/{1} fixtures EXACT + tampered refused" -f (Get-DataProp $d.data "exact"), (Get-DataProp $d.data "total")) @((New-Artifact $dslCopy)) | Out-Null
 
 # =====================================================================
 # STAGE 3 -- SymbolSpec export + broker parity (MISMATCH aborts;
@@ -591,12 +668,12 @@ $parityCopy = Join-Path $Evidence "parity_report.json"
 Copy-Item -LiteralPath $parityReport -Destination $parityCopy -Force
 $d = Invoke-Decide @("broker-scope", $parityCopy)
 if (-not $d.ok) {
-    $r = if ($d.data) { ($d.data.reasons -join "; ") } else { "broker parity scope failed" }
+    $r = if ($d.data) { ((Get-DataProp $d.data "reasons") -join "; ") } else { "broker parity scope failed" }
     Record-Stage 3 "broker_parity" "FAIL" $r @((New-Artifact $parityCopy)) | Out-Null
     Finish-Gate "broker_parity"
 }
-$excl = if ($d.data.pending_excluded_crypto) { ($d.data.pending_excluded_crypto | ForEach-Object { $_ -join ":" }) -join ", " } else { "none" }
-Record-Stage 3 "broker_parity" "PASS" ("{0} MATCH rows; crypto PENDING excluded: {1}" -f $d.data.match_count, $excl) @((New-Artifact $parityCopy)) | Out-Null
+$excl = if ((Get-DataProp $d.data "pending_excluded_crypto")) { ((Get-DataProp $d.data "pending_excluded_crypto") | ForEach-Object { $_ -join ":" }) -join ", " } else { "none" }
+Record-Stage 3 "broker_parity" "PASS" ("{0} MATCH rows; crypto PENDING excluded: {1}" -f (Get-DataProp $d.data "match_count"), $excl) @((New-Artifact $parityCopy)) | Out-Null
 
 # resolve the SymbolSpec export used for stage 4 (EURUSD by default)
 if (-not $SymbolSpecExport) {
@@ -619,9 +696,11 @@ $stage4art = New-Object System.Collections.ArrayList
 # "USD". The ".G1"/".G2" suffix keeps each unique and non-colliding with the
 # broker's own "EURUSD". See docs/DECISIONS.md 2026-09-19 (R7).
 $golds = @(
-    @{ name = "EURUSD.G1"; fixture = "artifacts\gold\gold_fixture.csv";   manifest = "artifacts\gold\manifest.json" },
-    @{ name = "EURUSD.G2"; fixture = "artifacts\gold_2\gold2_fixture.csv"; manifest = "artifacts\gold_2\manifest.json" }
+    @{ gold = "gold1"; name = "EURUSD.G1"; fixture = "artifacts\gold\gold_fixture.csv";   manifest = "artifacts\gold\manifest.json" },
+    @{ gold = "gold2"; name = "EURUSD.G2"; fixture = "artifacts\gold_2\gold2_fixture.csv"; manifest = "artifacts\gold_2\manifest.json" }
 )
+# SCOPED RUN: only the scoped golds' fixtures are imported
+$golds = @($golds | Where-Object { $Script:Scope -contains $_.gold })
 $filesImport = Join-Path $DataFolder "MQL5\Files\Mql5Bot\gold_import"
 $importOut = Join-Path $DataFolder "MQL5\Files\Mql5Bot\gold_import_out"
 $presetsDir = Join-Path $DataFolder "MQL5\Presets"
@@ -693,7 +772,7 @@ foreach ($g in $golds) {
     foreach ($sl in $setLines) { $expectArgs += @("--expect", $sl) }
     $pv = Invoke-Decide (@("validate-preset", $setStaged) + $expectArgs)
     if (-not $pv.ok) {
-        $why = if ($pv.data -and $pv.data.reasons) { ($pv.data.reasons -join "; ") } else { "staged preset failed validation" }
+        $why = if ($pv.data -and (Get-DataProp $pv.data "reasons")) { ((Get-DataProp $pv.data "reasons") -join "; ") } else { "staged preset failed validation" }
         Record-Stage 4 "fixture_import" "FAIL" ("[preset_invalid] {0}: {1}" -f $g.name, $why) @($stage4art) | Out-Null
         Finish-Gate "fixture_import"
     }
@@ -765,8 +844,8 @@ foreach ($g in $golds) {
     $oc = Invoke-Decide $ocArgs
     if (-not $oc.ok) {
         $stage4ok = $false
-        $msg = if ($oc.data -and $oc.data.message) { $oc.data.message } else { ("{0}: stage-4 import failed" -f $g.name) }
-        $case = if ($oc.data -and $oc.data.case) { $oc.data.case } else { "unknown" }
+        $msg = if ($oc.data -and (Get-DataProp $oc.data "message")) { (Get-DataProp $oc.data "message") } else { ("{0}: stage-4 import failed" -f $g.name) }
+        $case = if ($oc.data -and (Get-DataProp $oc.data "case")) { (Get-DataProp $oc.data "case") } else { "unknown" }
         Record-Stage 4 "fixture_import" "FAIL" ("[{0}] {1}" -f $case, $msg) @($stage4art) | Out-Null
         Finish-Gate "fixture_import"
     }
@@ -793,6 +872,8 @@ $legs = @(
     @{ gold = "gold2"; model = "every_tick"; m = 0 },
     @{ gold = "gold2"; model = "real_ticks"; m = 4 }
 )
+# SCOPED RUN: only the scoped golds' legs run
+$legs = @($legs | Where-Object { $Script:Scope -contains $_.gold })
 # STAGE 5 R5, DEFECT 1: real-tick legs request config-file Model=4 ("Every tick
 # based on real ticks"). Model=3 is MT5's math-calculations mode (no history, no
 # symbol info) -- sending it silently ran the two real-tick legs with no data at
@@ -826,15 +907,15 @@ $testerOut = Join-Path $Evidence "tester"
 # cannot be derived, FAIL the stage naming that input -- do not run with an
 # invented value.
 $derived = @{}
-foreach ($gk in @("gold1", "gold2")) {
+foreach ($gk in @($Script:Scope)) {
     $meta = $goldMeta[$gk]
     $ti = Invoke-Decide @("tester-inputs",
         "--manifest", (Join-Path $RepoRoot $meta.manifest),
         "--fixture", (Join-Path $RepoRoot $meta.fixture))
     [void]$legArt.Add((New-Artifact $ti.raw))
     if (-not $ti.ok) {
-        $why = if ($ti.data -and $ti.data.reasons) { ($ti.data.reasons -join "; ") } else { "tester inputs underivable" }
-        $miss = if ($ti.data) { $ti.data.missing } else { "unknown" }
+        $why = if ($ti.data -and (Get-DataProp $ti.data "reasons")) { ((Get-DataProp $ti.data "reasons") -join "; ") } else { "tester inputs underivable" }
+        $miss = if ($ti.data) { (Get-DataProp $ti.data "missing") } else { "unknown" }
         Record-Stage 5 "tester_legs" "FAIL" ("[input_underivable] {0} ({1}): {2}" -f $gk, $miss, $why) @($legArt) | Out-Null
         Finish-Gate "tester_legs"
     }
@@ -846,9 +927,9 @@ foreach ($leg in $legs) {
     $meta = $goldMeta[$gk]
     $d = $derived[$gk]
     $sym = $meta.symbol
-    $tf = $d.timeframe
-    $from = $d.date_from
-    $to = $d.date_to
+    $tf = Get-DataProp $d "timeframe" -Required
+    $from = Get-DataProp $d "date_from" -Required
+    $to = Get-DataProp $d "date_to" -Required
     $reportName = "{0}_{1}" -f $gk, $leg.model
     $legTag = $reportName
 
@@ -867,21 +948,21 @@ foreach ($leg in $legs) {
         "--symbol", $sym, "--leg", $legTag, "--out-dir", $Evidence,
         "--data-folder", $DataFolder)
     [void]$legArt.Add((New-Artifact $li.raw))
-    if ($li.data -and $li.data.bundle_evidence -and (Test-Path -LiteralPath $li.data.bundle_evidence)) {
-        [void]$legArt.Add((New-Artifact $li.data.bundle_evidence))
+    if ($li.data -and (Get-DataProp $li.data "bundle_evidence") -and (Test-Path -LiteralPath (Get-DataProp $li.data "bundle_evidence"))) {
+        [void]$legArt.Add((New-Artifact (Get-DataProp $li.data "bundle_evidence")))
     }
     if (-not $li.ok) {
         $legOk = $false
         $legFailN++
-        $miss = if ($li.data -and $li.data.missing) { $li.data.missing } else { "unknown" }
-        $why = if ($li.data -and $li.data.reasons) { ($li.data.reasons -join "; ") } else { "leg inputs underivable" }
+        $miss = if ($li.data -and (Get-DataProp $li.data "missing")) { (Get-DataProp $li.data "missing") } else { "unknown" }
+        $why = if ($li.data -and (Get-DataProp $li.data "reasons")) { ((Get-DataProp $li.data "reasons") -join "; ") } else { "leg inputs underivable" }
         [void]$legReasons.Add(("{0}: [input_underivable] {1}: {2} -- leg NOT launched" -f $legTag, $miss, $why))
         continue
     }
     $legInputArgs = @()
-    foreach ($kv in @($li.data.input_args)) { $legInputArgs += @("--input", [string]$kv) }
-    $legInputArgs += @("--deposit", ([string]$li.data.deposit))
-    $legStrategy = [string]$li.data.strategy_id
+    foreach ($kv in @(Get-DataProp $li.data "input_args" -Required)) { $legInputArgs += @("--input", [string]$kv) }
+    $legInputArgs += @("--deposit", ([string](Get-DataProp $li.data "deposit" -Required)))
+    $legStrategy = [string](Get-DataProp $li.data "strategy_id" -Required)
 
     # (i) ALWAYS-present intended tester .ini (pure Python, no terminal): the
     # exact [Tester]/[TesterInputs] the gate intends, so a leg that never
@@ -971,8 +1052,8 @@ foreach ($leg in $legs) {
             "--leg", $legTag, "--trades-out", $tradesPath,
             "--expected-strategy", $legStrategy)
         [void]$legArt.Add((New-Artifact $oc.raw))
-        $outcome = if ($oc.data -and $oc.data.outcome) { $oc.data.outcome } else { "FAIL" }
-        $ocReason = if ($oc.data -and $oc.data.reason) { $oc.data.reason } else { "no classification available" }
+        $outcome = if ($oc.data -and (Get-DataProp $oc.data "outcome")) { (Get-DataProp $oc.data "outcome") } else { "FAIL" }
+        $ocReason = if ($oc.data -and (Get-DataProp $oc.data "reason")) { (Get-DataProp $oc.data "reason") } else { "no classification available" }
         if ($outcome -eq "PASS_FROM_LOG") {
             $legFromLog++
             if (Test-Path -LiteralPath $tradesPath) { [void]$legArt.Add((New-Artifact $tradesPath)) }
@@ -1003,8 +1084,8 @@ foreach ($leg in $legs) {
             "--leg", $legTag, "--trades-out", $tradesPath,
             "--expected-strategy", $legStrategy)
         [void]$legArt.Add((New-Artifact $oc.raw))
-        $outcome = if ($oc.data -and $oc.data.outcome) { $oc.data.outcome } else { "FAIL" }
-        $ocReason = if ($oc.data -and $oc.data.reason) { $oc.data.reason } else { "no classification available" }
+        $outcome = if ($oc.data -and (Get-DataProp $oc.data "outcome")) { (Get-DataProp $oc.data "outcome") } else { "FAIL" }
+        $ocReason = if ($oc.data -and (Get-DataProp $oc.data "reason")) { (Get-DataProp $oc.data "reason") } else { "no classification available" }
         if ($outcome -eq "PASS_FROM_LOG") {
             $legFromLog++
             if (Test-Path -LiteralPath $tradesPath) { [void]$legArt.Add((New-Artifact $tradesPath)) }
@@ -1029,29 +1110,29 @@ foreach ($leg in $legs) {
         "--symbol", $sym, "--leg", $legTag)
     [void]$legArt.Add((New-Artifact $le.raw))
     if ($le.ok -and $le.data) {
-        $am = if ($le.data.actual_model) { $le.data.actual_model.label } else { "?" }
-        $cov = $le.data.coverage
+        $am = if ((Get-DataProp $le.data "actual_model")) { (Get-DataProp (Get-DataProp $le.data "actual_model") "label") } else { "?" }
+        $cov = (Get-DataProp $le.data "coverage")
         $legFromReport++
         [void]$legReasons.Add(("{0}: actual model={1} (src {2}), real-tick coverage={3}" -f `
-            $legTag, $am, $le.data.actual_model.source, $cov))
+            $legTag, $am, (Get-DataProp (Get-DataProp $le.data "actual_model") "source"), $cov))
     } else {
         $legOk = $false
         $legFailN++
         $tailArt = Save-TesterFailLog $legTag $legStart
         if ($tailArt) { [void]$legArt.Add($tailArt) }
-        $why = if ($le.data -and $le.data.reasons) { ($le.data.reasons -join "; ") } else { "actual model unreadable" }
+        $why = if ($le.data -and (Get-DataProp $le.data "reasons")) { ((Get-DataProp $le.data "reasons") -join "; ") } else { "actual model unreadable" }
         [void]$legReasons.Add(("{0}: {1} (see tester_{0}_journal_tail.txt)" -f $legTag, $why))
     }
 }
 
 # (vii) re-check the dataset hash AFTER the legs to prove the fixtures were not
 # mutated by the run (the gate never lets a tester leg touch a frozen input).
-foreach ($gk in @("gold1", "gold2")) {
+foreach ($gk in @($Script:Scope)) {
     $meta = $goldMeta[$gk]
     $man = Get-Content -LiteralPath (Join-Path $RepoRoot $meta.manifest) -Raw | ConvertFrom-Json
     $dh = Invoke-Decide @("dataset-hash", (Join-Path $RepoRoot $meta.fixture))
-    if (-not $dh.data -or ($dh.data.sha256 -ne $man.dataset_hash)) {
-        $got = if ($dh.data) { $dh.data.sha256 } else { "(unreadable)" }
+    if (-not $dh.data -or ((Get-DataProp $dh.data "sha256") -ne $man.dataset_hash)) {
+        $got = if ($dh.data) { (Get-DataProp $dh.data "sha256") } else { "(unreadable)" }
         $legOk = $false
         [void]$legReasons.Add(("{0}: POST-LEG dataset hash mutated: got {1} != manifest {2}" -f $gk, $got, $man.dataset_hash))
     } else {
@@ -1084,7 +1165,7 @@ if ($legFromLog -gt 0) {
     $Script:Stage5FromLog = $true
     Record-Stage 5 "tester_legs" "PASS_FROM_LOG" ($legTally + "dataset hash intact after the legs. " + ($legReasons -join "; ")) @($legArt) | Out-Null
 } else {
-    Record-Stage 5 "tester_legs" "PASS" ($legTally + "six tester legs; actual models + real-tick coverage read from report+journal; dataset hash intact after the legs. " + ($legReasons -join "; ")) @($legArt) | Out-Null
+    Record-Stage 5 "tester_legs" "PASS" ($legTally + ("{0} tester legs;" -f $legs.Count) + " actual models + real-tick coverage read from report+journal; dataset hash intact after the legs. " + ($legReasons -join "; ")) @($legArt) | Out-Null
 }
 
 # =====================================================================
@@ -1110,15 +1191,15 @@ foreach ($leg in $legs) {
         "--gold", $leg.gold, "--model", $leg.model)
     [void]$s8Art.Add((New-Artifact $pl.raw))
     if ($pl.ok) {
-        [void]$placeNotes.Add(("{0}_{1}: log trade list placed ({2} deals)" -f $leg.gold, $leg.model, $pl.data.deals))
+        [void]$placeNotes.Add(("{0}_{1}: log trade list placed ({2} deals)" -f $leg.gold, $leg.model, (Get-DataProp $pl.data "deals")))
     } else {
-        $why = if ($pl.data -and $pl.data.reasons) { ($pl.data.reasons -join "; ") } else { "placement failed" }
+        $why = if ($pl.data -and (Get-DataProp $pl.data "reasons")) { ((Get-DataProp $pl.data "reasons") -join "; ") } else { "placement failed" }
         [void]$placeNotes.Add(("{0}_{1}: log trade list NOT placed: {2}" -f $leg.gold, $leg.model, $why))
     }
 }
 $verifyOut = Join-Path $Evidence "reconciliation_verify.json"
 $vp = Start-Process -FilePath $Python `
-    -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "verify_owner_mt5_gate.py"), $evidencePkg, "--repo", $RepoRoot, "--out", $verifyOut))) `
+    -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "verify_owner_mt5_gate.py"), $evidencePkg, "--repo", $RepoRoot, "--out", $verifyOut, "--golds", (@($Script:Scope) -join ",")))) `
     -Wait -PassThru -NoNewWindow
 $recon = $null
 try { $recon = Get-Content -LiteralPath $verifyOut -Raw | ConvertFrom-Json } catch { }
@@ -1132,23 +1213,25 @@ if (-not $recon) {
 # the record says so, so it can never read as report-backed.
 $srcNote = ""
 if ($placeNotes.Count -gt 0) { $srcNote = " [" + ($placeNotes -join "; ") + "]" }
-if ($recon.log_sourced_legs -and @($recon.log_sourced_legs).Count -gt 0) {
-    $srcNote += (" [trade source for {0}: tester agent log (log trade list, from_log=true; no report)]" -f (@($recon.log_sourced_legs) -join ", "))
+if ((Get-DataProp $recon "log_sourced_legs") -and @((Get-DataProp $recon "log_sourced_legs")).Count -gt 0) {
+    $srcNote += (" [trade source for {0}: tester agent log (log trade list, from_log=true; no report)]" -f (@((Get-DataProp $recon "log_sourced_legs")) -join ", "))
 }
 # classify any first divergence; a SIZING/RISK class is the EXPECTED 4257f1e
 # outcome -> record + owner/build follow-up, never a silent pass, never patched
 $divClass = ""
 $divField = ""
-foreach ($gld in @("gold1", "gold2")) {
-    $fd = $recon.first_divergence.$gld
-    if ($fd -and $fd.first_divergent_field) {
-        $divField = $fd.first_divergent_field
+foreach ($gld in @($Script:Scope)) {
+    $fd = Get-DataProp (Get-DataProp $recon "first_divergence") $gld
+    if (Get-DataProp $fd "first_divergent_field") {
+        $divField = Get-DataProp $fd "first_divergent_field"
         $cd = Invoke-Decide @("classify", $divField)
-        if ($cd.data) { $divClass = $cd.data.classification }
+        if ($cd.data) { $divClass = (Get-DataProp $cd.data "classification") }
         break
     }
 }
-if ($recon.verdict -eq "MT5_VALIDATED") {
+# a scoped verify reports MT5_VALIDATED_PARTIAL_SCOPE for the scoped golds;
+# only a PARTIAL run may accept it (and a partial run never certifies)
+if ((Get-DataProp $recon "verdict") -eq "MT5_VALIDATED" -or ($Script:Partial -and (Get-DataProp $recon "verdict") -eq "MT5_VALIDATED_PARTIAL_SCOPE")) {
     Record-Stage 8 "reconciliation" "PASS" ("bindings + 8a-8d verified; gold parity holds on the owner terminal" + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
 } elseif ($divClass -eq "SIZING_MISMATCH" -or $divClass -eq "RISK_MISMATCH") {
     $note = ("EXPECTED for the 4257f1e sizing fix: first divergence on '{0}' -> {1}. Regenerate the affected expected_execution with NEW provenance (owner/build side); NEVER revert the fix, NEVER patch the gold artifacts here." -f $divField, $divClass)
@@ -1158,7 +1241,20 @@ if ($recon.verdict -eq "MT5_VALIDATED") {
     $Script:Blocked = "reconciliation"
     Finish-Gate "reconciliation"
 } else {
-    Record-Stage 8 "reconciliation" "FAIL" (("verdict {0}: {1}" -f $recon.verdict, ($recon.reasons -join "; ")) + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
+    Record-Stage 8 "reconciliation" "FAIL" (("verdict {0}: {1}" -f (Get-DataProp $recon "verdict"), ((Get-DataProp $recon "reasons") -join "; ")) + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
+    Finish-Gate "reconciliation"
+}
+
+# =====================================================================
+# SCOPED RUN STOPS HERE: stages 9 (archive manifest) and 10 (certify) bind
+# and certify the WHOLE gold set; a scoped run examined only $Script:Scope,
+# so both are REFUSED (recorded, never entered, never run). GATE_RESULT is
+# partial_reconciliation -- the last stage this run reached.
+# =====================================================================
+if ($Script:Partial) {
+    $exclNames = (@($Script:Excluded) | ForEach-Object { $_.gold }) -join ","
+    Record-Stage 9 "archive_manifest" "REFUSED" ("[refused_scoped_run] archive manifest not built: scoped run over {0}; excluded: {1}" -f (@($Script:Scope) -join ","), $exclNames) @() | Out-Null
+    Record-Stage 10 "certify" "REFUSED" ("[refused_scoped_run] certify_strategy.py not run: a scoped run is never certifiable; excluded: {0}" -f $exclNames) @() | Out-Null
     Finish-Gate "reconciliation"
 }
 
@@ -1182,6 +1278,12 @@ Record-Stage 9 "archive_manifest" "PASS" "evidence bound by owner_evidence_bind.
 Enter-Stage 10 "certify"
 $certConfig = Join-Path $RepoRoot "artifacts\owner_mt5_gate\certify_config.json"
 $certReport = Join-Path $Evidence "certification_report.md"
+if ($Script:Partial) {
+    # unreachable (a scoped run is refused before stage 9); kept so that no
+    # future edit above can let certify_strategy.py run on scoped evidence
+    Record-Stage 10 "certify" "REFUSED" "[refused_scoped_run] certify_strategy.py not run: a scoped run is never certifiable" @() | Out-Null
+    Finish-Gate "certify"
+}
 if (-not (Test-Path -LiteralPath $certConfig)) {
     Record-Stage 10 "certify" "SKIP" "no certify_config.json present; certification state unassigned" @() | Out-Null
     Finish-Gate "reconciliation"
