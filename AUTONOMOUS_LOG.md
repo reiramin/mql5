@@ -217,3 +217,35 @@ and needs retargeting as they merge.
   gitignored `evidence\owner_mt5_package`.
 - Nothing ran on MT5. Record unchanged: stages 0–4 PASS, stage 5 FAIL,
   stages 6–10 never run, nothing certified.
+
+## 2026-09-30 — branch `master` (merge of PRs #2–#5)
+
+The owner cannot merge in the GitHub UI, so the open PRs were merged
+locally with `--no-ff` and pushed. History was not rewritten and nothing
+was force-pushed. The merge ran in a separate worktree, so the uncommitted
+work on `feat/gate-scoped-gold2-run` was left untouched.
+
+**Commits**
+- `9e8bbba` — Merge PR #2: CI loads on Python 3.10 (`origin/fix/ci-py310`).
+- `93ae7dc` — Merge PR #5 (includes #3, #4): stage-5 log grading, real
+  lines, legs run the gold strategy (`origin/feat/stage5-legs-run-gold-strategy`
+  at `322cb46`). No conflicts.
+- the commit that adds this entry.
+
+**Checks (exit codes read)** — tree of `93ae7dc`, macOS, `.venv` Python:
+- `ruff check python/ tests/ tools/ factory/` → exit 0.
+- `pytest -q` (full suite) → exit 0.
+
+**PR state after push**
+- #2: MERGED. #3: MERGED (GitHub detected it; commented "merged via #5").
+- #4: CLOSED with the comment "merged via #5".
+- #5: still OPEN. Its base is `feat/stage5-log-real-lines`, and GitHub
+  refuses `gh pr edit --base master` ("Cannot change the base branch
+  because the pull request is part of a stack"). Its head `322cb46` is
+  in master.
+
+**NOT done, and why**
+- #5 is not marked merged on GitHub, because the stack lock blocks the
+  retarget. It must be retargeted or closed by hand.
+- No code changed and nothing ran on MT5. Record unchanged: stage 5 FAIL,
+  stages 6–10 never run, nothing certified.
