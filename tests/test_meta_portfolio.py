@@ -182,7 +182,7 @@ def test_identical_strategies_meta_weights_equal_ew_and_trades_match(df):
     the definition of 'only the weighting policy differs'."""
     # (a) LAYER rule: identical contributors receive identical weights,
     # deterministically (aliasing is legal at the allocation level)
-    from datetime import UTC, datetime
+    from datetime import datetime, timezone
 
     from mql5bot.meta_layer import MetaLayer, StrategyMetaInput
 
@@ -199,10 +199,10 @@ def test_identical_strategies_meta_weights_equal_ew_and_trades_match(df):
                                   drift_score=0.0)]
     stats = {"alpha": (0.01, 50), "beta": (0.01, 50)}
     d1 = MetaLayer(MetaConfig()).decide(aliases(),
-                                        as_of=datetime(2024, 6, 1, tzinfo=UTC),
+                                        as_of=datetime(2024, 6, 1, tzinfo=timezone.utc),
                                         returns=None, oos_stats=stats)
     d2 = MetaLayer(MetaConfig()).decide(aliases(),
-                                        as_of=datetime(2024, 6, 1, tzinfo=UTC),
+                                        as_of=datetime(2024, 6, 1, tzinfo=timezone.utc),
                                         returns=None, oos_stats=stats)
     w1 = {x.strategy_id: x.final_weight for x in d1.weights}
     w2 = {x.strategy_id: x.final_weight for x in d2.weights}
@@ -210,7 +210,7 @@ def test_identical_strategies_meta_weights_equal_ew_and_trades_match(df):
     assert w1["alpha"] == pytest.approx(w1["beta"], abs=1e-12)
     # and the uniform META weight equals the EQUAL_WEIGHT policy value
     ew_cfg = MetaConfig(policy=MetaPolicy.EQUAL_WEIGHT)
-    d_ew = MetaLayer(ew_cfg).decide(aliases(), as_of=datetime(2024, 6, 1, tzinfo=UTC),
+    d_ew = MetaLayer(ew_cfg).decide(aliases(), as_of=datetime(2024, 6, 1, tzinfo=timezone.utc),
                                     returns=None, oos_stats=stats)
     w_ew = {x.strategy_id: x.final_weight for x in d_ew.weights}
     assert w_ew["alpha"] == pytest.approx(w1["alpha"], abs=1e-12)

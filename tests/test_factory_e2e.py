@@ -341,8 +341,8 @@ def test_registry_state_feeds_meta_eligibility(journey):
                      strategy_version="1")
     assert inp.certification_state == "EMPIRICAL_VALIDATION_PENDING"
     layer = MetaLayer()
-    from datetime import UTC, datetime
-    elig = layer.eligibility([inp], as_of=datetime.now(UTC))
+    from datetime import datetime, timezone
+    elig = layer.eligibility([inp], as_of=datetime.now(timezone.utc))
     assert elig[sid].eligible
 
 
@@ -430,8 +430,8 @@ def test_negative_path_excellent_backtest_failing_oos(tmp_path):
                      regimes_allowed=frozenset({"TREND_UP"}))
     assert inp.certification_state is None
     layer = MetaLayer()
-    from datetime import UTC, datetime
-    elig = layer.eligibility([inp], as_of=datetime.now(UTC))
+    from datetime import datetime, timezone
+    elig = layer.eligibility([inp], as_of=datetime.now(timezone.utc))
     assert not elig[sid].eligible       # Meta allocation = 0
     # and no Factory module can reach a broker (structural MT5 refusal)
     factory_src = ROOT / "python" / "mql5bot" / "factory"
