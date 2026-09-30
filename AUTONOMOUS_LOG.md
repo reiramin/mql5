@@ -288,6 +288,35 @@ changed to match the spec: stages 9–10 REFUSED, `certifiable` added.
   Record unchanged: stage 5 FAIL, stages 6–10 never run, nothing
   certified.
 
+## 2026-09-30 — branch `master` (merge of PR #7), log on `docs/log-pr7`
+
+Worked in a separate detached worktree from `origin/master` `0c5da2f`. The
+uncommitted draft in the main checkout was left untouched.
+
+**Commits**
+- `6416d6b` — `git merge --no-ff origin/fix/stage5-strictmode-and-gold-scope`
+  (PR head `b3f0e75`), pushed to `origin/master` without force or amend.
+  The merge body notes that the owner (Sal) approved it together with the
+  reviewer in chat. No approving review is recorded on GitHub. An earlier
+  local merge, `acf30cf`, had no approval note and was never pushed. It was
+  replaced by a fresh merge with the same tree, so the checks below cover
+  `6416d6b`'s tree.
+- The commit that adds this entry is on branch `docs/log-pr7`. Its PR is left
+  open, as the owner asked, to be merged with the next reviewed PR. It is not
+  committed to master directly.
+
+**Checks (exit codes read)** — macOS, `.venv` Python:
+- `ruff check python tests tools factory` → exit 0.
+- full `pytest` → exit 0.
+
+**Done**
+- PR #7 shows `MERGED` on GitHub with merge commit `6416d6b`.
+
+**NOT done, and why**
+- Nothing ran on MT5 or Windows. The R10 fix and scoped runs are built,
+  unit-tested, never run live. Record unchanged: stage 5 FAIL, stages 6–10
+  never run, nothing certified.
+
 ## 2026-09-30 — branch `fix/golds-param-shadowing` (from `origin/master` 6416d6b)
 
 Worked in a separate worktree. The uncommitted draft in the main checkout
