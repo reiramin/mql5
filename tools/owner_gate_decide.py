@@ -296,9 +296,10 @@ def main(argv: list[str] | None = None) -> int:
                                           args.data_folder)
                     d["staging"] = st
                     if not st["ok"]:
-                        # zero agent sandboxes or a sha256 mismatch: the
-                        # leg is NOT launched (gate_run23: a terminal-only
-                        # copy is a refused bundle at OnInit)
+                        # the common-folder copy (the EA's FILE_COMMON
+                        # fallback) is missing or unverified: the leg is
+                        # NOT launched (gate_run24: an agent-sandbox copy
+                        # was not readable at OnInit)
                         d["ok"] = False
                         d["missing"] = st["missing"]
                         d["reasons"] = st["reasons"]

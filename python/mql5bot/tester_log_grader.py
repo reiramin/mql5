@@ -63,6 +63,10 @@ _HISTORY_QUALITY_RE = re.compile(
 #   `[<time>] [INFO] generic DSL execution enabled: gold2_multifactor`
 # (UNCONFIRMED in a captured window: gate runs 16/17 ran with no bundle).
 _DSL_ENABLED_RE = re.compile(r"generic DSL execution enabled:\s*(\S+)")
+# EA SOURCE (Mql5Bot.mq5 OnInit, gate_run24 fix; UNCONFIRMED in a captured
+# window), printed just before the line above:
+#   `[mql5bot] DSL bundle loaded from common: Mql5Bot\\gold_bundles\\x.json`
+_DSL_LOADED_FROM_RE = re.compile(r"DSL bundle loaded from (local|common):\s*(\S.*)$")
 # MT5 journal format (not yet captured here): `final balance 10000.00 USD`
 _FINAL_BALANCE_RE = re.compile(
     r"final balance\s+(-?\d+(?:\.\d+)?)(?:\s+([A-Z]{3}))?", re.IGNORECASE)
@@ -224,6 +228,9 @@ def parse_leg_window(window_text: str, symbol: str | None) -> dict:
     loaded = [(m.group(1), line) for line in lines
               for m in [_DSL_ENABLED_RE.search(line)] if m]
     loaded_ids = {sid for sid, _ in loaded}
+    sources = [(m.group(1), line) for line in lines
+               for m in [_DSL_LOADED_FROM_RE.search(line)] if m]
+    source_set = {src for src, _ in sources}
 
     return {
         "symbol": symbol,
@@ -240,6 +247,10 @@ def parse_leg_window(window_text: str, symbol: str | None) -> dict:
         # the DSL strategy the EA says it loaded; None when no such line, or
         # when the window names two different strategies
         "loaded_strategy": (loaded[0][0] if len(loaded_ids) == 1 else None),
+        # where the EA says it read the bundle ("local" | "common"); None
+        # when no such line (an EA before the gate_run24 fix) or two differ
+        "bundle_source": (sources[0][0] if len(source_set) == 1 else None),
+        "bundle_source_conflict": len(source_set) > 1,
         "lines": {
             "finished": scoped["finished"][:1],
             "bars": bars_lines,
@@ -248,6 +259,7 @@ def parse_leg_window(window_text: str, symbol: str | None) -> dict:
             "final_balance": [balance_line] if balance_line else [],
             "model": model["lines"],
             "loaded_strategy": [ln for _, ln in loaded][:2],
+            "bundle_source": [ln for _, ln in sources][:2],
         },
     }
 
@@ -281,8 +293,12 @@ def grade_leg_from_log(*, window_text: str, symbol: str | None,
                                     == requested_model),
     }
     if expected_strategy is not None:
+        # the "DSL bundle loaded from" line is optional evidence (an EA
+        # before the gate_run24 fix never prints it), but a window naming
+        # two different sources is unprovable, never loaded
         checks["strategy_loaded"] = (
-            parsed["loaded_strategy"] == expected_strategy)
+            parsed["loaded_strategy"] == expected_strategy
+            and not parsed["bundle_source_conflict"])
     failed = [name for name, ok in checks.items() if not ok]
     common = {"leg": leg, "symbol": symbol, "source": EVIDENCE_SOURCE,
               "report_present": False, "requested_model": requested_model,
@@ -294,7 +310,8 @@ def grade_leg_from_log(*, window_text: str, symbol: str | None,
     if base["outcome"] == gs.STAGE5_OUTCOME_BLOCKED_ENV and not failed:
         lp = parsed["lines"]
         evidence = (lp["finished"] + lp["bars"][:1] + lp["history_quality"]
-                    + lp["model"] + lp["loaded_strategy"][:1])
+                    + lp["model"] + lp["bundle_source"][:1]
+                    + lp["loaded_strategy"][:1])
         return {**common,
                 "outcome": STAGE5_OUTCOME_PASS_FROM_LOG, "ok": True,
                 "evidence_class": STAGE5_OUTCOME_PASS_FROM_LOG,
@@ -318,7 +335,9 @@ def grade_leg_from_log(*, window_text: str, symbol: str | None,
         why += f" (requested {requested_label!r}; MT5 stated {stated})"
     if "strategy_loaded" in failed:
         why += (f" (expected DSL strategy {expected_strategy!r}; the EA "
-                f"logged {parsed['loaded_strategy']!r})")
+                f"logged {parsed['loaded_strategy']!r}"
+                + ("; two different bundle sources"
+                   if parsed["bundle_source_conflict"] else "") + ")")
     return {**common,
             "outcome": base["outcome"], "ok": False,
             "evidence_class": base["outcome"],

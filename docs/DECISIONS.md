@@ -9,6 +9,53 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-10-01 — Scoped owner exception to "never modify mql5/": EA reads the DSL bundle from FILE_COMMON (gate_run24)
+
+**Owner authorization (Sal, in chat).** A SCOPED exception to the rule
+"never modify mql5/": only the function `ReadDslBundleText` in
+`mql5/Experts/Mql5Bot/Mql5Bot.mq5` and the refusal `Print` in `OnInit` that
+follows it may change. The same instruction asked for one added line, the
+`DSL bundle loaded from <local|common>: <path>` print before the existing
+`generic DSL execution enabled` line. Nothing else under `mql5/`,
+`artifacts/`, `evidence/`, manifests or frozen inputs changes.
+
+**Measured (gate_run24, HEAD 150303a, `-Golds gold2`).** Before the run the
+agent folder `...\MetaQuotes\Tester\D0E8...\Agent-127.0.0.1-3000\MQL5\Files\Mql5Bot\gold_bundles`
+did not exist. At 07:40:33 stage5-leg-inputs staged the bundle into that
+agent folder and the terminal `MQL5\Files`, sha256 verified (`ok=true`,
+`agent_sandboxes=[Agent-127.0.0.1-3000]`). At 07:40:42 the m1_ohlc test
+started and the EA printed `[mql5bot] DSL bundle refused:  ` (both error
+strings empty) and `OnInit returns non-zero code 1`; the same for
+every_tick at 07:41:11. After the run the agent folder held the bundle with
+mtime 07:41:32, the real_ticks leg's staging; that leg stopped with
+`no history data` before any agent started. Conclusion: a file pre-placed in
+the agent's `MQL5\Files` before launch is NOT readable by the EA at OnInit.
+Whether the agent clears the folder or reads elsewhere is NOT measured.
+
+**Change.** `ReadDslBundleText` tries `FileOpen(path, FILE_READ|FILE_BIN)`,
+then `FILE_READ|FILE_BIN|FILE_COMMON` (the terminals' shared
+`Terminal\Common\Files`), keeping each `GetLastError` code; it fails closed
+exactly as before on size<=0, a short read or an empty string. OnInit
+prints `DSL bundle refused: cannot open '<path>' (local err=N, common
+err=M)` or, on success, `DSL bundle loaded from <local|common>: <path>`.
+`stage_bundle` now REQUIRES a sha256-verified copy in
+`<data_folder>\..\Common\Files\<bundle_rel>`; the agent and terminal
+copies are still written but no longer decide `ok`.
+
+**Frozen hashes.** Per the owner's gate_run24 evidence, `Mql5Bot.mq5` is
+not in `dsl_sha256_manifest` (45 lines; generated per run by stage 2, not
+committed). No committed manifest or frozen input in this repo names the
+file or its pre-change sha256 `42573fc6...` (checked with `git grep`), and
+the frozen anchor allows descendant HEADs. This change touches no frozen
+hash.
+
+**Status.** Built, unit-tested (static source checks only), never compiled
+and never run live: MQL5 cannot be compiled on the Mac. Stage 1 on Windows
+(MetaEditor strict compile, 0 errors / 0 warnings) is the compile proof;
+the next owner run's EA log says whether the common copy loads.
+
+---
+
 ## 2026-10-01 — real_ticks leg on bar-only fixtures (gate_run23) — OWNER DECISION PENDING
 
 **Measured.** gate_run23 (HEAD 6f9b845, `-Golds gold2`, Windows): the gold2

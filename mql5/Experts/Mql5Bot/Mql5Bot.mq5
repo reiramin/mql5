@@ -188,11 +188,34 @@ string TfToString(ENUM_TIMEFRAMES tf)
 // would inject per-line "\n" and mangle UTF-8/CRLF. The exact committed
 // bytes are parsed and then canonically re-serialised for the bundle_hash
 // check (DslBundle), so a byte-faithful read is required (P0-3).
-bool ReadDslBundleText(const string path,string &out)
+// Tries the local MQL5\Files first, then the terminals' common folder
+// (FILE_COMMON): gate_run24 measured a bundle pre-placed in the tester
+// agent's MQL5\Files as NOT readable at EA init. source is "local" or
+// "common" once a file opened ("" when neither did); errLocal/errCommon
+// are the GetLastError codes of the failed opens (0 = not failed/not tried).
+bool ReadDslBundleText(const string path,string &out,string &source,
+                       int &errLocal,int &errCommon)
   {
    out="";
+   source="";
+   errLocal=0;
+   errCommon=0;
+   ResetLastError();
    int h=FileOpen(path,FILE_READ|FILE_BIN);
-   if(h==INVALID_HANDLE) return false;
+   if(h==INVALID_HANDLE)
+     {
+      errLocal=GetLastError();
+      ResetLastError();
+      h=FileOpen(path,FILE_READ|FILE_BIN|FILE_COMMON);
+      if(h==INVALID_HANDLE)
+        {
+         errCommon=GetLastError();
+         return false;
+        }
+      source="common";
+     }
+   else
+      source="local";
    int sz=(int)FileSize(h);
    if(sz<=0){ FileClose(h); return false; }
    uchar bytes[];
@@ -549,10 +572,21 @@ int OnInit()
    if(InpDslBundleFile != "")
      {
       string bundleText;
-      if(!ReadDslBundleText(InpDslBundleFile,bundleText) || !g_dslJson.Parse(bundleText) ||
-         !g_dslLoader.Load(g_dslJson))
+      string bundleSource="";
+      int    bundleErrLocal=0;
+      int    bundleErrCommon=0;
+      bool   bundleRead=ReadDslBundleText(InpDslBundleFile,bundleText,bundleSource,
+                                          bundleErrLocal,bundleErrCommon);
+      if(!bundleRead || !g_dslJson.Parse(bundleText) || !g_dslLoader.Load(g_dslJson))
         {
-         Print("[mql5bot] DSL bundle refused: ",g_dslJson.Error()," ",g_dslLoader.Error());
+         if(!bundleRead && bundleSource=="")
+            Print("[mql5bot] DSL bundle refused: cannot open '",InpDslBundleFile,
+                  "' (local err=",bundleErrLocal,", common err=",bundleErrCommon,")");
+         else if(!bundleRead)
+            Print("[mql5bot] DSL bundle refused: empty or short read of '",
+                  InpDslBundleFile,"' from ",bundleSource);
+         else
+            Print("[mql5bot] DSL bundle refused: ",g_dslJson.Error()," ",g_dslLoader.Error());
          return INIT_FAILED;
         }
       //--- §6 market/timeframe guard: refuse a bundle whose declared market
@@ -590,6 +624,7 @@ int OnInit()
         }
       g_dslGeometry=g_dslRuntime.ExitGeometry();
       g_dslEnabled=true;
+      Print("[mql5bot] DSL bundle loaded from ",bundleSource,": ",InpDslBundleFile);
       g_log.Info("generic DSL execution enabled: "+g_strategyId);
      }
 

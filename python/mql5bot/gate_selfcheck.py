@@ -966,6 +966,13 @@ _WARMUP_RESERVE_RE = re.compile(
 #   empty) and `tester stopped because OnInit returns non-zero code 1`.
 _DSL_REFUSED_RE = re.compile(r"DSL bundle refused", re.IGNORECASE)
 _DSL_REFUSED_EMPTY_RE = re.compile(r"DSL bundle refused:\s*$", re.IGNORECASE)
+# EA SOURCE (Mql5Bot.mq5 OnInit, gate_run24 fix; UNCONFIRMED in a captured
+# window): neither the local nor the FILE_COMMON open succeeded, e.g.
+#   `[mql5bot] DSL bundle refused: cannot open 'Mql5Bot\\x.json' (local
+#   err=5004, common err=5004)`
+_DSL_REFUSED_OPEN_RE = re.compile(
+    r"DSL bundle refused: cannot open '([^']*)' \(local err=(-?\d+), "
+    r"common err=(-?\d+)\)", re.IGNORECASE)
 _ONINIT_NONZERO_RE = re.compile(r"OnInit returns non-zero", re.IGNORECASE)
 # MEASURED (gate_run23, real_ticks leg): `no history data, stop testing`,
 # preceded by `EURUSD.G2: history data begins from 2024.01.01 00:00`.
@@ -1059,7 +1066,16 @@ def classify_tester_leg_outcome(*, report_present: bool, window_text: str,
     if scoped["refused"] or scoped["oninit"]:
         what = ("EA refused the DSL bundle at OnInit" if scoped["refused"]
                 else "EA OnInit returned non-zero")
-        if any(_DSL_REFUSED_EMPTY_RE.search(ln) for ln in scoped["refused"]):
+        opened = [m for ln in scoped["refused"]
+                  for m in [_DSL_REFUSED_OPEN_RE.search(ln)] if m]
+        if opened:
+            m = opened[0]
+            what += (f" (the EA could not open '{m.group(1)}' from its "
+                     f"MQL5\\Files nor the common folder: local "
+                     f"GetLastError={m.group(2)}, common "
+                     f"GetLastError={m.group(3)})")
+        elif any(_DSL_REFUSED_EMPTY_RE.search(ln)
+                 for ln in scoped["refused"]):
             what += (" (both error strings empty: per Mql5Bot.mq5 OnInit, "
                      "consistent with ReadDslBundleText/FileOpen failing - "
                      "the bundle was not readable from the agent's "
