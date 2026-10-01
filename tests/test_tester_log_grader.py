@@ -146,7 +146,7 @@ def test_real_gold2_window_parses_every_field():
         "finished": [_G2_FINISHED], "bars": [_G2_BARS], "warmup": [],
         "history_quality": [_G2_QUALITY],
         "final_balance": [_FINAL_BALANCE_REAL], "model": [_G2_MODEL],
-        "loaded_strategy": []}
+        "loaded_strategy": [], "bundle_source": []}
     # runs 16/17 loaded no DSL bundle, so the EA logged no strategy line
     assert p["loaded_strategy"] is None
 

@@ -27,19 +27,19 @@ module proves that by comparing the two normalized documents, and records
 both hashes. The retargeted ``spec_hash`` necessarily differs from the
 manifest's, because the market is part of the hash.
 
-Staging. ``InpDslBundleFile`` is opened with ``FileOpen`` (no
-``FILE_COMMON``) and the EA declares no ``#property tester_file``. Inside the
-Strategy Tester that path resolves to the testing agent's own
-``MQL5\\Files`` sandbox. The bundle is written there (every ``Agent-*``
-directory under ``<data_folder>\\Tester`` AND under the sibling
-``MetaQuotes\\Tester\\<terminal_id>`` -- gate_run23 measured the agents in
-the latter) and to the terminal's ``MQL5\\Files``, and each copy is
-sha256-checked. Zero agent sandboxes found is a refusal naming every path
-searched, never ``ok`` with an empty agent list. Whether MT5 keeps a file
-placed in an agent sandbox for the next test is NOT yet measured. The EA's
-own log answers it: ``generic DSL execution enabled: <strategy_id>`` means
-the bundle loaded, and ``DSL bundle refused`` means it did not (INIT_FAILED,
-never a silent default).
+Staging. ``InpDslBundleFile`` is opened by ``ReadDslBundleText``: first
+``FileOpen`` without ``FILE_COMMON`` (inside the Strategy Tester: the testing
+agent's own ``MQL5\\Files`` sandbox), then with ``FILE_COMMON`` (the
+terminals' shared ``Terminal\\Common\\Files``). MEASURED (gate_run24): a
+bundle staged into the agent's ``MQL5\\Files`` before launch was NOT readable
+at OnInit, so the REQUIRED copy is the common one, sha256-checked; the
+terminal and agent copies (every ``Agent-*`` under ``<data_folder>\\Tester``
+and the sibling ``MetaQuotes\\Tester\\<terminal_id>``) are still written but
+no longer decide ``ok``. The EA's own log says which copy it read:
+``DSL bundle loaded from <local|common>: <path>`` then
+``generic DSL execution enabled: <strategy_id>`` mean the bundle loaded, and
+``DSL bundle refused: cannot open '<path>' (local err=N, common err=M)``
+means neither location opened (INIT_FAILED, never a silent default).
 """
 
 from __future__ import annotations
@@ -266,41 +266,69 @@ def find_agent_sandboxes(data_folder: Path | str) -> list[Path]:
     return sorted(found)
 
 
+def common_files_dir(data_folder: Path | str) -> Path:
+    """The terminals' shared folder ``FileOpen(..., FILE_COMMON)`` reads:
+    ``<data_folder>\\..\\Common\\Files``, i.e.
+    ``%APPDATA%\\MetaQuotes\\Terminal\\Common\\Files`` for a data folder
+    ``%APPDATA%\\MetaQuotes\\Terminal\\<id>``."""
+    return Path(data_folder).parent / "Common" / "Files"
+
+
+def _write_verified(dest: Path, raw: bytes, want: str) -> str | None:
+    """Write ``raw`` to ``dest``; None when the read-back sha256 is ``want``,
+    else the reason it is not."""
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(raw)
+        got = hashlib.sha256(dest.read_bytes()).hexdigest()
+    except OSError as exc:
+        return f"cannot write {dest}: {exc}"
+    return None if got == want else f"sha256 mismatch at {dest}: {got}"
+
+
 def stage_bundle(raw: bytes, bundle_rel: str,
                  data_folder: Path | str) -> dict:
-    """Write the bundle under the terminal's MQL5\\Files AND every tester
-    agent sandbox, and verify each copy's sha256.
+    """Write the bundle into the terminals' COMMON folder (required) and,
+    as before, the terminal's MQL5\\Files and every tester agent sandbox
+    (best effort), verifying each copy's sha256.
 
-    Fails closed (``ok=False``, ``missing="tester agent sandbox"``) when NO
-    agent sandbox is found: inside the tester the EA opens the bundle from
-    the agent's own MQL5\\Files, so a terminal-only copy is a refused bundle
-    at OnInit (gate_run23), never a staged one."""
+    MEASURED (gate_run24): a bundle pre-placed in the agent's MQL5\\Files
+    before launch was NOT readable by the EA at OnInit. The EA now falls
+    back to ``FILE_COMMON`` (Mql5Bot.mq5 ReadDslBundleText), so ``ok``
+    requires the sha256-verified common copy and nothing else; a common
+    copy that cannot be written or verified fails closed
+    (``missing="common files folder"``). Agent/terminal copies that fail
+    are reported in ``optional_bad`` but do not decide ``ok``."""
     root = Path(data_folder)
     parts = bundle_rel.split("\\")
     want = hashlib.sha256(raw).hexdigest()
     searched = [str(p) for p in agent_sandbox_roots(root)]
     agents = find_agent_sandboxes(root)
-    if not agents:
-        return {"ok": False, "missing": "tester agent sandbox",
-                "reasons": ["no tester agent sandbox (Agent-*) found; "
-                            "searched: " + "; ".join(searched)
-                            + " -- the bundle was NOT staged"],
-                "sha256": want, "staged": [], "bad": [],
-                "agent_sandboxes": [], "searched": searched}
+    common = common_files_dir(root).joinpath(*parts)
+    common_err = _write_verified(common, raw, want)
     targets = [root / "MQL5" / "Files"]
     targets += [a / "MQL5" / "Files" for a in agents]
-    staged, bad = [], []
+    staged, optional_bad = [], []
+    if common_err is None:
+        staged.append(str(common))
     for base in targets:
         dest = base.joinpath(*parts)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(raw)
-        got = hashlib.sha256(dest.read_bytes()).hexdigest()
-        (staged if got == want else bad).append(str(dest))
-    out = {"ok": not bad, "sha256": want, "staged": staged, "bad": bad,
+        err = _write_verified(dest, raw, want)
+        if err is None:
+            staged.append(str(dest))
+        else:
+            optional_bad.append(err)
+    out = {"ok": common_err is None, "sha256": want,
+           "common": str(common) if common_err is None else None,
+           "common_path": str(common), "staged": staged,
+           "bad": [common_err] if common_err else [],
+           "optional_bad": optional_bad,
            "agent_sandboxes": [str(a) for a in agents], "searched": searched}
-    if bad:
-        out["missing"] = "bundle staging"
-        out["reasons"] = [f"staged copy sha256 mismatch: {bad}"]
+    if common_err:
+        out["missing"] = "common files folder"
+        out["reasons"] = [("bundle NOT staged into the terminals' common "
+                           "folder (the EA's FILE_COMMON fallback): "
+                           f"{common_err}")]
     return out
 
 
@@ -308,6 +336,7 @@ __all__ = [
     "SIZING_MODE_BY_MANIFEST",
     "agent_sandbox_roots",
     "bundle_bytes",
+    "common_files_dir",
     "derive_gold_leg_inputs",
     "find_agent_sandboxes",
     "selector_check",

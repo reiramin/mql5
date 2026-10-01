@@ -191,7 +191,7 @@ def test_bundle_is_staged_into_terminal_and_every_agent_sandbox(tmp_path):
     d = _gold2()
     st = gli.stage_bundle(gli.bundle_bytes(d["bundle"]), d["bundle_rel"], df)
     assert st["ok"] is True
-    assert len(st["staged"]) == 3
+    assert len(st["staged"]) == 4  # common + terminal + the two agents
     tail = Path(*GOLD2_BUNDLE_REL.split("\\"))
     for path in st["staged"]:
         assert Path(path).as_posix().endswith(tail.as_posix())
@@ -225,7 +225,8 @@ def test_bundle_is_staged_into_the_sibling_tester_agent_sandbox(tmp_path):
     want = agent / "MQL5" / "Files" / Path(*GOLD2_BUNDLE_REL.split("\\"))
     assert str(want) in st["staged"]
     assert hashlib.sha256(want.read_bytes()).hexdigest() == d["bundle_sha256"]
-    assert len(st["staged"]) == 2  # terminal MQL5\Files + the one agent
+    # common (required) + terminal MQL5\Files + the one agent
+    assert len(st["staged"]) == 3
 
 
 def test_old_and_sibling_agent_locations_are_both_staged(tmp_path):
@@ -236,26 +237,31 @@ def test_old_and_sibling_agent_locations_are_both_staged(tmp_path):
     st = gli.stage_bundle(gli.bundle_bytes(d["bundle"]), d["bundle_rel"], df)
     assert st["ok"] is True
     assert set(st["agent_sandboxes"]) == {str(agent), str(old_agent)}
-    assert len(st["staged"]) == 3
+    assert len(st["staged"]) == 4
 
 
-def test_zero_agent_sandboxes_fails_closed_naming_every_path(tmp_path):
+def test_zero_agent_sandboxes_no_longer_refuses_when_common_is_staged(
+        tmp_path):
+    # gate_run24: agent copies are no longer required -- the EA falls back
+    # to FILE_COMMON, so the verified common copy alone decides ok
     mq = tmp_path / "MetaQuotes"
     df = mq / "Terminal" / TERMINAL_ID
     (df / "Tester" / "logs").mkdir(parents=True)  # logs only, as gate_run23
     d = _gold2()
     st = gli.stage_bundle(gli.bundle_bytes(d["bundle"]), d["bundle_rel"], df)
-    assert st["ok"] is False
-    assert st["missing"] == "tester agent sandbox"
-    assert st["agent_sandboxes"] == [] and st["staged"] == []
-    reason = st["reasons"][0]
-    assert str(df / "Tester") in reason
-    assert str(mq / "Tester" / TERMINAL_ID) in reason
-    # nothing written anywhere: a terminal-only copy is not a staged bundle
-    assert not (df / "MQL5").exists()
+    assert st["ok"] is True, st
+    assert st["agent_sandboxes"] == []
+    common = (mq / "Terminal" / "Common" / "Files"
+              / Path(*GOLD2_BUNDLE_REL.split("\\")))
+    assert st["common"] == str(common)
+    assert hashlib.sha256(common.read_bytes()).hexdigest() == \
+        d["bundle_sha256"]
+    # every agent location is still searched and reported
+    assert str(df / "Tester") in st["searched"]
+    assert str(mq / "Tester" / TERMINAL_ID) in st["searched"]
 
 
-def test_cli_zero_agent_sandboxes_refuses_the_leg(tmp_path):
+def test_cli_zero_agent_sandboxes_still_launches_with_common_copy(tmp_path):
     df = tmp_path / "MetaQuotes" / "Terminal" / TERMINAL_ID
     (df / "Tester" / "logs").mkdir(parents=True)
     out_dir = tmp_path / "ev"
@@ -263,11 +269,12 @@ def test_cli_zero_agent_sandboxes_refuses_the_leg(tmp_path):
     cp = _decide("stage5-leg-inputs", "--manifest", str(GOLD2_MANIFEST),
                  "--symbol", "EURUSD.G2", "--leg", "gold2_m1_ohlc",
                  "--out-dir", str(out_dir), "--data-folder", str(df))
-    assert cp.returncode == 1, cp.stdout
+    assert cp.returncode == 0, cp.stdout
     out = json.loads(cp.stdout)
-    assert out["ok"] is False
-    assert out["missing"] == "tester agent sandbox"
+    assert out["ok"] is True
     assert out["staging"]["agent_sandboxes"] == []
+    assert out["staging"]["common"].endswith(
+        Path(*GOLD2_BUNDLE_REL.split("\\")).name)
 
 
 # ---------------------------------------------------------------------------

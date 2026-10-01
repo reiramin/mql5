@@ -942,8 +942,10 @@ foreach ($leg in $legs) {
     # different strategies. stage5-leg-inputs derives the strategy (the
     # manifest's spec_hash -> committed spec -> DSL bundle, market retargeted
     # to the custom symbol, verified), sizing, risk, allow-short and the
-    # deposit from the manifest (read-only), stages the bundle into
-    # MQL5\Files and every tester agent sandbox, and asserts the selector is
+    # deposit from the manifest (read-only), stages the bundle into the
+    # terminals' Common\Files (REQUIRED, sha256-verified: the EA's
+    # FILE_COMMON fallback, gate_run24) plus MQL5\Files and every tester
+    # agent sandbox (best effort), and asserts the selector is
     # non-empty and names the manifest's strategy_id. Any input it cannot
     # derive FAILS THIS LEG BEFORE LAUNCH naming the field -- never an EA
     # default.

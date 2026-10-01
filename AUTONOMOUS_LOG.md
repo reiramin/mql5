@@ -397,3 +397,47 @@ not mine and I left them untouched.
   not measured. The `.ps1` still labels a staging refusal
   `[input_underivable]`; the reason text names the real cause. Record
   unchanged: stage 5 FAIL, stages 6–10 never run, nothing certified.
+
+## 2026-10-01 — fix/ea-bundle-common-files (gate_run24: EA reads bundle via FILE_COMMON)
+
+**Branch:** `fix/ea-bundle-common-files`, from origin/master `150303a`. It was
+built in a separate worktree because the main checkout had uncommitted work
+from another branch, which I left untouched.
+
+**Evidence acted on:** gate_run24 (HEAD 150303a, `-Golds gold2`). A bundle
+staged into the agent's `MQL5\Files` before launch was not readable at
+OnInit: `DSL bundle refused:  ` and `OnInit returns non-zero code 1`.
+
+**Owner authorization:** a scoped mql5/ exception (Sal, in chat), covering
+only `ReadDslBundleText` and the OnInit refusal Print that follows it in
+Mql5Bot.mq5. It is recorded in docs/DECISIONS.md.
+
+**Commits**
+- `ef689f1`:
+  - The EA tries FileOpen local, then FILE_COMMON, and prints both
+    GetLastError codes or the load source.
+  - `stage_bundle` requires a sha256-verified copy in
+    `<data_folder>\..\Common\Files`.
+  - The graders read the new refusal and `loaded from` lines.
+  - Tests are in `tests/test_ea_bundle_common_files.py`. Three existing
+    tests were updated for the new semantics.
+- The commit that adds this entry.
+
+**Checks (exit codes read)** — macOS, `.venv` Python, ruff 0.16.1:
+- `ruff check python/ tests/ tools/ factory/` → exit 0.
+- full `pytest tests/` → exit 0. The only skip is `tests/test_pipeline.py:444`
+  (optuna).
+- PowerShell tests: 27 ran. With pwsh hidden, the 4 pwsh files skip exactly 27.
+
+**PR:** #11 is open and not merged.
+
+**NOT done, and why**
+- MQL5 was not compiled: there is no MetaEditor on the Mac. Stage 1 on
+  Windows is the compile proof.
+- Nothing ran on MT5 or Windows. The change is built, unit-tested, and never
+  run live. Whether the EA loads the common copy inside the tester is not
+  measured.
+- The real_ticks leg (no tick history) is untouched; it is still an owner
+  decision.
+- Nothing was merged, as instructed.
+- Record unchanged: stage 5 FAIL, stages 6–10 never run, nothing certified.
