@@ -1,0 +1,13 @@
+# CAPTURED - MT5 Strategy Tester / agent log message lines from the owner's
+# gate_run23 (HEAD 6f9b845, -Golds gold2, Windows), supplied verbatim by the
+# owner in the gate_run23 report. Only the message text was supplied (no
+# timestamp/source columns). Lines starting with '#' are this header, not log.
+# The refused line ends with TWO spaces: both error strings were empty.
+# [section] markers split the lines by leg; tests assemble windows from them.
+# [section] refused - a gold2 leg whose EA refused the bundle at OnInit
+InpDslBundleFile=Mql5Bot\gold_bundles\gold2_multifactor_v1_EURUSD.G2.bundle.json
+[mql5bot] DSL bundle refused:  
+tester stopped because OnInit returns non-zero code 1
+# [section] real_ticks - the gold2 real_ticks leg (Model=4)
+EURUSD.G2: history data begins from 2024.01.01 00:00
+no history data, stop testing

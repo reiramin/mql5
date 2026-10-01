@@ -200,6 +200,76 @@ def test_bundle_is_staged_into_terminal_and_every_agent_sandbox(tmp_path):
     assert any("Agent-127.0.0.1-3001" in p for p in st["staged"])
 
 
+TERMINAL_ID = "D0E8209F77C8CF37AD8BF550E51FF075"
+
+
+def _windows_layout(tmp_path: Path) -> tuple[Path, Path]:
+    """gate_run23's measured layout: data folder
+    ``MetaQuotes\\Terminal\\<id>`` (its Tester dir holds logs only) and the
+    agent at the sibling ``MetaQuotes\\Tester\\<id>\\Agent-127.0.0.1-3000``."""
+    mq = tmp_path / "AppData" / "Roaming" / "MetaQuotes"
+    df = mq / "Terminal" / TERMINAL_ID
+    (df / "Tester" / "logs").mkdir(parents=True)
+    (df / "MQL5" / "Files").mkdir(parents=True)
+    agent = mq / "Tester" / TERMINAL_ID / "Agent-127.0.0.1-3000"
+    (agent / "logs").mkdir(parents=True)
+    return df, agent
+
+
+def test_bundle_is_staged_into_the_sibling_tester_agent_sandbox(tmp_path):
+    df, agent = _windows_layout(tmp_path)
+    d = _gold2()
+    st = gli.stage_bundle(gli.bundle_bytes(d["bundle"]), d["bundle_rel"], df)
+    assert st["ok"] is True, st
+    assert st["agent_sandboxes"] == [str(agent)]
+    want = agent / "MQL5" / "Files" / Path(*GOLD2_BUNDLE_REL.split("\\"))
+    assert str(want) in st["staged"]
+    assert hashlib.sha256(want.read_bytes()).hexdigest() == d["bundle_sha256"]
+    assert len(st["staged"]) == 2  # terminal MQL5\Files + the one agent
+
+
+def test_old_and_sibling_agent_locations_are_both_staged(tmp_path):
+    df, agent = _windows_layout(tmp_path)
+    old_agent = df / "Tester" / "HASH" / "Agent-127.0.0.1-3001"
+    (old_agent / "logs").mkdir(parents=True)
+    d = _gold2()
+    st = gli.stage_bundle(gli.bundle_bytes(d["bundle"]), d["bundle_rel"], df)
+    assert st["ok"] is True
+    assert set(st["agent_sandboxes"]) == {str(agent), str(old_agent)}
+    assert len(st["staged"]) == 3
+
+
+def test_zero_agent_sandboxes_fails_closed_naming_every_path(tmp_path):
+    mq = tmp_path / "MetaQuotes"
+    df = mq / "Terminal" / TERMINAL_ID
+    (df / "Tester" / "logs").mkdir(parents=True)  # logs only, as gate_run23
+    d = _gold2()
+    st = gli.stage_bundle(gli.bundle_bytes(d["bundle"]), d["bundle_rel"], df)
+    assert st["ok"] is False
+    assert st["missing"] == "tester agent sandbox"
+    assert st["agent_sandboxes"] == [] and st["staged"] == []
+    reason = st["reasons"][0]
+    assert str(df / "Tester") in reason
+    assert str(mq / "Tester" / TERMINAL_ID) in reason
+    # nothing written anywhere: a terminal-only copy is not a staged bundle
+    assert not (df / "MQL5").exists()
+
+
+def test_cli_zero_agent_sandboxes_refuses_the_leg(tmp_path):
+    df = tmp_path / "MetaQuotes" / "Terminal" / TERMINAL_ID
+    (df / "Tester" / "logs").mkdir(parents=True)
+    out_dir = tmp_path / "ev"
+    out_dir.mkdir()
+    cp = _decide("stage5-leg-inputs", "--manifest", str(GOLD2_MANIFEST),
+                 "--symbol", "EURUSD.G2", "--leg", "gold2_m1_ohlc",
+                 "--out-dir", str(out_dir), "--data-folder", str(df))
+    assert cp.returncode == 1, cp.stdout
+    out = json.loads(cp.stdout)
+    assert out["ok"] is False
+    assert out["missing"] == "tester agent sandbox"
+    assert out["staging"]["agent_sandboxes"] == []
+
+
 # ---------------------------------------------------------------------------
 # post-run: the EA must have loaded THAT strategy
 # ---------------------------------------------------------------------------

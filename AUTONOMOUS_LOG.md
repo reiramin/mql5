@@ -351,3 +351,49 @@ PowerShell names are case-insensitive.
 - Nothing ran on MT5 or Windows. The fix is built, unit-tested, never run
   live, and gate_run22's stage 4 has not been re-run. Record unchanged: stage
   5 FAIL, stages 6–10 never run, nothing certified.
+
+## 2026-10-01 — branch `fix/stage5-agent-sandbox` (from `origin/master` 6f9b845)
+
+I worked in a separate worktree (`../mql5bot-stage5-sandbox`). The main
+checkout had uncommitted changes on `feat/gate-scoped-gold2-run`. They were
+not mine and I left them untouched.
+
+**Evidence acted on:** gate_run23 (HEAD 6f9b845, `-Golds gold2`, Windows).
+- Staging reported `"agent_sandboxes": [], "ok": true`.
+- The EA printed `[mql5bot] DSL bundle refused:  ` and the tester printed
+  `OnInit returns non-zero code 1`.
+- The real_ticks leg printed `no history data, stop testing`.
+
+**Commits**
+- `210dc69` — the changes:
+  - A: `stage_bundle` also searches the sibling
+    `MetaQuotes\Tester\<terminal_id>\Agent-*` and sha256-checks each copy.
+    With zero agents it refuses: `missing="tester agent sandbox"`, naming
+    every path searched.
+  - B: a refusal or OnInit-nonzero line in the leg's window gives a FAIL whose
+    reason names the cause. `no history data, stop testing` gives
+    `FAIL_NO_TICK_HISTORY`.
+  - The verbatim gate_run23 lines are in
+    `tests/data/owner_gate/tester_log_gate_run23.txt`.
+  - C: a DECISIONS.md entry with the options. The owner has not decided.
+  - The owner docs now require `-DataFolder` / `MQL5BOT_DATA_FOLDER`.
+- The commit that adds this entry.
+
+**Checks (exit codes read)** — macOS, `.venv` Python, ruff 0.16.1:
+- `ruff check python tests tools factory` → exit 0.
+- full `pytest tests/` → exit 0. The only skip is `tests/test_pipeline.py:444`
+  (optuna).
+- PowerShell tests: 27 ran. With pwsh hidden (`env -i`, HOME=/nonexistent),
+  the 4 pwsh files skip exactly 27.
+
+**PR:** #10 is open and not merged.
+
+**NOT done, and why**
+- Nothing was merged, as instructed.
+- The real_ticks leg is not fixed. The fix is an owner decision
+  (DECISIONS.md), so I documented it and did not implement it.
+- Nothing ran on MT5 or Windows. The staging fix is built, unit-tested, and
+  never run live. Whether the EA now loads the bundle inside the tester is
+  not measured. The `.ps1` still labels a staging refusal
+  `[input_underivable]`; the reason text names the real cause. Record
+  unchanged: stage 5 FAIL, stages 6–10 never run, nothing certified.

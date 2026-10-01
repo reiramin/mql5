@@ -9,6 +9,52 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-10-01 — real_ticks leg on bar-only fixtures (gate_run23) — OWNER DECISION PENDING
+
+**Measured.** gate_run23 (HEAD 6f9b845, `-Golds gold2`, Windows): the gold2
+real_ticks leg (Model=4) printed `EURUSD.G2: history data begins from
+2024.01.01 00:00` then `no history data, stop testing`. The custom symbol
+`EURUSD.G2` is imported with M1 bars only; it has no ticks. A real-ticks
+test has nothing to run on.
+
+**What the code does now.** The leg's own window carrying `no history data,
+stop testing` is graded `FAIL_NO_TICK_HISTORY` — a named FAIL, never
+BLOCKED, never a pass (`gate_selfcheck.classify_tester_leg_outcome`; tests in
+`tests/test_stage5_gate_run23.py` use the verbatim gate_run23 lines). This
+only NAMES the outcome. It does not decide what the leg should be.
+
+**Options (none implemented):**
+
+1. **Import ticks for the custom symbol.** Needs an `mql5/` change (the
+   importer writes bars only) and new fixture provenance (a tick dataset with
+   its own hash, manifest and frozen-input entry). `mql5/` and the manifests
+   are the compile-of-record and frozen evidence; changing them invalidates
+   the current certification anchor and needs a re-anchor.
+2. **Drop the real_ticks leg for bar-only golds**, with an explicit recorded
+   reason in the gate (the leg is listed as not run because the fixture has
+   no ticks, never silently omitted and never counted as a pass).
+3. **Keep it as a permanent named FAIL** (`FAIL_NO_TICK_HISTORY`). Stage 5
+   then cannot pass for a bar-only gold while the real_ticks leg is required.
+
+**The owner has not decided.** Until they do, the real_ticks leg on a
+bar-only gold stays `FAIL_NO_TICK_HISTORY` and stage 5 stays FAIL.
+
+**Also from gate_run23 (fixed on `fix/stage5-agent-sandbox`, built,
+unit-tested, never run live).** The other gold2 legs received
+`InpDslBundleFile=Mql5Bot\gold_bundles\gold2_multifactor_v1_EURUSD.G2.bundle.json`
+and the EA printed `[mql5bot] DSL bundle refused:  ` (both error strings
+empty) then `tester stopped because OnInit returns non-zero code 1`. Staging
+had reported `"agent_sandboxes": [], "ok": true`: it searched only
+`<data_folder>\Tester`, which held logs; the real agent was at the sibling
+`MetaQuotes\Tester\<terminal_id>\Agent-127.0.0.1-3000`. `stage_bundle`
+now searches both locations, verifies each copy's sha256, and refuses
+(`missing="tester agent sandbox"`, every searched path named) when it finds
+no agent. A leg whose window shows the refusal is a FAIL whose reason says
+"EA refused the DSL bundle at OnInit". Whether the bundle now loads in the
+tester is NOT measured; the next owner run answers it.
+
+---
+
 ## 2026-09-30 — A script-scope local must never share a name with a script parameter (gate_run22)
 
 **Measured failure.** gate_run22 (HEAD 6416d6b, `-Golds gold2`) failed stage 4

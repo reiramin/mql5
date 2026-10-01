@@ -23,6 +23,21 @@ Optional overrides: `-TerminalPath`, `-MetaEditorPath`, `-SymbolSpecExport`,
 `MQL5BOT_METAEDITOR`, `MQL5BOT_DATA_FOLDER`, `MQL5BOT_PYTHON`,
 `MQL5BOT_EVIDENCE_DIR`.
 
+**The data folder is required.** Pass `-DataFolder` or set
+`MQL5BOT_DATA_FOLDER` before running; without either the gate stops at
+stage 0 (`SELF_PROTECT_DATA_FOLDER`) — gate_run23's first attempt did
+exactly that. It is the terminal's data folder (MT5: File → Open Data
+Folder), e.g. `%APPDATA%\MetaQuotes\Terminal\<terminal_id>`:
+
+```
+$env:MQL5BOT_DATA_FOLDER = "$env:APPDATA\MetaQuotes\Terminal\<terminal_id>"
+```
+
+Stage 5 stages each gold's DSL bundle into every tester agent sandbox it
+finds, under `<data folder>\Tester` and under the sibling
+`%APPDATA%\MetaQuotes\Tester\<terminal_id>\Agent-*`. If it finds none,
+the leg is refused before launch, naming every path searched.
+
 Stage 8 reads its owner evidence package from `MQL5BOT_EVIDENCE_DIR`, or
 by default from the gitignored `evidence\owner_mt5_package\`. Stage 5
 copies each PASS_FROM_LOG leg's log trade list there automatically
