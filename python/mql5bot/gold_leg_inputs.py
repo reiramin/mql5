@@ -30,9 +30,12 @@ manifest's, because the market is part of the hash.
 Staging. ``InpDslBundleFile`` is opened with ``FileOpen`` (no
 ``FILE_COMMON``) and the EA declares no ``#property tester_file``. Inside the
 Strategy Tester that path resolves to the testing agent's own
-``MQL5\\Files`` sandbox. The bundle is written there (every
-``Tester\\...\\Agent-*`` directory found) and to the terminal's
-``MQL5\\Files``, and each copy is sha256-checked. Whether MT5 keeps a file
+``MQL5\\Files`` sandbox. The bundle is written there (every ``Agent-*``
+directory under ``<data_folder>\\Tester`` AND under the sibling
+``MetaQuotes\\Tester\\<terminal_id>`` -- gate_run23 measured the agents in
+the latter) and to the terminal's ``MQL5\\Files``, and each copy is
+sha256-checked. Zero agent sandboxes found is a refusal naming every path
+searched, never ``ok`` with an empty agent list. Whether MT5 keeps a file
 placed in an agent sandbox for the next test is NOT yet measured. The EA's
 own log answers it: ``generic DSL execution enabled: <strategy_id>`` means
 the bundle loaded, and ``DSL bundle refused`` means it did not (INIT_FAILED,
@@ -241,17 +244,50 @@ def selector_check(inputs: dict, bundle: dict, strategy_id: str) -> dict:
     return {"ok": not reasons, "reasons": reasons}
 
 
+def agent_sandbox_roots(data_folder: Path | str) -> list[Path]:
+    """Every directory searched for tester agent sandboxes, in order.
+
+    MEASURED (gate_run23): the agent sandbox is NOT under the data folder.
+    For ``%APPDATA%\\MetaQuotes\\Terminal\\<id>`` the agents live in the
+    sibling ``%APPDATA%\\MetaQuotes\\Tester\\<id>\\Agent-*``
+    (``<id>`` = the data folder's basename); ``<data_folder>\\Tester`` held
+    only logs. The old location is kept: it costs nothing to search."""
+    root = Path(data_folder)
+    return [root / "Tester", root.parent.parent / "Tester" / root.name]
+
+
+def find_agent_sandboxes(data_folder: Path | str) -> list[Path]:
+    old, sibling = agent_sandbox_roots(data_folder)
+    found = set()
+    if old.is_dir():
+        found |= {p for p in old.rglob("Agent-*") if p.is_dir()}
+    if sibling.is_dir():
+        found |= {p for p in sibling.glob("Agent-*") if p.is_dir()}
+    return sorted(found)
+
+
 def stage_bundle(raw: bytes, bundle_rel: str,
                  data_folder: Path | str) -> dict:
     """Write the bundle under the terminal's MQL5\\Files AND every tester
-    agent sandbox, and verify each copy's sha256."""
+    agent sandbox, and verify each copy's sha256.
+
+    Fails closed (``ok=False``, ``missing="tester agent sandbox"``) when NO
+    agent sandbox is found: inside the tester the EA opens the bundle from
+    the agent's own MQL5\\Files, so a terminal-only copy is a refused bundle
+    at OnInit (gate_run23), never a staged one."""
     root = Path(data_folder)
     parts = bundle_rel.split("\\")
     want = hashlib.sha256(raw).hexdigest()
+    searched = [str(p) for p in agent_sandbox_roots(root)]
+    agents = find_agent_sandboxes(root)
+    if not agents:
+        return {"ok": False, "missing": "tester agent sandbox",
+                "reasons": ["no tester agent sandbox (Agent-*) found; "
+                            "searched: " + "; ".join(searched)
+                            + " -- the bundle was NOT staged"],
+                "sha256": want, "staged": [], "bad": [],
+                "agent_sandboxes": [], "searched": searched}
     targets = [root / "MQL5" / "Files"]
-    tester = root / "Tester"
-    agents = sorted({p for p in tester.rglob("Agent-*") if p.is_dir()}) \
-        if tester.is_dir() else []
     targets += [a / "MQL5" / "Files" for a in agents]
     staged, bad = [], []
     for base in targets:
@@ -260,14 +296,20 @@ def stage_bundle(raw: bytes, bundle_rel: str,
         dest.write_bytes(raw)
         got = hashlib.sha256(dest.read_bytes()).hexdigest()
         (staged if got == want else bad).append(str(dest))
-    return {"ok": not bad, "sha256": want, "staged": staged, "bad": bad,
-            "agent_sandboxes": [str(a) for a in agents]}
+    out = {"ok": not bad, "sha256": want, "staged": staged, "bad": bad,
+           "agent_sandboxes": [str(a) for a in agents], "searched": searched}
+    if bad:
+        out["missing"] = "bundle staging"
+        out["reasons"] = [f"staged copy sha256 mismatch: {bad}"]
+    return out
 
 
 __all__ = [
     "SIZING_MODE_BY_MANIFEST",
+    "agent_sandbox_roots",
     "bundle_bytes",
     "derive_gold_leg_inputs",
+    "find_agent_sandboxes",
     "selector_check",
     "stage_bundle",
 ]

@@ -922,6 +922,11 @@ def run_self_protection(repo: Path | str, runner=None) -> dict:
 #     both MT5's reserved warm-up history and a test window (MT5: "start time
 #     changed to ... to provide data at beginning"). Zero bars is insufficient
 #     data, never a blocked environment.
+#   * FAIL_NO_TICK_HISTORY — the leg's own window shows MT5's "no history
+#     data, stop testing" (gate_run23: Model=4 on a bar-only custom symbol).
+#   * FAIL naming the cause — the leg's own window shows "DSL bundle refused"
+#     and/or "OnInit returns non-zero" (gate_run23): the reason says "EA
+#     refused the DSL bundle at OnInit", verbatim lines quoted.
 #   * FAIL — anything else (a real crash, an unprovable state). Fail-closed.
 #
 # R6 ROOT CAUSE (the delivery run): the R5 classifier scanned a DAY-WIDE log
@@ -937,6 +942,9 @@ def run_self_protection(repo: Path | str, runner=None) -> dict:
 STAGE5_OUTCOME_OK = "OK"
 STAGE5_OUTCOME_BLOCKED_ENV = "BLOCKED_OWNER_ENVIRONMENT"
 STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY = "FAIL_INSUFFICIENT_FIXTURE_HISTORY"
+# gate_run23: a Model=4 (real ticks) leg on a custom symbol that has M1 bars
+# and no ticks. A named FAIL, never BLOCKED, never a pass.
+STAGE5_OUTCOME_NO_TICK_HISTORY = "FAIL_NO_TICK_HISTORY"
 STAGE5_OUTCOME_FAIL = "FAIL"
 
 # "successfully finished" — the tester's own completion phrase (measured:
@@ -951,6 +959,19 @@ _BARS_GENERATED_RE = re.compile(
 _WARMUP_RESERVE_RE = re.compile(
     r"start time changed .*?to provide data at (?:the )?beginning",
     re.IGNORECASE)
+
+
+# MEASURED (gate_run23, tests/data/owner_gate/tester_log_gate_run23.txt):
+#   `[mql5bot] DSL bundle refused:  ` (Mql5Bot.mq5 OnInit; both error strings
+#   empty) and `tester stopped because OnInit returns non-zero code 1`.
+_DSL_REFUSED_RE = re.compile(r"DSL bundle refused", re.IGNORECASE)
+_DSL_REFUSED_EMPTY_RE = re.compile(r"DSL bundle refused:\s*$", re.IGNORECASE)
+_ONINIT_NONZERO_RE = re.compile(r"OnInit returns non-zero", re.IGNORECASE)
+# MEASURED (gate_run23, real_ticks leg): `no history data, stop testing`,
+# preceded by `EURUSD.G2: history data begins from 2024.01.01 00:00`.
+_NO_HISTORY_STOP_RE = re.compile(r"no history data, stop testing",
+                                 re.IGNORECASE)
+_HISTORY_BEGINS_RE = re.compile(r"history data begins from", re.IGNORECASE)
 
 
 def _dedup_keep_order(lines: list[str], cap: int) -> list[str]:
@@ -973,18 +994,34 @@ def _leg_scoped_lines(window_text: str, symbol: str | None) -> dict:
     finished: list[str] = []
     bars: list[tuple[str, int]] = []
     warmup: list[str] = []
+    refused: list[str] = []
+    oninit: list[str] = []
+    no_history: list[str] = []
+    history_begins: list[str] = []
     for raw in (window_text or "").splitlines():
         line = raw.strip()
         if not line:
             continue
         if _TESTER_FINISHED_RE.search(line):
             finished.append(line)
+        # the EA's own refusal / the tester's stop lines carry no symbol;
+        # the window is already this leg's own capture
+        if _DSL_REFUSED_RE.search(line):
+            refused.append(line)
+        if _ONINIT_NONZERO_RE.search(line):
+            oninit.append(line)
+        if _NO_HISTORY_STOP_RE.search(line):
+            no_history.append(line)
+        if _HISTORY_BEGINS_RE.search(line) and symbol and symbol in line:
+            history_begins.append(line)
         m = _BARS_GENERATED_RE.search(line)
         if m and symbol and symbol in line:
             bars.append((line, int(m.group(2))))
         if _WARMUP_RESERVE_RE.search(line) and symbol and symbol in line:
             warmup.append(line)
-    return {"finished": finished, "bars": bars, "warmup": warmup}
+    return {"finished": finished, "bars": bars, "warmup": warmup,
+            "refused": refused, "oninit": oninit, "no_history": no_history,
+            "history_begins": history_begins}
 
 
 def classify_tester_leg_outcome(*, report_present: bool, window_text: str,
@@ -1014,6 +1051,47 @@ def classify_tester_leg_outcome(*, report_present: bool, window_text: str,
     finished = bool(scoped["finished"])
     bars_values = [n for _, n in scoped["bars"]]
     max_bars = max(bars_values) if bars_values else None
+
+    # gate_run23: name the cause the leg's own window states, verbatim.
+    # Checked first: a window carrying either line never reached a test, so
+    # it can be neither BLOCKED nor graded up from log.
+    init_refused = ""
+    if scoped["refused"] or scoped["oninit"]:
+        what = ("EA refused the DSL bundle at OnInit" if scoped["refused"]
+                else "EA OnInit returned non-zero")
+        if any(_DSL_REFUSED_EMPTY_RE.search(ln) for ln in scoped["refused"]):
+            what += (" (both error strings empty: per Mql5Bot.mq5 OnInit, "
+                     "consistent with ReadDslBundleText/FileOpen failing - "
+                     "the bundle was not readable from the agent's "
+                     "MQL5\\Files)")
+        init_refused = what
+    if scoped["no_history"]:
+        evidence = _dedup_keep_order(
+            scoped["history_begins"] + scoped["no_history"]
+            + scoped["refused"] + scoped["oninit"], 4)
+        extra = f" Also: {init_refused}." if init_refused else ""
+        return {
+            "outcome": STAGE5_OUTCOME_NO_TICK_HISTORY,
+            "ok": False, "blocked": False, "bars_generated": max_bars,
+            "test_finished": finished, "evidence_lines": evidence,
+            "reason": ("FAIL — NO_TICK_HISTORY: this leg's own window shows "
+                       "MT5 stopped the test with 'no history data, stop "
+                       f"testing' for {symbol or 'its symbol'} — the tester "
+                       "had no tick history to run this model on (a bar-only "
+                       "fixture). A FAIL, never a blocked environment, never "
+                       f"a pass.{extra} Tester log (this leg only): "
+                       + " | ".join(evidence)),
+            "leg": leg}
+    if init_refused:
+        evidence = _dedup_keep_order(scoped["refused"] + scoped["oninit"], 3)
+        return {
+            "outcome": STAGE5_OUTCOME_FAIL, "ok": False, "blocked": False,
+            "bars_generated": max_bars, "test_finished": finished,
+            "evidence_lines": evidence,
+            "reason": (f"FAIL — {init_refused}: the test never ran this "
+                       "leg's strategy. Tester log (this leg only): "
+                       + " | ".join(evidence)),
+            "leg": leg}
 
     # Zero bars in THIS leg's window is INSUFFICIENT DATA, never a blocked
     # environment (R5 defect 4 / R6 item 3). Checked first: a leg with no test
@@ -1184,6 +1262,7 @@ __all__ = [
     "STAGE5_OUTCOME_BLOCKED_ENV",
     "STAGE5_OUTCOME_FAIL",
     "STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY",
+    "STAGE5_OUTCOME_NO_TICK_HISTORY",
     "STAGE5_OUTCOME_OK",
     "broker_parity_scope",
     "classify_field",

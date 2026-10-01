@@ -285,6 +285,11 @@ powershell -ExecutionPolicy Bypass -File tools\owner_gate.ps1 `
     -DataFolder <your MT5 data folder>
 ```
 
+`-DataFolder` (or the `MQL5BOT_DATA_FOLDER` environment variable) is
+required: without it the gate stops at stage 0. It is the folder MT5 opens
+from File → Open Data Folder, e.g.
+`%APPDATA%\MetaQuotes\Terminal\<terminal_id>`.
+
 Every decision it makes lives in committed code, never in a prompt. It
 self-protects (stage 0), walks stages 1–10, stops at the first failure,
 and never patches a divergence — it records it.

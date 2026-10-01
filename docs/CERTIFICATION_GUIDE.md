@@ -32,7 +32,10 @@ no-report leg from its OWN tester-log window
 that window shows ALL of: "successfully finished", bars > 0 for the leg's
 symbol, a history-quality line, and a model statement equal to the
 requested model. Anything less keeps the leg's existing verdict (FAIL,
-FAIL_INSUFFICIENT_FIXTURE_HISTORY or BLOCKED_OWNER_ENVIRONMENT).
+FAIL_INSUFFICIENT_FIXTURE_HISTORY, FAIL_NO_TICK_HISTORY or
+BLOCKED_OWNER_ENVIRONMENT). A window showing the EA refused the DSL bundle at
+OnInit is a FAIL that says so; a window showing `no history data, stop
+testing` is FAIL_NO_TICK_HISTORY (gate_run23; see docs/DECISIONS.md).
 
 - It **proves**: MT5 ran this leg to completion, on this symbol, with
   bars > 0, at the stated history quality, in the requested model. The

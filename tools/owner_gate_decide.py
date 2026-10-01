@@ -296,10 +296,12 @@ def main(argv: list[str] | None = None) -> int:
                                           args.data_folder)
                     d["staging"] = st
                     if not st["ok"]:
+                        # zero agent sandboxes or a sha256 mismatch: the
+                        # leg is NOT launched (gate_run23: a terminal-only
+                        # copy is a refused bundle at OnInit)
                         d["ok"] = False
-                        d["missing"] = "bundle staging"
-                        d["reasons"] = [("staged copy sha256 mismatch: "
-                                         f"{st['bad']}")]
+                        d["missing"] = st["missing"]
+                        d["reasons"] = st["reasons"]
                 # the exact --input list the .ps1 passes, in a stable order
                 d["input_args"] = [f"{k}={_ini_value(v)}"
                                    for k, v in sorted(d["inputs"].items())]
