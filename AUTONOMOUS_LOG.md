@@ -622,3 +622,30 @@ re-run standalone -> 0).
   than out-of-window.
 - Nothing merged. Certification record unchanged: stage 5 FAIL stands in
   the record, stage 8 has never passed, stages 9-10 never ran.
+
+## 2026-10-03 (4) — merge of PR #15 into master (owner-approved)
+
+**Branch**: work done on `master` in a clean worktree from `origin/master`
+8966969; this log entry is on `docs/autolog-2026-10-03-merge-pr15` (no
+direct docs commit to master).
+
+**Done**
+- Merged `origin/fix/stage8-trade-pairing` (PR #15, head 3703aa1) into
+  master with `--no-ff` as 999126a. Approval: Sal + reviewer in chat; no
+  GitHub review recorded (stated in the merge commit body).
+- Gates on the merged tree before push: ruff -> exit 0; full pytest ->
+  exit 0 (pwsh 7.6.6 on PATH). Pushed `master` (8966969..999126a, no
+  force, no amend). GitHub reports PR #15 MERGED (2026-10-03T18:15:39Z).
+
+**NOT done, and why**
+- PR #14 (`docs/owner-decisions-reanchor-deferred`) was NOT merged: after
+  PR #15 it no longer applies cleanly — GitHub reports CONFLICTING, and
+  `git merge-tree` shows both sides changed `AUTONOMOUS_LOG.md` and
+  `docs/DECISIONS.md` (both PRs appended entries). Per the instruction,
+  the conflict is reported and nothing was done. The attempted local
+  merge was also denied by the session's permission classifier before
+  any conflict resolution was tried.
+- Nothing ran on MT5. The pairing change merged here is still built,
+  unit-tested, never run live; gate_run28 must confirm it.
+- Certification record unchanged: stage 8 has never passed; nothing is
+  certified.
