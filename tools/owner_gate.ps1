@@ -1237,6 +1237,25 @@ foreach ($leg in $legs) {
         [void]$placeNotes.Add(("{0}_{1}: log trade list NOT placed: {2}" -f $leg.gold, $leg.model, $why))
     }
 }
+# gate_run26: the package held only the log trade lists, so stage 8 FAILED
+# RECONCILIATION_MISSING and never compared a trade. The gate now builds the
+# package from ITS OWN measured outputs (stage8_package.build_package):
+# compile log + metadata + the stage-1 EX5, the stage-3 SymbolSpec export,
+# its stage-5 record (NOT_APPLICABLE legs), real-tick coverage NONE for a
+# bar-only gold, environment (measured lines only), reconciliation/<gold>.json
+# (python = expected_execution, mt5 = log trade lists) and, LAST, the archive
+# manifest via owner_evidence_bind.py. safety/*.json are NEVER built: 8a-8d
+# have not run on MT5, so they stay MISSING.
+$pkgBuild = Invoke-Decide @("build-stage8-package", "--package", $evidencePkg,
+    "--gate-evidence", $Evidence, "--data-folder", $DataFolder,
+    "--golds", (@($Script:Scope) -join ","), "--symbolspec", $SymbolSpecExport,
+    "--host-os", [Environment]::OSVersion.VersionString,
+    "--host-timezone", [TimeZoneInfo]::Local.Id)
+[void]$s8Art.Add((New-Artifact $pkgBuild.raw))
+if ($pkgBuild.data -and (Get-DataProp $pkgBuild.data "not_built")) {
+    $nb = Get-DataProp $pkgBuild.data "not_built"
+    [void]$placeNotes.Add(("package built by the gate; NOT built: {0}" -f ((@($nb.PSObject.Properties.Name) | Sort-Object) -join ", ")))
+}
 $verifyOut = Join-Path $Evidence "reconciliation_verify.json"
 $vp = Start-Process -FilePath $Python `
     -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "verify_owner_mt5_gate.py"), $evidencePkg, "--repo", $RepoRoot, "--out", $verifyOut, "--golds", (@($Script:Scope) -join ",")))) `
@@ -1253,6 +1272,10 @@ if (-not $recon) {
 # the record says so, so it can never read as report-backed.
 $srcNote = ""
 if ($placeNotes.Count -gt 0) { $srcNote = " [" + ($placeNotes -join "; ") + "]" }
+# TASK B: quote the comparison whatever the verdict (observed divergences are
+# marked when their binding chain did not verify)
+$dn = Invoke-Decide @("stage8-divergence-note", "--verify", $verifyOut, "--golds", (@($Script:Scope) -join ","))
+if ($dn.data -and (Get-DataProp $dn.data "note")) { $srcNote += (" [" + (Get-DataProp $dn.data "note") + "]") }
 if ((Get-DataProp $recon "log_sourced_legs") -and @((Get-DataProp $recon "log_sourced_legs")).Count -gt 0) {
     $srcNote += (" [trade source for {0}: tester agent log (log trade list, from_log=true; no report)]" -f (@((Get-DataProp $recon "log_sourced_legs")) -join ", "))
 }
@@ -1262,7 +1285,9 @@ $divClass = ""
 $divField = ""
 foreach ($gld in @($Script:Scope)) {
     $fd = Get-DataProp (Get-DataProp $recon "first_divergence") $gld
-    if (Get-DataProp $fd "first_divergent_field") {
+    # only a divergence found AFTER the full binding chain verified may be
+    # classified as the EXPECTED sizing divergence; an observed one never
+    if ((Get-DataProp $fd "first_divergent_field") -and ((Get-DataProp $fd "binding_verified") -eq $true)) {
         $divField = Get-DataProp $fd "first_divergent_field"
         $cd = Invoke-Decide @("classify", $divField)
         if ($cd.data) { $divClass = (Get-DataProp $cd.data "classification") }

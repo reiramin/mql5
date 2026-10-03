@@ -115,6 +115,35 @@ def log_trades_rel(gold: str, model: str) -> str:
     return f"log_trades/{gold}_{model}.json"
 
 
+# OWNER DECISION 2026-10-03 (DECISIONS.md, option 2): a bar-only gold's
+# real_ticks leg is NOT_APPLICABLE_BAR_ONLY_FIXTURE -- never launched, so it
+# has no raw or parsed report. The gate copies its own stage_5.json record into
+# the package at GATE_STAGE5_REL; a leg that record names NOT_APPLICABLE is
+# state NOT_APPLICABLE here: never MISSING, never present, never a pass. Only
+# the real_ticks model can be NOT_APPLICABLE. Its real-tick coverage is
+# REAL_TICK_COVERAGE_NONE, which can never yield MT5_VALIDATED.
+NOT_APPLICABLE = "NOT_APPLICABLE"
+STAGE5_NOT_APPLICABLE = "NOT_APPLICABLE_BAR_ONLY_FIXTURE"
+GATE_STAGE5_REL = "gate/stage_5.json"
+TRADE_SOURCE_NOT_APPLICABLE = "not applicable (leg not launched)"
+_NA_LEG_RE = re.compile(r"\b(gold\d)_(real_ticks): "
+                        + STAGE5_NOT_APPLICABLE + r":")
+
+
+def not_applicable_legs(root: Path | str) -> set[tuple[str, str]]:
+    """(gold, model) legs the gate's own stage-5 record names
+    NOT_APPLICABLE_BAR_ONLY_FIXTURE. The record must be the stage-5
+    tester_legs record; anything else names no leg (fail-closed: the slots
+    then stay MISSING)."""
+    doc = _load_json(Path(root) / GATE_STAGE5_REL)
+    if not isinstance(doc, dict) or doc.get("stage") != 5 \
+            or doc.get("name") != "tester_legs":
+        return set()
+    return {(m.group(1), m.group(2))
+            for m in _NA_LEG_RE.finditer(str(doc.get("reason") or ""))
+            if m.group(1) in GOLDS}
+
+
 def log_sourced_legs(root: Path | str) -> set[tuple[str, str]]:
     """(gold, model) legs whose trade source is a log trade list: the list
     exists AND no raw report exists (a report, when present, always wins)."""
@@ -217,9 +246,11 @@ _DECISION_FIELDS = frozenset({
 # epsilon and never a tolerance on trading values
 DRIFT_SECONDS = 2 * 86400
 
+REAL_TICK_COVERAGE_NONE = "REAL_TICK_COVERAGE_NONE"
 REAL_TICK_COVERAGES = ("REAL_TICK_COVERAGE_FULL",
                        "REAL_TICK_COVERAGE_PARTIAL",
-                       "REAL_TICK_COVERAGE_UNKNOWN")
+                       "REAL_TICK_COVERAGE_UNKNOWN",
+                       REAL_TICK_COVERAGE_NONE)
 
 # execution-relevant paths for the freeze-anchor classification (§5)
 EXECUTION_RELEVANT_PREFIXES = (
@@ -299,6 +330,14 @@ def scan_package(root: Path | str) -> dict[str, dict]:
         out[f"log_trades_{gold}_{model}"] = {
             "path": log_trades_rel(gold, model), "state": PRESENT_UNVERIFIED,
             "trade_source": TRADE_SOURCE_LOG}
+    # a NOT_APPLICABLE leg (never launched) has no report by design: its
+    # slots are NOT_APPLICABLE. A report present for a leg the gate says it
+    # never launched is a contradiction -> INVALID.
+    for gold, model in sorted(not_applicable_legs(root)):
+        for kind in ("raw", "parsed"):
+            slot = out[f"{kind}_{gold}_{model}"]
+            slot["state"] = (NOT_APPLICABLE if slot["state"] == MISSING
+                             else INVALID)
     return out
 
 
@@ -554,6 +593,8 @@ def verify_real_tick_coverage(root: Path | str) -> dict:
         return {"state": INVALID, "coverage": cov,
                 "reasons": [(f"coverage {cov!r} outside the closed "
                             "vocabulary")]}
+    if cov == REAL_TICK_COVERAGE_NONE:
+        return _verify_coverage_none(root, doc)
     required = ("requested_model", "actual_model_from_report",
                 "requested_interval", "actual_interval", "broker",
                 "symbol")
@@ -632,6 +673,50 @@ def verify_real_tick_coverage(root: Path | str) -> dict:
     return {"state": VALID, "coverage": cov, "reasons": []}
 
 
+def _verify_coverage_none(root: Path, doc: dict) -> dict:
+    """REAL_TICK_COVERAGE_NONE: no real_ticks leg ran (bar-only fixture).
+
+    VALID only as a record of absence: the leg was not launched, the outcome
+    is NOT_APPLICABLE_BAR_ONLY_FIXTURE, the fixture is named, and no actual
+    model or interval is claimed (nothing ran, so nothing can be stated).
+    Every gold it names must be NOT_APPLICABLE in the gate's own stage-5
+    record. A VALID NONE record still constrains the verdict: anything short
+    of FULL can never be MT5_VALIDATED (owner decision 2026-10-03)."""
+    cov = REAL_TICK_COVERAGE_NONE
+    per_gold = doc.get("golds")
+    reasons: list[str] = []
+    if doc.get("leg_launched") is not False:
+        reasons.append("NONE coverage requires leg_launched == false")
+    if doc.get("outcome") != STAGE5_NOT_APPLICABLE:
+        reasons.append(f"NONE coverage requires outcome "
+                       f"{STAGE5_NOT_APPLICABLE!r}")
+    if not isinstance(per_gold, dict) or not per_gold or not all(
+            isinstance(v, dict) and v.get("fixture")
+            for v in per_gold.values()):
+        reasons.append("NONE coverage must name each gold's fixture")
+    for claim in ("actual_model_from_report", "actual_interval",
+                  "real_tick_availability_evidence"):
+        if doc.get(claim) not in (None, ""):
+            reasons.append(f"NONE coverage cannot state {claim}: no "
+                           "real_ticks leg ran")
+    if reasons:
+        return {"state": INVALID, "coverage": cov, "reasons": reasons}
+    na = not_applicable_legs(root)
+    stray = sorted(g for g in per_gold if (g, "real_ticks") not in na)
+    if stray:
+        return {"state": MISMATCHED, "coverage": cov,
+                "reasons": [("NONE coverage names golds whose real_ticks "
+                             "leg the gate's stage-5 record does not mark "
+                             f"NOT_APPLICABLE: {stray}")]}
+    spec = _load_json(root / LAYOUT["symbolspec"])
+    if isinstance(spec, dict) and spec.get("symbol") and \
+            doc.get("symbol") not in (None, spec.get("symbol")):
+        return {"state": MISMATCHED, "coverage": cov,
+                "reasons": [("coverage symbol does not match the owner "
+                            "SymbolSpec")]}
+    return {"state": VALID, "coverage": cov, "reasons": []}
+
+
 # ---------------------------------------------------------------------------
 # 6. first-divergence engine + reconciliation (§14/§16)
 # ---------------------------------------------------------------------------
@@ -650,6 +735,37 @@ def _field_divergent(spec: dict) -> bool:
     if "python" in spec and "mt5" in spec:
         return spec["python"] != spec["mt5"]
     return False
+
+
+def _observed_divergences(events) -> dict:
+    """Diagnostic view of the recorded events, computed BEFORE any binding
+    check so stage 8 can show the comparison even when the package fails.
+    ``binding_verified`` is False: this is never the verifier's verdict
+    (verify_reconciliation replaces it with a binding-verified one only when
+    the full chain holds). ``first_trade_divergence`` walks only per-trade
+    events (those carrying ``trade_index``)."""
+    if not isinstance(events, list):
+        return {"first_divergence": None, "first_trade_divergence": None}
+    evs = [e for e in events if isinstance(e, dict)]
+    out = {"first_divergence": first_divergence(evs),
+           "first_trade_divergence": first_divergence(
+               [e for e in evs if "trade_index" in e])}
+    for div in out.values():
+        if div is not None:
+            div["binding_verified"] = False
+    return out
+
+
+def _add_trade_context(div: dict | None, events: list[dict]) -> dict | None:
+    """Carry the per-trade index/model of the divergent event, if any."""
+    if div is None:
+        return None
+    for e in events:
+        if isinstance(e, dict) and e.get("index") == div.get("event_index"):
+            div["trade_index"] = e.get("trade_index")
+            div["model"] = e.get("model")
+            break
+    return div
 
 
 def first_divergence(events: list[dict]) -> dict | None:
@@ -752,12 +868,20 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
                                               "unparsable")]}
 
     log_models = {m for g, m in log_sourced_legs(root) if g == gold}
-    report_models = set(MODELS) - log_models
+    na_models = {m for g, m in not_applicable_legs(root) if g == gold}
+    report_models = set(MODELS) - log_models - na_models
     report: dict = {"state": PRESENT_UNVERIFIED, "reasons": [],
                     "gold": gold,
                     "trade_sources": {
-                        m: (TRADE_SOURCE_LOG if m in log_models
+                        m: (TRADE_SOURCE_NOT_APPLICABLE if m in na_models
+                            else TRADE_SOURCE_LOG if m in log_models
                             else TRADE_SOURCE_REPORT) for m in MODELS}}
+    if na_models:
+        report["not_applicable_models"] = sorted(na_models)
+    # the comparison as recorded, visible whatever the verdict below
+    observed = _observed_divergences(doc.get("events"))
+    for key, div in observed.items():
+        report[key] = _add_trade_context(div, doc.get("events") or [])
 
     # --- binding chain (§22) -------------------------------------------
     bindings = doc.get("bindings") or {}
@@ -869,6 +993,31 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
             f"tester_models must bind every model: {sorted(MODELS)}")
         return report
     for model, triad in tmods.items():
+        claims_na = isinstance(triad, dict) and triad.get("not_applicable")
+        if model in na_models or claims_na:
+            # a NOT_APPLICABLE leg never ran: its triad must say so
+            # explicitly, and only a leg the stage-5 record marks
+            # NOT_APPLICABLE may say so -- never a fabricated model
+            if model not in na_models:
+                report["state"] = MISMATCHED
+                report["reasons"].append(
+                    f"{model}: tester_models claims not_applicable but the "
+                    "gate's stage-5 record does not mark it NOT_APPLICABLE")
+            elif claims_na is not True or \
+                    triad.get("outcome") != STAGE5_NOT_APPLICABLE or \
+                    triad.get("report_reported") is not None or \
+                    triad.get("log_reported") is not None:
+                report["state"] = MISMATCHED
+                report["reasons"].append(
+                    f"{model}: NOT_APPLICABLE leg must be bound as "
+                    "{not_applicable: true, outcome: "
+                    f"{STAGE5_NOT_APPLICABLE}}} with no reported model")
+            else:
+                model_identities[f"{gold}:{model}"] = {
+                    "state": VALID, "reasons": [],
+                    "model_source": TRADE_SOURCE_NOT_APPLICABLE,
+                    "not_applicable": True}
+            continue
         if model in log_models:
             # no report states the model: the log trade list does (the model
             # MT5 said it ran, from the leg's own window). The triad must
@@ -952,8 +1101,15 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
             "gold lane requires a real MT5 side for every reconciled field")
         return report
 
-    div = first_divergence(events)
+    div = _add_trade_context(first_divergence(events), events)
+    if div is not None:
+        div["binding_verified"] = True
     report["first_divergence"] = div
+    trade_div = _add_trade_context(first_divergence(
+        [e for e in events if "trade_index" in e]), events)
+    if trade_div is not None:
+        trade_div["binding_verified"] = True
+    report["first_trade_divergence"] = trade_div
     if div is None:
         report["state"] = VALID
         report["result"] = "MATCH"
@@ -1086,13 +1242,16 @@ def verify_archive_manifest(root: Path | str, frozen: dict,
                             "map — filenames alone are not a binding")]}
     # every mandatory artifact except the manifest itself must be bound
     log_legs = {(g, m) for g, m in log_sourced_legs(root) if g in golds}
-    replaced = {f"{kind}_{g}_{m}" for g, m in log_legs
+    na_legs = {(g, m) for g, m in not_applicable_legs(root) if g in golds}
+    replaced = {f"{kind}_{g}_{m}" for g, m in log_legs | na_legs
                 for kind in ("raw", "parsed")}
     for gold in set(GOLDS) - set(golds):     # a scoped run binds its golds
         replaced |= _gold_keys(gold)
     required = [rel for key, rel in LAYOUT.items()
                 if key != "archive_manifest" and key not in replaced]
     required += [log_trades_rel(g, m) for g, m in sorted(log_legs)]
+    if na_legs:
+        required.append(GATE_STAGE5_REL)
     unbound = [rel for rel in required if rel not in arts]
     if unbound:
         return {"state": INVALID,
@@ -1195,6 +1354,16 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict,
     spec_rep = verify_symbolspec(root, spec_expected if isinstance(
         spec_expected, dict) else None)
     cov_rep = verify_real_tick_coverage(root)
+    na_legs = sorted(f"{g}:{m}" for g, m in not_applicable_legs(root)
+                     if g in scope)
+    if na_legs and cov_rep["state"] == VALID and \
+            cov_rep["coverage"] != REAL_TICK_COVERAGE_NONE:
+        # a leg that never ran cannot sit beside a coverage claim
+        cov_rep = {**cov_rep, "state": MISMATCHED,
+                   "reasons": cov_rep["reasons"] + [
+                       (f"real_ticks NOT_APPLICABLE for {na_legs} but the "
+                        f"coverage record says {cov_rep['coverage']!r}, not "
+                        f"{REAL_TICK_COVERAGE_NONE!r}")]}
 
     model_identities: dict = {}
     gold_reps = {
@@ -1294,6 +1463,11 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict,
         reasons.append(f"PARTIAL: excluded {[e['gold'] for e in excluded]} "
                        "were not examined — this verifies nothing about "
                        "them and certifies nothing")
+    if na_legs:
+        reasons.append(f"{na_legs}: {STAGE5_NOT_APPLICABLE} (bar-only "
+                       "fixture, leg not launched): no report exists and "
+                       "none is required; real-tick coverage NONE never "
+                       "yields MT5_VALIDATED")
     log_legs = sorted(f"{g}:{m}" for g, m in log_sourced_legs(root)
                       if g in scope)
     if log_legs:
@@ -1316,6 +1490,9 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict,
         "missing": missing,
         "first_divergence": {g: r.get("first_divergence")
                              for g, r in gold_reps.items()},
+        "first_trade_divergence": {g: r.get("first_trade_divergence")
+                                   for g, r in gold_reps.items()},
+        "not_applicable_legs": na_legs,
         "trade_sources": {g: r.get("trade_sources")
                           for g, r in gold_reps.items()},
         "log_sourced_legs": log_legs,
@@ -1330,6 +1507,7 @@ __all__ = [
     "EMPIRICAL_VALIDATED",
     "EXACT_MATCH",
     "FIELD_CLASS",
+    "GATE_STAGE5_REL",
     "GOLDS",
     "INVALID",
     "LAYOUT",
@@ -1341,6 +1519,7 @@ __all__ = [
     "MODEL_LABELS",
     "MT5_VALIDATED",
     "MT5_VALIDATED_PARTIAL_SCOPE",
+    "NOT_APPLICABLE",
     "NOT_VERIFIED_ARTIFACT_MISMATCH",
     "NOT_VERIFIED_MISSING_MT5_EVIDENCE",
     "NOT_VERIFIED_REAL_TICK_COVERAGE_UNKNOWN",
@@ -1350,13 +1529,16 @@ __all__ = [
     "POSITIVE_VERDICTS",
     "PRESENT_UNVERIFIED",
     "REAL_TICK_COVERAGES",
+    "REAL_TICK_COVERAGE_NONE",
     "SAFETY_TESTS",
     "SEMANTICALLY_COMPATIBLE",
+    "STAGE5_NOT_APPLICABLE",
     "STALE",
     "SYMBOLSPEC_CLASSES",
     "SYMBOLSPEC_REQUIRED",
     "TAXONOMY",
     "TRADE_SOURCE_LOG",
+    "TRADE_SOURCE_NOT_APPLICABLE",
     "TRADE_SOURCE_REPORT",
     "UNSUPPORTED_BROKER_DIFFERENCE",
     "VALID",
@@ -1366,6 +1548,7 @@ __all__ = [
     "first_divergence",
     "log_sourced_legs",
     "log_trades_rel",
+    "not_applicable_legs",
     "run_gate",
     "scan_package",
     "sha256_file",
