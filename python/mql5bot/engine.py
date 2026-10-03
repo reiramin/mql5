@@ -137,6 +137,19 @@ from .symbolspec import SymbolSpec, enforce_min_stop, round_to_tick
 MODE_NETTING = "netting"
 MODE_HEDGING = "hedging"
 
+# Flip timing — the manifest signal_timing_contract.flip_rule, verbatim.
+# OWNER DECISION 2026-10-03 (gate_run28 finding 1, docs/analysis/
+# gate_run28_divergences.md §1): the EA follows the contract and does not
+# change; the engine was the defective side. On a signal flip the engine
+# CLOSES the opposite position at the current bar's open (signal_exit) and
+# DEFERS the new entry to the NEXT bar's open — exactly like the EA's
+# close-and-return (Mql5Bot.mq5:999-1004) under its one-action-per-bar
+# OnTick gate (:1091-1100). The deferral needs no pending state: the
+# latched desired series persists, so the ordinary flat-entry path enters
+# at the next bar (or never, when desired changed meanwhile — also EA
+# behaviour). Each application is recorded as a "flip_deferred" event.
+FLIP_RULE_ENTER_NEXT_BAR = "close opposite (signal_exit); enter next bar"
+
 REASON_PARTIAL_EXIT = "partial_exit"  # scale-out at partial_atr (engine-only)
 
 EXIT_REASONS = (
@@ -874,6 +887,13 @@ class PortfolioEngine:
                                             REASON_SIGNAL_EXIT)
                     if side == 0:
                         continue  # went flat
+                    # FLIP_RULE_ENTER_NEXT_BAR: the flip bar only closes;
+                    # the new side enters at the NEXT bar's open via the
+                    # ordinary flat-entry path (EA parity: close-and-return)
+                    event(bar, "flip_deferred", symbol=ln.ins.symbol,
+                          strategy=ln.ins.strategy, side=side,
+                          rule=FLIP_RULE_ENTER_NEXT_BAR)
+                    continue
                 elif side == 0:
                     continue
                 lots, reason = size_lots(ln, side, basis, bar)

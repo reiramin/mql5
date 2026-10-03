@@ -3039,3 +3039,38 @@ gate then copies that flat file into `symbolspec/symbolspec.json`. The
 verifier is NOT loosened: `SYMBOLSPEC_REQUIRED` and `verify_symbolspec`
 stay exactly as they are, and until the exporter change ships stage 8 keeps
 FAILING on `symbolspec missing fields` — that failure is the truth.
+
+---
+
+## S8-FLIP-1 — OWNER DECISION: gate_run28 findings 1-3 are PYTHON-side defects; the EA follows the contract and does not change (2026-10-03)
+
+**Owner decision (Sal, in chat, 2026-10-03, after merging PR #16 as
+`a02a07a`).** Findings 1-3 of `docs/analysis/gate_run28_divergences.md` are
+defects on the PYTHON side; the EA implements the manifest
+`signal_timing_contract` as written and is NOT changed:
+
+1. **Flip timing**: `flip_rule` = "close opposite (signal_exit); enter next
+   bar" is binding as written. The engine now defers a flip's new entry to
+   the NEXT bar's open (`engine.FLIP_RULE_ENTER_NEXT_BAR`, with a recorded
+   `flip_deferred` event; `fast_engine` mirrors it to keep the pinned
+   equivalence). The EA's close-and-return (`Mql5Bot.mq5:999-1004`,
+   one-action-per-bar gate `:1091-1100`) was correct.
+2. **Day-3 entry set**: follows from 1 on the python side (the analysis's
+   candidate (a)); no EA change.
+3. **Volume column**: the stage-8 comparison now uses
+   `expected_execution meta["1.0"].final_lots` — the weight actually in
+   force on the tester leg (no allocation file staged; EA fallback
+   `InpBaseGateWeight=1.0`) — recorded per event, with the weight-free
+   `approved_lots` kept beside it, labelled and uncompared. The column is
+   fixed; a weight is never picked to match MT5.
+
+**Frozen artifacts**: `artifacts/gold_2` is NOT regenerated — it predates
+the flip fix, so the frozen-gold parity tests that pin the old same-bar
+flip are marked xfail with reason "frozen gold2 predates flip-next-bar
+fix; regeneration pending owner decision". The regeneration input is
+`tools/preview_gold2_regen.py`, which runs the real builder into
+gitignored `evidence/preview/` and diffs the preview trace against the
+frozen one (measured on this change: 56 -> 56 trades, 18 unchanged entry
+minutes, 38 entries moved +1 bar, 0 vanished, 0 appeared, 45 matched
+trades with changed lots, 8 with changed exit_reason). The regeneration
+itself remains the owner's decision.

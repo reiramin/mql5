@@ -358,12 +358,16 @@ def run_fast(
                 want = int(desired[i - 1])
                 if want < 0 and not allow_short:
                     want = 0
+                flip_deferred = False
                 if lots > 0.0 and allow_signal_exit and want != side:
                     # flip or go-flat: close own legs at the open
                     fill = fill_exit_at(i, side, o[i])
                     close_book(i, fill, REASON_SIGNAL_EXIT, o[i])
+                    # engine.FLIP_RULE_ENTER_NEXT_BAR parity: a FLIP's new
+                    # side enters at the NEXT bar's open, never this bar
+                    flip_deferred = want != 0
                     # legacy allow_signal_exit=False: hands-off while holding
-                if lots == 0.0 and want != 0:
+                if lots == 0.0 and want != 0 and not flip_deferred:
                     a = atr[i - 1]
                     valid = np.isfinite(a) and a > 0.0
                     sl_dist = sl_atr_mult * a if valid else 0.0
