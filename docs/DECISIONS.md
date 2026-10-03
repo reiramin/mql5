@@ -2994,3 +2994,48 @@ Enforced by `tests/test_docs_consistency.py`.
 4. **Campaign progress is bound to policy hash AND dataset hash; either mismatch refuses continuation.** Rationale: §15 data-boundary — continuing research across a data change silently invalidates every stored comparison.
 5. **Correlation classification distinguishes UNKNOWN instead of defaulting to 0 or 1.** Rationale: §26 — missing evidence must not impersonate an answer; portfolio admission already treats UNKNOWN conservatively.
 6. **Research runner is injected into the console; without it campaigns are registered PAUSED with a visible warning.** Rationale: a fake "research done" is a §0 violation (no silent approximation).
+
+---
+
+## S8-SPEC-1 — Stage-8 SymbolSpec: the package carries the account-level export, not the verifier's per-symbol contract (2026-10-03)
+
+**Finding (gate_run27 follow-up, code inspection only — no mql5/ change in
+this PR).** The stage-8 package's `symbolspec/symbolspec.json` is a byte copy
+of `data\broker_exports\EURUSD.json`, the output of
+`mql5/Scripts/Mql5Bot/Mql5BotExportSymbolSpec.mq5` (schema
+`mql5bot.broker_export/1`): top-level keys `schema`, `exported_at`,
+`account_login`, `account_currency`, `account_margin_mode`, `server`,
+`symbol`, where `symbol` is a NESTED OBJECT. The verifier
+(`owner_gate.SYMBOLSPEC_REQUIRED`) requires a FLAT document with 19 top-level
+keys: `broker`, `server`, `symbol`, `point`, `tick_size`,
+`tick_value_profit`, `contract_size`, `volume_min`, `volume_max`,
+`volume_step`, `volume_limit`, `stops_level_points`, `freeze_level_points`,
+`trade_mode`, `filling_mode_mask`, `expiration_mode_mask`,
+`currency_profit`, `timestamp`, `terminal_build`.
+
+**Case determination.** No existing exporter output or repository file
+produces the flat shape, so this is NOT a copy-the-wrong-file bug the gate
+can fix alone:
+
+* 14 of the 19 required fields ARE exported, but nested under `symbol`:
+  `point`, `tick_size`, `tick_value_profit`, `contract_size`, `volume_min`,
+  `volume_max`, `volume_step`, `volume_limit`, `stops_level_points`,
+  `freeze_level_points`, `trade_mode`, `filling_mode_mask`,
+  `expiration_mode_mask`, `currency_profit`; `server` is already flat and
+  the required flat `symbol` string exists as nested `symbol.name`.
+* 3 required fields are NOT exported under any name:
+  * `broker` — source `AccountInfoString(ACCOUNT_COMPANY)`;
+  * `terminal_build` — source `TerminalInfoInteger(TERMINAL_BUILD)`;
+  * `timestamp` — the export has `exported_at` (different key; the verifier
+    checks the key `timestamp` is present and reports it as identity).
+
+**Decision for the upcoming scoped mql5/ PR.** Extend
+`Mql5BotExportSymbolSpec.mq5` to ALSO write the flat stage-8 document
+(either a sibling file, e.g. `<SYM>.symbolspec.json`, or flat duplicate
+top-level keys beside the nested object): add `broker`, `terminal_build`
+and `timestamp` from the sources above, flatten the 14 nested per-symbol
+fields to the top level, and emit `symbol` as the symbol NAME string. The
+gate then copies that flat file into `symbolspec/symbolspec.json`. The
+verifier is NOT loosened: `SYMBOLSPEC_REQUIRED` and `verify_symbolspec`
+stay exactly as they are, and until the exporter change ships stage 8 keeps
+FAILING on `symbolspec missing fields` — that failure is the truth.

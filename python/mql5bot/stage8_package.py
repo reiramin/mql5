@@ -33,11 +33,24 @@ Which line each value comes from:
   ``netting``); when the windows do not state them they are omitted.
 * trades: the log trade lists stage 5 produced (tester_log_grader.log_trade_list).
 
+PAIRING (gate_run27, HEAD 8966969, -Golds gold2): the first run of the trade
+comparison paired python entry k with MT5 entry k BY LIST POSITION. MT5 never
+traded 2024-01-01 ("start time changed to 2024.01.02 00:00 to provide data at
+beginning", measured in gate_run23/25/26/27), so event 0 compared a python
+2024-01-01 trade with an MT5 2024-01-02 deal and every later field was noise.
+Events are now paired BY TIME, never by position: a python entry pairs with an
+MT5 entry deal of the same fill minute (signal_time + 1 bar). Python trades
+before the MT5 tested window start are OUT_OF_TESTED_WINDOW with the measured
+start line quoted -- never dropped, never matched, never a divergence; the
+window itself is a named limitation. Unpaired trades INSIDE the window are
+MISSING_IN_MT5 / EXTRA_IN_MT5 and ARE divergences.
+
 Built, unit-tested, never run live.
 """
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import re
@@ -83,6 +96,26 @@ _BUILD_RE = re.compile(r"(?:metatester|metatrader|terminal)\b.*?\bbuild\s+"
 _ACCOUNT_MODE_RE = re.compile(r"\b(hedging|netting)\b", re.IGNORECASE)
 # EA source (Logger.Write) deal time: `2024.01.02 08:01:00`
 _EA_TIME_RE = re.compile(r"^(\d{4})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?$")
+# MT5's own journal deal line, captured by the grader in each deal's `lines`
+# (format documented in tester_log_grader; price group added here):
+#   `deal #12 buy 0.10 EURUSD.G2 at 1.10010 done (based on order #12)`
+_MT5_DEAL_LINE_RE = re.compile(
+    r"\bdeal #(\d+)\s+(buy|sell)\s+(-?\d+(?:\.\d+)?)\s+(\S+)\s+at\s+"
+    r"(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+# MEASURED (gate_run23 capture, tests/data/owner_gate; same wording reported
+# in gate_run25/26/27): `EURUSD.G1: start time changed to 2024.01.06 00:00
+# to provide data at beginning` -- MT5 stating the tested window start.
+_WINDOW_START_RE = re.compile(
+    r"start time changed to (\d{4})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2})"
+    r"(?::(\d{2}))?\s+to provide data at (?:the )?beginning", re.IGNORECASE)
+# python expected_execution side -> MT5 journal side, for the comparison only
+_PY_SIDE_TO_MT5 = {"long": "buy", "short": "sell"}
+# pairing states (event `pairing` key; NOT divergence classifications --
+# those stay the closed owner_gate.TAXONOMY, chosen by the field name)
+PAIRED_BY_TIME = "PAIRED_BY_TIME"
+OUT_OF_TESTED_WINDOW = "OUT_OF_TESTED_WINDOW"
+MISSING_IN_MT5 = "MISSING_IN_MT5"
+EXTRA_IN_MT5 = "EXTRA_IN_MT5"
 _NA_FIXTURE_RE = re.compile(
     r"\b(gold\d)_real_ticks: " + og.STAGE5_NOT_APPLICABLE
     + r": fixture (\S+) is bar-only")
@@ -226,41 +259,218 @@ def python_entries(expected: dict, timeframe: str) -> tuple[list[dict] | None,
     return out, f"{len(out)} approved entries"
 
 
+def tested_window_start(window_text: str,
+                        symbol: str | None) -> tuple[str | None, str | None]:
+    """The tested-window start MT5 ITSELF states for this leg's symbol
+    (`start time changed to <Y.M.D H:M> to provide data at beginning`).
+    (None, None) when no such line names the symbol: the start was not
+    measured and no window is assumed."""
+    for line in (window_text or "").splitlines():
+        if not symbol or symbol not in line:
+            continue
+        m = _WINDOW_START_RE.search(line)
+        if m:
+            y, mo, d, h, mi, sec = m.groups()
+            return f"{y}-{mo}-{d}T{h}:{mi}:{sec or '00'}", line.strip()
+    return None, None
+
+
+def fixture_minute_opens(fixture_csv: Path | str) -> dict[str, float]:
+    """minute (YYYY-MM-DDTHH:MM) -> open price, from the frozen gold fixture.
+    The manifest's signal_timing_contract fills a market order at the next
+    bar open, so the fixture open at the fill minute IS the python-side
+    expected entry price (bid basis; the fixture carries no spread)."""
+    out: dict[str, float] = {}
+    with open(fixture_csv, newline="", encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            try:
+                out[row["time"][:10] + "T" + row["time"][11:16]] = \
+                    float(row["open"])
+            except (KeyError, TypeError, ValueError):
+                continue
+    return out
+
+
+def mt5_deal_line_facts(deal: dict, symbol: str) -> dict:
+    """side/volume/price from the MT5 journal line the grader captured in
+    this deal's own `lines` (`deal #N buy/sell VOL SYMBOL at PRICE`), for
+    the SAME ticket and symbol. Empty when no such line exists: those
+    fields stay unmeasured, never inferred."""
+    for line in deal.get("lines") or []:
+        m = _MT5_DEAL_LINE_RE.search(str(line))
+        if m and m.group(4) == symbol and \
+                str(deal.get("ticket")) == m.group(1):
+            return {"side": m.group(2).lower(), "volume": float(m.group(3)),
+                    "price": float(m.group(5)), "line": str(line)}
+    return {}
+
+
+def _pair_by_minute(py: list[dict], entries: list[dict]
+                    ) -> tuple[list[tuple[dict, dict]], list[dict],
+                               list[dict]]:
+    """Pair python entries with MT5 entry deals on the SAME fill minute
+    (python fill = signal_time + 1 bar), each deal used at most once, both
+    sides walked in time order. NEVER by list position."""
+    unused = list(range(len(entries)))
+    pairs: list[tuple[dict, dict]] = []
+    missing: list[dict] = []
+    for p in sorted(py, key=lambda r: str(r["fill_time"])):
+        want = str(p["fill_time"])[:16]
+        hit = next((i for i in unused
+                    if str(_ea_time_iso(entries[i].get("time")) or "")[:16]
+                    == want), None)
+        if hit is None:
+            missing.append(p)
+        else:
+            unused.remove(hit)
+            pairs.append((p, entries[hit]))
+    extra = [entries[i] for i in unused]
+    return pairs, missing, extra
+
+
 def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
-                          symbol: str) -> list[dict]:
-    """One event per (trade index, model), python vs mt5 on the fields BOTH
-    sides measured: fill timestamp and volume. Side and price are not stated
-    by the EA's DEAL line, so they are listed as unmeasured, never compared.
-    A final event compares the entry counts."""
-    models = sorted(mt5_by_model)
-    events: list[dict] = []
-    for pos, model in enumerate(models):
+                          symbol: str, *,
+                          window_starts: dict | None = None,
+                          fixture_opens: dict[str, float] | None = None
+                          ) -> tuple[list[dict], dict]:
+    """Per-model events pairing python entries with MT5 entry deals BY TIME
+    (same fill minute), never by list position. Returns (events, summary).
+
+    * a python trade whose fill is before the model's measured MT5 window
+      start is OUT_OF_TESTED_WINDOW: recorded with the measured start line
+      quoted, with NO compared fields -- never silently dropped, never
+      counted as matched, and never a divergence (the window is a named
+      limitation of the comparison, not its first divergence);
+    * an unpaired python trade INSIDE the window is MISSING_IN_MT5 and an
+      unpaired MT5 entry deal is EXTRA_IN_MT5 -- both ARE divergences
+      (field `state`, so the closed taxonomy classifies them);
+    * a paired event compares timestamp, volume, and -- when the MT5 journal
+      line in the deal's `lines` states them -- entry side and entry price.
+      The python entry price is the fixture open at the fill minute (the
+      manifest fills at next bar open); when either side lacks a value the
+      field carries only what was measured, never an invented one;
+    * `trade_index` numbers a model's per-trade events in time order;
+    * a final event compares per-model entry counts INSIDE the window (the
+      out-of-window count is beside it, uncompared).
+    """
+    window_starts = window_starts or {}
+    raw: list[tuple[str, str, dict]] = []
+    summary: dict[str, dict] = {}
+    for model in sorted(mt5_by_model):
         entries = mt5_by_model[model]
-        for k in range(min(len(py), len(entries))):
-            deal = entries[k]
-            events.append({
-                "index": k * len(models) + pos,
-                "trade_index": k,
-                "model": model,
-                "symbol": symbol,
-                "time": _ea_time_iso(deal.get("time")),
-                "python_signal_time": py[k]["signal_time"],
+        start, start_line = window_starts.get(model, (None, None))
+        before = [p for p in py
+                  if start is not None and str(p["fill_time"]) < start]
+        in_window = [p for p in py
+                     if start is None or str(p["fill_time"]) >= start]
+        pairs, missing, extra = _pair_by_minute(in_window, entries)
+        summary[model] = {
+            "paired": len(pairs), "missing_in_mt5": len(missing),
+            "extra_in_mt5": len(extra),
+            "out_of_tested_window": len(before),
+            "mt5_window_start": start,
+            "mt5_window_start_line": start_line,
+        }
+        for p in before:
+            raw.append((str(p["fill_time"]), model, {
+                "model": model, "symbol": symbol,
+                "pairing": OUT_OF_TESTED_WINDOW,
+                "python_signal_time": p["signal_time"],
+                "python_fill_time": p["fill_time"],
+                "python_side_declared": p["side"],
+                "python_lots": p["lots"],
+                "mt5_window_start": start,
+                "mt5_window_start_line": start_line,
+                "fields": {},
+                "note": ("python trade before the MT5 tested window start "
+                         "(line quoted above): recorded, not compared -- "
+                         "the window is a named limitation, never this "
+                         "comparison's divergence"),
+            }))
+        per_trade: list[tuple[str, dict]] = []
+        for p, deal in pairs:
+            facts = mt5_deal_line_facts(deal, symbol)
+            mt5_time = _ea_time_iso(deal.get("time"))
+            fields: dict = {
+                "timestamp": {"python": p["fill_time"], "mt5": mt5_time},
+                "volume": {"python": p["lots"], "mt5": deal.get("volume")},
+            }
+            unmeasured = []
+            if facts.get("side"):
+                fields["entry_side"] = {
+                    "python": _PY_SIDE_TO_MT5.get(p["side"], p["side"]),
+                    "mt5": facts["side"]}
+            else:
+                unmeasured.append("side")
+            if facts.get("price") is not None:
+                spec: dict = {"mt5": facts["price"]}
+                py_open = (fixture_opens or {}).get(str(p["fill_time"])[:16])
+                if py_open is not None:
+                    spec["python"] = py_open
+                fields["entry_price"] = spec
+            else:
+                unmeasured.append("entry_price")
+            event = {
+                "model": model, "symbol": symbol,
+                "pairing": PAIRED_BY_TIME,
+                "time": mt5_time,
+                "python_signal_time": p["signal_time"],
+                "python_side_declared": p["side"],
                 "mt5_ticket": deal.get("ticket"),
-                "fields": {
-                    "timestamp": {"python": py[k]["fill_time"],
-                                  "mt5": _ea_time_iso(deal.get("time"))},
-                    "volume": {"python": py[k]["lots"],
-                               "mt5": deal.get("volume")},
-                },
-                "unmeasured_mt5_fields": ["side", "entry_price"],
-            })
-    tail = max([e["index"] for e in events], default=-1) + 1
+                "fields": fields,
+            }
+            if facts.get("line"):
+                event["mt5_deal_line"] = facts["line"]
+            if unmeasured:
+                event["unmeasured_mt5_fields"] = unmeasured
+            per_trade.append((str(p["fill_time"]), event))
+        for p in missing:
+            per_trade.append((str(p["fill_time"]), {
+                "model": model, "symbol": symbol,
+                "pairing": MISSING_IN_MT5,
+                "python_signal_time": p["signal_time"],
+                "python_side_declared": p["side"],
+                "fields": {"state": {
+                    "python": (f"entry {p['fill_time']} {p['side']} "
+                               f"{p['lots']} lots"),
+                    "mt5": (f"{MISSING_IN_MT5}: no entry deal at minute "
+                            f"{str(p['fill_time'])[:16]} in the tested "
+                            "window")}},
+            }))
+        for deal in extra:
+            mt5_time = _ea_time_iso(deal.get("time"))
+            per_trade.append((str(mt5_time), {
+                "model": model, "symbol": symbol,
+                "pairing": EXTRA_IN_MT5,
+                "time": mt5_time,
+                "mt5_ticket": deal.get("ticket"),
+                "fields": {"state": {
+                    "python": (f"{EXTRA_IN_MT5}: no approved python entry "
+                               f"at minute {str(mt5_time)[:16]}"),
+                    "mt5": (f"entry deal #{deal.get('ticket')} at "
+                            f"{mt5_time}")}},
+            }))
+        per_trade.sort(key=lambda t: t[0])
+        for k, (when, event) in enumerate(per_trade):
+            event["trade_index"] = k
+            raw.append((when, model, event))
+    raw.sort(key=lambda t: (t[0], t[1]))
+    events = []
+    for i, (_, _, event) in enumerate(raw):
+        events.append({"index": i, **event})
     events.append({
-        "index": tail, "symbol": symbol,
-        "fields": {f"entry_count:{m}": {"python": len(py),
-                                        "mt5": len(mt5_by_model[m])}
-                   for m in models}})
-    return sorted(events, key=lambda e: e["index"])
+        "index": len(events), "symbol": symbol,
+        "fields": {f"entry_count:{m}": {
+            "python": summary[m]["paired"] + summary[m]["missing_in_mt5"],
+            "mt5": len(mt5_by_model[m])} for m in sorted(mt5_by_model)},
+        "python_out_of_tested_window": {
+            m: summary[m]["out_of_tested_window"]
+            for m in sorted(mt5_by_model)},
+        "note": ("per-model entry counts INSIDE the tested window; python "
+                 "trades before the measured MT5 window start are counted "
+                 "beside, never compared"),
+    })
+    return events, summary
 
 
 # ---------------------------------------------------------------------------
@@ -430,7 +640,7 @@ def build_package(*, repo: Path | str, package: Path | str,
     # --- reconciliation/<gold>.json ----------------------------------------
     for gold in golds:
         rel = og.LAYOUT[f"reconciliation_{gold}"]
-        why = _build_reconciliation(repo, pkg, gold, na, head, put_json)
+        why = _build_reconciliation(repo, pkg, gold, na, head, put_json, ev)
         if why:
             not_built[rel] = why
 
@@ -463,7 +673,8 @@ def build_package(*, repo: Path | str, package: Path | str,
 
 
 def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
-                          head: str | None, put_json) -> str | None:
+                          head: str | None, put_json,
+                          gate_evidence: Path | None = None) -> str | None:
     """Write reconciliation/<gold>.json; return the reason when it cannot be
     built honestly."""
     files = GOLD_FILES[gold]
@@ -485,6 +696,7 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
     mt5_by_model: dict[str, list[dict]] = {}
     notes: dict[str, str] = {"python": f"{files['expected']}: {py_note}"}
     log_hashes: dict[str, str] = {}
+    window_starts: dict[str, tuple[str | None, str | None]] = {}
     for model in sorted(log_models):
         path = pkg / og.log_trades_rel(gold, model)
         doc = _load(path) or {}
@@ -495,6 +707,11 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
         notes[model] = note
         if entries is not None:
             mt5_by_model[model] = entries
+        win = (gate_evidence / f"tester_{gold}_{model}_window.txt"
+               if gate_evidence else None)
+        window_starts[model] = tested_window_start(
+            gs.read_text_bom_aware(win) if win and win.is_file() else "",
+            files["tester_symbol"])
     if not mt5_by_model:
         return "no log-sourced model yielded a usable entry list: " + "; ".join(
             f"{k}: {v}" for k, v in notes.items())
@@ -522,6 +739,26 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
         "parsed_report_hashes": {},
         "log_trade_hashes": log_hashes,
     }
+    events, pairing = reconciliation_events(
+        py, mt5_by_model, files["tester_symbol"],
+        window_starts=window_starts,
+        fixture_opens=fixture_minute_opens(fixture))
+    limitations = []
+    for model in sorted(mt5_by_model):
+        n_out = pairing[model]["out_of_tested_window"]
+        start, line = window_starts.get(model, (None, None))
+        if n_out:
+            limitations.append(
+                f"{model}: {n_out} python entr{'y' if n_out == 1 else 'ies'} "
+                f"fill before the measured MT5 tested-window start {start} "
+                f"({line!r}) -- OUT_OF_TESTED_WINDOW, recorded uncompared; "
+                "the window is a named limitation of this comparison, "
+                "never its first divergence")
+        elif start is None:
+            limitations.append(
+                f"{model}: no measured window-start line in this leg's "
+                "window capture; every python entry is treated as inside "
+                "the tested window")
     doc = {
         "schema": "mql5bot.gate_reconciliation/1",
         "gold": gold,
@@ -529,13 +766,21 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
         "python_source": files["expected"],
         "python_vs_mt5_tester": "COMPARED_FROM_TESTER_LOG",
         "bindings": {k: v for k, v in bindings.items() if v is not None},
-        "events": reconciliation_events(py, mt5_by_model,
-                                        files["tester_symbol"]),
+        "events": events,
+        "pairing": pairing,
         "pairing_notes": notes,
-        "note": ("Events pair python entry k with MT5 entry k per model, in "
-                 "order. Only fields both sides measured are compared "
-                 "(timestamp, volume). Bindings nothing measured are omitted "
-                 "and the verifier names them."),
+        "limitations": limitations,
+        "note": ("Events pair python entries with MT5 entry deals BY TIME "
+                 "(same fill minute, signal_time + 1 bar), never by list "
+                 "position. Python trades before the measured MT5 window "
+                 "start are OUT_OF_TESTED_WINDOW (quoted, uncompared); "
+                 "unpaired trades inside the window are MISSING_IN_MT5 / "
+                 "EXTRA_IN_MT5 divergences. Compared fields per pair: "
+                 "timestamp, volume, and entry side/price when the MT5 "
+                 "journal deal line states them (python entry price = "
+                 "fixture open at the fill minute, the manifest's "
+                 "next-bar-open fill). Bindings nothing measured are "
+                 "omitted and the verifier names them."),
     }
     put_json(og.LAYOUT[f"reconciliation_{gold}"], doc,
              f"{files['expected']} (python) + log trade lists (mt5)")
@@ -567,13 +812,20 @@ def divergence_note(verify_report: dict, golds: list[str]) -> str:
 
 
 __all__ = [
+    "EXTRA_IN_MT5",
     "GATE_BUILD_REL",
+    "MISSING_IN_MT5",
+    "OUT_OF_TESTED_WINDOW",
+    "PAIRED_BY_TIME",
     "build_package",
     "compile_identity",
     "divergence_note",
+    "fixture_minute_opens",
+    "mt5_deal_line_facts",
     "mt5_entries",
     "na_fixtures",
     "python_entries",
     "reconciliation_events",
+    "tested_window_start",
     "window_facts",
 ]

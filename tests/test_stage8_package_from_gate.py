@@ -20,6 +20,20 @@ DEAL lines in the EA's own Logger format; the log trade list is produced by
 the real tester_log_grader. The compile log is the real owner log with its
 Mql5Bot ex5 hash replaced by the hash of the fake EX5 bytes (SYNTHETIC). None
 of this is MT5 evidence.
+
+PAIRING (gate_run27, HEAD 8966969, -Golds gold2): the first stage-8 trade
+comparison paired by LIST POSITION, so event 0 compared python
+2024-01-01T08:01 (1.4 lots) with MT5 2024-01-02T08:01 (0.01 lots) ->
+TIMESTAMP_MISMATCH, while MT5 never traded 2024-01-01 at all ("start time
+changed to 2024.01.02 00:00 to provide data at beginning", measured in
+gate_run23/25/26/27). These tests pin the time-based pairing that replaced
+it: same-day, same fill-minute matching; OUT_OF_TESTED_WINDOW for python
+trades before the measured MT5 start (quoted, uncompared, never a
+divergence); MISSING_IN_MT5 / EXTRA_IN_MT5 divergences inside the window;
+and side / entry price compared from MT5's own journal deal lines
+(`deal #N buy|sell VOL SYMBOL at PRICE`), never left unmeasured when stated.
+The window lines used here are in tests/data/owner_gate/
+tester_window_gate_run27_lines.txt.
 """
 
 from __future__ import annotations
@@ -50,13 +64,20 @@ DEALS = [
     "[2024.01.02 08:46:00] [INFO] DEAL #4 EURUSD.G2 vol=0.28 price=1.09700 pnl=0.00",
     "[2024.01.02 09:12:00] [INFO] DEAL #5 EURUSD.G2 vol=0.28 price=1.09650 pnl=-14.00",
 ]
+# window-start + MT5 journal deal lines (provenance in the file header)
+RUN27_LINES = [
+    ln for ln in (REPO / "tests" / "data" / "owner_gate"
+                  / "tester_window_gate_run27_lines.txt"
+                  ).read_text(encoding="utf-8").splitlines()
+    if ln and not ln.startswith("#")]
+WINDOW_START_LINE = next(ln for ln in RUN27_LINES if "start time" in ln)
 
 
 def _window(model_line: str) -> str:
     lines = [ln for ln in CAPTURE.read_text(encoding="utf-8").splitlines()
              if ln and not ln.startswith("#") and "EURUSD.G1" not in ln
              and "generating" not in ln]
-    return "\n".join([model_line, *lines,
+    return "\n".join([model_line, *lines, *RUN27_LINES,
                       ("[2024.01.02 00:00:00] [INFO] generic DSL execution "
                        "enabled: gold2_multifactor"), *DEALS]) + "\n"
 
@@ -199,21 +220,126 @@ def test_archive_manifest_is_owner_evidence_bind_output(run26):
         assert s8p._sha(pkg / rel) == digest
 
 
-def test_reconciliation_pairs_python_and_mt5_entries(run26):
+def test_reconciliation_pairs_by_time_never_by_position(run26):
     _, pkg, _ = run26
     recon = json.loads((pkg / "reconciliation/gold2.json").read_text())
     trades = [e for e in recon["events"] if "trade_index" in e]
     first = [e for e in trades if e["trade_index"] == 0]
     assert {e["model"] for e in first} == {"m1_ohlc", "every_tick"}
     e0 = first[0]
-    # python entry 0 = expected_execution 2024-01-01T08:00 signal, filled
-    # one M1 bar later at 08:01, approved 1.4 lots; MT5 entry 0 = deal #2
-    assert e0["fields"]["timestamp"] == {"python": "2024-01-01T08:01:00",
+    # trade 0 = the FIRST in-window python entry (2024-01-02T08:00 signal,
+    # filled next M1 minute 08:01, short 0.01) paired BY TIME with MT5 deal
+    # #2 at the same minute -- NOT python entry 0 (2024-01-01, 1.4 lots),
+    # which positional pairing compared and which MT5 never tested
+    assert e0["pairing"] == s8p.PAIRED_BY_TIME
+    assert e0["fields"]["timestamp"] == {"python": "2024-01-02T08:01:00",
                                          "mt5": "2024-01-02T08:01:00"}
-    assert e0["fields"]["volume"] == {"python": 1.4, "mt5": 0.01}
-    assert "side" in e0["unmeasured_mt5_fields"]
-    count = recon["events"][-1]["fields"]
-    assert count["entry_count:m1_ohlc"] == {"python": 62, "mt5": 2}
+    assert e0["fields"]["volume"] == {"python": 0.01, "mt5": 0.01}
+    # side and entry price are parsed from MT5's own journal deal line,
+    # not left unmeasured: sell 0.01 at 1.09589 (= fixture open at 08:01)
+    assert e0["fields"]["entry_side"] == {"python": "sell", "mt5": "sell"}
+    assert e0["fields"]["entry_price"] == {"python": 1.09589, "mt5": 1.09589}
+    assert "unmeasured_mt5_fields" not in e0
+    assert "deal #2 sell 0.01 EURUSD.G2 at 1.09589" in e0["mt5_deal_line"]
+    # entry counts compare INSIDE the window: 43 in-window python entries
+    # (62 approved - 19 filling on 2024-01-01), never the full 62
+    count = recon["events"][-1]
+    assert count["fields"]["entry_count:m1_ohlc"] == {"python": 43, "mt5": 2}
+    assert count["python_out_of_tested_window"]["m1_ohlc"] == 19
+
+
+def test_python_trades_before_the_mt5_start_are_out_of_window(run26):
+    _, pkg, _ = run26
+    recon = json.loads((pkg / "reconciliation/gold2.json").read_text())
+    out = [e for e in recon["events"]
+           if e.get("pairing") == s8p.OUT_OF_TESTED_WINDOW]
+    # 19 approved python entries fill on 2024-01-01, per model
+    assert len(out) == 38
+    for e in out:
+        assert e["python_fill_time"] < "2024-01-02T00:00:00"
+        assert e["mt5_window_start"] == "2024-01-02T00:00:00"
+        # the measured MT5 start line is QUOTED, the trade never dropped,
+        # never matched, and carries NO compared fields (no divergence)
+        assert "start time changed to 2024.01.02 00:00" in \
+            e["mt5_window_start_line"]
+        assert e["fields"] == {}
+        assert "trade_index" not in e
+    # the window itself is a NAMED LIMITATION of the comparison
+    assert any("OUT_OF_TESTED_WINDOW" in lim and "named limitation" in lim
+               for lim in recon["limitations"])
+
+
+def test_unpaired_trades_inside_the_window_are_divergences(run26):
+    _, pkg, _ = run26
+    recon = json.loads((pkg / "reconciliation/gold2.json").read_text())
+    missing = [e for e in recon["events"]
+               if e.get("pairing") == s8p.MISSING_IN_MT5]
+    # 43 in-window python entries, 2 paired per model -> 41 missing each
+    assert len(missing) == 82
+    m0 = min(missing, key=lambda e: e["index"])
+    assert m0["python_signal_time"] == "2024-01-02T08:06:00"
+    spec = m0["fields"]["state"]
+    assert spec["python"] == "entry 2024-01-02T08:07:00 short 0.02 lots"
+    assert spec["mt5"].startswith("MISSING_IN_MT5")
+    assert og.classify_field("state") == og.STATE_MISMATCH
+    # paired volume/price divergences stay measured: 08:46 buy 0.28 at
+    # 1.09700 (MT5) vs python 0.26 at the fixture open 1.09725
+    e46 = next(e for e in recon["events"]
+               if e.get("pairing") == s8p.PAIRED_BY_TIME
+               and e["time"] == "2024-01-02T08:46:00")
+    assert e46["fields"]["volume"] == {"python": 0.26, "mt5": 0.28}
+    assert e46["fields"]["entry_price"] == {"python": 1.09725, "mt5": 1.097}
+    assert e46["fields"]["entry_side"] == {"python": "buy", "mt5": "buy"}
+
+
+def test_extra_mt5_entries_are_divergences():
+    py = [{"signal_time": "2024-01-02T08:00:00",
+           "fill_time": "2024-01-02T08:01:00", "side": "short",
+           "lots": 0.01}]
+    deals = [
+        {"ticket": 2, "time": "2024.01.02 08:01:00", "volume": 0.01,
+         "pnl": 0.0, "lines": []},
+        {"ticket": 4, "time": "2024.01.02 09:30:00", "volume": 0.5,
+         "pnl": 0.0, "lines": []},
+    ]
+    events, summary = s8p.reconciliation_events(
+        py, {"m1_ohlc": deals}, "EURUSD.G2")
+    extra = [e for e in events if e.get("pairing") == s8p.EXTRA_IN_MT5]
+    assert len(extra) == 1 and extra[0]["mt5_ticket"] == 4
+    assert extra[0]["fields"]["state"]["python"].startswith("EXTRA_IN_MT5")
+    assert "deal #4 at 2024-01-02T09:30:00" in \
+        extra[0]["fields"]["state"]["mt5"]
+    assert summary["m1_ohlc"] == {
+        "paired": 1, "missing_in_mt5": 0, "extra_in_mt5": 1,
+        "out_of_tested_window": 0, "mt5_window_start": None,
+        "mt5_window_start_line": None}
+    # no measured window start -> nothing is out of window, and the paired
+    # event's side/price stay unmeasured when no MT5 journal line states them
+    paired = next(e for e in events if e.get("pairing") == s8p.PAIRED_BY_TIME)
+    assert paired["unmeasured_mt5_fields"] == ["side", "entry_price"]
+    assert "entry_side" not in paired["fields"]
+
+
+def test_tested_window_start_reads_the_measured_line():
+    # the real measured format (gate_run23 capture in tests/data/owner_gate)
+    line = ("Core 1\tEURUSD.G1: start time changed to 2024.01.06 00:00 "
+            "to provide data at beginning")
+    assert s8p.tested_window_start(line, "EURUSD.G1") == \
+        ("2024-01-06T00:00:00", line)
+    # scoped to the leg's symbol; another symbol's line is never used
+    assert s8p.tested_window_start(line, "EURUSD.G2") == (None, None)
+    assert s8p.tested_window_start("", "EURUSD.G1") == (None, None)
+
+
+def test_mt5_deal_line_facts_requires_ticket_and_symbol():
+    line = "Core 1\tdeal #4 buy 0.28 EURUSD.G2 at 1.09700 done (based on order #4)"
+    deal = {"ticket": 4, "lines": ["[EA line]", line]}
+    assert s8p.mt5_deal_line_facts(deal, "EURUSD.G2") == {
+        "side": "buy", "volume": 0.28, "price": 1.097, "line": line}
+    # wrong ticket or wrong symbol: nothing is inferred
+    assert s8p.mt5_deal_line_facts({"ticket": 5, "lines": [line]},
+                                   "EURUSD.G2") == {}
+    assert s8p.mt5_deal_line_facts(deal, "EURUSD.G1") == {}
 
 
 def test_rebuild_replaces_only_what_the_gate_built(run26, tmp_path):
@@ -285,16 +411,21 @@ def test_first_divergence_is_surfaced_on_a_fail(run26, tmp_path):
     div = rep["first_divergence"]["gold2"]
     assert div is not None
     trade = rep["first_trade_divergence"]["gold2"]
-    assert trade["first_divergent_field"] == "timestamp"
-    assert (trade["python_value"], trade["mt5_value"]) == (
-        "2024-01-01T08:01:00", "2024-01-02T08:01:00")
-    assert trade["trade_index"] == 0
-    assert trade["classification"] == og.TIMESTAMP_MISMATCH
+    # the window itself is NOT the first divergence: the 2024-01-01 python
+    # trades are OUT_OF_TESTED_WINDOW, so the first divergence is the first
+    # IN-WINDOW python entry MT5 has no deal for (08:07), not a positional
+    # 01-01-vs-01-02 TIMESTAMP_MISMATCH at trade 0
+    assert trade["first_divergent_field"] == "state"
+    assert trade["python_value"] == \
+        "entry 2024-01-02T08:07:00 short 0.02 lots"
+    assert trade["mt5_value"].startswith("MISSING_IN_MT5")
+    assert trade["trade_index"] == 1
+    assert trade["classification"] == og.STATE_MISMATCH
     # the gate HEAD is not the frozen anchor, so the chain does not verify:
     # the divergence is OBSERVED, never the verifier's binding-verified one
     assert trade["binding_verified"] is False
     note = s8p.divergence_note(rep, ["gold2"])
-    assert "first per-trade divergence: field 'timestamp'" in note
+    assert "first per-trade divergence: field 'state'" in note
     assert "[observed; binding chain NOT verified]" in note
 
 
@@ -307,7 +438,8 @@ def test_cli_divergence_note_quotes_the_report(run26, tmp_path):
                          "--golds", "gold2"],
                         capture_output=True, text=True, check=False)
     assert cp.returncode == 0, cp.stderr
-    assert "python='2024-01-01T08:01:00'" in json.loads(cp.stdout)["note"]
+    assert "python='entry 2024-01-02T08:07:00 short 0.02 lots'" in \
+        json.loads(cp.stdout)["note"]
 
 
 def test_full_coverage_beside_a_not_applicable_leg_is_a_mismatch(run26, tmp_path):
