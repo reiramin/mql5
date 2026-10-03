@@ -9,6 +9,63 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-10-03 — real_ticks leg on bar-only fixtures: OWNER DECISION = option 2 (NOT_APPLICABLE_BAR_ONLY_FIXTURE)
+
+**Owner decision (Sal, in chat, 2026-10-03).** Option (2) of the
+2026-10-01 entry below: a bar-only gold's real_ticks leg is not run, with an
+explicit recorded reason. Never silently omitted, never counted as a pass.
+
+**Evidence (gate_run25, HEAD 144bff7, `-Golds gold2`, as quoted by the
+owner).** m1_ohlc and every_tick: `DSL bundle loaded from common`,
+`generic DSL execution enabled: gold2_multifactor`, `successfully finished`,
+2880 bars, quality 100%, 74 deals each, final balance 8069.20 / 8017.51
+USD; both graded PASS_FROM_LOG. real_ticks: `no history data, stop
+testing` -> FAIL_NO_TICK_HISTORY. Stage 5 FAILed only on that leg, so
+stage 8 never ran.
+
+**Change (built, unit-tested, never run live).**
+
+- Bar-only is DERIVED per gold, never assumed
+  (`gate_selfcheck.fixture_tick_content`): the fixture header is exactly
+  `time,open,high,low,close,volume` AND the manifest declares no top-level
+  tick key. Both committed golds qualify. The stage-4 importer writes bars
+  only (`CustomRatesUpdate`, no `CustomTicksAdd`). Anything else
+  (unreadable file, a tick column, a tick key) is NOT bar-only, and the
+  real_ticks leg stays mandatory exactly as before.
+- `tester-inputs` now returns `bar_only`, `real_ticks_leg`
+  (`applicable`, `outcome`, `reason` naming the fixture) and
+  `real_tick_coverage`.
+- `owner_gate.ps1` stage 5 does not launch a non-applicable real_ticks leg.
+  It records `<gold>_real_ticks: NOT_APPLICABLE_BAR_ONLY_FIXTURE: fixture
+  <path> is bar-only (...) -- leg NOT launched, NOT a pass`. It touches no
+  pass counter.
+- The tally lists `N not applicable` separately. The stage reason states
+  `Real-tick coverage NONE: <gold>: real-tick coverage NONE (bar-only
+  fixture)`.
+- Stage 5 can PASS / PASS_FROM_LOG only when every applicable leg passed. A
+  stage whose legs are all NOT_APPLICABLE FAILs (`no applicable tester leg
+  passed`).
+- `gate_summary.json` carries `real_tick_coverage` per gold: `"NONE
+  (bar-only fixture)"`, or `NOT_MEASURED (real_ticks leg required)` until a
+  real_ticks report states a coverage.
+- Every stage-10 record appends `[real-tick coverage: ...]`.
+  `certify_strategy.py --real-tick-coverage GOLD=COVERAGE` adds a
+  `## Real-Tick Coverage` section to the certification report.
+
+**Not changed, by rule.** `artifacts/owner_mt5_gate/report_template.md`
+lists only `REAL_TICK_COVERAGE_FULL / _PARTIAL / _UNKNOWN`, with no NONE
+option. It lives under `artifacts/` and was not edited. The owner must
+decide whether to amend it.
+
+**Stage 8 is unchanged.** `owner_gate.verify_real_tick_coverage` still
+accepts only FULL / PARTIAL / UNKNOWN. A real_ticks artifact that is
+missing is still MISSING. So a bar-only gold that now passes stage 5 will
+not get `MT5_VALIDATED` at stage 8. Real-tick coverage NONE is never
+promoted. Whether stage 8 should also learn NOT_APPLICABLE is a separate
+owner decision.
+
+---
+
 ## 2026-10-01 — Scoped owner exception to "never modify mql5/": EA reads the DSL bundle from FILE_COMMON (gate_run24)
 
 **Owner authorization (Sal, in chat).** A SCOPED exception to the rule
@@ -56,7 +113,7 @@ the next owner run's EA log says whether the common copy loads.
 
 ---
 
-## 2026-10-01 — real_ticks leg on bar-only fixtures (gate_run23) — OWNER DECISION PENDING
+## 2026-10-01 — real_ticks leg on bar-only fixtures (gate_run23) — OWNER DECISION PENDING (decided 2026-10-03: option 2)
 
 **Measured.** gate_run23 (HEAD 6f9b845, `-Golds gold2`, Windows): the gold2
 real_ticks leg (Model=4) printed `EURUSD.G2: history data begins from
@@ -85,6 +142,7 @@ only NAMES the outcome. It does not decide what the leg should be.
 
 **The owner has not decided.** Until they do, the real_ticks leg on a
 bar-only gold stays `FAIL_NO_TICK_HISTORY` and stage 5 stays FAIL.
+*(Superseded 2026-10-03: the owner chose option 2. See the entry above.)*
 
 **Also from gate_run23 (fixed on `fix/stage5-agent-sandbox`, built,
 unit-tested, never run live).** The other gold2 legs received

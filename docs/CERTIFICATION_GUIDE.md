@@ -36,6 +36,10 @@ FAIL_INSUFFICIENT_FIXTURE_HISTORY, FAIL_NO_TICK_HISTORY or
 BLOCKED_OWNER_ENVIRONMENT). A window showing the EA refused the DSL bundle at
 OnInit is a FAIL that says so; a window showing `no history data, stop
 testing` is FAIL_NO_TICK_HISTORY (gate_run23; see docs/DECISIONS.md).
+Since the 2026-10-03 owner decision, a bar-only gold's real_ticks leg is not
+launched at all. It is recorded `NOT_APPLICABLE_BAR_ONLY_FIXTURE`, with
+real-tick coverage `NONE (bar-only fixture)`, and is never a pass. This is
+built and unit-tested, and has never run live.
 
 - It **proves**: MT5 ran this leg to completion, on this symbol, with
   bars > 0, at the stated history quality, in the requested model. The

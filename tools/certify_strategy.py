@@ -114,7 +114,18 @@ def main(argv: list[str] | None = None) -> int:
                          "artifact a VERIFIED verdict is withheld — an "
                          "empirical ladder pass alone is not a "
                          "certification.")
+    ap.add_argument("--real-tick-coverage", action="append", default=[],
+                    metavar="GOLD=COVERAGE",
+                    help="per-gold real-tick coverage from stage 5 (repeat "
+                         "per gold), e.g. 'gold2=NONE (bar-only fixture)'; "
+                         "stated verbatim in the report")
     args = ap.parse_args(argv)
+    coverage: dict[str, str] = {}
+    for pair in args.real_tick_coverage:
+        gold, sep, value = pair.partition("=")
+        if not sep or not gold.strip() or not value.strip():
+            ap.error(f"--real-tick-coverage expects GOLD=COVERAGE, got {pair!r}")
+        coverage[gold.strip()] = value.strip()
 
     cfg = _load_config(args.config)
     data = None
@@ -130,6 +141,7 @@ def main(argv: list[str] | None = None) -> int:
     report = run_certification(cfg, run_tester=runner, python_data=data,
                                runner_note=note,
                                reconciliation_ok=reconciliation_ok)
+    report["real_tick_coverage"] = coverage
     text = render_report(report)
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")

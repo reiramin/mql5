@@ -490,6 +490,18 @@ def render_report(report: dict) -> str:
         lines.append("Reasons:")
         lines += [f"- {r}" for r in v["reasons"]]
         lines.append("")
+    coverage = report.get("real_tick_coverage") or {}
+    if coverage:
+        # stated per gold, verbatim from stage 5: "NONE (bar-only fixture)"
+        # means the real_ticks leg was NOT_APPLICABLE and never ran
+        lines.append("## Real-Tick Coverage")
+        lines += [f"- {gold}: real-tick coverage {value}"
+                  for gold, value in sorted(coverage.items())]
+        if any(v.startswith("NONE") for v in coverage.values()):
+            lines.append("- NONE: the real_ticks leg was not run for a "
+                         "bar-only fixture (NOT_APPLICABLE_BAR_ONLY_FIXTURE); "
+                         "nothing here is evidence about real ticks.")
+        lines.append("")
     lines.append("## Legs")
     lines.append("| regime | grade | ran | ok | trades | net profit | "
                  "max dd % |")

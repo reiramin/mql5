@@ -72,6 +72,11 @@ $Evidence = Join-Path $RepoRoot ("evidence\owner_gate\" + $Stamp)
 # ordered stage ledger; each entry: name/status/reason/artifacts
 $Script:Stages = New-Object System.Collections.ArrayList
 $Script:Stage5FromLog = $false
+# per-gold real-tick coverage for gate_summary.json (owner decision
+# 2026-10-03): "NONE (bar-only fixture)" for a bar-only gold whose real_ticks
+# leg is NOT_APPLICABLE; otherwise NOT_MEASURED until its real_ticks report
+# states a coverage. Filled at stage 5.
+$Script:RealTickCoverage = [ordered]@{}
 
 # ---- scope (-Golds) ----------------------------------------------------
 # A run over fewer than all golds is PARTIAL: evidence about the scoped golds
@@ -239,6 +244,7 @@ function Finish-Gate([string]$gateResult) {
         excluded        = @($Script:Excluded)
         scope_error     = $Script:ScopeError
         unscoped_result = $unscoped
+        real_tick_coverage = $Script:RealTickCoverage
         stages          = @($Script:Stages)
     }
     $sumPath = Join-Path $Evidence "gate_summary.json"
@@ -902,6 +908,11 @@ $legFromReport = 0
 $legFromLog = 0
 $legBlockedN = 0
 $legFailN = 0
+# OWNER DECISION 2026-10-03 (DECISIONS.md option 2): a bar-only gold's
+# real_ticks leg is NOT_APPLICABLE_BAR_ONLY_FIXTURE -- not launched, counted
+# here and NEVER as a pass (it touches none of the pass counters above).
+$legNotApplicableN = 0
+$naNotes = New-Object System.Collections.ArrayList
 $terminalDir = Split-Path -Parent $TerminalPath
 $testerOut = Join-Path $Evidence "tester"
 
@@ -923,6 +934,9 @@ foreach ($gk in @($Script:Scope)) {
         Finish-Gate "tester_legs"
     }
     $derived[$gk] = $ti.data
+    # bar-only is DERIVED (fixture header + manifest), never assumed; a gold
+    # that is not bar-only keeps its real_ticks leg mandatory.
+    $Script:RealTickCoverage[$gk] = [string](Get-DataProp $ti.data "real_tick_coverage" -Required)
 }
 
 foreach ($leg in $legs) {
@@ -935,6 +949,18 @@ foreach ($leg in $legs) {
     $to = Get-DataProp $d "date_to" -Required
     $reportName = "{0}_{1}" -f $gk, $leg.model
     $legTag = $reportName
+
+    # OWNER DECISION 2026-10-03: real_ticks on a bar-only fixture is
+    # NOT_APPLICABLE_BAR_ONLY_FIXTURE. The leg is NOT launched and NOT a pass:
+    # $legOk is untouched (the applicable legs decide the stage) and no pass
+    # counter moves. The reason names the fixture.
+    $rtLeg = Get-DataProp $d "real_ticks_leg" -Required
+    if ($leg.model -eq "real_ticks" -and (Get-DataProp $rtLeg "applicable" -Required) -eq $false) {
+        $legNotApplicableN++
+        [void]$naNotes.Add(("{0}: real-tick coverage {1}" -f $gk, $Script:RealTickCoverage[$gk]))
+        [void]$legReasons.Add(("{0}: {1} -- leg NOT launched, NOT a pass" -f $legTag, (Get-DataProp $rtLeg "reason" -Required)))
+        continue
+    }
 
     # (0) STAGE 5 R9 -- run the strategy the gold manifest PINS. gate_run17
     # measured the EA starting with InpStrategy=0 and an EMPTY
@@ -1118,6 +1144,7 @@ foreach ($leg in $legs) {
         $am = if ((Get-DataProp $le.data "actual_model")) { (Get-DataProp (Get-DataProp $le.data "actual_model") "label") } else { "?" }
         $cov = (Get-DataProp $le.data "coverage")
         $legFromReport++
+        if ($leg.model -eq "real_ticks") { $Script:RealTickCoverage[$gk] = [string]$cov }
         [void]$legReasons.Add(("{0}: actual model={1} (src {2}), real-tick coverage={3}" -f `
             $legTag, $am, (Get-DataProp (Get-DataProp $le.data "actual_model") "source"), $cov))
     } else {
@@ -1145,8 +1172,16 @@ foreach ($gk in @($Script:Scope)) {
     }
 }
 
-$legTally = ("legs: {0} passed from report, {1} passed from log (PASS_FROM_LOG, source: tester agent log), {2} blocked, {3} failed. " -f `
-    $legFromReport, $legFromLog, $legBlockedN, $legFailN)
+$legTally = ("legs: {0} passed from report, {1} passed from log (PASS_FROM_LOG, source: tester agent log), {2} blocked, {3} failed, {4} not applicable (NOT_APPLICABLE_BAR_ONLY_FIXTURE: not launched, not a pass). " -f `
+    $legFromReport, $legFromLog, $legBlockedN, $legFailN, $legNotApplicableN)
+if ($legNotApplicableN -gt 0) {
+    $legTally += ("Real-tick coverage NONE: {0} -- the real_ticks leg was not run (owner decision 2026-10-03, DECISIONS.md option 2); this stage proves nothing about real ticks. " -f ($naNotes -join "; "))
+}
+# a stage whose every leg was NOT_APPLICABLE (or none passed) proves nothing
+if ($legOk -and ($legFromReport + $legFromLog + $legBlockedN) -eq 0) {
+    $legOk = $false
+    [void]$legReasons.Add("no applicable tester leg passed -- NOT_APPLICABLE legs are never a pass")
+}
 if (-not $legOk) {
     Record-Stage 5 "tester_legs" "FAIL" ($legTally + ($legReasons -join "; ")) @($legArt) | Out-Null
     Finish-Gate "tester_legs"
@@ -1170,7 +1205,7 @@ if ($legFromLog -gt 0) {
     $Script:Stage5FromLog = $true
     Record-Stage 5 "tester_legs" "PASS_FROM_LOG" ($legTally + "dataset hash intact after the legs. " + ($legReasons -join "; ")) @($legArt) | Out-Null
 } else {
-    Record-Stage 5 "tester_legs" "PASS" ($legTally + ("{0} tester legs;" -f $legs.Count) + " actual models + real-tick coverage read from report+journal; dataset hash intact after the legs. " + ($legReasons -join "; ")) @($legArt) | Out-Null
+    Record-Stage 5 "tester_legs" "PASS" ($legTally + ("{0} of {1} tester legs launched;" -f ($legs.Count - $legNotApplicableN), $legs.Count) + " actual models + real-tick coverage read from report+journal; dataset hash intact after the legs. " + ($legReasons -join "; ")) @($legArt) | Out-Null
 }
 
 # =====================================================================
@@ -1256,10 +1291,15 @@ if ((Get-DataProp $recon "verdict") -eq "MT5_VALIDATED" -or ($Script:Partial -an
 # so both are REFUSED (recorded, never entered, never run). GATE_RESULT is
 # partial_reconciliation -- the last stage this run reached.
 # =====================================================================
+# The certification record states each gold's real-tick coverage wherever it
+# applies -- "NONE (bar-only fixture)" for a gold whose real_ticks leg was
+# NOT_APPLICABLE (owner decision 2026-10-03).
+$covPairs = @(@($Script:RealTickCoverage.Keys) | ForEach-Object { "{0}={1}" -f $_, $Script:RealTickCoverage[$_] })
+$covNote = if ($covPairs.Count -gt 0) { " [real-tick coverage: " + ($covPairs -join "; ") + "]" } else { "" }
 if ($Script:Partial) {
     $exclNames = (@($Script:Excluded) | ForEach-Object { $_.gold }) -join ","
     Record-Stage 9 "archive_manifest" "REFUSED" ("[refused_scoped_run] archive manifest not built: scoped run over {0}; excluded: {1}" -f (@($Script:Scope) -join ","), $exclNames) @() | Out-Null
-    Record-Stage 10 "certify" "REFUSED" ("[refused_scoped_run] certify_strategy.py not run: a scoped run is never certifiable; excluded: {0}" -f $exclNames) @() | Out-Null
+    Record-Stage 10 "certify" "REFUSED" (("[refused_scoped_run] certify_strategy.py not run: a scoped run is never certifiable; excluded: {0}" -f $exclNames) + $covNote) @() | Out-Null
     Finish-Gate "reconciliation"
 }
 
@@ -1286,18 +1326,20 @@ $certReport = Join-Path $Evidence "certification_report.md"
 if ($Script:Partial) {
     # unreachable (a scoped run is refused before stage 9); kept so that no
     # future edit above can let certify_strategy.py run on scoped evidence
-    Record-Stage 10 "certify" "REFUSED" "[refused_scoped_run] certify_strategy.py not run: a scoped run is never certifiable" @() | Out-Null
+    Record-Stage 10 "certify" "REFUSED" ("[refused_scoped_run] certify_strategy.py not run: a scoped run is never certifiable" + $covNote) @() | Out-Null
     Finish-Gate "certify"
 }
 if (-not (Test-Path -LiteralPath $certConfig)) {
-    Record-Stage 10 "certify" "SKIP" "no certify_config.json present; certification state unassigned" @() | Out-Null
+    Record-Stage 10 "certify" "SKIP" ("no certify_config.json present; certification state unassigned" + $covNote) @() | Out-Null
     Finish-Gate "reconciliation"
 }
+$covArgs = @()
+foreach ($pair in $covPairs) { $covArgs += @("--real-tick-coverage", $pair) }
 $cp = Start-Process -FilePath $Python `
-    -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "certify_strategy.py"), "--config", $certConfig, "--out", $certReport))) `
+    -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "certify_strategy.py"), "--config", $certConfig, "--out", $certReport) + $covArgs)) `
     -Wait -PassThru -NoNewWindow
 $certStatus = if ($cp.ExitCode -eq 0) { "PASS" } else { "FAIL" }
-Record-Stage 10 "certify" $certStatus ("certify_strategy.py exit {0} (state recorded as assigned)" -f $cp.ExitCode) @((New-Artifact $certReport)) | Out-Null
+Record-Stage 10 "certify" $certStatus (("certify_strategy.py exit {0} (state recorded as assigned)" -f $cp.ExitCode) + $covNote) @((New-Artifact $certReport)) | Out-Null
 if ($certStatus -eq "FAIL") { Finish-Gate "certify" }
 
 if ($Script:Stage5FromLog) { Finish-Gate "certified_with_log_graded_legs" }

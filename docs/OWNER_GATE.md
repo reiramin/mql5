@@ -83,7 +83,12 @@ All output lands under `evidence\owner_gate\<UTC>\`, append-only: one
   nothing on any missing property or hash mismatch.
 - **5-7. Tester legs** — the six legs (Gold #1/#2 × m1_ohlc / every_tick /
   real_ticks); the raw report and sidecar are archived and the ACTUAL model
-  is read from the report and journal, not the requested one.
+  is read from the report and journal, not the requested one. A gold whose
+  fixture is DERIVED bar-only (bar-schema header, no tick dataset in the
+  manifest) has its real_ticks leg recorded `NOT_APPLICABLE_BAR_ONLY_FIXTURE`
+  and not launched (owner decision 2026-10-03). It is tallied separately,
+  never as a pass, and `gate_summary.json` carries `"real_tick_coverage":
+  "NONE (bar-only fixture)"` for that gold.
 - **8. Reconciliation** — the full bindings object plus the safety sub-checks
   (kill-switch; restart; retry/adoption/SlGuard; netting and hedging) via
   `verify_owner_mt5_gate.py`. A first divergence on a volume/risk field is
