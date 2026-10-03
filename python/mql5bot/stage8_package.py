@@ -241,11 +241,27 @@ def mt5_entries(deals: list[dict]) -> tuple[list[dict] | None, str]:
                      "(INFERRED: alternating open/close, every entry pnl 0)")
 
 
+# The python volume column the tester comparison uses (gate_run28 finding
+# 3): the tester leg stages no allocation.json, so the EA falls back to
+# InpBaseGateWeight=1.0 — the like-for-like python expectation is the
+# expected_execution meta["1.0"].final_lots table, NEVER the weight-free
+# risk approval (approved_lots stays beside it, labelled, uncompared).
+# The column is FIXED here; a weight is never picked to match MT5.
+TESTER_WEIGHT_COLUMN = "1.0"
+TESTER_WEIGHT_SOURCE = (
+    'expected_execution meta["1.0"].final_lots — the weight in force on '
+    "the tester leg (no allocation file staged; EA fallback "
+    "InpBaseGateWeight=1.0)")
+
+
 def python_entries(expected: dict, timeframe: str) -> tuple[list[dict] | None,
                                                             str]:
     """The approved entries of expected_execution.json, in signal order. The
     fill time is signal_time + one bar (manifest signal_timing_contract:
-    action at the next bar open)."""
+    action at the next bar open). ``compare_lots`` is the volume the tester
+    comparison uses (meta[TESTER_WEIGHT_COLUMN].final_lots when that column
+    says SEND; None otherwise, with ``compare_lots_note`` saying why);
+    ``lots`` stays the weight-free risk approval."""
     rows = expected.get("entries") if isinstance(expected, dict) else None
     step = TF_SECONDS.get(str(timeframe))
     if not isinstance(rows, list):
@@ -258,11 +274,28 @@ def python_entries(expected: dict, timeframe: str) -> tuple[list[dict] | None,
         if risk.get("rejected"):
             continue
         sig = datetime.fromisoformat(str(row["signal_time"]))
-        out.append({"signal_time": row["signal_time"],
-                    "fill_time": (sig + timedelta(seconds=step)).isoformat(),
-                    "side": row.get("side"),
-                    "lots": risk.get("approved_lots")})
-    return out, f"{len(out)} approved entries"
+        meta = (row.get("meta") or {}).get(TESTER_WEIGHT_COLUMN)
+        compare_lots, why = None, None
+        if not isinstance(meta, dict):
+            why = (f"entry carries no meta[{TESTER_WEIGHT_COLUMN!r}] "
+                   "expectation — volume stays uncompared, never "
+                   "substituted")
+        elif meta.get("action") != "SEND":
+            why = (f"meta[{TESTER_WEIGHT_COLUMN!r}] action "
+                   f"{meta.get('action')!r}: python sends nothing at this "
+                   "weight — volume stays uncompared, never substituted")
+        else:
+            compare_lots = meta.get("final_lots")
+        entry = {"signal_time": row["signal_time"],
+                 "fill_time": (sig + timedelta(seconds=step)).isoformat(),
+                 "side": row.get("side"),
+                 "lots": risk.get("approved_lots"),
+                 "compare_lots": compare_lots}
+        if why:
+            entry["compare_lots_note"] = why
+        out.append(entry)
+    return out, (f"{len(out)} approved entries; volume column "
+                 f"{TESTER_WEIGHT_SOURCE}")
 
 
 def tested_window_start(window_text: str,
@@ -431,8 +464,14 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
             mt5_time = _ea_time_iso(deal.get("time"))
             fields: dict = {
                 "timestamp": {"python": p["fill_time"], "mt5": mt5_time},
-                "volume": {"python": p["lots"], "mt5": deal.get("volume")},
             }
+            if p.get("compare_lots") is not None:
+                fields["volume"] = {"python": p["compare_lots"],
+                                    "mt5": deal.get("volume")}
+            else:
+                # the MT5 volume stays measured; the python column is
+                # absent for the stated reason, never substituted
+                fields["volume"] = {"mt5": deal.get("volume")}
             unmeasured = []
             if facts.get("side"):
                 fields["entry_side"] = {
@@ -454,9 +493,17 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                 "time": mt5_time,
                 "python_signal_time": p["signal_time"],
                 "python_side_declared": p["side"],
+                # the volume column in force, recorded per event — and the
+                # weight-free approval beside it, labelled, uncompared
+                "python_volume_column": TESTER_WEIGHT_SOURCE,
+                "python_approved_lots": p.get("lots"),
                 "mt5_ticket": deal.get("ticket"),
                 "fields": fields,
             }
+            if p.get("compare_lots") is None:
+                event["python_volume_unavailable"] = p.get(
+                    "compare_lots_note",
+                    "no python volume for the tester weight column")
             if facts.get("line"):
                 event["mt5_deal_line"] = facts["line"]
             if unmeasured:
@@ -840,7 +887,10 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
                  "uncompared); "
                  "unpaired trades inside the window are MISSING_IN_MT5 / "
                  "EXTRA_IN_MT5 divergences. Compared fields per pair: "
-                 "timestamp, volume, and entry side/price when the MT5 "
+                 "timestamp, volume (python column: "
+                 'meta["1.0"].final_lots, the tester weight in force; the '
+                 "weight-free approved_lots is recorded beside it, "
+                 "labelled, uncompared), and entry side/price when the MT5 "
                  "journal deal line states them (python entry price = "
                  "fixture open at the fill minute, the manifest's "
                  "next-bar-open fill). Bindings nothing measured are "
@@ -881,6 +931,8 @@ __all__ = [
     "MISSING_IN_MT5",
     "OUT_OF_TESTED_WINDOW",
     "PAIRED_BY_TIME",
+    "TESTER_WEIGHT_COLUMN",
+    "TESTER_WEIGHT_SOURCE",
     "build_package",
     "compile_identity",
     "divergence_note",

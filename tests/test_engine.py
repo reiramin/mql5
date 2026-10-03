@@ -268,6 +268,72 @@ def test_netting_strategy_flip_reverses_and_allow_signal_exit_false_holds():
     assert t2["exit_reason"].iloc[0] == "end_of_data"
 
 
+def test_flip_closes_this_bar_and_enters_next_bar():
+    """FLIP_RULE_ENTER_NEXT_BAR (manifest signal_timing_contract.flip_rule,
+    owner decision 2026-10-03): the flip bar only CLOSES the opposite
+    position; the new side enters at the NEXT bar's open — exactly the
+    EA's close-and-return under its one-action-per-bar gate."""
+    from mql5bot.engine import FLIP_RULE_ENTER_NEXT_BAR
+
+    df = make_frame(N)
+    a = np.zeros(N, dtype=int)
+    a[0:39] = 1
+    a[39:] = -1  # desired flips at bar 39 -> acted at bar 40's open
+    register_signal("eng_flipnb", a)
+    res = engine().run([Instrument(symbol=EUR, strategy="eng_flipnb",
+                                   df=df, costs=zero_costs())])
+    t = res.trades
+    assert list(t["side"]) == ["long", "short"]
+    assert t["exit_reason"].iloc[0] == "signal_exit"
+    # close at the flip bar (40); entry one bar LATER (41), never the same
+    assert pd.Timestamp(t["exit_time"].iloc[0]) == df.index[40]
+    assert pd.Timestamp(t["entry_time"].iloc[1]) == df.index[41]
+    # the deferral is a named, recorded rule — not an implicit side effect
+    defers = [e for e in res.events if e["type"] == "flip_deferred"]
+    assert len(defers) == 1
+    assert defers[0]["bar"] == 40
+    assert defers[0]["rule"] == FLIP_RULE_ENTER_NEXT_BAR
+    assert defers[0]["side"] == -1
+
+
+def test_flip_entry_vanishes_when_desired_reverts_next_bar():
+    """A one-bar flip pulse never enters: the flip bar closes, and by the
+    next bar the desired side is gone (EA parity — the gate_run28 day-3
+    'missed entry' shape)."""
+    df = make_frame(N)
+    a = np.zeros(N, dtype=int)
+    a[0:39] = 1
+    a[39] = -1   # one-bar pulse: acted at bar 40 (close only)
+    a[40:] = 1   # desired is long again by the time bar 41 reconciles
+    register_signal("eng_flippulse", a)
+    res = engine().run([Instrument(symbol=EUR, strategy="eng_flippulse",
+                                   df=df, costs=zero_costs())])
+    t = res.trades
+    # the long closes at bar 40; NO short ever enters; the long re-enters
+    # at bar 41 (desired back to +1 with no position)
+    assert "short" not in set(t["side"])
+    assert t["exit_reason"].iloc[0] == "signal_exit"
+    assert pd.Timestamp(t["entry_time"].iloc[1]) == df.index[41]
+    assert t["side"].iloc[1] == "long"
+
+
+def test_session_flatten_and_stop_exits_are_not_deferred():
+    """Only the FLIP entry defers: going flat (side 0) still closes at this
+    bar with no re-entry, and SL exits are untouched intrabar exits."""
+    df = make_frame(N)
+    a = np.zeros(N, dtype=int)
+    a[0:39] = 1
+    a[39:] = 0  # flat (session-flatten shape): close only, nothing enters
+    register_signal("eng_flat0", a)
+    res = engine().run([Instrument(symbol=EUR, strategy="eng_flat0",
+                                   df=df, costs=zero_costs())])
+    t = res.trades
+    assert len(t) == 1
+    assert t["exit_reason"].iloc[0] == "signal_exit"
+    assert pd.Timestamp(t["exit_time"].iloc[0]) == df.index[40]
+    assert not [e for e in res.events if e["type"] == "flip_deferred"]
+
+
 def test_netting_two_persistent_opponents_churn_is_deterministic():
     """Two strategies that permanently desire opposite sides on one symbol
     net against each other every bar (real netting outcome), paying the

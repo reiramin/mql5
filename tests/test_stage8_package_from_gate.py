@@ -339,6 +339,51 @@ def test_extra_mt5_entries_are_divergences():
     assert "entry_side" not in paired["fields"]
 
 
+def test_volume_compares_the_tester_weight_column_never_the_closest():
+    """gate_run28 finding 3: MT5 runs at InpBaseGateWeight=1.0 (no
+    allocation file), so the python volume column is meta['1.0'].final_lots
+    — fixed, recorded per event, with approved_lots kept beside it
+    labelled. A DROP/absent column leaves the volume UNCOMPARED with the
+    reason stated; nothing is substituted or matched-to-closest."""
+    expected = {"entries": [
+        {"signal_time": "2024-01-02T08:00:00", "side": "short",
+         "risk": {"approved_lots": 4.58, "rejected": False},
+         "meta": {"1.0": {"action": "SEND", "final_lots": 4.58},
+                  "0.1": {"action": "SEND", "final_lots": 0.45}}},
+        {"signal_time": "2024-01-02T08:05:00", "side": "long",
+         "risk": {"approved_lots": 0.009, "rejected": False},
+         "meta": {"1.0": {"action": "DROP", "final_lots": 0.0}}},
+        {"signal_time": "2024-01-02T08:10:00", "side": "long",
+         "risk": {"approved_lots": 1.0, "rejected": False}},
+    ]}
+    py, note = s8p.python_entries(expected, "M1")
+    assert 'meta["1.0"].final_lots' in note
+    assert py[0]["compare_lots"] == 4.58 and py[0]["lots"] == 4.58
+    assert py[1]["compare_lots"] is None
+    assert "action 'DROP'" in py[1]["compare_lots_note"]
+    assert py[2]["compare_lots"] is None
+    assert "no meta['1.0'] expectation" in py[2]["compare_lots_note"]
+    deals = [{"ticket": k, "time": f"2024.01.02 08:{m:02d}:00",
+              "volume": 0.45, "pnl": 0.0, "lines": []}
+             for k, m in ((2, 1), (4, 6), (6, 11))]
+    events, _ = s8p.reconciliation_events(py, {"m1_ohlc": deals},
+                                          "EURUSD.G2")
+    paired = [e for e in events if e.get("pairing") == s8p.PAIRED_BY_TIME]
+    assert len(paired) == 3
+    # SEND: compared against the 1.0 column (4.58 vs 0.45 diverges) even
+    # though the 0.1 column (0.45) would match — never pick the closest
+    assert paired[0]["fields"]["volume"] == {"python": 4.58, "mt5": 0.45}
+    assert paired[0]["python_volume_column"] == s8p.TESTER_WEIGHT_SOURCE
+    assert paired[0]["python_approved_lots"] == 4.58
+    # DROP / absent column: MT5 side stays measured, python side absent
+    # with the reason stated — and the verifier's completeness rule is
+    # satisfied (no python value without an mt5 observation)
+    for e, why in ((paired[1], "DROP"), (paired[2], "no meta")):
+        assert e["fields"]["volume"] == {"mt5": 0.45}
+        assert why in e["python_volume_unavailable"]
+        assert e["python_approved_lots"] is not None
+
+
 def test_window_end_is_exclusive_and_out_is_never_a_divergence():
     py = [
         {"signal_time": "2024-01-03T23:58:00",

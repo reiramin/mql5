@@ -679,3 +679,64 @@ on PATH, ps1-executing modules ran).
 - Finding 2 not closed: the discriminating evidence exists only in the
   run28 package / a run29 capture on the owner terminal.
 - Nothing ran on MT5. Nothing merged. Certification record unchanged.
+
+## 2026-10-03 (7) — merge PR #16; rebase PR #14; fix/engine-flip-next-bar
+
+**Merges/branch ops (clean worktrees; main checkout untouched):**
+- PR #16 merged into master as a02a07a (--no-ff, approved by Sal + reviewer
+  in chat; no GitHub review recorded). Pre-push gates on the merge commit:
+  ruff exit 0, full pytest exit 0. Push 999126a..a02a07a, no force/amend.
+  PR #16 shows MERGED.
+- PR #14 rebased onto a02a07a (AUTONOMOUS_LOG conflict resolved keeping
+  both sides; its entry renumbered (3)->(6) mechanically, content
+  unchanged) and re-pushed with --force-with-lease as instructed. PR #14
+  is OPEN and MERGEABLE, NOT merged.
+
+**Branch**: `fix/engine-flip-next-bar` from a02a07a.
+
+**Owner decision recorded** (docs/DECISIONS.md S8-FLIP-1): gate_run28
+findings 1-3 are PYTHON-side defects; the EA follows the manifest contract
+and does not change.
+
+**TASK A (built, unit-tested, never run live).** engine.py: on a signal
+flip the engine closes the opposite position at the current bar (signal
+_exit) and defers the new entry to the NEXT bar's open — the named rule
+FLIP_RULE_ENTER_NEXT_BAR (the manifest flip_rule verbatim), recorded per
+application as a "flip_deferred" event. fast_engine.py mirrors it (its
+equivalence to the truth engine is pinned by tests). Session flatten and
+SL/TP exits unchanged. Tests: flip closes bar N and enters N+1 with the
+event recorded; a one-bar desired pulse never enters (EA parity); go-flat
+and stop exits are not deferred.
+
+**TASK B.** stage8_package compares MT5 volume against expected_execution
+meta["1.0"].final_lots (the tester weight in force: no allocation file,
+EA fallback InpBaseGateWeight=1.0); the column is FIXED and recorded per
+event (python_volume_column), approved_lots kept beside it labelled
+(python_approved_lots), and a DROP/absent column leaves volume UNCOMPARED
+with the reason stated — never substituted, never matched-to-closest.
+Verifier lines changed: none.
+
+**TASK C.** artifacts/gold_2 NOT regenerated (frozen). tools/
+preview_gold2_regen.py runs the real gold-2 builder into gitignored
+evidence/preview/ (refusing unless the preview fixture is byte-equal to
+the frozen one — it is, sha 59cd339f6ebd...) and diffs the preview trace
+vs the frozen python_trace. MEASURED preview summary: 56 -> 56 trades;
+18 entries unchanged; 38 moved +1 bar (flip deferral); 0 vanished; 0
+appeared; 45 matched trades changed lots; 8 changed exit_reason.
+
+**xfail list (exactly the frozen-gold parity tests that failed, reason
+"frozen gold2 predates flip-next-bar fix; regeneration pending owner
+decision"):**
+- tests/test_gold2_standard.py::test_every_entry_reconciles_sizing_and_meta
+No other test failed; nothing else was weakened.
+
+**Exit codes (read, not polled).** ruff -> 0; full pytest -> 0 (pwsh 7.6.6
+on PATH; 0 FAILED lines in the log).
+
+**NOT done, and why**
+- artifacts/gold_2 not regenerated: frozen; the preview is the owner's
+  decision input.
+- mql5/ untouched (owner: the EA does not change).
+- PR #14 not merged (as instructed).
+- Nothing ran on MT5; the engine change has never seen a live gate run.
+- Nothing merged from this branch. Certification record unchanged.
