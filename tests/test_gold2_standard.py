@@ -471,9 +471,9 @@ def test_boundary_distances_recorded_with_required_bands(artifacts):
     # The session is [08:00, 16:00): bars at/after 16:00 are flattened.
     # Since the flip-next-bar regeneration (S8-FLIP-1) the boundary book
     # is a flip_deferred_entry decided at 15:59 (1 minute to session end)
-    # that FILLS at 16:00 and is closed by the flatten at 16:01. OPEN
-    # FINDING (S8-FLIP-2): that 16:00 fill sits outside the session; the
-    # EA's OnNewBar session gate would refuse it — owner decision pending.
+    # that FILLS at 16:00 and is closed by the flatten at 16:01 — the same
+    # as the EA on the gold leg, whose session gate is off there
+    # (InpUseSession=False; S8-FLIP-2 withdrawn, see docs/DECISIONS.md).
     assert any(r["minutes_to_session_end"] <= 3 for r in rows
                if r["entry_kind"] in ("signal_transition",
                                       "flip_deferred_entry"))

@@ -846,3 +846,49 @@ on PATH; 3 XFAIL listed above, 0 FAILED).
   hash-pinned python trade count (fail-closed).
 - S8-FLIP-2 not resolved: contract question for the owner.
 - Nothing ran on MT5. Not merged. Certification record unchanged.
+
+## 2026-10-04 (2) — PR #18 merge HALTED; corrections pushed to PR #18 (re-approval needed); S8-FLIP-2 not implemented
+
+**What was asked:** merge PR #18; record owner decision S8-FLIP-2 ("refuse
+a deferred flip entry whose fill bar is at/after session end"); implement
+it in engine + fast_engine; regenerate gold_2 again.
+
+**What happened (truthfully):**
+- The PR #18 merge was built locally (1b57331) and the gates run: ruff 0,
+  but full pytest EXIT 1 — tests/test_docs_contract.py::
+  test_owner_mt5_gate_package_exists_and_is_pending_owner fails "gold
+  artifacts changed since freeze" (it diffs `<anchor> HEAD`, so it only
+  sees COMMITTED gold changes). On the PR #18 branch the full suite ran
+  BEFORE the commit and the post-commit re-check covered only 4 modules,
+  so PR #18's "full pytest -> 0 (re-checked post-commit)" was not fully
+  accurate. The local merge was discarded (never pushed); master stays
+  8c8f08d. PR #18 remains OPEN.
+- S8-FLIP-2's premise (written by me in PR #18) is WRONG: gold tester legs
+  run with InpUseSession=False (gold_leg_inputs.py:191), so the EA's
+  session gate (Mql5Bot.mq5:961) is a no-op there; the EA enters at 16:00
+  from the closed 15:59 desired (Mql5Bot.mq5:248) and closes at 16:01 via
+  the DSL session flat (Mql5Bot.mq5:975) — identical to the regenerated
+  python gold. Implementing "refuse" would CREATE a divergence. Not
+  implemented; branch fix/engine-session-gate-on-deferred-entry NOT
+  created; gold_2 NOT regenerated again.
+- PR #18 also said there is no certification_manifest.json under
+  artifacts/: wrong — it is artifacts/owner_mt5_gate/
+  certification_manifest.json (untouched; scope unaffected).
+
+**Correction commit on PR #18's branch (new commit, no force):**
+- tests/test_docs_contract.py: the gold-unchanged-since-anchor assertion
+  split into its own test, strict-xfail (same reason as the other three);
+  every other owner-package assertion stays active.
+- docs/DECISIONS.md S8-FLIP-2 rewritten: finding withdrawn with the
+  measured chain; the owner's decision recorded as taken, NOT implemented
+  pending reconfirmation.
+- tests/test_gold2_standard.py comment corrected.
+
+**Exit codes:** see the commit/PR comment (ruff and full pytest, read).
+
+**NOT done, and why**
+- PR #18 not merged: the approved head changed (correction commit) —
+  re-approval needed.
+- S8-FLIP-2 engine gate + second regeneration: premise false; owner must
+  reconfirm with the evidence.
+- frozen_inputs.json untouched (re-anchor PR). Nothing ran on MT5.

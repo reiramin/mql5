@@ -3143,15 +3143,38 @@ installed here), manifest_hash and the artifact hashes changed. The
 re-anchor of `frozen_inputs.json` is a separate PR; until it lands, stage 0
 FAILS on Windows (gold_2 bytes no longer equal the frozen hash chain).
 
-## S8-FLIP-2 — OPEN FINDING (owner decision pending): a deferred flip entry can fill outside the session (2026-10-04)
+## S8-FLIP-2 — finding WITHDRAWN: its premise was wrong; the owner's "refuse" decision is recorded but NOT implemented pending reconfirmation (2026-10-04)
 
-**Measured** (regenerated `artifacts/gold_2/python_trace.json`): the
-2024-01-01 15:17 short closes on a flip at 15:59; the deferred long fills at
-**16:00** (decision bar 15:59, inside `[08:00, 16:00)`) and the session
-flatten closes it at 16:01. The frozen gold had no out-of-session fill. The
-EA's `OnNewBar` returns when `!g_session.IsTradingTime(TimeCurrent())`
-(`mql5/Experts/Mql5Bot/Mql5Bot.mq5:961`), so at the 16:00 bar it would NOT
-enter: stage 8 will show this one python entry as `MISSING_IN_MT5`. The
-manifest `session_rule` ("bars outside [08:00, 16:00) flattened") does not
-say whether the ACTION bar must also be in session. Not changed in either
-engine; the owner decides which side is binding.
+**What PR #18 claimed (wrong).** That the deferred flip entry filling at
+2024-01-01 16:00 (decision bar 15:59, flattened 16:01) would be refused by
+the EA's session gate (`Mql5Bot.mq5:961`), so stage 8 would show it as
+`MISSING_IN_MT5`.
+
+**Owner decision taken on that premise (Sal, in chat, 2026-10-04).** "The
+EA's session gate is the contract; a deferred flip entry whose fill bar is
+at/after session end is REFUSED (no entry), never entered-then-flattened."
+
+**Why it is not implemented — measured, file:line.** On the gold tester
+legs the EA's session gate is OFF:
+- the gate passes `InpUseSession = False` to every gold leg
+  (`python/mql5bot/gold_leg_inputs.py:191`, rule: "the DSL bundle carries
+  the session filter"; tester preset default likewise
+  `python/mql5bot/mt5tester.py:117`);
+- `CSessionFilter.Init(enabled=false)` sets `m_enabled = false`
+  (`mql5/Include/Mql5Bot/Session.mqh`), and `IsTradingTime()` returns
+  `true` when disabled (`Session.mqh:54-57`) — so `Mql5Bot.mq5:961` never
+  refuses on a gold leg;
+- at the 16:00 bar the EA reads `positions[n-2]` (`Mql5Bot.mq5:248`) = the
+  closed 15:59 bar's desired = +1, exposure 0 (flip-closed at 15:59), so it
+  ENTERS; at 16:01 the DSL bundle's own session filter makes desired 0 and
+  the EA closes ("DSL desired flat — closing exposure", `Mql5Bot.mq5:975`).
+
+That is exactly what the regenerated python gold_2 does (enter 16:00,
+flatten 16:01). Implementing "refuse" in the engine would CREATE a
+python-vs-EA divergence on the gold leg and bake it into the frozen gold.
+The divergence the finding described does not exist under the gate's
+actual tester configuration. The owner must reconfirm or withdraw the
+decision with this evidence; nothing was changed in either engine.
+(If the owner wants the EA gate active on gold legs, that is a change to
+`gold_leg_inputs.py`'s `InpUseSession` rule plus the matching engine gate
+— a different decision from the one recorded above.)
