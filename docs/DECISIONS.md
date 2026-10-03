@@ -9,6 +9,40 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-10-03 (3) — OWNER DECISIONS: re-anchor deferred; exporter fields + "adopted unknown position" in one later scoped mql5/ PR
+
+**Owner decisions (Sal, in chat, 2026-10-03, after merging PR #13 as
+`8966969`).**
+
+1. **The re-anchor is DEFERRED** until after the next owner run shows the
+   trade comparison. Until then the frozen anchor stays `a85cba3`.
+   - The gate's HEAD differs from that anchor, so compile evidence and the
+     reconciliation binding chain stay MISMATCHED.
+   - Stage 8 shows the comparison only as an observed divergence
+     (`binding_verified: false`), never as a binding-verified one.
+   - Stage 8 cannot PASS, and a divergence cannot be classified
+     DIVERGENCE_EXPECTED, before the re-anchor.
+   - `frozen_inputs.json` and `certification_manifest.json` are unchanged.
+2. **One scoped `mql5/` PR after that run** will cover both:
+   - the SymbolSpec exporter fields the verifier requires and the exporter
+     does not emit (`broker`, `timestamp`, `terminal_build`; see
+     docs/OWNER_GATE.md "Gaps the gate cannot close");
+   - recording the EA's own new entries, so a fresh fill is registered at
+     entry and is no longer logged `adopted unknown position ... (restart
+     recovery)`. See docs/analysis/gate_run25_divergences.md (c).
+
+   Neither change is made now. `mql5/` stays untouched until that PR, which
+   needs its own scoped owner authorisation, as the gate_run24 exception did.
+
+**State unchanged by these decisions:**
+- Stage 8 FAILs in every owner run so far.
+- Stages 9–10 are refused for scoped runs.
+- Nothing is certified.
+- The verifier's trade-count rule (Python trades vs MT5 deals) is still an
+  open item.
+
+---
+
 ## 2026-10-03 (2) — The gate builds the stage-8 package itself; verifier learns NOT_APPLICABLE and NONE coverage
 
 **Measured (gate_run26, HEAD 918f7bf, `-Golds gold2`, as quoted by the
