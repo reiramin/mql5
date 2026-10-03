@@ -53,7 +53,13 @@ import numpy as np
 import pandas as pd
 from mql5bot.costs import CostConfig
 from mql5bot.dsl import desired_positions, parse_file
-from mql5bot.engine import MODE_NETTING, Instrument, PortfolioEngine, RunConfig
+from mql5bot.engine import (
+    FLIP_RULE_ENTER_NEXT_BAR,
+    MODE_NETTING,
+    Instrument,
+    PortfolioEngine,
+    RunConfig,
+)
 from mql5bot.gold2_reference import (
     CHANNEL,
     FAST,
@@ -609,51 +615,75 @@ def main() -> int:
         return {"i": i, "side": side, "dist": dist, "r": r,
                 "entry_kind": entry_kind}
 
+    def boundary_block(i: int) -> dict:
+        return {
+            "rsi_to_oversold": None if np.isnan(bd["rsi"][i])
+            else round(float(bd["rsi"][i] - RSI_OVERSOLD), 6),
+            "rsi_to_overbought": None if np.isnan(bd["rsi"][i])
+            else round(float(RSI_OVERBOUGHT - bd["rsi"][i]), 6),
+            "rsi_prev_to_oversold": None if np.isnan(bd["rsi_prev"][i])
+            else round(float(bd["rsi_prev"][i] - RSI_OVERSOLD), 6),
+            "rsi_prev_to_overbought": None
+            if np.isnan(bd["rsi_prev"][i])
+            else round(float(RSI_OVERBOUGHT - bd["rsi_prev"][i]), 6),
+            "minutes_to_session_start":
+                int(bd["minutes_to_session_start"][i]),
+            "minutes_to_session_end":
+                int(bd["minutes_to_session_end"][i]),
+            "price_margin_ticks_vs_channel":
+                None if (np.isnan(bd["hh_prev"][i])
+                         and np.isnan(bd["ll_prev"][i]))
+                else round(float(
+                    (bd["close"][i] - bd["hh_prev"][i])
+                    if not np.isnan(bd["hh_prev"][i])
+                    and bd["close"][i] > bd["hh_prev"][i]
+                    else (bd["ll_prev"][i] - bd["close"][i])
+                    if not np.isnan(bd["ll_prev"][i])
+                    and bd["close"][i] < bd["ll_prev"][i]
+                    else 0.0) / 1e-5, 4),
+        }
+
+    def fire_kinds_at(k: int) -> list[str]:
+        kinds = []
+        if esc_up[k]:
+            kinds.append("rsi_escape_up")
+        if esc_dn[k]:
+            kinds.append("rsi_escape_down")
+        if brk_up[k]:
+            kinds.append("breakout_up")
+        if brk_dn[k]:
+            kinds.append("breakout_down")
+        return sorted(kinds)
+
+    # engine.FLIP_RULE_ENTER_NEXT_BAR (manifest flip_rule): a transition
+    # whose action bar CLOSED an opposite book only closes; the new side
+    # enters one bar later. The engine records each application as a
+    # ``flip_deferred`` event at the close bar — read from the run, never
+    # inferred. Such a transition yields no entry at signal+1: it is listed
+    # under ``flip_deferrals`` and its entry row (if the engine entered at
+    # all) is the ``flip_deferred_entry`` row emitted below.
+    flip_bars = {int(e["bar"]) for e in res_ref.events
+                 if e.get("type") == "flip_deferred"}
+    flip_deferrals = []
+
     for i in range(1, len(df)):
         if s[i] == 0 or s[i] == s[i - 1]:
             continue
+        if (i + 1) in flip_bars:
+            flip_deferrals.append({
+                "signal_time": df.index[i].isoformat(),
+                "close_time": df.index[i + 1].isoformat(),
+                "side": "long" if s[i] == 1 else "short",
+                "rule": FLIP_RULE_ENTER_NEXT_BAR})
+            continue
         pre = build_row(i, "signal_transition")
         i, side, dist, r = pre["i"], pre["side"], pre["dist"], pre["r"]
-        kinds = []
-        if esc_up[i]:
-            kinds.append("rsi_escape_up")
-        if esc_dn[i]:
-            kinds.append("rsi_escape_down")
-        if brk_up[i]:
-            kinds.append("breakout_up")
-        if brk_dn[i]:
-            kinds.append("breakout_down")
         row = {
             "signal_time": df.index[i].isoformat(),
             "side": side,
             "entry_kind": "signal_transition",
-            "fire_kinds": sorted(kinds),
-            "distance_to_boundary": {
-                "rsi_to_oversold": None if np.isnan(bd["rsi"][i])
-                else round(float(bd["rsi"][i] - RSI_OVERSOLD), 6),
-                "rsi_to_overbought": None if np.isnan(bd["rsi"][i])
-                else round(float(RSI_OVERBOUGHT - bd["rsi"][i]), 6),
-                "rsi_prev_to_oversold": None if np.isnan(bd["rsi_prev"][i])
-                else round(float(bd["rsi_prev"][i] - RSI_OVERSOLD), 6),
-                "rsi_prev_to_overbought": None
-                if np.isnan(bd["rsi_prev"][i])
-                else round(float(RSI_OVERBOUGHT - bd["rsi_prev"][i]), 6),
-                "minutes_to_session_start":
-                    int(bd["minutes_to_session_start"][i]),
-                "minutes_to_session_end":
-                    int(bd["minutes_to_session_end"][i]),
-                "price_margin_ticks_vs_channel":
-                    None if (np.isnan(bd["hh_prev"][i])
-                             and np.isnan(bd["ll_prev"][i]))
-                    else round(float(
-                        (bd["close"][i] - bd["hh_prev"][i])
-                        if not np.isnan(bd["hh_prev"][i])
-                        and bd["close"][i] > bd["hh_prev"][i]
-                        else (bd["ll_prev"][i] - bd["close"][i])
-                        if not np.isnan(bd["ll_prev"][i])
-                        and bd["close"][i] < bd["ll_prev"][i]
-                        else 0.0) / 1e-5, 4),
-            },
+            "fire_kinds": fire_kinds_at(i),
+            "distance_to_boundary": boundary_block(i),
             "atr_signal_bar": None if np.isnan(atr_v[i])
             else round(float(atr_v[i]), 10),
             "stop_distance": None if dist is None else round(dist, 10),
@@ -700,13 +730,19 @@ def main() -> int:
         i = j - 1                                  # signal bar
         if i < 1 or s[i] == 0 or s[i] != s[i - 1]:
             continue                               # covered above
-        pre = build_row(i, "persistence_reentry")
+        deferred = i in flip_bars
+        # a flip's deferred entry: bar i is the flip's CLOSE bar (engine
+        # flip_deferred event), the desired side persisted, so the engine
+        # entered at i+1 sized on atr[i] / equity[i] -- the same canonical
+        # path as any other entry, labelled for what it is
+        pre = build_row(i, "flip_deferred_entry" if deferred
+                        else "persistence_reentry")
         row = {
             "signal_time": df.index[i].isoformat(),
             "side": pre["side"],
             "entry_kind": pre["entry_kind"],
-            "fire_kinds": [],
-            "distance_to_boundary": {},
+            "fire_kinds": fire_kinds_at(i - 1) if deferred else [],
+            "distance_to_boundary": boundary_block(i) if deferred else {},
             "atr_signal_bar": None if np.isnan(atr_v[i])
             else round(float(atr_v[i]), 10),
             "stop_distance": None if pre["dist"] is None
@@ -814,6 +850,7 @@ def main() -> int:
                     "risk_percent": RISK_PERCENT,
                     "equity_start": EQUITY_START,
                     "risk_vetoes": veto_count,
+                    "flip_deferrals": flip_deferrals,
                     "entries": exec_rows}, indent=2, sort_keys=True)
         + "\n")
 

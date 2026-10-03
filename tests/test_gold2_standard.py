@@ -159,10 +159,6 @@ def test_scenario_coverage_is_observed_not_typed(bld, fixture_df, runs,
 
 
 # --------------------------- sizing/Meta reconciliation (ATR index §4)
-@pytest.mark.xfail(
-    reason="frozen gold2 predates flip-next-bar fix; regeneration pending "
-           "owner decision",
-    strict=False)
 def test_every_entry_reconciles_sizing_and_meta(bld, runs, artifacts):
     """Expected-execution rows (built from the SIGNAL-bar ATR via the
     canonical sizer) must reproduce the engine's fills EXACTLY — this
@@ -197,6 +193,34 @@ def test_every_entry_reconciles_sizing_and_meta(bld, runs, artifacts):
             key_meta["final_lots"], abs=1e-12)
         matched += 1
     assert matched == len(tr)          # every trade accounted for
+
+
+def test_flip_deferrals_match_engine_events_and_never_enter_same_bar(
+        runs, artifacts):
+    """engine.FLIP_RULE_ENTER_NEXT_BAR (S8-FLIP-1): every flip the engine
+    deferred is listed in expected_execution.flip_deferrals (read from the
+    run's flip_deferred events, never inferred); no entry row expects a
+    fill at a flip's close bar; and every deferred entry the engine made
+    is a flip_deferred_entry row whose decision bar IS the close bar."""
+    ex = artifacts["expected_execution"]
+    index = runs["ref"].equity.index
+    events = [e for e in runs["ref"].events if e["type"] == "flip_deferred"]
+    closes = {index[int(e["bar"])].isoformat() for e in events}
+    defs = ex["flip_deferrals"]
+    assert defs, "the fixture exercises flips: deferrals must exist"
+    assert {d["close_time"] for d in defs} == closes
+    for d in defs:
+        assert d["rule"] == "close opposite (signal_exit); enter next bar"
+        assert pd.Timestamp(d["close_time"]) == \
+            pd.Timestamp(d["signal_time"]) + pd.Timedelta(minutes=1)
+    rows = ex["entries"]
+    fills = {(pd.Timestamp(r["signal_time"]) + pd.Timedelta(minutes=1))
+             for r in rows}
+    # nothing is expected to ENTER on a flip's close bar
+    assert not fills & {pd.Timestamp(c) for c in closes}
+    deferred = [r for r in rows if r["entry_kind"] == "flip_deferred_entry"]
+    assert deferred
+    assert {r["signal_time"] for r in deferred} <= closes
 
 
 def test_atr_index_minimal_proof(bld):
@@ -435,19 +459,24 @@ def test_boundary_distances_recorded_with_required_bands(artifacts):
     assert rows, "distance_to_boundary must cover every entry"
     for r in rows:
         assert r.get("entry_kind") in ("signal_transition",
-                                       "persistence_reentry")
-        if r["entry_kind"] == "signal_transition":
-            # transition entries carry the full boundary block
+                                       "persistence_reentry",
+                                       "flip_deferred_entry")
+        if r["entry_kind"] in ("signal_transition", "flip_deferred_entry"):
+            # transition entries and flip-deferred entries (engine
+            # FLIP_RULE_ENTER_NEXT_BAR) carry the full boundary block
             assert r["minutes_to_session_end"] is not None
             assert r["minutes_to_session_start"] is not None
     assert any("rsi_escape" in k for r in rows for k in r["fire_kinds"])
-    # session boundary: an entry inside the final valid minutes.  The
-    # session is [08:00, 16:00): bars at/after 16:00 are flattened, so
-    # the boundary book is the one entered within the last three valid
-    # minutes and closed by the flatten (observed: entry 15:58, exit
-    # signal_exit 16:01).
+    # session boundary: an entry DECIDED inside the final valid minutes.
+    # The session is [08:00, 16:00): bars at/after 16:00 are flattened.
+    # Since the flip-next-bar regeneration (S8-FLIP-1) the boundary book
+    # is a flip_deferred_entry decided at 15:59 (1 minute to session end)
+    # that FILLS at 16:00 and is closed by the flatten at 16:01. OPEN
+    # FINDING (S8-FLIP-2): that 16:00 fill sits outside the session; the
+    # EA's OnNewBar session gate would refuse it — owner decision pending.
     assert any(r["minutes_to_session_end"] <= 3 for r in rows
-               if r["entry_kind"] == "signal_transition")
+               if r["entry_kind"] in ("signal_transition",
+                                      "flip_deferred_entry"))
     # RSI margin bands across EVERY escape edge (state-changing and
     # no-op), with the nearest-zone distance computed per edge
     edges = artifacts["provenance"]["rsi_escape_edges"]

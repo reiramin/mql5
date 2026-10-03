@@ -34,7 +34,7 @@
     "sl_atr": 2.0,
     "tp_atr": 3.0
   },
-  "git_commit": "6b172dac92a6",
+  "git_commit": "8b9ed02446cd",
   "gold_standard": "AEGIS-GOLD-2",
   "indicator_versions": {
     "ATR": "contract-v1 (indicators.atr, Wilder, period 14)",
@@ -50,7 +50,7 @@
     "time": "ISO-8601 naive stamps"
   },
   "provenance_label": "GOLD_2_RECONSTRUCTED_NEW_PROVENANCE",
-  "python_version": "3.11.2",
+  "python_version": "3.13.1",
   "risk_config": {
     "equity_start": 10000.0,
     "mode": "risk_percent_equity",

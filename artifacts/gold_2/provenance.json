@@ -1,11 +1,11 @@
 {
   "artifact_hashes": {
-    "dsl_trace.json": "badea3fc62cd81faf6cb0f57a8198d764d12167e16c8debd8989ff8f59de05bb",
-    "expected_execution.json": "a472c28cc2fee51cbd520b2feed6eaef80fe84b0123635d29ee283f128f47741",
+    "dsl_trace.json": "e2a046a0e456208fb20f618352edf38d173cd69f0decab48e1b6f5a9676bb619",
+    "expected_execution.json": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753",
     "gold2_fixture.csv": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
-    "manifest.json": "251deec862f4a9e3864f387fd4f2fc96a5cbcb30edd63eba8ebc1d0bf9cad1ab",
-    "python_trace.json": "815f3b3e9025f9f721c5b288e90e9dff16ba943596f1ec834989f4e676b8c2be",
-    "reconciliation.json": "caa8a973934c61cd0e416af3755865af787c4339a94ab2779d2facbfe52eb9ff"
+    "manifest.json": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f",
+    "python_trace.json": "d0d571498dd848fc756a20237f281ea9a4dafe3ad262661f4fc6855e4138e655",
+    "reconciliation.json": "9d68bbc1b830039c7097868efb02367a6226af0628041d140276af796dd848c3"
   },
   "builder": "tools/build_gold2_standard.py",
   "config_hash": "69e54b83eafa1f232a1289104bbfdf0a3ffddb8e5a74b206ca32b3b7bd1d98e7",
@@ -55,64 +55,64 @@
       "signal_time": "2024-01-01T08:41:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 411,
-      "minutes_to_session_start": 69,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.795678,
-      "rsi_prev_to_oversold": 18.204322,
-      "rsi_to_overbought": 23.901452,
-      "rsi_to_oversold": 16.098548,
+      "minutes_to_session_end": 410,
+      "minutes_to_session_start": 70,
+      "price_margin_ticks_vs_channel": 21.0,
+      "rsi_prev_to_overbought": 23.901452,
+      "rsi_prev_to_oversold": 16.098548,
+      "rsi_to_overbought": 26.071389,
+      "rsi_to_oversold": 13.928611,
       "side": "short",
-      "signal_time": "2024-01-01T09:09:00"
+      "signal_time": "2024-01-01T09:10:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 382,
-      "minutes_to_session_start": 98,
+      "minutes_to_session_end": 381,
+      "minutes_to_session_start": 99,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.188559,
-      "rsi_prev_to_oversold": 22.811441,
-      "rsi_to_overbought": 15.087573,
-      "rsi_to_oversold": 24.912427,
+      "rsi_prev_to_overbought": 15.087573,
+      "rsi_prev_to_oversold": 24.912427,
+      "rsi_to_overbought": 13.024626,
+      "rsi_to_oversold": 26.975374,
       "side": "long",
-      "signal_time": "2024-01-01T09:38:00"
+      "signal_time": "2024-01-01T09:39:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 351,
-      "minutes_to_session_start": 129,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.645899,
-      "rsi_prev_to_oversold": 18.354101,
-      "rsi_to_overbought": 23.868477,
-      "rsi_to_oversold": 16.131523,
+      "minutes_to_session_end": 350,
+      "minutes_to_session_start": 130,
+      "price_margin_ticks_vs_channel": 21.0,
+      "rsi_prev_to_overbought": 23.868477,
+      "rsi_prev_to_oversold": 16.131523,
+      "rsi_to_overbought": 26.147717,
+      "rsi_to_oversold": 13.852283,
       "side": "short",
-      "signal_time": "2024-01-01T10:09:00"
+      "signal_time": "2024-01-01T10:10:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 322,
-      "minutes_to_session_start": 158,
+      "minutes_to_session_end": 321,
+      "minutes_to_session_start": 159,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.142965,
-      "rsi_prev_to_oversold": 22.857035,
-      "rsi_to_overbought": 15.031563,
-      "rsi_to_oversold": 24.968437,
+      "rsi_prev_to_overbought": 15.031563,
+      "rsi_prev_to_oversold": 24.968437,
+      "rsi_to_overbought": 12.959523,
+      "rsi_to_oversold": 27.040477,
       "side": "long",
-      "signal_time": "2024-01-01T10:38:00"
+      "signal_time": "2024-01-01T10:39:00"
     },
     {
       "entry_kind": "persistence_reentry",
@@ -142,139 +142,139 @@
       "signal_time": "2024-01-01T11:15:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 260,
-      "minutes_to_session_start": 220,
-      "price_margin_ticks_vs_channel": 30.0,
-      "rsi_prev_to_overbought": 17.749399,
-      "rsi_prev_to_oversold": 22.250601,
-      "rsi_to_overbought": 15.726686,
-      "rsi_to_oversold": 24.273314,
+      "minutes_to_session_end": 259,
+      "minutes_to_session_start": 221,
+      "price_margin_ticks_vs_channel": 0.0,
+      "rsi_prev_to_overbought": 15.726686,
+      "rsi_prev_to_oversold": 24.273314,
+      "rsi_to_overbought": 17.172661,
+      "rsi_to_oversold": 22.827339,
       "side": "long",
-      "signal_time": "2024-01-01T11:40:00"
+      "signal_time": "2024-01-01T11:41:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 230,
-      "minutes_to_session_start": 250,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.542756,
-      "rsi_prev_to_oversold": 18.457244,
-      "rsi_to_overbought": 23.629345,
-      "rsi_to_oversold": 16.370655,
+      "minutes_to_session_end": 229,
+      "minutes_to_session_start": 251,
+      "price_margin_ticks_vs_channel": 21.0,
+      "rsi_prev_to_overbought": 23.629345,
+      "rsi_prev_to_oversold": 16.370655,
+      "rsi_to_overbought": 25.782363,
+      "rsi_to_oversold": 14.217637,
       "side": "short",
-      "signal_time": "2024-01-01T12:10:00"
+      "signal_time": "2024-01-01T12:11:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 201,
-      "minutes_to_session_start": 279,
+      "minutes_to_session_end": 200,
+      "minutes_to_session_start": 280,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.166365,
-      "rsi_prev_to_oversold": 22.833635,
-      "rsi_to_overbought": 15.069977,
-      "rsi_to_oversold": 24.930023,
+      "rsi_prev_to_overbought": 15.069977,
+      "rsi_prev_to_oversold": 24.930023,
+      "rsi_to_overbought": 13.011217,
+      "rsi_to_oversold": 26.988783,
       "side": "long",
-      "signal_time": "2024-01-01T12:39:00"
+      "signal_time": "2024-01-01T12:40:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 170,
-      "minutes_to_session_start": 310,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.642754,
-      "rsi_prev_to_oversold": 18.357246,
-      "rsi_to_overbought": 23.86508,
-      "rsi_to_oversold": 16.13492,
+      "minutes_to_session_end": 169,
+      "minutes_to_session_start": 311,
+      "price_margin_ticks_vs_channel": 21.0,
+      "rsi_prev_to_overbought": 23.86508,
+      "rsi_prev_to_oversold": 16.13492,
+      "rsi_to_overbought": 26.1441,
+      "rsi_to_oversold": 13.8559,
       "side": "short",
-      "signal_time": "2024-01-01T13:10:00"
+      "signal_time": "2024-01-01T13:11:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 141,
-      "minutes_to_session_start": 339,
+      "minutes_to_session_end": 140,
+      "minutes_to_session_start": 340,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.142704,
-      "rsi_prev_to_oversold": 22.857296,
-      "rsi_to_overbought": 15.031356,
-      "rsi_to_oversold": 24.968644,
+      "rsi_prev_to_overbought": 15.031356,
+      "rsi_prev_to_oversold": 24.968644,
+      "rsi_to_overbought": 12.959366,
+      "rsi_to_oversold": 27.040634,
       "side": "long",
-      "signal_time": "2024-01-01T13:39:00"
+      "signal_time": "2024-01-01T13:40:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 110,
-      "minutes_to_session_start": 370,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.644009,
-      "rsi_prev_to_oversold": 18.355991,
-      "rsi_to_overbought": 23.86803,
-      "rsi_to_oversold": 16.13197,
+      "minutes_to_session_end": 109,
+      "minutes_to_session_start": 371,
+      "price_margin_ticks_vs_channel": 21.0,
+      "rsi_prev_to_overbought": 23.86803,
+      "rsi_prev_to_oversold": 16.13197,
+      "rsi_to_overbought": 26.148614,
+      "rsi_to_oversold": 13.851386,
       "side": "short",
-      "signal_time": "2024-01-01T14:10:00"
+      "signal_time": "2024-01-01T14:11:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 81,
-      "minutes_to_session_start": 399,
+      "minutes_to_session_end": 80,
+      "minutes_to_session_start": 400,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.142424,
-      "rsi_prev_to_oversold": 22.857576,
-      "rsi_to_overbought": 15.0309,
-      "rsi_to_oversold": 24.9691,
+      "rsi_prev_to_overbought": 15.0309,
+      "rsi_prev_to_oversold": 24.9691,
+      "rsi_to_overbought": 12.958754,
+      "rsi_to_oversold": 27.041246,
       "side": "long",
-      "signal_time": "2024-01-01T14:39:00"
+      "signal_time": "2024-01-01T14:40:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 45,
-      "minutes_to_session_start": 435,
-      "price_margin_ticks_vs_channel": 5.0,
-      "rsi_prev_to_overbought": 20.584449,
-      "rsi_prev_to_oversold": 19.415551,
-      "rsi_to_overbought": 22.400855,
-      "rsi_to_oversold": 17.599145,
+      "minutes_to_session_end": 44,
+      "minutes_to_session_start": 436,
+      "price_margin_ticks_vs_channel": 31.0,
+      "rsi_prev_to_overbought": 22.400855,
+      "rsi_prev_to_oversold": 17.599145,
+      "rsi_to_overbought": 26.000443,
+      "rsi_to_oversold": 13.999557,
       "side": "short",
-      "signal_time": "2024-01-01T15:15:00"
+      "signal_time": "2024-01-01T15:16:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 2,
-      "minutes_to_session_start": 478,
-      "price_margin_ticks_vs_channel": 11.0,
-      "rsi_prev_to_overbought": 17.955796,
-      "rsi_prev_to_oversold": 22.044204,
+      "minutes_to_session_end": 1,
+      "minutes_to_session_start": 479,
+      "price_margin_ticks_vs_channel": 0.0,
+      "rsi_prev_to_overbought": 15.309271,
+      "rsi_prev_to_oversold": 24.690729,
       "rsi_to_overbought": 15.309271,
       "rsi_to_oversold": 24.690729,
       "side": "long",
-      "signal_time": "2024-01-01T15:58:00"
+      "signal_time": "2024-01-01T15:59:00"
     },
     {
       "entry_kind": "signal_transition",
@@ -293,7 +293,7 @@
       "entry_kind": "persistence_reentry",
       "fire_kinds": [],
       "side": "short",
-      "signal_time": "2024-01-02T08:06:00"
+      "signal_time": "2024-01-02T08:07:00"
     },
     {
       "entry_kind": "signal_transition",
@@ -311,214 +311,214 @@
       "signal_time": "2024-01-02T08:45:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 409,
-      "minutes_to_session_start": 71,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.433019,
-      "rsi_prev_to_oversold": 18.566981,
-      "rsi_to_overbought": 22.750797,
-      "rsi_to_oversold": 17.249203,
+      "minutes_to_session_end": 408,
+      "minutes_to_session_start": 72,
+      "price_margin_ticks_vs_channel": 22.0,
+      "rsi_prev_to_overbought": 22.750797,
+      "rsi_prev_to_oversold": 17.249203,
+      "rsi_to_overbought": 24.222207,
+      "rsi_to_oversold": 15.777793,
       "side": "short",
-      "signal_time": "2024-01-02T09:11:00"
+      "signal_time": "2024-01-02T09:12:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 380,
-      "minutes_to_session_start": 100,
+      "minutes_to_session_end": 379,
+      "minutes_to_session_start": 101,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.45128,
-      "rsi_prev_to_oversold": 22.54872,
-      "rsi_to_overbought": 15.4909,
-      "rsi_to_oversold": 24.5091,
+      "rsi_prev_to_overbought": 15.4909,
+      "rsi_prev_to_oversold": 24.5091,
+      "rsi_to_overbought": 13.553155,
+      "rsi_to_oversold": 26.446845,
       "side": "long",
-      "signal_time": "2024-01-02T09:40:00"
+      "signal_time": "2024-01-02T09:41:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 349,
-      "minutes_to_session_start": 131,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.619808,
-      "rsi_prev_to_oversold": 18.380192,
-      "rsi_to_overbought": 23.814927,
-      "rsi_to_oversold": 16.185073,
+      "minutes_to_session_end": 348,
+      "minutes_to_session_start": 132,
+      "price_margin_ticks_vs_channel": 22.0,
+      "rsi_prev_to_overbought": 23.814927,
+      "rsi_prev_to_oversold": 16.185073,
+      "rsi_to_overbought": 26.170694,
+      "rsi_to_oversold": 13.829306,
       "side": "short",
-      "signal_time": "2024-01-02T10:11:00"
+      "signal_time": "2024-01-02T10:12:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 320,
-      "minutes_to_session_start": 160,
+      "minutes_to_session_end": 319,
+      "minutes_to_session_start": 161,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.152403,
-      "rsi_prev_to_oversold": 22.847597,
-      "rsi_to_overbought": 15.05468,
-      "rsi_to_oversold": 24.94532,
+      "rsi_prev_to_overbought": 15.05468,
+      "rsi_prev_to_oversold": 24.94532,
+      "rsi_to_overbought": 12.994786,
+      "rsi_to_oversold": 27.005214,
       "side": "long",
-      "signal_time": "2024-01-02T10:40:00"
+      "signal_time": "2024-01-02T10:41:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 289,
-      "minutes_to_session_start": 191,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.623569,
-      "rsi_prev_to_oversold": 18.376431,
-      "rsi_to_overbought": 23.835947,
-      "rsi_to_oversold": 16.164053,
+      "minutes_to_session_end": 288,
+      "minutes_to_session_start": 192,
+      "price_margin_ticks_vs_channel": 22.0,
+      "rsi_prev_to_overbought": 23.835947,
+      "rsi_prev_to_oversold": 16.164053,
+      "rsi_to_overbought": 26.208379,
+      "rsi_to_oversold": 13.791621,
       "side": "short",
-      "signal_time": "2024-01-02T11:11:00"
+      "signal_time": "2024-01-02T11:12:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 260,
-      "minutes_to_session_start": 220,
+      "minutes_to_session_end": 259,
+      "minutes_to_session_start": 221,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.148615,
-      "rsi_prev_to_oversold": 22.851385,
-      "rsi_to_overbought": 15.049169,
-      "rsi_to_oversold": 24.950831,
+      "rsi_prev_to_overbought": 15.049169,
+      "rsi_prev_to_oversold": 24.950831,
+      "rsi_to_overbought": 12.987756,
+      "rsi_to_oversold": 27.012244,
       "side": "long",
-      "signal_time": "2024-01-02T11:40:00"
+      "signal_time": "2024-01-02T11:41:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 229,
-      "minutes_to_session_start": 251,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.623614,
-      "rsi_prev_to_oversold": 18.376386,
-      "rsi_to_overbought": 23.836195,
-      "rsi_to_oversold": 16.163805,
+      "minutes_to_session_end": 228,
+      "minutes_to_session_start": 252,
+      "price_margin_ticks_vs_channel": 22.0,
+      "rsi_prev_to_overbought": 23.836195,
+      "rsi_prev_to_oversold": 16.163805,
+      "rsi_to_overbought": 26.208824,
+      "rsi_to_oversold": 13.791176,
       "side": "short",
-      "signal_time": "2024-01-02T12:11:00"
+      "signal_time": "2024-01-02T12:12:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 200,
-      "minutes_to_session_start": 280,
+      "minutes_to_session_end": 199,
+      "minutes_to_session_start": 281,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.14857,
-      "rsi_prev_to_oversold": 22.85143,
-      "rsi_to_overbought": 15.049105,
-      "rsi_to_oversold": 24.950895,
+      "rsi_prev_to_overbought": 15.049105,
+      "rsi_prev_to_oversold": 24.950895,
+      "rsi_to_overbought": 12.987674,
+      "rsi_to_oversold": 27.012326,
       "side": "long",
-      "signal_time": "2024-01-02T12:40:00"
+      "signal_time": "2024-01-02T12:41:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 169,
-      "minutes_to_session_start": 311,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.623614,
-      "rsi_prev_to_oversold": 18.376386,
-      "rsi_to_overbought": 23.836198,
-      "rsi_to_oversold": 16.163802,
+      "minutes_to_session_end": 168,
+      "minutes_to_session_start": 312,
+      "price_margin_ticks_vs_channel": 22.0,
+      "rsi_prev_to_overbought": 23.836198,
+      "rsi_prev_to_oversold": 16.163802,
+      "rsi_to_overbought": 26.208829,
+      "rsi_to_oversold": 13.791171,
       "side": "short",
-      "signal_time": "2024-01-02T13:11:00"
+      "signal_time": "2024-01-02T13:12:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 140,
-      "minutes_to_session_start": 340,
+      "minutes_to_session_end": 139,
+      "minutes_to_session_start": 341,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.14857,
-      "rsi_prev_to_oversold": 22.85143,
-      "rsi_to_overbought": 15.049104,
-      "rsi_to_oversold": 24.950896,
+      "rsi_prev_to_overbought": 15.049104,
+      "rsi_prev_to_oversold": 24.950896,
+      "rsi_to_overbought": 12.987673,
+      "rsi_to_oversold": 27.012327,
       "side": "long",
-      "signal_time": "2024-01-02T13:40:00"
+      "signal_time": "2024-01-02T13:41:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 109,
-      "minutes_to_session_start": 371,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.623614,
-      "rsi_prev_to_oversold": 18.376386,
-      "rsi_to_overbought": 23.836198,
-      "rsi_to_oversold": 16.163802,
+      "minutes_to_session_end": 108,
+      "minutes_to_session_start": 372,
+      "price_margin_ticks_vs_channel": 22.0,
+      "rsi_prev_to_overbought": 23.836198,
+      "rsi_prev_to_oversold": 16.163802,
+      "rsi_to_overbought": 26.208829,
+      "rsi_to_oversold": 13.791171,
       "side": "short",
-      "signal_time": "2024-01-02T14:11:00"
+      "signal_time": "2024-01-02T14:12:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 80,
-      "minutes_to_session_start": 400,
+      "minutes_to_session_end": 79,
+      "minutes_to_session_start": 401,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.14857,
-      "rsi_prev_to_oversold": 22.85143,
-      "rsi_to_overbought": 15.049104,
-      "rsi_to_oversold": 24.950896,
+      "rsi_prev_to_overbought": 15.049104,
+      "rsi_prev_to_oversold": 24.950896,
+      "rsi_to_overbought": 12.987673,
+      "rsi_to_oversold": 27.012327,
       "side": "long",
-      "signal_time": "2024-01-02T14:40:00"
+      "signal_time": "2024-01-02T14:41:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 49,
-      "minutes_to_session_start": 431,
-      "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 21.623614,
-      "rsi_prev_to_oversold": 18.376386,
-      "rsi_to_overbought": 23.836198,
-      "rsi_to_oversold": 16.163802,
+      "minutes_to_session_end": 48,
+      "minutes_to_session_start": 432,
+      "price_margin_ticks_vs_channel": 22.0,
+      "rsi_prev_to_overbought": 23.836198,
+      "rsi_prev_to_oversold": 16.163802,
+      "rsi_to_overbought": 26.208829,
+      "rsi_to_oversold": 13.791171,
       "side": "short",
-      "signal_time": "2024-01-02T15:11:00"
+      "signal_time": "2024-01-02T15:12:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 20,
-      "minutes_to_session_start": 460,
+      "minutes_to_session_end": 19,
+      "minutes_to_session_start": 461,
       "price_margin_ticks_vs_channel": 20.0,
-      "rsi_prev_to_overbought": 17.14857,
-      "rsi_prev_to_oversold": 22.85143,
-      "rsi_to_overbought": 15.049104,
-      "rsi_to_oversold": 24.950896,
+      "rsi_prev_to_overbought": 15.049104,
+      "rsi_prev_to_oversold": 24.950896,
+      "rsi_to_overbought": 12.987673,
+      "rsi_to_oversold": 27.012327,
       "side": "long",
-      "signal_time": "2024-01-02T15:40:00"
+      "signal_time": "2024-01-02T15:41:00"
     },
     {
       "entry_kind": "signal_transition",
@@ -556,49 +556,49 @@
       "signal_time": "2024-01-03T08:31:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 414,
-      "minutes_to_session_start": 66,
-      "price_margin_ticks_vs_channel": 2.0,
-      "rsi_prev_to_overbought": 21.701219,
-      "rsi_prev_to_oversold": 18.298781,
-      "rsi_to_overbought": 19.397662,
-      "rsi_to_oversold": 20.602338,
+      "minutes_to_session_end": 413,
+      "minutes_to_session_start": 67,
+      "price_margin_ticks_vs_channel": 0.0,
+      "rsi_prev_to_overbought": 19.397662,
+      "rsi_prev_to_oversold": 20.602338,
+      "rsi_to_overbought": 21.309186,
+      "rsi_to_oversold": 18.690814,
       "side": "long",
-      "signal_time": "2024-01-03T09:06:00"
+      "signal_time": "2024-01-03T09:07:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_down"
       ],
-      "minutes_to_session_end": 400,
-      "minutes_to_session_start": 80,
-      "price_margin_ticks_vs_channel": 1.0,
-      "rsi_prev_to_overbought": 21.431105,
-      "rsi_prev_to_oversold": 18.568895,
-      "rsi_to_overbought": 24.161192,
-      "rsi_to_oversold": 15.838808,
+      "minutes_to_session_end": 399,
+      "minutes_to_session_start": 81,
+      "price_margin_ticks_vs_channel": 10.0,
+      "rsi_prev_to_overbought": 24.161192,
+      "rsi_prev_to_oversold": 15.838808,
+      "rsi_to_overbought": 26.777635,
+      "rsi_to_oversold": 13.222365,
       "side": "short",
-      "signal_time": "2024-01-03T09:20:00"
+      "signal_time": "2024-01-03T09:21:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 377,
-      "minutes_to_session_start": 103,
+      "minutes_to_session_end": 376,
+      "minutes_to_session_start": 104,
       "price_margin_ticks_vs_channel": 10.0,
-      "rsi_prev_to_overbought": 18.143539,
-      "rsi_prev_to_oversold": 21.856461,
-      "rsi_to_overbought": 14.863597,
-      "rsi_to_oversold": 25.136403,
+      "rsi_prev_to_overbought": 14.863597,
+      "rsi_prev_to_oversold": 25.136403,
+      "rsi_to_overbought": 11.796991,
+      "rsi_to_oversold": 28.203009,
       "side": "long",
-      "signal_time": "2024-01-03T09:43:00"
+      "signal_time": "2024-01-03T09:44:00"
     },
     {
       "entry_kind": "signal_transition",
@@ -616,19 +616,19 @@
       "signal_time": "2024-01-03T10:07:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 331,
-      "minutes_to_session_start": 149,
+      "minutes_to_session_end": 330,
+      "minutes_to_session_start": 150,
       "price_margin_ticks_vs_channel": 10.0,
-      "rsi_prev_to_overbought": 17.581392,
-      "rsi_prev_to_oversold": 22.418608,
-      "rsi_to_overbought": 14.185948,
-      "rsi_to_oversold": 25.814052,
+      "rsi_prev_to_overbought": 14.185948,
+      "rsi_prev_to_oversold": 25.814052,
+      "rsi_to_overbought": 11.032592,
+      "rsi_to_oversold": 28.967408,
       "side": "long",
-      "signal_time": "2024-01-03T10:29:00"
+      "signal_time": "2024-01-03T10:30:00"
     },
     {
       "entry_kind": "signal_transition",
@@ -646,19 +646,19 @@
       "signal_time": "2024-01-03T10:53:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 285,
-      "minutes_to_session_start": 195,
+      "minutes_to_session_end": 284,
+      "minutes_to_session_start": 196,
       "price_margin_ticks_vs_channel": 10.0,
-      "rsi_prev_to_overbought": 17.561816,
-      "rsi_prev_to_oversold": 22.438184,
-      "rsi_to_overbought": 14.162435,
-      "rsi_to_oversold": 25.837565,
+      "rsi_prev_to_overbought": 14.162435,
+      "rsi_prev_to_oversold": 25.837565,
+      "rsi_to_overbought": 11.006157,
+      "rsi_to_oversold": 28.993843,
       "side": "long",
-      "signal_time": "2024-01-03T11:15:00"
+      "signal_time": "2024-01-03T11:16:00"
     },
     {
       "entry_kind": "signal_transition",
@@ -676,19 +676,19 @@
       "signal_time": "2024-01-03T11:39:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 239,
-      "minutes_to_session_start": 241,
+      "minutes_to_session_end": 238,
+      "minutes_to_session_start": 242,
       "price_margin_ticks_vs_channel": 10.0,
-      "rsi_prev_to_overbought": 17.561167,
-      "rsi_prev_to_oversold": 22.438833,
-      "rsi_to_overbought": 14.161656,
-      "rsi_to_oversold": 25.838344,
+      "rsi_prev_to_overbought": 14.161656,
+      "rsi_prev_to_oversold": 25.838344,
+      "rsi_to_overbought": 11.005281,
+      "rsi_to_oversold": 28.994719,
       "side": "long",
-      "signal_time": "2024-01-03T12:01:00"
+      "signal_time": "2024-01-03T12:02:00"
     },
     {
       "entry_kind": "signal_transition",
@@ -706,19 +706,19 @@
       "signal_time": "2024-01-03T12:25:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 193,
-      "minutes_to_session_start": 287,
+      "minutes_to_session_end": 192,
+      "minutes_to_session_start": 288,
       "price_margin_ticks_vs_channel": 10.0,
-      "rsi_prev_to_overbought": 17.561146,
-      "rsi_prev_to_oversold": 22.438854,
-      "rsi_to_overbought": 14.16163,
-      "rsi_to_oversold": 25.83837,
+      "rsi_prev_to_overbought": 14.16163,
+      "rsi_prev_to_oversold": 25.83837,
+      "rsi_to_overbought": 11.005252,
+      "rsi_to_oversold": 28.994748,
       "side": "long",
-      "signal_time": "2024-01-03T12:47:00"
+      "signal_time": "2024-01-03T12:48:00"
     },
     {
       "entry_kind": "signal_transition",
@@ -736,19 +736,19 @@
       "signal_time": "2024-01-03T13:11:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 147,
-      "minutes_to_session_start": 333,
+      "minutes_to_session_end": 146,
+      "minutes_to_session_start": 334,
       "price_margin_ticks_vs_channel": 10.0,
-      "rsi_prev_to_overbought": 17.561145,
-      "rsi_prev_to_oversold": 22.438855,
-      "rsi_to_overbought": 14.161629,
-      "rsi_to_oversold": 25.838371,
+      "rsi_prev_to_overbought": 14.161629,
+      "rsi_prev_to_oversold": 25.838371,
+      "rsi_to_overbought": 11.005251,
+      "rsi_to_oversold": 28.994749,
       "side": "long",
-      "signal_time": "2024-01-03T13:33:00"
+      "signal_time": "2024-01-03T13:34:00"
     },
     {
       "entry_kind": "signal_transition",
@@ -766,19 +766,19 @@
       "signal_time": "2024-01-03T13:57:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 101,
-      "minutes_to_session_start": 379,
+      "minutes_to_session_end": 100,
+      "minutes_to_session_start": 380,
       "price_margin_ticks_vs_channel": 10.0,
-      "rsi_prev_to_overbought": 17.561145,
-      "rsi_prev_to_oversold": 22.438855,
-      "rsi_to_overbought": 14.161629,
-      "rsi_to_oversold": 25.838371,
+      "rsi_prev_to_overbought": 14.161629,
+      "rsi_prev_to_oversold": 25.838371,
+      "rsi_to_overbought": 11.005251,
+      "rsi_to_oversold": 28.994749,
       "side": "long",
-      "signal_time": "2024-01-03T14:19:00"
+      "signal_time": "2024-01-03T14:20:00"
     },
     {
       "entry_kind": "signal_transition",
@@ -796,19 +796,19 @@
       "signal_time": "2024-01-03T14:43:00"
     },
     {
-      "entry_kind": "signal_transition",
+      "entry_kind": "flip_deferred_entry",
       "fire_kinds": [
         "breakout_up"
       ],
-      "minutes_to_session_end": 55,
-      "minutes_to_session_start": 425,
+      "minutes_to_session_end": 54,
+      "minutes_to_session_start": 426,
       "price_margin_ticks_vs_channel": 10.0,
-      "rsi_prev_to_overbought": 17.561145,
-      "rsi_prev_to_oversold": 22.438855,
-      "rsi_to_overbought": 14.161629,
-      "rsi_to_oversold": 25.838371,
+      "rsi_prev_to_overbought": 14.161629,
+      "rsi_prev_to_oversold": 25.838371,
+      "rsi_to_overbought": 11.005251,
+      "rsi_to_oversold": 28.994749,
       "side": "long",
-      "signal_time": "2024-01-03T15:05:00"
+      "signal_time": "2024-01-03T15:06:00"
     },
     {
       "entry_kind": "signal_transition",
@@ -903,8 +903,8 @@
     }
   ],
   "fixture_hash_sha256": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
-  "git_commit": "6b172dac92a6",
-  "manifest_hash": "251deec862f4a9e3864f387fd4f2fc96a5cbcb30edd63eba8ebc1d0bf9cad1ab",
+  "git_commit": "8b9ed02446cd",
+  "manifest_hash": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f",
   "normalization_rules": {
     "csv_float_format": "%.10f",
     "json": "indent=2, sort_keys=True, trailing newline",
@@ -932,7 +932,7 @@
     "tp_atr": 3.0
   },
   "provenance_label": "GOLD_2_RECONSTRUCTED_NEW_PROVENANCE",
-  "python_version": "3.11.2",
+  "python_version": "3.13.1",
   "rsi_escape_edges": [
     {
       "distance_to_boundary": {

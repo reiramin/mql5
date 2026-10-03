@@ -3108,3 +3108,50 @@ frozen one (measured on this change: 56 -> 56 trades, 18 unchanged entry
 minutes, 38 entries moved +1 bar, 0 vanished, 0 appeared, 45 matched
 trades with changed lots, 8 with changed exit_reason). The regeneration
 itself remains the owner's decision.
+
+---
+
+## S8-FLIP-REGEN — OWNER AUTHORIZATION: scoped regeneration of artifacts/gold_2 with the flip-next-bar engine (2026-10-04)
+
+**Authorization (Sal, in chat, 2026-10-04, after PR #17 merged as
+`8b9ed02` and PR #14 as `8c8f08d`).** A SCOPED exception to the frozen
+artifacts rule: regenerate `artifacts/gold_2` ONLY — `python_trace.json`,
+`expected_execution.json`, `dsl_trace.json`, `reconciliation.json`,
+`provenance.json`, `manifest.json` — with the flip-next-bar engine.
+Nothing else under `artifacts/` changes in that PR: `gold_1`,
+`owner_mt5_gate` (incl. `frozen_inputs.json`), and
+`certification_manifest.json` stay byte-untouched, and
+`gold2_fixture.csv` stays byte-identical (dataset_hash unchanged).
+
+**Reason.** gate_run28 finding 1 / S8-FLIP-1: the frozen gold_2 was built
+by an engine that entered a flip's new side in the same bar it closed the
+old one, contradicting the manifest `flip_rule` ("close opposite
+(signal_exit); enter next bar") that the EA implements. The owner ruled the
+python side defective; PR #17 fixed the engine; this regeneration makes the
+gold describe the contract.
+
+**How (never hand-edited).** The real builder
+(`tools/build_gold2_standard.py --git-commit 8b9ed02446cd`, the builder's
+own 12-char commit format) ran on the byte-identical fixture. The builder's
+expected-execution derivation was corrected in the same PR to model the
+rule from the engine's own `flip_deferred` events: a flip transition yields
+no entry at signal+1 (listed under `flip_deferrals`), and its entry is a
+`flip_deferred_entry` row decided at the close bar. spec_hash, config_hash
+and dataset_hash came out unchanged (none depends on engine code);
+git_commit, python_version (3.13.1 — the frozen 3.11.2 interpreter is not
+installed here), manifest_hash and the artifact hashes changed. The
+re-anchor of `frozen_inputs.json` is a separate PR; until it lands, stage 0
+FAILS on Windows (gold_2 bytes no longer equal the frozen hash chain).
+
+## S8-FLIP-2 — OPEN FINDING (owner decision pending): a deferred flip entry can fill outside the session (2026-10-04)
+
+**Measured** (regenerated `artifacts/gold_2/python_trace.json`): the
+2024-01-01 15:17 short closes on a flip at 15:59; the deferred long fills at
+**16:00** (decision bar 15:59, inside `[08:00, 16:00)`) and the session
+flatten closes it at 16:01. The frozen gold had no out-of-session fill. The
+EA's `OnNewBar` returns when `!g_session.IsTradingTime(TimeCurrent())`
+(`mql5/Experts/Mql5Bot/Mql5Bot.mq5:961`), so at the 16:00 bar it would NOT
+enter: stage 8 will show this one python entry as `MISSING_IN_MT5`. The
+manifest `session_rule` ("bars outside [08:00, 16:00) flattened") does not
+say whether the ACTION bar must also be in session. Not changed in either
+engine; the owner decides which side is binding.
