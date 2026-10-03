@@ -441,3 +441,54 @@ Mql5Bot.mq5. It is recorded in docs/DECISIONS.md.
   decision.
 - Nothing was merged, as instructed.
 - Record unchanged: stage 5 FAIL, stages 6–10 never run, nothing certified.
+
+## 2026-10-03 — feat/real-ticks-not-applicable (owner decision: option 2) + gate_run25 analysis
+
+**Branch:** `feat/real-ticks-not-applicable`, from origin/master `144bff7`.
+It was built in a separate worktree because the main checkout had
+uncommitted work on `feat/gate-scoped-gold2-run`, which I left untouched.
+
+**Owner decision:** Sal, in chat, chose option (2) of DECISIONS.md
+"real_ticks leg on bar-only fixtures". The decision is recorded in
+docs/DECISIONS.md with the gate_run25 evidence as the owner quoted it.
+
+**Commits**
+- `ff5dd25`:
+  - Bar-only is derived from the fixture header plus the manifest.
+  - The real_ticks leg of a bar-only gold is recorded
+    `NOT_APPLICABLE_BAR_ONLY_FIXTURE`, not launched, and tallied separately.
+    It is never counted as a pass.
+  - Stage 5 can pass only when every applicable leg passes. If every leg is
+    NOT_APPLICABLE, stage 5 FAILs.
+  - `gate_summary.json` gets a `real_tick_coverage` entry per gold.
+  - Stage-10 records and the certification report state the coverage.
+  - Tests are in `tests/test_stage5_real_ticks_not_applicable.py` (16).
+    The `tests/test_gate_scope.py` harness was updated for the new variable.
+- `6b6e094`: `docs/analysis/gate_run25_divergences.md`. This is read-only
+  analysis of the start-date shift, the lot sizes and the "adopted unknown
+  position" log line. No code changed.
+- The commit that adds this entry.
+
+**Checks (exit codes read)** — macOS, `.venv` Python, ruff 0.16.1:
+- `ruff check python/ tests/ tools/ factory/` → exit 0.
+- Full `pytest tests/` → exit 0. The only skip is `tests/test_pipeline.py:444`
+  (optuna).
+- PowerShell 7.6.6: 31 pwsh-executed tests ran. With pwsh hidden, exactly 31
+  skip: the previous 27 plus 4 new.
+
+**NOT done, and why**
+- `artifacts/owner_mt5_gate/report_template.md` still offers only
+  FULL/PARTIAL/UNKNOWN coverage. It is a frozen path, so I did not edit it;
+  the owner must decide.
+- The stage-8 verifier is unchanged. A bar-only gold that now passes stage 5
+  will still not reach MT5_VALIDATED, because real-tick coverage NONE is
+  never promoted. Whether stage 8 should learn NOT_APPLICABLE is an owner
+  decision.
+- None of the divergence fixes are implemented. The adopted-unknown fix needs
+  an owner-authorised `mql5/` change. The alignment fix in stage 8 is a
+  separate task.
+- Nothing ran on MT5 or Windows. The change is built, unit-tested, and never
+  run live.
+- Nothing was merged, as instructed.
+- The certification record is unchanged: stage 5 is FAIL in every owner run
+  so far, stages 6–10 have never run, and nothing is certified.
