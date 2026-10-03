@@ -552,3 +552,28 @@ The per-trade first divergence is `timestamp` at trade 0
 - Nothing was merged.
 - The certification record is unchanged: stage 8 FAILs in every owner run so
   far, stages 9–10 are refused for scoped runs, and nothing is certified.
+
+## 2026-10-03 (3) — merge PR #13; docs/owner-decisions-reanchor-deferred
+
+**Merge:** PR #13 was merged into master as `8966969` (`--no-ff`, approved
+by Sal and the reviewer in chat; no GitHub review recorded). The merge was
+done in a separate clean worktree, and the main checkout's draft was not
+touched. Before the push, on the merge commit:
+- `ruff check python tests tools factory` → exit 0;
+- full pytest → exit 0, with the only skip being optuna.
+
+The push to master was a fast-forward, `918f7bf..8966969`, with no force and
+no amend. PR #13 shows MERGED.
+
+**Branch:** `docs/owner-decisions-reanchor-deferred`, from `8966969`. It
+records two owner decisions in docs/DECISIONS.md:
+1. The re-anchor is deferred until the next owner run shows the trade
+   comparison.
+2. The SymbolSpec exporter fields and the recording of the EA's own new
+   entries go into one later scoped `mql5/` PR.
+
+**NOT done, and why**
+- No re-anchor, and no `mql5/` change: both were deferred by the owner.
+- The docs PR is not merged, as instructed.
+- The certification record is unchanged: stage 8 FAILs in every owner run so
+  far, and nothing is certified.
