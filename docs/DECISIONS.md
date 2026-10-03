@@ -9,6 +9,62 @@ were already made and must not be silently reverted.
 
 ---
 
+## 2026-10-03 (2) — The gate builds the stage-8 package itself; verifier learns NOT_APPLICABLE and NONE coverage
+
+**Measured (gate_run26, HEAD 918f7bf, `-Golds gold2`, as quoted by the
+owner).**
+- Stage 5 was PASS_FROM_LOG: m1_ohlc and every_tick each had 74 deals, with
+  final balances 8069.20 / 8017.51. Both equal gate_run25. real_ticks was
+  NOT_APPLICABLE.
+- Stage 8 FAILED `NOT_VERIFIED_RECONCILIATION_MISSING`. The package held only
+  the two log trade lists, and `first_divergence` was None.
+
+**Change (built, unit-tested, never run live).** See docs/OWNER_GATE.md, "The
+stage-8 evidence package". `stage8_package.build_package` fills the package
+from the run's own outputs. Every hash is computed from bytes, and the
+archive manifest comes from `owner_evidence_bind.py`. Safety files are never
+written.
+
+**Verifier acceptance changes (`python/mql5bot/owner_gate.py`):**
+1. **New state `NOT_APPLICABLE`.** It applies to a real_ticks leg that the
+   gate's own `gate/stage_5.json` record names
+   `NOT_APPLICABLE_BAR_ONLY_FIXTURE`.
+   - Its raw/parsed slots are NOT_APPLICABLE, not MISSING. If a report exists
+     for that leg anyway, the slot is INVALID.
+   - The reconciliation does not require report hashes for it, and the
+     archive manifest does not require it to be bound. The archive manifest
+     does then require `gate/stage_5.json`.
+   - In `tester_models` the leg must be bound explicitly as not applicable,
+     with no reported model.
+   - Claiming NOT_APPLICABLE for any leg the record does not mark is
+     MISMATCHED.
+2. **New coverage `REAL_TICK_COVERAGE_NONE`.** It is VALID only as a record
+   of absence:
+   - the leg was not launched and the outcome is NOT_APPLICABLE;
+   - each gold's fixture is named;
+   - no actual model, interval or availability evidence is claimed;
+   - every gold it names is NOT_APPLICABLE in the stage-5 record.
+
+   It still falls to `NOT_VERIFIED_REAL_TICK_COVERAGE_UNKNOWN`, so it can
+   never produce MT5_VALIDATED. A NOT_APPLICABLE leg beside any coverage
+   other than NONE is MISMATCHED.
+3. **Diagnostics only, no verdict change.** `first_divergence` and
+   `first_trade_divergence` are computed from the recorded events before any
+   binding check, flagged `binding_verified: false`. They are replaced only
+   after the full chain verifies. owner_gate.ps1 classifies a sizing/risk
+   divergence as DIVERGENCE_EXPECTED only when `binding_verified` is true.
+
+No other acceptance rule changed. `verify_owner_mt5_gate.py` is unchanged.
+
+**Open owner decisions this exposes:** see docs/OWNER_GATE.md "Gaps the gate
+cannot close".
+- The re-anchor: HEAD is not the frozen anchor `a85cba3`.
+- The SymbolSpec export does not emit `broker`, `timestamp` or
+  `terminal_build`.
+- The trade-count comparison compares Python trades with MT5 deals.
+
+---
+
 ## 2026-10-03 — real_ticks leg on bar-only fixtures: OWNER DECISION = option 2 (NOT_APPLICABLE_BAR_ONLY_FIXTURE)
 
 **Owner decision (Sal, in chat, 2026-10-03).** Option (2) of the

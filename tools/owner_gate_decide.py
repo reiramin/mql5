@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _bootstrap  # pins this repo's python/ ahead of any installed mql5bot
 from mql5bot import gate_selfcheck as gs
 from mql5bot import gold_leg_inputs as gli
+from mql5bot import stage8_package as s8p
 from mql5bot import tester_log_grader as tlg
 
 
@@ -145,6 +146,29 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--package", required=True)
     p.add_argument("--gold", required=True)
     p.add_argument("--model", required=True)
+
+    p = sub.add_parser("build-stage8-package",
+                       help="stage 8 input: build the evidence package from "
+                            "the gate's OWN measured outputs (compile, "
+                            "symbolspec, stage-5 record, coverage, "
+                            "environment, reconciliation, archive manifest "
+                            "via owner_evidence_bind.py); safety never")
+    p.add_argument("--package", required=True)
+    p.add_argument("--gate-evidence", required=True,
+                   help="this run's evidence dir (stage_5.json, compile log "
+                        "copy, leg windows)")
+    p.add_argument("--data-folder", default="")
+    p.add_argument("--golds", required=True, help="comma list (the scope)")
+    p.add_argument("--symbolspec", default="",
+                   help="the stage-3 SymbolSpec export the gate used")
+    p.add_argument("--host-os", default="")
+    p.add_argument("--host-timezone", default="")
+
+    p = sub.add_parser("stage8-divergence-note",
+                       help="stage 8: quote each gold's first divergence from "
+                            "reconciliation_verify.json, whatever the verdict")
+    p.add_argument("--verify", required=True)
+    p.add_argument("--golds", required=True)
 
     p = sub.add_parser("stage5-leg-outcome",
                        help="stage 5: classify a tester leg that produced no "
@@ -314,6 +338,27 @@ def main(argv: list[str] | None = None) -> int:
                                    for k, v in sorted(d["inputs"].items())]
             d.pop("bundle", None)
             return _emit(d)
+
+        if args.cmd == "build-stage8-package":
+            rec = s8p.build_package(
+                repo=repo, package=args.package,
+                gate_evidence=args.gate_evidence,
+                data_folder=args.data_folder or None,
+                golds=[g for g in args.golds.split(",") if g],
+                symbolspec_export=args.symbolspec or None,
+                host={"os": args.host_os, "timezone": args.host_timezone})
+            return _emit(rec)
+
+        if args.cmd == "stage8-divergence-note":
+            try:
+                rep_doc = json.loads(Path(args.verify).read_text(
+                    encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                return _emit({"ok": False, "note": "",
+                              "reasons": [f"verify report unreadable: {exc}"]})
+            note = s8p.divergence_note(
+                rep_doc, [g for g in args.golds.split(",") if g])
+            return _emit({"ok": True, "note": note})
 
         if args.cmd == "place-log-trades":
             return _emit(tlg.place_log_trades(args.trades, args.package,

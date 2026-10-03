@@ -101,6 +101,62 @@ All output lands under `evidence\owner_gate\<UTC>\`, append-only: one
   hash.
 - **10. Certify** — `certify_strategy.py` records whatever state it assigns.
 
+## The stage-8 evidence package: what the gate builds, what the owner still supplies
+
+gate_run26 (HEAD 918f7bf, `-Golds gold2`) reached stage 8 with a package
+holding only `log_trades/gold2_{m1_ohlc,every_tick}.json`. It FAILED
+`NOT_VERIFIED_RECONCILIATION_MISSING`, and `first_divergence` was None because
+the trade comparison never ran.
+
+Before stage 8 verifies, the gate now runs `owner_gate_decide.py
+build-stage8-package` (`python/mql5bot/stage8_package.py`). It fills the
+package from that run's own outputs and never types a value by hand. This is
+built and unit-tested, and has never run live.
+
+| Package path | Built from | Notes |
+|---|---|---|
+| `compile/compile.log` | stage-1 compile log copy | byte copy |
+| `compile/compile_metadata.json` | the parsed stage-1 log and `git rev-parse HEAD` | `SOURCE_COMMIT` is the HEAD the gate ran, not the frozen anchor. `TERMINAL_BUILD` is written only if a leg window states it. |
+| `compile/Mql5Bot.ex5` | `<data folder>\MQL5\Experts\Mql5Bot\Mql5Bot.ex5` | copied only if its sha256 equals the `ex5=` hash in the stage-1 log |
+| `symbolspec/symbolspec.json` | the stage-3 SymbolSpec export | byte copy |
+| `gate/stage_5.json` | this run's stage-5 record | the verifier reads NOT_APPLICABLE legs from it |
+| `real_tick_coverage.json` | stage 5 | `REAL_TICK_COVERAGE_NONE` only when every scoped gold's real_ticks leg is NOT_APPLICABLE. The leg is "not launched" and the fixture is named. Never FULL. |
+| `environment.json` | measured lines only | server from the windows' `(<server>): ... generating` line; symbol from the export; os and timezone from the gate host. Anything unmeasured is listed under `unmeasured` and left out. |
+| `reconciliation/<gold>.json` | python: `expected_execution.json` approved entries (fill = signal + 1 bar); mt5: the log trade lists' entry deals | Only timestamp and volume are compared. Bindings are hashed from bytes. A NOT_APPLICABLE leg is bound as `{not_applicable: true, outcome: NOT_APPLICABLE_BAR_ONLY_FIXTURE}`. |
+| `archive_manifest.json` | `tools/owner_evidence_bind.py manifest` | written LAST |
+
+A NOT_APPLICABLE leg gets no `raw`/`parsed` file. The verifier marks its slots
+`NOT_APPLICABLE`: never MISSING, never present, never a pass. A report found
+for such a leg is INVALID. `REAL_TICK_COVERAGE_NONE` can never produce
+`MT5_VALIDATED`.
+
+`reconciliation_verify.json` always carries `first_divergence` and
+`first_trade_divergence` per gold whenever `reconciliation/<gold>.json`
+exists, and the stage-8 reason quotes them. `binding_verified: false` means
+the binding chain failed. In that case the divergence is shown but never
+classified as the expected sizing divergence.
+
+**Gaps the gate cannot close (as of 2026-10-03):**
+- `source_commit` / `SOURCE_COMMIT` is the gate's HEAD. It differs from the
+  frozen anchor `a85cba3`, so compile evidence and the reconciliation binding
+  chain are MISMATCHED until the owner re-anchors. `mql5/` has changed since
+  the anchor.
+- The SymbolSpec exporter emits no `broker`, `timestamp` or `terminal_build`
+  key, so the verifier's SymbolSpec contract is INVALID on the real export.
+- `broker`, `terminal_build` and `account_mode` are unmeasured in the
+  environment record unless a window states them.
+- The log-sourced trade-count comparison the verifier already had compares
+  Python TRADES with MT5 DEALS (56 vs 74 in gate_run26). That rule is
+  unchanged here and flagged for an owner decision.
+
+**What 8a–8d still need from the owner, on MT5.** These are
+`safety/kill_switch|risk_veto|meta_reduce|sl_verify|lost_response|restart.json`
+and `safety/netting.json` / `safety/hedging.json`. Each must state `action`,
+`initial_state`, `resulting_state` and `observed_result`, plus a file-bound
+`raw_evidence` `{path, sha256}` inside the package (from `owner_evidence_bind.py
+bind`). The gate never writes them, so stage 8 keeps FAILING on them until
+8a–8d are actually run.
+
 ## Scoped (partial) runs: `-Golds`
 
 ```

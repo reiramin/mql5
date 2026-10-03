@@ -492,3 +492,63 @@ docs/DECISIONS.md with the gate_run25 evidence as the owner quoted it.
 - Nothing was merged, as instructed.
 - The certification record is unchanged: stage 5 is FAIL in every owner run
   so far, stages 6–10 have never run, and nothing is certified.
+
+## 2026-10-03 (2) — feat/stage8-package-from-gate (gate_run26: stage 8 package)
+
+**Branch:** `feat/stage8-package-from-gate`, from origin/master `918f7bf`.
+It was built in a separate worktree. The main checkout's uncommitted draft
+was not touched.
+
+**Evidence acted on:** gate_run26 (HEAD 918f7bf, `-Golds gold2`), as quoted
+by the owner.
+- Stage 5 was PASS_FROM_LOG: 74 deals per leg, final balances 8069.20 /
+  8017.51. These equal gate_run25. real_ticks was NOT_APPLICABLE.
+- Stage 8 FAILED `NOT_VERIFIED_RECONCILIATION_MISSING`. The package held only
+  the log trade lists.
+
+**Commits**
+- `803c159`:
+  - `stage8_package.build_package` builds the package from the gate's own
+    outputs and is called by owner_gate.ps1 before verify.
+  - Verifier: new `NOT_APPLICABLE` state and new `REAL_TICK_COVERAGE_NONE`
+    coverage, plus observed first divergences.
+  - The stage-8 reason quotes the divergence.
+  - Tests are in `tests/test_stage8_package_from_gate.py` (21). Docs:
+    OWNER_GATE.md and DECISIONS.md.
+- The commit that adds this entry.
+
+**Checks (exit codes read)** — macOS, `.venv` Python, ruff 0.16.1:
+- `ruff check python/ tests/ tools/ factory/` → exit 0.
+- Full `pytest tests/` → exit 0. The only skip is `tests/test_pipeline.py:444`
+  (optuna).
+- PowerShell 7.6.6: 31 pwsh-executed tests ran. With pwsh hidden, exactly 31
+  skip. The new stage-8 ps1 tests are source checks only and are not
+  executed under pwsh.
+
+**What the built package shows (synthetic tmp tree, not MT5 evidence).** The
+verdict is `NOT_VERIFIED_ARTIFACT_MISMATCH`. It is never positive, because:
+- `SOURCE_COMMIT` is HEAD, not the frozen anchor `a85cba3`.
+- The SymbolSpec export does not emit `broker`, `timestamp` or
+  `terminal_build`.
+- The environment record is missing `broker`, `terminal_build` and
+  `account_mode`.
+- The safety files are MISSING.
+
+The NOT_APPLICABLE slots are NOT_APPLICABLE, and coverage is NONE (VALID).
+The per-trade first divergence is `timestamp` at trade 0
+(TIMESTAMP_MISMATCH), shown with `binding_verified: false`.
+
+**NOT done, and why**
+- No safety evidence was built. 8a–8d need a real MT5 run.
+- No re-anchor: it is the owner's decision, and frozen inputs may not be
+  touched.
+- The SymbolSpec exporter is under `mql5/`, which may not be touched.
+- The verifier's trade-count rule still compares Python trades with MT5 deals
+  (56 vs 74). It is flagged, not changed.
+- Report-sourced legs are not packaged by the builder. It refuses them by
+  name.
+- Nothing ran on MT5 or Windows. The change is built, unit-tested, and never
+  run live.
+- Nothing was merged.
+- The certification record is unchanged: stage 8 FAILs in every owner run so
+  far, stages 9–10 are refused for scoped runs, and nothing is certified.
