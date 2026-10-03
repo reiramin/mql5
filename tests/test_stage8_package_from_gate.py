@@ -241,11 +241,12 @@ def test_reconciliation_pairs_by_time_never_by_position(run26):
     assert e0["fields"]["entry_price"] == {"python": 1.09589, "mt5": 1.09589}
     assert "unmeasured_mt5_fields" not in e0
     assert "deal #2 sell 0.01 EURUSD.G2 at 1.09589" in e0["mt5_deal_line"]
-    # entry counts compare INSIDE the window: 43 in-window python entries
-    # (62 approved - 19 filling on 2024-01-01), never the full 62
+    # entry counts compare INSIDE the window: 38 in-window python entries
+    # (62 approved - 19 filling on 2024-01-01 before the measured start
+    # - 5 filling on 2024-01-04, at/after the ToDate end), never the 62
     count = recon["events"][-1]
-    assert count["fields"]["entry_count:m1_ohlc"] == {"python": 43, "mt5": 2}
-    assert count["python_out_of_tested_window"]["m1_ohlc"] == 19
+    assert count["fields"]["entry_count:m1_ohlc"] == {"python": 38, "mt5": 2}
+    assert count["python_out_of_tested_window"]["m1_ohlc"] == 24
 
 
 def test_python_trades_before_the_mt5_start_are_out_of_window(run26):
@@ -253,9 +254,13 @@ def test_python_trades_before_the_mt5_start_are_out_of_window(run26):
     recon = json.loads((pkg / "reconciliation/gold2.json").read_text())
     out = [e for e in recon["events"]
            if e.get("pairing") == s8p.OUT_OF_TESTED_WINDOW]
-    # 19 approved python entries fill on 2024-01-01, per model
-    assert len(out) == 38
-    for e in out:
+    # per model: 19 approved python entries fill on 2024-01-01 (before the
+    # measured start) + 5 fill on 2024-01-04 (at/after the ToDate end)
+    assert len(out) == 48
+    before = [e for e in out if "mt5_window_start_line" in e]
+    after = [e for e in out if "mt5_window_end_source" in e]
+    assert (len(before), len(after)) == (38, 10)
+    for e in before:
         assert e["python_fill_time"] < "2024-01-02T00:00:00"
         assert e["mt5_window_start"] == "2024-01-02T00:00:00"
         # the measured MT5 start line is QUOTED, the trade never dropped,
@@ -264,8 +269,19 @@ def test_python_trades_before_the_mt5_start_are_out_of_window(run26):
             e["mt5_window_start_line"]
         assert e["fields"] == {}
         assert "trade_index" not in e
-    # the window itself is a NAMED LIMITATION of the comparison
+    # gate_run28 fix: the 5 python 2024-01-04 entries are OUT (ToDate
+    # 2024.01.04 is exclusive), no longer MISSING_IN_MT5 divergences
+    for e in after:
+        assert e["python_fill_time"] >= "2024-01-04T00:00:00"
+        assert e["mt5_window_end"] == "2024-01-04T00:00:00"
+        assert "ToDate 2024.01.04" in e["mt5_window_end_source"]
+        assert "exclusive" in e["mt5_window_end_source"]
+        assert e["fields"] == {}
+        assert "trade_index" not in e
+    # the window itself is a NAMED LIMITATION of the comparison, both ends
     assert any("OUT_OF_TESTED_WINDOW" in lim and "named limitation" in lim
+               for lim in recon["limitations"])
+    assert any("window end 2024-01-04T00:00:00" in lim
                for lim in recon["limitations"])
 
 
@@ -274,8 +290,10 @@ def test_unpaired_trades_inside_the_window_are_divergences(run26):
     recon = json.loads((pkg / "reconciliation/gold2.json").read_text())
     missing = [e for e in recon["events"]
                if e.get("pairing") == s8p.MISSING_IN_MT5]
-    # 43 in-window python entries, 2 paired per model -> 41 missing each
-    assert len(missing) == 82
+    # 38 in-window python entries, 2 paired per model -> 36 missing each
+    assert len(missing) == 72
+    # nothing on the excluded ToDate day is ever MISSING_IN_MT5
+    assert all(e["python_signal_time"] < "2024-01-04" for e in missing)
     m0 = min(missing, key=lambda e: e["index"])
     assert m0["python_signal_time"] == "2024-01-02T08:06:00"
     spec = m0["fields"]["state"]
@@ -311,13 +329,45 @@ def test_extra_mt5_entries_are_divergences():
         extra[0]["fields"]["state"]["mt5"]
     assert summary["m1_ohlc"] == {
         "paired": 1, "missing_in_mt5": 0, "extra_in_mt5": 1,
-        "out_of_tested_window": 0, "mt5_window_start": None,
-        "mt5_window_start_line": None}
+        "out_of_tested_window": 0, "out_before_start": 0,
+        "out_at_or_after_end": 0, "mt5_window_start": None,
+        "mt5_window_start_line": None, "mt5_window_end": None}
     # no measured window start -> nothing is out of window, and the paired
     # event's side/price stay unmeasured when no MT5 journal line states them
     paired = next(e for e in events if e.get("pairing") == s8p.PAIRED_BY_TIME)
     assert paired["unmeasured_mt5_fields"] == ["side", "entry_price"]
     assert "entry_side" not in paired["fields"]
+
+
+def test_window_end_is_exclusive_and_out_is_never_a_divergence():
+    py = [
+        {"signal_time": "2024-01-03T23:58:00",
+         "fill_time": "2024-01-03T23:59:00", "side": "short", "lots": 0.5},
+        {"signal_time": "2024-01-03T23:59:00",
+         "fill_time": "2024-01-04T00:00:00", "side": "long", "lots": 0.5},
+        {"signal_time": "2024-01-04T08:00:00",
+         "fill_time": "2024-01-04T08:01:00", "side": "long", "lots": 0.5},
+    ]
+    deals = [{"ticket": 2, "time": "2024.01.03 23:59:00", "volume": 0.5,
+              "pnl": 0.0, "lines": []}]
+    events, summary = s8p.reconciliation_events(
+        py, {"m1_ohlc": deals}, "EURUSD.G2",
+        window_end="2024-01-04T00:00:00",
+        window_end_source="tester ToDate 2024.01.04 derived from the "
+                          "fixture; MT5 ToDate is exclusive")
+    # 23:59 is the last tested minute and pairs; 00:00 exactly at the end
+    # and 08:01 after it are OUT, never MISSING_IN_MT5
+    assert summary["m1_ohlc"]["paired"] == 1
+    assert summary["m1_ohlc"]["missing_in_mt5"] == 0
+    assert summary["m1_ohlc"]["out_at_or_after_end"] == 2
+    out = [e for e in events if e.get("pairing") == s8p.OUT_OF_TESTED_WINDOW]
+    assert [e["python_fill_time"] for e in out] == [
+        "2024-01-04T00:00:00", "2024-01-04T08:01:00"]
+    for e in out:
+        assert e["fields"] == {} and "ToDate" in e["mt5_window_end_source"]
+    # the in-window count excludes them
+    assert events[-1]["fields"]["entry_count:m1_ohlc"] == {
+        "python": 1, "mt5": 1}
 
 
 def test_tested_window_start_reads_the_measured_line():

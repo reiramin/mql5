@@ -45,6 +45,12 @@ start line quoted -- never dropped, never matched, never a divergence; the
 window itself is a named limitation. Unpaired trades INSIDE the window are
 MISSING_IN_MT5 / EXTRA_IN_MT5 and ARE divergences.
 
+WINDOW END (gate_run28, HEAD 999126a, -Golds gold2): 5 python 2024-01-04
+entries were reported MISSING_IN_MT5 while the MT5 test ended at
+2024.01.04 00:00 (the ToDate the gate derives from the fixture; MT5 ToDate
+is exclusive). The pairer now applies the window END as well: python
+entries at/after it are OUT_OF_TESTED_WINDOW with the end's source named.
+
 Built, unit-tested, never run live.
 """
 
@@ -331,16 +337,23 @@ def _pair_by_minute(py: list[dict], entries: list[dict]
 def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                           symbol: str, *,
                           window_starts: dict | None = None,
+                          window_end: str | None = None,
+                          window_end_source: str | None = None,
                           fixture_opens: dict[str, float] | None = None
                           ) -> tuple[list[dict], dict]:
     """Per-model events pairing python entries with MT5 entry deals BY TIME
     (same fill minute), never by list position. Returns (events, summary).
 
     * a python trade whose fill is before the model's measured MT5 window
-      start is OUT_OF_TESTED_WINDOW: recorded with the measured start line
-      quoted, with NO compared fields -- never silently dropped, never
-      counted as matched, and never a divergence (the window is a named
-      limitation of the comparison, not its first divergence);
+      start, or at/after the tester window END (``window_end``, the
+      ToDate the gate derived from the fixture; MT5 treats ToDate as
+      exclusive -- gate_run28: 5 python 2024-01-04 entries had wrongly
+      been MISSING_IN_MT5 while the test ended 2024.01.04 00:00), is
+      OUT_OF_TESTED_WINDOW: recorded with the start line quoted (or the
+      end + its source named), with NO compared fields -- never silently
+      dropped, never counted as matched, and never a divergence (the
+      window is a named limitation of the comparison, not its first
+      divergence);
     * an unpaired python trade INSIDE the window is MISSING_IN_MT5 and an
       unpaired MT5 entry deal is EXTRA_IN_MT5 -- both ARE divergences
       (field `state`, so the closed taxonomy classifies them);
@@ -361,15 +374,24 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
         start, start_line = window_starts.get(model, (None, None))
         before = [p for p in py
                   if start is not None and str(p["fill_time"]) < start]
+        after = [p for p in py
+                 if window_end is not None
+                 and str(p["fill_time"]) >= window_end
+                 and (start is None or str(p["fill_time"]) >= start)]
         in_window = [p for p in py
-                     if start is None or str(p["fill_time"]) >= start]
+                     if (start is None or str(p["fill_time"]) >= start)
+                     and (window_end is None
+                          or str(p["fill_time"]) < window_end)]
         pairs, missing, extra = _pair_by_minute(in_window, entries)
         summary[model] = {
             "paired": len(pairs), "missing_in_mt5": len(missing),
             "extra_in_mt5": len(extra),
-            "out_of_tested_window": len(before),
+            "out_of_tested_window": len(before) + len(after),
+            "out_before_start": len(before),
+            "out_at_or_after_end": len(after),
             "mt5_window_start": start,
             "mt5_window_start_line": start_line,
+            "mt5_window_end": window_end,
         }
         for p in before:
             raw.append((str(p["fill_time"]), model, {
@@ -386,6 +408,22 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                          "(line quoted above): recorded, not compared -- "
                          "the window is a named limitation, never this "
                          "comparison's divergence"),
+            }))
+        for p in after:
+            raw.append((str(p["fill_time"]), model, {
+                "model": model, "symbol": symbol,
+                "pairing": OUT_OF_TESTED_WINDOW,
+                "python_signal_time": p["signal_time"],
+                "python_fill_time": p["fill_time"],
+                "python_side_declared": p["side"],
+                "python_lots": p["lots"],
+                "mt5_window_end": window_end,
+                "mt5_window_end_source": window_end_source,
+                "fields": {},
+                "note": ("python trade at/after the tester window end "
+                         "(source named above; MT5 ToDate is exclusive): "
+                         "recorded, not compared -- the window is a named "
+                         "limitation, never this comparison's divergence"),
             }))
         per_trade: list[tuple[str, dict]] = []
         for p, deal in pairs:
@@ -739,17 +777,34 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
         "parsed_report_hashes": {},
         "log_trade_hashes": log_hashes,
     }
+    # tester window END: the ToDate the gate itself derives from the frozen
+    # fixture (the same mt5tester.fixture_date_range the ps1 feeds the
+    # tester config); MT5 treats ToDate as EXCLUSIVE, so the tested window
+    # ends at ToDate 00:00 (gate_run28: no MT5 deals on the ToDate day
+    # while python fills 5 entries there).
+    try:
+        date_to = mt.fixture_date_range(fixture)[1]
+        window_end = date_to.replace(".", "-") + "T00:00:00"
+        window_end_source = (
+            f"tester ToDate {date_to} derived from the fixture "
+            "(mt5tester.fixture_date_range, the same derivation the gate's "
+            "tester config uses); MT5 ToDate is exclusive")
+    except ValueError:
+        window_end, window_end_source = None, None
     events, pairing = reconciliation_events(
         py, mt5_by_model, files["tester_symbol"],
         window_starts=window_starts,
+        window_end=window_end, window_end_source=window_end_source,
         fixture_opens=fixture_minute_opens(fixture))
     limitations = []
     for model in sorted(mt5_by_model):
-        n_out = pairing[model]["out_of_tested_window"]
+        n_before = pairing[model]["out_before_start"]
+        n_after = pairing[model]["out_at_or_after_end"]
         start, line = window_starts.get(model, (None, None))
-        if n_out:
+        if n_before:
             limitations.append(
-                f"{model}: {n_out} python entr{'y' if n_out == 1 else 'ies'} "
+                f"{model}: {n_before} python "
+                f"entr{'y' if n_before == 1 else 'ies'} "
                 f"fill before the measured MT5 tested-window start {start} "
                 f"({line!r}) -- OUT_OF_TESTED_WINDOW, recorded uncompared; "
                 "the window is a named limitation of this comparison, "
@@ -759,6 +814,13 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
                 f"{model}: no measured window-start line in this leg's "
                 "window capture; every python entry is treated as inside "
                 "the tested window")
+        if n_after:
+            limitations.append(
+                f"{model}: {n_after} python "
+                f"entr{'y' if n_after == 1 else 'ies'} "
+                f"fill at/after the tester window end {window_end} "
+                f"({window_end_source}) -- OUT_OF_TESTED_WINDOW, recorded "
+                "uncompared; never this comparison's divergence")
     doc = {
         "schema": "mql5bot.gate_reconciliation/1",
         "gold": gold,
@@ -773,7 +835,9 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
         "note": ("Events pair python entries with MT5 entry deals BY TIME "
                  "(same fill minute, signal_time + 1 bar), never by list "
                  "position. Python trades before the measured MT5 window "
-                 "start are OUT_OF_TESTED_WINDOW (quoted, uncompared); "
+                 "start, or at/after the tester ToDate window end "
+                 "(exclusive), are OUT_OF_TESTED_WINDOW (quoted/sourced, "
+                 "uncompared); "
                  "unpaired trades inside the window are MISSING_IN_MT5 / "
                  "EXTRA_IN_MT5 divergences. Compared fields per pair: "
                  "timestamp, volume, and entry side/price when the MT5 "

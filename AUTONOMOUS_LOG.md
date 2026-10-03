@@ -622,3 +622,60 @@ re-run standalone -> 0).
   than out-of-window.
 - Nothing merged. Certification record unchanged: stage 5 FAIL stands in
   the record, stage 8 has never passed, stages 9-10 never ran.
+
+## 2026-10-03 (5) — analysis/gate_run28-divergences (window END fix + run28 analysis)
+
+**Branch**: `analysis/gate_run28-divergences` from `origin/master` 999126a.
+
+**TASK A (python only, built, unit-tested, never run live).** The stage-8
+pairer now applies the tester window END as well as the measured start:
+python entries at/after the ToDate the gate derives from the fixture
+(`mt5tester.fixture_date_range`; MT5 ToDate is exclusive) are
+OUT_OF_TESTED_WINDOW with the end's source named — never MISSING_IN_MT5.
+gate_run28's 5 python 2024-01-04 entries were wrongly divergences; the
+python reference itself holds zero day-4 positions (meta weight 0.0).
+Verifier lines changed: none. Tests updated (counts 19 before + 5 after
+per model on the real gold2 data) plus an exclusive-boundary unit test.
+
+**TASK B — docs/analysis/gate_run28_divergences.md** (read-only; measured
+vs inferred separated; run28 lines quoted as reported — the package is on
+the owner terminal):
+1. One-bar-late flips: EA closes and returns on flip (Mql5Bot.mq5:999-1004,
+   per-bar OnTick gate :1091-1100); python closes and re-enters in the same
+   reconcile(bar) (engine.py:854-904; python_trace exits == next entry
+   minute). The manifest flip_rule "close opposite (signal_exit); enter
+   next bar" read literally specifies the EA behaviour. RECOMMENDED: change
+   the python engine (+ owner-authorized gold regeneration); no mql5/
+   change needed.
+2. Missed day-3 longs: desired series re-run locally is +1 for 14 bars
+   (sustained, not a pulse); InpDslBars=500 passes the 10x-period guard and
+   seeding tails are <= ~1e-16 (cannot flip comparisons); session and
+   one-position rules identical. Two candidates left INFERRED: (a) the
+   longs exist as +1-minute EXTRA events (then finding 1 is the single
+   root cause) or (b) EA-side desired/sizing divergence; run29 checks named
+   (EXTRA event times; EA desired debug; deal list incl. exits 08:30-10:08).
+3. Volume drift: one identical 1.0% sizing rule reproduces python approvals
+   to <=0.07%; implied MT5 basis from paired volumes 8848/8686/8545 vs
+   python 9174/9161/9149 (gap ~326→476→604, 16-30 volume steps — rounding
+   cannot explain). Python's basis follows the trace equity under the
+   gold's day-stepped meta weights (1.0/0.5/0.1/0.0; all 56 trace lots ==
+   approved x day-weight, verified 56/56), while the EA runs weight 1.0
+   (no allocation.json in the tester → InpBaseGateWeight=1.0 fallback).
+   RECOMMENDED (python/gate side, later PR): compare like-for-like using
+   the expected meta.<w>.final_lots table or stage a day-stepped
+   allocation file.
+4. "adopted unknown position" on every entry: unchanged since run25; owner
+   decision bundles the fix with the exporter fields in one later scoped
+   mql5/ PR (PR #14, still open/CONFLICTING, needs rebase).
+
+**Exit codes (read, not polled).** ruff -> 0; full pytest -> 0 (pwsh 7.6.6
+on PATH, ps1-executing modules ran).
+
+**NOT done, and why**
+- No change to the flip timing on either side (analysis task; owner must
+  pick the side and authorize gold regeneration).
+- No mql5/ change (frozen; the adopted-unknown + exporter fixes remain
+  queued for the scoped PR).
+- Finding 2 not closed: the discriminating evidence exists only in the
+  run28 package / a run29 capture on the owner terminal.
+- Nothing ran on MT5. Nothing merged. Certification record unchanged.
