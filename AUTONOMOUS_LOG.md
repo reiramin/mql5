@@ -552,3 +552,73 @@ The per-trade first divergence is `timestamp` at trade 0
 - Nothing was merged.
 - The certification record is unchanged: stage 8 FAILs in every owner run so
   far, stages 9–10 are refused for scoped runs, and nothing is certified.
+
+## 2026-10-03 (3) — fix/stage8-trade-pairing (gate_run27: pair by time, never by position)
+
+**Branch**: `fix/stage8-trade-pairing` from `origin/master` 8966969.
+
+**Evidence driving the change (gate_run27, HEAD 8966969, -Golds gold2).**
+Stage 8 ran the trade comparison for the first time and paired the 75
+reconciliation events BY LIST POSITION: event 0 compared python
+2024-01-01T08:01 (1.4 lots) with MT5 2024-01-02T08:01 (0.01 lots) ->
+TIMESTAMP_MISMATCH, while MT5 never traded 2024-01-01 at all ("start time
+changed to 2024.01.02 00:00 to provide data at beginning", measured in
+gate_run23/25/26/27). Positional pairing compared different days; every
+later field was noise.
+
+**TASK A — done (built, unit-tested, never run live).**
+`stage8_package.py` now pairs python approved entries with MT5 entry deals
+BY TIME: same fill minute (signal_time + 1 bar, the manifest's next-M1-
+minute contract), each deal used once, both sides in time order.
+- Python trades filling before the measured MT5 window-start line (parsed
+  from the leg's own window capture, scoped to the leg symbol) are
+  `OUT_OF_TESTED_WINDOW` events: the start line is QUOTED, the trade is
+  recorded with no compared fields — never dropped, never matched, never a
+  divergence. The window is written into `limitations`, not
+  `first_divergence`.
+- Unpaired trades inside the window are `MISSING_IN_MT5` / `EXTRA_IN_MT5`
+  events whose `state` field diverges (closed taxonomy: STATE_MISMATCH).
+- Paired events compare timestamp, volume, and — parsed from MT5's own
+  journal line in the deal's `lines` (`deal #N buy|sell VOL SYM at PRICE`)
+  — entry side and entry price (python price = fixture open at the fill
+  minute; omitted, never invented, when unstated). Fields stay unmeasured
+  only when no MT5 journal line states them.
+- Entry counts compare INSIDE the window; the out-of-window count sits
+  beside, uncompared.
+VERIFIER LINES CHANGED: none. `owner_gate.py`, `verify_owner_mt5_gate.py`
+and `owner_gate.ps1` are untouched; no acceptance rule loosened or changed.
+
+**TASK B — case "no existing file carries the flat fields".**
+`Mql5BotExportSymbolSpec.mq5` exports the per-symbol values NESTED under
+`symbol` (14 of the 19 `SYMBOLSPEC_REQUIRED` keys) and does not export
+`broker`, `terminal_build`, or `timestamp` under any name (`exported_at`
+is a different key). No other file produces the verifier's flat shape, so
+the gate is not copying a wrong file — the exact missing fields and their
+MQL5 sources are written into `docs/DECISIONS.md` S8-SPEC-1 for the
+upcoming scoped mql5/ PR. `mql5/` untouched.
+
+**Tests.** `tests/test_stage8_package_from_gate.py` rewritten for time
+pairing (26 tests), with the window-start and MT5 journal deal lines in
+`tests/data/owner_gate/tester_window_gate_run27_lines.txt` (provenance in
+its header: measured FORMATS from the run23/16/17 captures; the run27
+package itself is not on this machine, so values carried are the
+reported/synthetic ones the header names — never MT5 evidence).
+
+**Exit codes (read, not polled).** ruff python/ tests/ tools/ factory/ ->
+0. Full pytest -> 0 (with pwsh 7.6.6 on PATH, so the ps1-executing test
+modules ran; test_owner_gate_ps1 / test_gate_scope / test_gate_strictmode /
+test_gate_param_shadowing / test_stage5_real_ticks_not_applicable also
+re-run standalone -> 0).
+
+**NOT done, and why**
+- Nothing ran on MT5 or Windows; the new pairing has never seen a real
+  gate run. gate_run28 must confirm it on the owner terminal.
+- The symbolspec exporter change itself: `mql5/` may not be touched; it is
+  documented in DECISIONS.md S8-SPEC-1 only.
+- The verifier's trade-count rule (python trades vs MT5 deals) is still
+  unchanged; changing a verifier rule was out of scope and none was.
+- The MT5 tested-window END is not measured by any captured line; python
+  trades after the last MT5 day remain MISSING_IN_MT5 divergences rather
+  than out-of-window.
+- Nothing merged. Certification record unchanged: stage 5 FAIL stands in
+  the record, stage 8 has never passed, stages 9-10 never ran.

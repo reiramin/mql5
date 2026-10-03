@@ -1,0 +1,21 @@
+# Tester-window lines for the stage-8 pairing tests (gold2, EURUSD.G2).
+#
+# PROVENANCE — read before trusting a line:
+# * The window-start line format ("<SYM>: start time changed to <Y.M.D H:M>
+#   to provide data at beginning") is MEASURED in the gate_run23 capture in
+#   this directory (tester_log_gate_run23.txt uses 2024.01.06 for EURUSD.G1).
+#   The 2024.01.02 00:00 value below for EURUSD.G2 is the start reported from
+#   gate_run27 (and runs 25/26); the gate_run27 package itself is not on this
+#   machine, so the line below is the measured FORMAT carrying that reported
+#   value — it is test input, not frozen MT5 evidence.
+# * The MT5 journal deal-line format ("deal #N buy|sell VOL SYMBOL at PRICE
+#   done (based on order #N)") is the format documented in
+#   tester_log_grader._MT5_DEAL_RE and reported captured in gate_run27's
+#   log_trades deal "lines". Volumes/prices below are chosen so that the
+#   08:01 entry matches the frozen gold2 python expectation exactly
+#   (sell 0.01 at the fixture open 1.09589) and the 08:46 entry diverges
+#   (buy 0.28 at 1.09700 vs python 0.26 at fixture open 1.09725). SYNTHETIC
+#   test values in a measured format; never MT5 evidence.
+Core 1	EURUSD.G2: start time changed to 2024.01.02 00:00 to provide data at beginning
+Core 1	deal #2 sell 0.01 EURUSD.G2 at 1.09589 done (based on order #2)
+Core 1	deal #4 buy 0.28 EURUSD.G2 at 1.09700 done (based on order #4)
