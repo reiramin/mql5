@@ -680,6 +680,34 @@ on PATH, ps1-executing modules ran).
   run28 package / a run29 capture on the owner terminal.
 - Nothing ran on MT5. Nothing merged. Certification record unchanged.
 
+## 2026-10-03 (6) — merge PR #13; docs/owner-decisions-reanchor-deferred
+
+*(Entry originally numbered (3); renumbered mechanically when this
+branch was rebased after PRs #15 and #16 merged. Content unchanged.)*
+
+**Merge:** PR #13 was merged into master as `8966969` (`--no-ff`, approved
+by Sal and the reviewer in chat; no GitHub review recorded). The merge was
+done in a separate clean worktree, and the main checkout's draft was not
+touched. Before the push, on the merge commit:
+- `ruff check python tests tools factory` → exit 0;
+- full pytest → exit 0, with the only skip being optuna.
+
+The push to master was a fast-forward, `918f7bf..8966969`, with no force and
+no amend. PR #13 shows MERGED.
+
+**Branch:** `docs/owner-decisions-reanchor-deferred`, from `8966969`. It
+records two owner decisions in docs/DECISIONS.md:
+1. The re-anchor is deferred until the next owner run shows the trade
+   comparison.
+2. The SymbolSpec exporter fields and the recording of the EA's own new
+   entries go into one later scoped `mql5/` PR.
+
+**NOT done, and why**
+- No re-anchor, and no `mql5/` change: both were deferred by the owner.
+- The docs PR is not merged, as instructed.
+- The certification record is unchanged: stage 8 FAILs in every owner run so
+  far, and nothing is certified.
+
 ## 2026-10-03 (7) — merge PR #16; rebase PR #14; fix/engine-flip-next-bar
 
 **Merges/branch ops (clean worktrees; main checkout untouched):**
