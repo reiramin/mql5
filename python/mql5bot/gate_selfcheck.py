@@ -1166,12 +1166,112 @@ def classify_tester_leg_outcome(*, report_present: bool, window_text: str,
         "leg": leg}
 
 
+# OWNER DECISION 2026-10-03 (Sal, option 2 of DECISIONS.md "real_ticks leg on
+# bar-only fixtures"): a gold whose fixture is bar-only has its real_ticks leg
+# recorded NOT_APPLICABLE_BAR_ONLY_FIXTURE and NOT launched. Not a pass, never
+# counted as one: the stage-5 tally lists it apart and gate_summary.json
+# carries the per-gold real-tick coverage below.
+#
+# MEASURED (gate_run23 and gate_run25, -Golds gold2): the gold2 real_ticks leg
+# printed `no history data, stop testing`. CODE FACT: the stage-4 importer
+# (Mql5BotImportFixture.mq5) writes the fixture with CustomRatesUpdate only;
+# it never calls CustomTicksAdd. So a bar-schema fixture imports bars only.
+STAGE5_OUTCOME_NOT_APPLICABLE_BAR_ONLY = "NOT_APPLICABLE_BAR_ONLY_FIXTURE"
+REAL_TICK_COVERAGE_NONE_BAR_ONLY = "NONE (bar-only fixture)"
+REAL_TICK_COVERAGE_NOT_MEASURED = "NOT_MEASURED (real_ticks leg required)"
+# The bar schema every committed gold fixture uses (header row, exact order).
+BAR_FIXTURE_COLUMNS = ("time", "open", "high", "low", "close", "volume")
+
+
+def fixture_tick_content(manifest_path: Path | str,
+                         fixture_csv_path: Path | str,
+                         display_name: str | None = None) -> dict:
+    """Decide from the committed manifest + fixture whether a gold is
+    BAR-ONLY (no tick data). Never assumed: bar-only needs BOTH
+
+      * the fixture header row is exactly ``BAR_FIXTURE_COLUMNS`` (one row
+        per bar; no bid/ask/last/flags/time_msc tick columns), and
+      * the manifest declares no tick dataset (no top-level key naming
+        ``tick``; broker_spec's tick_size/tick_value are contract
+        properties nested under broker_spec, not data).
+
+    Anything else (unreadable file, other header, a tick key) is NOT
+    bar-only, so the real_ticks leg stays mandatory exactly as before.
+    """
+    name = display_name or str(fixture_csv_path)
+    try:
+        man = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return {"bar_only": False, "fixture": name, "header": None,
+                "reasons": [(f"manifest unreadable ({exc}); bar-only not "
+                             "derivable, real_ticks leg stays required")]}
+    tick_keys = sorted(k for k in (man if isinstance(man, dict) else {})
+                       if "tick" in str(k).lower())
+    try:
+        text = read_text_bom_aware(fixture_csv_path)
+    except OSError as exc:
+        return {"bar_only": False, "fixture": name, "header": None,
+                "reasons": [(f"fixture unreadable ({exc}); bar-only not "
+                             "derivable, real_ticks leg stays required")]}
+    first = next((ln for ln in text.splitlines() if ln.strip()), "")
+    header = [c.strip().lower() for c in first.split(",")]
+    reasons: list[str] = []
+    if tuple(header) != BAR_FIXTURE_COLUMNS:
+        reasons.append(f"fixture header {header} is not the bar schema "
+                       f"{list(BAR_FIXTURE_COLUMNS)}")
+    if tick_keys:
+        reasons.append(f"manifest declares tick data keys {tick_keys}")
+    if reasons:
+        return {"bar_only": False, "fixture": name, "header": header,
+                "reasons": reasons + [("not bar-only: real_ticks leg stays "
+                                       "required")]}
+    return {"bar_only": True, "fixture": name, "header": header,
+            "reasons": [(f"fixture header is the bar schema "
+                         f"{','.join(BAR_FIXTURE_COLUMNS)} and the manifest "
+                         "declares no tick dataset")]}
+
+
+def real_ticks_leg_decision(tick_content: dict) -> dict:
+    """The real_ticks leg's applicability for one gold, from
+    ``fixture_tick_content``. Bar-only -> NOT_APPLICABLE_BAR_ONLY_FIXTURE,
+    not launched, real-tick coverage NONE. Otherwise the leg is REQUIRED and
+    the coverage is NOT_MEASURED until a real_ticks report says otherwise."""
+    if tick_content.get("bar_only") is True:
+        return {
+            "applicable": False,
+            "outcome": STAGE5_OUTCOME_NOT_APPLICABLE_BAR_ONLY,
+            "real_tick_coverage": REAL_TICK_COVERAGE_NONE_BAR_ONLY,
+            "reason": (
+                f"{STAGE5_OUTCOME_NOT_APPLICABLE_BAR_ONLY}: fixture "
+                f"{tick_content.get('fixture')} is bar-only ("
+                + "; ".join(tick_content.get("reasons") or [])
+                + "); the stage-4 importer writes bars only "
+                "(CustomRatesUpdate, no CustomTicksAdd), so a real-ticks test "
+                "of this symbol has no ticks to run on. Leg NOT launched per "
+                "owner decision "
+                "2026-10-03 (DECISIONS.md option 2). Real-tick coverage: "
+                f"{REAL_TICK_COVERAGE_NONE_BAR_ONLY}. NOT a pass"),
+        }
+    return {
+        "applicable": True,
+        "outcome": None,
+        "real_tick_coverage": REAL_TICK_COVERAGE_NOT_MEASURED,
+        "reason": ("real_ticks leg REQUIRED: "
+                   + "; ".join(tick_content.get("reasons") or [])),
+    }
+
+
 def derive_tester_inputs(manifest_path: Path | str,
-                         fixture_csv_path: Path | str) -> dict:
+                         fixture_csv_path: Path | str,
+                         fixture_display: str | None = None) -> dict:
     """Derive the tester timeframe + period from the committed manifest and
     fixture CSV. The gate must NEVER guess a tester setting; this returns
     ``ok=False`` naming the FIRST input it cannot derive so the .ps1 fails the
     stage with that input named, rather than running with an invented value.
+
+    Also carries the real_ticks leg's applicability (``real_ticks_leg``) and
+    the gold's pre-launch real-tick coverage, both derived by
+    ``fixture_tick_content`` (owner decision 2026-10-03).
     """
     from mql5bot import mt5tester as mt
     try:
@@ -1190,9 +1290,15 @@ def derive_tester_inputs(manifest_path: Path | str,
     except (OSError, ValueError) as exc:
         return {"ok": False, "missing": "date_from/date_to",
                 "reasons": [f"cannot derive tester period: {exc}"]}
+    ticks = fixture_tick_content(manifest_path, fixture_csv_path,
+                                 fixture_display)
+    rt = real_ticks_leg_decision(ticks)
     return {"ok": True, "missing": None, "reasons": [], "timeframe": tf,
             "date_from": date_from, "date_to": date_to,
-            "manifest_symbol": man.get("symbol")}
+            "manifest_symbol": man.get("symbol"),
+            "bar_only": ticks["bar_only"], "fixture_ticks": ticks,
+            "real_ticks_leg": rt,
+            "real_tick_coverage": rt["real_tick_coverage"]}
 
 
 def tester_leg_evidence(report_json_path: Path | str,
@@ -1265,6 +1371,9 @@ def tester_leg_evidence(report_json_path: Path | str,
 
 
 __all__ = [
+    "BAR_FIXTURE_COLUMNS",
+    "REAL_TICK_COVERAGE_NONE_BAR_ONLY",
+    "REAL_TICK_COVERAGE_NOT_MEASURED",
     "SELF_PROTECT_AUTOCRLF_NOT_FALSE",
     "SELF_PROTECT_CLONE_TARGET_EXISTS",
     "SELF_PROTECT_DIRTY_TREE",
@@ -1278,6 +1387,7 @@ __all__ = [
     "STAGE5_OUTCOME_BLOCKED_ENV",
     "STAGE5_OUTCOME_FAIL",
     "STAGE5_OUTCOME_INSUFFICIENT_FIXTURE_HISTORY",
+    "STAGE5_OUTCOME_NOT_APPLICABLE_BAR_ONLY",
     "STAGE5_OUTCOME_NO_TICK_HISTORY",
     "STAGE5_OUTCOME_OK",
     "broker_parity_scope",
@@ -1288,9 +1398,11 @@ __all__ = [
     "decode_bom_aware",
     "derive_tester_inputs",
     "expected_compile_targets",
+    "fixture_tick_content",
     "parse_compile_log",
     "parse_dsl_compare_report",
     "read_text_bom_aware",
+    "real_ticks_leg_decision",
     "run_self_protection",
     "sha256_bytes",
     "sha256_file",

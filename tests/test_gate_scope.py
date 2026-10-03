@@ -267,6 +267,12 @@ def _refusal_block() -> str:
     return SRC[s:SRC.index("\n}", s) + 2]
 
 
+def _coverage_note_lines() -> str:
+    """The $covPairs/$covNote lines the stage-9/10 records append."""
+    s = SRC.index("$covPairs = ", SRC.index("SCOPED RUN STOPS HERE"))
+    return SRC[s:SRC.index("if ($Script:Partial) {", s)]
+
+
 def test_ps1_partial_run_refuses_stages_9_and_10_before_entering_them():
     refusal = SRC.index(_refusal_block())
     assert refusal > SRC.index('Enter-Stage 8 "reconciliation"')
@@ -311,8 +317,10 @@ $Script:Excluded = {excluded}
 $Script:ScopeError = ""
 $Script:CurStageNum = 8
 $Script:CurStageName = "reconciliation"
+$Script:RealTickCoverage = [ordered]@{{ gold2 = "NONE (bar-only fixture)" }}
 {fns}
 Record-Stage 8 "reconciliation" "PASS" "synthetic" @() | Out-Null
+{_coverage_note_lines()}
 {_refusal_block()}
 Write-Output "REACHED_STAGE_9"
 """, encoding="utf-8")
@@ -336,3 +344,8 @@ Write-Output "REACHED_STAGE_9"
     for n in (9, 10):
         assert by_stage[n]["status"] == "REFUSED"
         assert "[refused_scoped_run]" in by_stage[n]["reason"]
+    # the stage-10 record and the summary state real-tick coverage NONE
+    assert ("[real-tick coverage: gold2=NONE (bar-only fixture)]"
+            in by_stage[10]["reason"])
+    assert summary["real_tick_coverage"] == {
+        "gold2": "NONE (bar-only fixture)"}

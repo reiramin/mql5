@@ -241,7 +241,13 @@ def main(argv: list[str] | None = None) -> int:
             return _emit({**verdict, "preset": args.preset})
 
         if args.cmd == "tester-inputs":
-            return _emit(gs.derive_tester_inputs(args.manifest, args.fixture))
+            fx = Path(args.fixture)
+            try:  # name the fixture repo-relative in the leg's reason
+                display = fx.resolve().relative_to(repo).as_posix()
+            except ValueError:
+                display = str(fx)
+            return _emit(gs.derive_tester_inputs(args.manifest, args.fixture,
+                                                 display))
 
         if args.cmd == "stage5-leg" and not (
                 args.report_json and Path(args.report_json).is_file()):
