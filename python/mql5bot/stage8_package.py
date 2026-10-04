@@ -362,26 +362,70 @@ def python_entries(expected: dict, timeframe: str) -> tuple[list[dict] | None,
 FILL_MODEL_SELL = "bid_open"
 FILL_MODEL_BUY = "ask_open=bid+spread"
 FILL_MODEL_NOTE = (
-    "python entry price = fixture open (BID bar) for a sell; open + manifest "
-    "cost_config.spread_points * broker_spec.point for a buy, rounded to "
-    "broker_spec.digits. Slippage NOT added: the engine's cost model "
-    "(costs.entry_fill) slips EVERY fill, sells included, so no source "
-    "applies it to buys only; a residual stays a divergence.")
+    "python entry price = fixture open (BID bar) for a sell; open + "
+    "spread_points * broker_spec.point for a buy, rounded to "
+    "broker_spec.digits. The spread is the MEASURED one from the stage-3 "
+    "SymbolSpec export's flat spread_points when the export carries it "
+    "(S8-SPEC-1; gate_run30: manifest 1.0 vs measured tester fill bid+2 "
+    "points), else the manifest cost_config value with the fallback reason "
+    "stated. Slippage NOT added: the engine's cost model (costs.entry_fill) "
+    "slips EVERY fill, sells included, so no source applies it to buys "
+    "only; a residual stays a divergence.")
 
 
-def fill_spec_of(manifest: dict) -> tuple[dict | None, str]:
-    """spread_points / point / digits for the expected fill model, from the
-    manifest. None (with the reason) when any is missing: the price column
-    is then never built from a bare open."""
+def _num(v: float) -> str:
+    """Render 2.0 as "2" in a fill-model name, other values as-is."""
+    f = float(v)
+    return str(int(f)) if f.is_integer() else str(f)
+
+
+def fill_model_buy_name(fill: dict | None) -> str:
+    """The buy fill-model name, source included when the fill spec names
+    one (``spread_source``)."""
+    if fill and fill.get("spread_source"):
+        return f"ask_open=bid+{fill['spread_source']}"
+    return FILL_MODEL_BUY
+
+
+def fill_spec_of(manifest: dict,
+                 symbolspec: dict | None = None) -> tuple[dict | None, str]:
+    """spread_points / point / digits for the expected fill model. The
+    spread comes from the stage-3 SymbolSpec export's flat MEASURED
+    ``spread_points`` when ``symbolspec`` carries one (``spread_source``
+    then names it), falling back to the manifest cost_config value with
+    the reason stated. None (with the reason) when point/digits or every
+    spread source is missing: the price column is then never built from a
+    bare open."""
     cost = manifest.get("cost_config") or {}
     spec = manifest.get("broker_spec") or {}
-    out = {"spread_points": cost.get("spread_points"),
-           "point": spec.get("point"), "digits": spec.get("digits")}
-    gaps = sorted(k for k, v in out.items() if v is None)
+    out = {"point": spec.get("point"), "digits": spec.get("digits")}
+    measured = (symbolspec or {}).get("spread_points")
+    try:
+        measured = float(measured)
+    except (TypeError, ValueError):
+        measured = None
+    if measured is not None:
+        out["spread_points"] = measured
+        out["spread_source"] = (f"measured_spread({_num(measured)} points, "
+                                "symbolspec export)")
+        src = out["spread_source"]
+    else:
+        # fallback: the manifest assumption, with the reason stated; the
+        # buy fill-model name stays the generic FILL_MODEL_BUY (no
+        # spread_source), the reason lives in this note / inputs_source
+        out["spread_points"] = cost.get("spread_points")
+        src = ("manifest cost_config" if symbolspec is None else
+               "manifest cost_config -- fallback: the symbolspec export "
+               "carries no numeric flat spread_points")
+    gaps = sorted(k for k in ("spread_points", "point", "digits")
+                  if out.get(k) is None)
     if gaps:
-        return None, f"manifest lacks {gaps} for the expected fill model"
-    return out, (f"spread_points {out['spread_points']}, point "
-                 f"{out['point']}, digits {out['digits']} (manifest)")
+        return None, (f"manifest lacks {gaps} for the expected fill model"
+                      if symbolspec is None else
+                      f"no spread/point/digits source for {gaps} "
+                      "(symbolspec export + manifest)")
+    return out, (f"spread_points {out['spread_points']} ({src}), point "
+                 f"{out['point']}, digits {out['digits']}")
 
 
 def expected_fill(bar_open: float, mt5_side: str, fill: dict
@@ -390,7 +434,7 @@ def expected_fill(bar_open: float, mt5_side: str, fill: dict
     fill bar's open. ``mt5_side`` is buy|sell."""
     if mt5_side == "buy":
         price = bar_open + float(fill["spread_points"]) * float(fill["point"])
-        return round(price, int(fill["digits"])), FILL_MODEL_BUY
+        return round(price, int(fill["digits"])), fill_model_buy_name(fill)
     return round(bar_open, int(fill["digits"])), FILL_MODEL_SELL
 
 
@@ -410,7 +454,9 @@ def expected_set_window_run(repo: Path | str, gold: str,
                             window_start: str | None,
                             window_end: str | None,
                             weight: float = float(TESTER_WEIGHT_COLUMN),
-                            frozen_rel: str = FROZEN_INPUTS_REL
+                            frozen_rel: str = FROZEN_INPUTS_REL,
+                            spread_points: float | None = None,
+                            spread_source: str | None = None
                             ) -> tuple[dict | None, str]:
     """The tester leg's EXPECTED ENTRY SET (S8-WEIGHT-1): the weight-in-
     force run.
@@ -438,6 +484,13 @@ def expected_set_window_run(repo: Path | str, gold: str,
     * every window-run entry with a frozen counterpart carries exactly the
       lots the frozen sizing rule gives on the run's signal-bar-close
       equity (meta floor at ``weight``).
+
+    ``spread_points`` (with ``spread_source`` naming where it came from)
+    replaces the manifest cost_config spread in the WINDOW run's cost
+    model only, so the window-basis volumes are sized on the same
+    measured cost the expected fill model uses (S8-SPEC-1). The frozen-
+    trace reproduction guard always runs on the manifest value: the
+    frozen trace was built with it.
     """
     repo = Path(repo)
     files = GOLD_FILES.get(gold, {})
@@ -488,9 +541,10 @@ def expected_set_window_run(repo: Path | str, gold: str,
         ec, cc = manifest["engine_config"], manifest["cost_config"]
         risk = manifest["risk_config"]
 
-        def run(signal, schedule):
+        def run(signal, schedule, spread=None):
             costs = CostConfig(symbol=manifest["symbol"],
-                               spread_points=cc["spread_points"],
+                               spread_points=(cc["spread_points"]
+                                              if spread is None else spread),
                                slippage_points=cc["slippage_points"],
                                commission_per_lot=cc["commission_per_lot"])
             cfg = RunConfig(initial_capital=float(risk["equity_start"]),
@@ -519,7 +573,7 @@ def expected_set_window_run(repo: Path | str, gold: str,
                           "not reproduce the frozen trace")
         start = pd.Timestamp(window_start)
         win_sig = sig.where(sig.index >= start, 0)
-        win = run(win_sig, ((df.index[0], weight),))
+        win = run(win_sig, ((df.index[0], weight),), spread_points)
     except Exception as exc:  # noqa: BLE001 -- any failure refuses the set
         return None, f"expected-set re-run failed: {type(exc).__name__}: {exc}"
     step, vmin = float(spec.volume_step), float(spec.volume_min)
@@ -602,13 +656,18 @@ def expected_set_window_run(repo: Path | str, gold: str,
             "frozen_basis_lots": frozen_lots_of(row),
             "reason": reason,
         })
+    spread_note = ("manifest cost_config spread"
+                   if spread_points is None else
+                   f"spread_points {_num(spread_points)} "
+                   f"({spread_source or 'caller-supplied'})")
     note = (f"expected entry set = engine re-run of {files['generator']} "
             f"(config_hash == manifest; fixture bytes == {frozen_rel}) at "
             f"the weight in force ({weight}: InpBaseGateWeight, no "
             f"allocation file staged), python trades only from "
             f"{window_start} (flat before), equity_start "
-            f"{float(risk['equity_start'])}; self-checks: frozen trace "
-            "reproduced, frozen approvals reproduced, run lots == frozen "
+            f"{float(risk['equity_start'])}, window-run entry cost "
+            f"{spread_note}; self-checks: frozen trace reproduced (manifest "
+            "cost), frozen approvals reproduced, run lots == frozen "
             "sizing rule on the run's signal-bar-close equity")
     return {"rows": rows_out, "frozen_only": frozen_only}, note
 
@@ -1095,9 +1154,21 @@ def build_package(*, repo: Path | str, package: Path | str,
     facts = window_facts(windows)
     env: dict = {"field_sources": {}, "tester_symbols": {
         g: GOLD_FILES[g]["tester_symbol"] for g in golds}}
+    # terminal_build/broker from the stage-3 export's flat fields
+    # (S8-SPEC-1) when the leg windows did not state them; the source
+    # names which one was used
+    spec_flat = spec_doc if isinstance(spec_doc, dict) else {}
+    tb, tb_src = facts["terminal_build"], "leg windows: '... build N'"
+    if not tb and spec_flat.get("terminal_build"):
+        tb = spec_flat["terminal_build"]
+        tb_src = ("stage-3 SymbolSpec export flat terminal_build "
+                  "(TerminalInfoInteger(TERMINAL_BUILD))")
     for field, val, src in (
             ("server", facts["server"], "leg windows: '(<server>): ... generating'"),
-            ("terminal_build", facts["terminal_build"], "leg windows: '... build N'"),
+            ("terminal_build", tb, tb_src),
+            ("broker", spec_flat.get("broker"),
+             ("stage-3 SymbolSpec export flat broker "
+              "(AccountInfoString(ACCOUNT_COMPANY))")),
             ("account_mode", facts["account_mode"], "leg windows: hedging|netting"),
             ("symbol", spec_symbol, "stage-3 SymbolSpec export (the custom symbols carry its spec)"),
             ("run_timestamp", (stage5 or {}).get("utc") if isinstance(stage5, dict) else None,
@@ -1181,7 +1252,12 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
     py, py_note = python_entries(expected, manifest.get("timeframe"))
     if py is None:
         return py_note
-    fill, fill_note = fill_spec_of(manifest)
+    # the stage-3 SymbolSpec export the gate staged into the package: its
+    # flat MEASURED spread_points (S8-SPEC-1) feeds the expected fill
+    # model and the window-run cost; manifest fallback stated otherwise
+    spec_doc = _load(pkg / og.LAYOUT["symbolspec"])
+    fill, fill_note = fill_spec_of(
+        manifest, spec_doc if isinstance(spec_doc, dict) else None)
     if fill is None:
         return fill_note
     log_models = {m for g, m in og.log_sourced_legs(pkg) if g == gold}
@@ -1260,7 +1336,9 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
         start = window_starts.get(model, (None, None))[0]
         if start not in by_start:
             by_start[start] = expected_set_window_run(
-                repo, gold, start, window_end)
+                repo, gold, start, window_end,
+                spread_points=float(fill["spread_points"]),
+                spread_source=fill.get("spread_source", "manifest"))
         expected_sets[model] = by_start[start]
     events, pairing = reconciliation_events(
         py, mt5_by_model, files["tester_symbol"],
@@ -1322,7 +1400,8 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
         "events": events,
         "pairing": pairing,
         "pairing_notes": notes,
-        "fill_model": {"buy": FILL_MODEL_BUY, "sell": FILL_MODEL_SELL,
+        "fill_model": {"buy": fill_model_buy_name(fill),
+                       "sell": FILL_MODEL_SELL,
                        "inputs": fill, "inputs_source": fill_note,
                        "slippage_applied": False, "note": FILL_MODEL_NOTE},
         "expected_set": {m: {
@@ -1397,6 +1476,7 @@ __all__ = [
     "divergence_note",
     "expected_fill",
     "expected_set_window_run",
+    "fill_model_buy_name",
     "fill_spec_of",
     "fixture_minute_opens",
     "mt5_deal_line_facts",

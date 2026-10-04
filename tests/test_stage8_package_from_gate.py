@@ -99,10 +99,10 @@ def _stage5_record() -> dict:
             "utc": "2026-10-03T12:00:00.0000000Z"}
 
 
-@pytest.fixture()
-def run26(tmp_path):
+def _build(tmp_path, spec_payload: dict):
     """gate evidence dir + data folder + package, as after gate_run26's
-    stage 5 and the stage-8 log-trade placement."""
+    stage 5 and the stage-8 log-trade placement; ``spec_payload`` is the
+    staged stage-3 SymbolSpec export document."""
     ev, data, pkg = tmp_path / "gate_ev", tmp_path / "data", tmp_path / "pkg"
     ev.mkdir()
     ex5 = data / "MQL5" / "Experts" / "Mql5Bot" / "Mql5Bot.ex5"
@@ -115,9 +115,7 @@ def run26(tmp_path):
     (ev / "stage_5.json").write_text(json.dumps(_stage5_record()),
                                      encoding="ascii")
     spec = tmp_path / "EURUSD.json"
-    spec.write_text(json.dumps({"symbol": "EURUSD", "server": "MetaQuotes-Demo",
-                                "point": 1e-05, "exported_at": "2026.10.03 11:00"}),
-                    encoding="utf-8")
+    spec.write_text(json.dumps(spec_payload), encoding="utf-8")
     for model, req, line in (
             ("m1_ohlc", 1, "EURUSD.G2,M1 (MetaQuotes-Demo): 1 minutes OHLC ticks generating"),
             ("every_tick", 0, "EURUSD.G2,M1 (MetaQuotes-Demo): every tick generating")):
@@ -138,6 +136,42 @@ def run26(tmp_path):
                             symbolspec_export=spec,
                             host={"os": "Windows (test)", "timezone": "UTC"})
     return rec, pkg, ev
+
+
+@pytest.fixture()
+def run26(tmp_path):
+    """The pre-S8-SPEC-1 export shape: nested-only, no flat fields, no
+    measured spread (the fill model falls back to the manifest)."""
+    return _build(tmp_path, {"symbol": "EURUSD", "server": "MetaQuotes-Demo",
+                             "point": 1e-05,
+                             "exported_at": "2026.10.03 11:00"})
+
+
+# the flat stage-8 export shape Mql5BotExportSymbolSpec.mq5 writes after the
+# S8-SPEC-1 scoped mql5/ change: every SYMBOLSPEC_REQUIRED field flat (the
+# nested "symbol" object retained), plus the MEASURED spread fields
+FLAT_EXPORT = {
+    "schema": "mql5bot.broker_export/1",
+    "exported_at": "2026.10.04 11:00 GMT",
+    "server": "MetaQuotes-Demo",
+    "broker": "MetaQuotes Software Corp.",
+    "point": 1e-05, "tick_size": 1e-05, "tick_value_profit": 1.0,
+    "contract_size": 100000.0, "volume_min": 0.01, "volume_max": 500.0,
+    "volume_step": 0.01, "volume_limit": 0.0, "stops_level_points": 0,
+    "freeze_level_points": 0, "trade_mode": 4, "filling_mode_mask": 1,
+    "expiration_mode_mask": 15, "currency_profit": "USD",
+    "timestamp": "2026-10-04T11:00:00Z",
+    "timestamp_server": "2026-10-04T13:00:00", "terminal_build": 6184,
+    "spread_points": 2, "spread_float": False, "custom_symbol": True,
+    "custom_fixed_spread_points": 2,
+    "symbol": {"name": "EURUSD", "point": 1e-05},
+}
+
+
+@pytest.fixture()
+def run_flat(tmp_path):
+    """The run26 tree with the flat S8-SPEC-1 export staged."""
+    return _build(tmp_path, FLAT_EXPORT)
 
 
 def _verify(pkg: Path, tmp_path: Path) -> dict:
@@ -190,6 +224,78 @@ def test_environment_carries_measured_fields_only(run26):
     assert env["tester_symbols"] == {"gold2": "EURUSD.G2"}
     for gap in ("broker", "terminal_build", "account_mode"):
         assert gap not in env and gap in env["unmeasured"]
+
+
+def test_flat_export_fills_environment_broker_and_terminal_build(run_flat):
+    """S8-SPEC-1 follow-up: the flat export's broker/terminal_build reach
+    environment.json with their source named; nothing else changes."""
+    _, pkg, _ = run_flat
+    env = json.loads((pkg / "environment.json").read_text())
+    assert env["broker"] == "MetaQuotes Software Corp."
+    assert env["terminal_build"] == 6184
+    assert env["field_sources"]["broker"] == (
+        "stage-3 SymbolSpec export flat broker "
+        "(AccountInfoString(ACCOUNT_COMPANY))")
+    assert "TerminalInfoInteger(TERMINAL_BUILD)" in \
+        env["field_sources"]["terminal_build"]
+    assert "broker" not in env["unmeasured"]
+    assert "terminal_build" not in env["unmeasured"]
+    # fields the flat export does not carry stay unmeasured, never invented
+    assert "account_mode" in env["unmeasured"]
+
+
+def test_flat_export_passes_the_unchanged_symbolspec_verifier(run_flat):
+    """The verifier is NOT loosened: SYMBOLSPEC_REQUIRED and
+    verify_symbolspec are untouched; the flat export simply satisfies
+    them (state PRESENT_UNVERIFIED without frozen expectations — never
+    INVALID missing-fields)."""
+    _, pkg, _ = run_flat
+    rep = og.verify_symbolspec(pkg, None)
+    assert rep["state"] == og.PRESENT_UNVERIFIED, rep
+    assert not any("missing fields" in r for r in rep["reasons"])
+    # the pre-flat export stays INVALID with the same 17 missing fields
+    missing = [f for f in og.SYMBOLSPEC_REQUIRED
+               if f not in ("server", "symbol")]
+    assert len(missing) == 17
+
+
+def test_measured_spread_drives_the_fill_model_and_window_run(run_flat):
+    """The reconciliation's expected fill model uses the MEASURED spread
+    from the staged flat export (source named), and the window run's cost
+    uses the same measured value (note states it)."""
+    _, pkg, _ = run_flat
+    recon = json.loads((pkg / "reconciliation/gold2.json").read_text())
+    fm = recon["fill_model"]
+    assert fm["buy"] == \
+        "ask_open=bid+measured_spread(2 points, symbolspec export)"
+    assert fm["sell"] == "bid_open"
+    assert fm["inputs"]["spread_points"] == 2.0
+    assert "measured_spread(2 points, symbolspec export)" in \
+        fm["inputs_source"]
+    # the 08:46 buy: python = fixture open 1.09725 + 2 measured points
+    e46 = next(e for e in recon["events"]
+               if e.get("pairing") == s8p.PAIRED_BY_TIME
+               and e["time"] == "2024-01-02T08:46:00")
+    assert e46["fields"]["entry_price"]["python"] == 1.09727
+    assert e46["fill_model"] == \
+        "ask_open=bid+measured_spread(2 points, symbolspec export)"
+    # window-basis volumes were sized on the same measured cost
+    note = recon["expected_set"]["m1_ohlc"]["note"]
+    assert "window-run entry cost spread_points 2" in note
+    assert "measured_spread(2 points, symbolspec export)" in note
+    assert "frozen trace reproduced (manifest cost)" in note
+
+
+def test_fallback_to_manifest_spread_is_stated(run26):
+    """An export without a flat spread falls back to the manifest value
+    with the reason stated; the buy model name stays the generic one."""
+    _, pkg, _ = run26
+    recon = json.loads((pkg / "reconciliation/gold2.json").read_text())
+    fm = recon["fill_model"]
+    assert fm["buy"] == s8p.FILL_MODEL_BUY
+    assert fm["inputs"]["spread_points"] == 1.0
+    assert "fallback" in fm["inputs_source"]
+    assert "no numeric flat spread_points" in fm["inputs_source"]
 
 
 def test_not_applicable_leg_gets_no_fabricated_report(run26):

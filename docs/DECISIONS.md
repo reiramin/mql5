@@ -3352,3 +3352,72 @@ against that baseline. The implementing PR must keep every refusal stage 0
 keeps (older / diverged / unknown anchor, changed frozen file, dirty tree)
 and must list every verifier line it changes; no other acceptance rule may
 loosen.
+
+---
+
+## S8-SPEC-2 — OWNER AUTHORIZATION: scoped mql5/ exception for the flat SymbolSpec export + EA own-entry registry recording (2026-10-04)
+
+**Authorization (Sal, in chat, 2026-10-04, after gate_run30 on HEAD
+887ffa8).** A SCOPED exception to "never modify mql5/", limited to EXACTLY
+two items; nothing else under `mql5/`, `artifacts/`, `evidence/`, the
+manifests or the frozen inputs changes, and the gold legs' trading
+behaviour must not change (no change to signal, sizing, exits, session,
+flip).
+
+**Evidence that motivated it (gate_run30, HEAD 887ffa8).** 74 PAIRED, 0
+MISSING, 0 EXTRA; side 37/37; timestamp 36/37 (one +1s MT5 stamp). First
+divergence EXECUTION_MISMATCH entry_price 08:46 python 1.09726 vs mt5
+1.09727; all 19 buys +1 point; manifest spread_points 1.0 vs measured
+tester fill bid+2 points. Volume 14/37 equal, 23/37 off by one step as a
+knock-on of that same point. Stage 8 also still failed on symbolspec
+INVALID (the 17 flat fields S8-SPEC-1 lists) and environment missing
+terminal_build/broker.
+
+**Item 1 — `mql5/Scripts/Mql5Bot/Mql5BotExportSymbolSpec.mq5`.** Emit ALL
+`owner_gate.SYMBOLSPEC_REQUIRED` fields FLAT at the top level of the same
+export document, each from the MQL5 source S8-SPEC-1 names
+(SymbolInfoDouble/Integer/String; `AccountInfoString(ACCOUNT_COMPANY)` for
+broker; `TerminalInfoInteger(TERMINAL_BUILD)`; `TimeGMT()`/`TimeCurrent()`
+for the ISO timestamp). The nested `symbol` object is retained unchanged
+(backward compatibility: `tools/broker_symbol_parity.py` keeps reading it;
+it also satisfies the required `symbol` key). ALSO emitted flat: the
+measured spread — `SymbolInfoInteger(SYMBOL_SPREAD)` (`spread_points`),
+`SYMBOL_SPREAD_FLOAT` (`spread_float`), `SYMBOL_CUSTOM` (`custom_symbol`)
+and `custom_fixed_spread_points` (the configured fixed spread when the
+symbol is custom with a non-floating spread, else null).
+
+**Item 2 — `mql5/Experts/Mql5Bot/Mql5Bot.mq5`.** After a successful entry
+order the EA records its own new position in the ticket registry
+immediately (the SAME record the SyncRecords path creates): an immediate
+sweep after a successful entry (`RegisterOwnEntryPositions`) plus
+registration from the entry deal in `OnTradeTransaction`
+(`DEAL_ENTRY_IN` -> `DEAL_POSITION_ID`) for pending/retry fills. The next
+sync therefore does not log `[WARN] adopted unknown position #N (restart
+recovery)` for the EA's own entries; restart recovery for genuinely
+unknown positions is unchanged. Registry bookkeeping only — no change to
+when or what the EA trades.
+
+**Python side (same branch, no verifier change).** The gate's symbolspec
+step keeps copying the same export file (which now carries the flat
+fields). `environment.json` fills `terminal_build` and `broker` from the
+export's flat fields when the leg windows did not state them, source
+named. `stage8_package` reads the MEASURED spread from the staged export
+and uses it in the expected fill model — the buy fill model names its
+source, `ask_open=bid+measured_spread(N points, symbolspec export)` —
+falling back to the manifest value with the reason stated when the export
+lacks it; the weight-in-force window run's entry cost uses the same
+measured spread (the frozen-trace reproduction guard keeps the manifest
+cost). Verifier acceptance rules unchanged: no line of
+`owner_gate.verify_symbolspec`, `SYMBOLSPEC_REQUIRED`,
+`verify_environment` or `tools/verify_owner_mt5_gate.py` was touched.
+
+**Measured on the gate_run29/30 log trade lists (not an MT5 run).** With
+measured spread 2: entry_price 37/37 equal per leg (owner's prediction
+holds); volume 11/37 equal per leg, DOWN from 14/37 (owner's "volume
+equality to rise" does NOT hold — `costs.py` treats the bar open as MID,
+so a round trip charges spread + 2x slippage = 4 points against the
+tester's 2; the equity paths diverge more). Recorded as measured; nothing
+was bent to the prediction. MQL5 cannot be compiled on this host: both
+.mq5 edits are source-pinned by
+`tests/test_ea_symbolspec_flat_fields_and_entry_recording.py`; the
+strict-compile 0/0 proof is the owner's stage-1 gate.

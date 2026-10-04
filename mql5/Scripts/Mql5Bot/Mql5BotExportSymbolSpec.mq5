@@ -57,6 +57,17 @@ string JsonQuote(string s)
    return "\"" + JsonEscape(s) + "\"";
   }
 
+//--- ISO-8601 rendering for the flat `timestamp` field.  The gate's
+//--- verifier (owner_gate._iso) parses ISO strings only; MQL5's
+//--- TimeToString "yyyy.mm.dd hh:mi" shape would read as unparsable.
+string JsonIso8601(datetime t)
+  {
+   MqlDateTime dt;
+   TimeToStruct(t, dt);
+   return StringFormat("%04d-%02d-%02dT%02d:%02d:%02d",
+                       dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec);
+  }
+
 void Main()
   {
    string sym = _Symbol;
@@ -169,6 +180,43 @@ void Main()
    j += "  " + JsonQuote("account_currency") + ": " + JsonQuote(AccountInfoString(ACCOUNT_CURRENCY)) + ",\n";
    j += "  " + JsonQuote("account_margin_mode") + ": " + IntegerToString(AccountInfoInteger(ACCOUNT_MARGIN_MODE)) + ",\n";
    j += "  " + JsonQuote("server") + ": " + JsonQuote(AccountInfoString(ACCOUNT_SERVER)) + ",\n";
+   //--- Stage-8 flat SymbolSpec contract (docs/DECISIONS.md S8-SPEC-1):
+   //--- every owner_gate.SYMBOLSPEC_REQUIRED field duplicated FLAT at the
+   //--- top level, each from the MQL5 source S8-SPEC-1 names.  The nested
+   //--- "symbol" object below is UNCHANGED (backward compatibility:
+   //--- tools/broker_symbol_parity.py keeps reading it); it also satisfies
+   //--- the required `symbol` key.  The measured tester spread is exported
+   //--- beside them so the gate can build the expected fill model from a
+   //--- MEASURED value instead of the manifest assumption (gate_run30:
+   //--- manifest spread_points 1.0 vs measured tester fill bid+2 points).
+   long spreadPoints = SymbolInfoInteger(sym, SYMBOL_SPREAD);
+   bool spreadFloat  = (SymbolInfoInteger(sym, SYMBOL_SPREAD_FLOAT) != 0);
+   bool isCustom     = (SymbolInfoInteger(sym, SYMBOL_CUSTOM) != 0);
+   j += "  " + JsonQuote("broker") + ": " + JsonQuote(AccountInfoString(ACCOUNT_COMPANY)) + ",\n";
+   j += "  " + JsonQuote("point") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_POINT), 12) + ",\n";
+   j += "  " + JsonQuote("tick_size") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_SIZE), 12) + ",\n";
+   j += "  " + JsonQuote("tick_value_profit") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_VALUE_PROFIT), 12) + ",\n";
+   j += "  " + JsonQuote("contract_size") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_TRADE_CONTRACT_SIZE), 12) + ",\n";
+   j += "  " + JsonQuote("volume_min") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_VOLUME_MIN), 12) + ",\n";
+   j += "  " + JsonQuote("volume_max") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_VOLUME_MAX), 12) + ",\n";
+   j += "  " + JsonQuote("volume_step") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_VOLUME_STEP), 12) + ",\n";
+   j += "  " + JsonQuote("volume_limit") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_VOLUME_LIMIT), 12) + ",\n";
+   j += "  " + JsonQuote("stops_level_points") + ": " + DoubleToString(SymbolInfoInteger(sym, SYMBOL_TRADE_STOPS_LEVEL), 0) + ",\n";
+   j += "  " + JsonQuote("freeze_level_points") + ": " + DoubleToString(SymbolInfoInteger(sym, SYMBOL_TRADE_FREEZE_LEVEL), 0) + ",\n";
+   j += "  " + JsonQuote("trade_mode") + ": " + IntegerToString(SymbolInfoInteger(sym, SYMBOL_TRADE_MODE)) + ",\n";
+   j += "  " + JsonQuote("filling_mode_mask") + ": " + IntegerToString(filling) + ",\n";
+   j += "  " + JsonQuote("expiration_mode_mask") + ": " + IntegerToString(SymbolInfoInteger(sym, SYMBOL_EXPIRATION_MODE)) + ",\n";
+   j += "  " + JsonQuote("currency_profit") + ": " + JsonQuote(SymbolInfoString(sym, SYMBOL_CURRENCY_PROFIT)) + ",\n";
+   j += "  " + JsonQuote("timestamp") + ": " + JsonQuote(JsonIso8601(TimeGMT()) + "Z") + ",\n";
+   j += "  " + JsonQuote("timestamp_server") + ": " + JsonQuote(JsonIso8601(TimeCurrent())) + ",\n";
+   j += "  " + JsonQuote("terminal_build") + ": " + IntegerToString(TerminalInfoInteger(TERMINAL_BUILD)) + ",\n";
+   //--- measured spread: SYMBOL_SPREAD in points at export time, whether
+   //--- the symbol declares a floating spread, and -- for a custom symbol
+   //--- with a fixed (non-floating) spread -- the configured fixed value.
+   j += "  " + JsonQuote("spread_points") + ": " + IntegerToString(spreadPoints) + ",\n";
+   j += "  " + JsonQuote("spread_float") + ": " + (spreadFloat ? "true" : "false") + ",\n";
+   j += "  " + JsonQuote("custom_symbol") + ": " + (isCustom ? "true" : "false") + ",\n";
+   j += "  " + JsonQuote("custom_fixed_spread_points") + ": " + ((isCustom && !spreadFloat) ? IntegerToString(spreadPoints) : "null") + ",\n";
    j += "  " + JsonQuote("symbol") + ":\n  {\n";
    j += "    " + JsonQuote("name") + ": " + JsonQuote(sym) + ",\n";
    j += "    " + JsonQuote("path") + ": " + JsonQuote(SymbolInfoString(sym, SYMBOL_PATH)) + ",\n";
