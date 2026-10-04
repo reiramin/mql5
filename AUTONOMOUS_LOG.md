@@ -1059,3 +1059,26 @@ pytest (pwsh on PATH) = 0, 0 FAILED/XPASS/ERROR. The 5 pwsh test files:
   match MT5 would violate S8-FILL-1.
 - Nothing ran on MT5; gate_run30 counts in the PR are predictions, not
   results. Stage 8 has never passed; nothing is certified.
+
+## 2026-10-04 (4) — merge PR #19 (re-anchor); docs/anchor-relation-decision
+
+**Merge:** PR #19 merged into master as 5392cc4c861bc0a411cc7957e184a3288e6c251d
+(--no-ff, "Approved by Sal + reviewer in chat; no GitHub review recorded.";
+the owner independently recomputed every re-anchored hash from the bytes at
+734bb8d). Approved head 2b4df4c verified equal to the remote branch. Gates on
+the merge commit before push: ruff exit 0; full pytest exit 0, failures
+reported with -rfEX: 0 FAILED, 0 XPASS. Push 734bb8d..5392cc4, no
+force/amend. GitHub: MERGED.
+
+**Branch:** `docs/anchor-relation-decision` from 5392cc4 (docs only).
+Records owner decision S8-ANCHOR-REL-1 in docs/DECISIONS.md: compile and
+reconciliation cross-checks will accept stage 0's anchor relation (clean
+descendant, frozen files byte-identical). NOT implemented — separate PR
+after gate_run29 records the current behaviour.
+
+**Exit codes:** ruff -> 0; full pytest -> 0 on this branch (docs-only).
+
+**NOT done, and why**
+- The verifier change itself: owner sequenced it after gate_run29.
+- Docs PR not merged (not asked). Nothing ran on MT5. Certification record
+  unchanged: stage 8 has never passed; nothing is certified.

@@ -3314,3 +3314,41 @@ volume 14/37 equal / 20/37 within one volume_step. FROZEN_ONLY 21 per
 leg (19 + 1 + 1); OUT_OF_TESTED_WINDOW 30 per leg (the weight-1.0 run
 trades the excluded ToDate day). The residuals remain divergences under
 the zero-tolerance rule.
+
+---
+
+## S8-ANCHOR-REL-1 — OWNER DECISION (recorded, NOT implemented): compile and reconciliation cross-checks will accept the stage-0 anchor relation (2026-10-04)
+
+**Decision (Sal, in chat, 2026-10-04, after PR #19 merged as `5392cc4`).**
+The compile and reconciliation cross-checks should accept the SAME relation
+stage 0 does: a clean HEAD that DESCENDS from the frozen anchor
+(`source.commit`) with every frozen file byte-identical — not only
+`HEAD == anchor`.
+
+**Why.** A frozen record can never name the commit that contains it, so the
+gate always runs at a descendant of the anchor (and at the anchor itself its
+own older frozen record fails stage 0). Under the current equality rule the
+compile evidence and the reconciliation binding are therefore MISMATCHED on
+every possible checkout (S8-REANCHOR-1, "What the re-anchor does NOT
+clear").
+
+**The checks concerned (current behaviour, unchanged by this entry):**
+- `python/mql5bot/owner_gate.py` `verify_compile` (`:348`): compile metadata
+  `SOURCE_COMMIT` must EQUAL the frozen source commit (`:395-399`).
+- `owner_gate.py` reconciliation binding cross-check (`:900`) and the gate
+  cross-check (`:1273`): `bindings.source_commit` must EQUAL the frozen
+  source commit.
+- The relation to mirror is stage 0's, `python/mql5bot/gate_selfcheck.py`
+  `verify_head_matches_frozen` (`:633`; descendant -> PASS with
+  `SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR`), which already refuses an older,
+  diverged or unknown-anchor HEAD, a changed frozen file, a dirty tree and
+  `core.autocrlf != false`.
+
+**Sequencing.** NOT implemented now. It lands in a separate PR AFTER
+gate_run29 has recorded the current behaviour (expected: compile and
+reconciliation `source_commit` MISMATCHED at the gate's descendant HEAD), so
+the change is justified by measured run evidence and its effect is visible
+against that baseline. The implementing PR must keep every refusal stage 0
+keeps (older / diverged / unknown anchor, changed frozen file, dirty tree)
+and must list every verifier line it changes; no other acceptance rule may
+loosen.
