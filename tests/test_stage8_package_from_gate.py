@@ -303,13 +303,19 @@ def test_unpaired_trades_inside_the_window_are_divergences(run26):
     assert spec["mt5"].startswith("MISSING_IN_MT5")
     assert og.classify_field("state") == og.STATE_MISMATCH
     # paired volume/price divergences stay measured: 08:46 buy 0.28 at
-    # 1.09700 (MT5) vs python 0.25 at the fixture open 1.09725
-    # (0.26 before S8-FLIP-REGEN: basis 9402.53 -> 9085.28)
+    # 1.09700 (MT5, synthetic) vs python at the named buy fill model
+    # ask = open 1.09725 + 1 spread point. The volume compared is the
+    # WINDOW basis (0.28, re-run from 10000 at the 2024-01-02 start); the
+    # frozen-basis 0.25 (basis 9085.28, carries 2024-01-01) stays beside
     e46 = next(e for e in recon["events"]
                if e.get("pairing") == s8p.PAIRED_BY_TIME
                and e["time"] == "2024-01-02T08:46:00")
-    assert e46["fields"]["volume"] == {"python": 0.25, "mt5": 0.28}
-    assert e46["fields"]["entry_price"] == {"python": 1.09725, "mt5": 1.097}
+    assert e46["fields"]["volume"] == {"python": 0.28, "mt5": 0.28}
+    assert e46["python_volume_frozen_basis"] == 0.25
+    assert e46["python_volume_window_basis"] == 0.28
+    assert e46["python_volume_basis"].startswith("WINDOW: ")
+    assert e46["fill_model"] == s8p.FILL_MODEL_BUY
+    assert e46["fields"]["entry_price"] == {"python": 1.09726, "mt5": 1.097}
     assert e46["fields"]["entry_side"] == {"python": "buy", "mt5": "buy"}
 
 
