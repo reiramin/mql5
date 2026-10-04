@@ -1155,3 +1155,31 @@ commit on the identical tree.
 - The volume residual is NOT closed: closing it needs a cost-model
   decision (python mid-price convention vs MT5 bid bars), which is the
   owner's, not a tester-matching patch.
+
+## 2026-10-04 (6) — merge PRs #21, #22, #20 into master
+
+**Merges (in order, each --no-ff, body "Approved by Sal + reviewer in
+chat; no GitHub review recorded."):** PR #21 (53431ce) -> 1916b89;
+PR #22 (53742c5) -> b07c080; PR #20 (5dc78f9, docs S8-ANCHOR-REL-1)
+-> 887ffa8. origin/master = 887ffa8. GitHub states: all three MERGED.
+
+**Gates (exit codes read after EACH merge, before each push):** ruff on
+python/ tests/ tools/ factory/ = 0 three times; full pytest (-rfEX,
+pwsh on PATH) = 0 three times, 0 FAILED/XPASS/ERROR each. Pushes
+5392cc4..1916b89, 1916b89..b07c080, b07c080..887ffa8; no force/amend.
+
+**PR #20 conflict resolution (stated in its merge commit):**
+AUTONOMOUS_LOG.md and docs/DECISIONS.md were append-vs-append conflicts
+against #21/#22 (same base 5392cc4). Resolved as the union: master's
+appended entries first, then PR #20's block, script-verified as a pure
+append (first base-length lines byte-identical) -- no line of either
+side dropped or edited. Note: #20's log entry carries its original
+heading "2026-10-04 (4)", written before sessions (4)/(5) existed;
+preserved verbatim, not renumbered.
+
+**NOT done, and why**
+- Nothing ran on MT5. The merges change no gate verdict: stage 5's
+  record stands as graded, stages 6-10 have never run, stage 8 has
+  never passed; nothing is certified.
+- This log entry itself is committed on docs/autolog-2026-10-04-merges
+  (never directly to master), PR opened, not merged.
