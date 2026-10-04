@@ -1209,3 +1209,81 @@ verdict — stage 5's record stands as graded, stages 6-10 have never run,
 stage 8 has never passed; nothing is certified. This log entry is
 committed on docs/autolog-2026-10-04-pr24-merge (never directly to
 master), PR opened, not merged.
+
+## 2026-10-05 (1) — branch `fix/gate-runs-symbolspec-exporter`
+
+**Branch:** `fix/gate-runs-symbolspec-exporter` from origin/master 9de13ad
+(separate worktree). Also, on owner approval: removed another session's
+stale worktree `.claude/worktrees/merge-master` (rm + `git worktree
+prune`); it held only an index-staged reversal of PR #24 (its `master`
+ref had moved under it), no untracked files, no unique commits; nothing
+committed from it.
+
+**Evidence that motivated it (gate_run31, HEAD 4803520):** stage 1 PASS
+0/0 with the S8-SPEC-2 exporter; "registered own entry position" 37,
+"adopted unknown position" 0; BUT the packaged symbolspec was the OLD
+2026-09-15 file: owner_gate.ps1 only COPIED data\broker_exports\
+EURUSD.json and never ran Mql5BotExportSymbolSpec, so the flat fields and
+spread_points never existed and entry_price stayed 18/37.
+
+**Done (built, unit-tested, never run live):**
+- `tools/owner_gate.ps1`: `Invoke-TerminalScript` takes an optional
+  symbol -> `[StartUp]` `Symbol=` line. New `Invoke-SymbolSpecExport`
+  RUNS the compiled exporter headlessly (ini keys `Script=Mql5Bot\
+  Mql5BotExportSymbolSpec`, `Symbol=<sym>`, `ScriptParameters=
+  mql5bot_export_symbolspec_<sym>.set`, `ShutdownTerminal=1`; preset in
+  MQL5\Presets, UTF-16LE, `InpExportDir=Mql5Bot\broker_exports\`,
+  `InpDenomProbeTicks=100`, validated by validate-preset before launch),
+  byte-copies `MQL5\Files\Mql5Bot\broker_exports\<sym>.json` to
+  `evidence\symbolspec_<sym>.json` (sha256 before/after) and judges it.
+  (a) stage 3 exports EURUSD before broker parity and replaces
+  data\broker_exports\EURUSD.json with it; `-SymbolSpecExport` stays an
+  override recorded as "owner-supplied file" and is judged by the SAME
+  freshness rule. (b) stage 4 exports each scoped custom symbol
+  (EURUSD.G2) after its import passes; the paths go to the stage-8
+  builder as `--symbolspec-custom gold=path`.
+- `gate_selfcheck.symbolspec_export_freshness` + decider
+  `symbolspec-fresh`: export time (flat ISO `timestamp`, else legacy
+  `exported_at`) inside [run start floored to the second, now], at whole
+  seconds with no further tolerance; `terminal_build` a positive int;
+  exported symbol == requested. Any failure FAILs the stage naming the
+  file; never a fallback.
+- `stage8_package`: the symbolspec slot + measured spread come from the
+  custom-symbol export; `gate/package_build.json` records
+  `symbolspec_source` (basis, gold, symbol, file, sha256);
+  reconciliation `fill_model.spread_source` names the file/symbol per
+  gold. Without a custom export the broker export is used and the record
+  says so.
+- No verifier line touched (owner_gate.verify_*, SYMBOLSPEC_REQUIRED,
+  tools/verify_owner_mt5_gate.py unchanged). mql5/, artifacts/,
+  evidence/, manifests, frozen inputs untouched.
+- Tests: new tests/test_gate_runs_symbolspec_exporter.py (14), incl. pwsh
+  EXECUTION of the gate's own Invoke-TerminalScript (ini bytes for
+  EURUSD and EURUSD.G2) and Invoke-SymbolSpecExport end to end with a
+  fake terminal (fresh -> pass; the 2026-09-15 file left at the path ->
+  FAIL naming it, STALE). Two textual pins updated in existing tests (the
+  stage-8 call form; my preset var renamed so the R4 `$setLines` pin still
+  targets the importer).
+
+**Exit codes (read):** ruff on python/ tests/ tools/ factory/ = 0; full
+pytest (-rfEXs, pwsh on PATH) = 0 (1 pre-existing unrelated skip:
+test_pipeline optuna); the six pwsh-executing test files: 205 collected,
+205 passed, 0 skipped.
+
+**Predicted gate_run32 (not a run):** stage 3 now launches the exporter
+on EURUSD and parity reads a this-run file; stage 4 launches it on
+EURUSD.G2; stage 8 symbolspec PRESENT_UNVERIFIED (not INVALID) and
+environment broker/terminal_build filled. The entry_price outcome depends
+on a value nothing has measured yet: the importer never sets the custom
+symbol's SYMBOL_SPREAD and writes bar spread 0, so EURUSD.G2's exported
+spread_points may be 0, not the tester's observed +2 points. If 2:
+entry_price 37/37, volume 11/37 per leg (PR #24 measurement). If 0: the
+19 buys diverge by -2 points (entry_price 18/37); the tester's +2 then
+is not the symbol property, and fixing it means an importer (mql5/)
+owner decision.
+
+**NOT done, and why:** nothing ran on MT5. Not merged, as instructed.
+Other asset-class exports in data\broker_exports (METAL/INDEX/CRYPTO)
+are still owner-supplied files; the gate replaces only EURUSD.json (as
+specified). Stage 5 remains FAIL as a gate verdict; stages 6-10 have
+never run; stage 8 has never passed; nothing is certified.

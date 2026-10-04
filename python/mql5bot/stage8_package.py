@@ -1060,7 +1060,8 @@ def build_package(*, repo: Path | str, package: Path | str,
                   gate_evidence: Path | str, data_folder: Path | str | None,
                   golds: list[str], symbolspec_export: Path | str | None,
                   host: dict | None = None,
-                  frozen_rel: str = "artifacts/owner_mt5_gate/frozen_inputs.json"
+                  frozen_rel: str = "artifacts/owner_mt5_gate/frozen_inputs.json",
+                  symbolspec_custom: dict[str, Path | str] | None = None
                   ) -> dict:
     repo, pkg, ev = Path(repo), Path(package), Path(gate_evidence)
     pkg.mkdir(parents=True, exist_ok=True)
@@ -1134,18 +1135,47 @@ def build_package(*, repo: Path | str, package: Path | str,
         put_json(og.LAYOUT["compile_metadata"], meta,
                  "parsed stage-1 compile log + git HEAD")
 
-    # --- symbolspec/ (stage 3) -------------------------------------------
+    # --- symbolspec/ ------------------------------------------------------
+    # The tester trades the CUSTOM gold symbol, so the package carries this
+    # run's export of THAT symbol (gate stage 4, after import) -- its
+    # spread_points is the measured tester spread. The first scoped gold
+    # with a custom export fills the slot; each gold's reconciliation reads
+    # its OWN custom export. Without one, the stage-3 broker export is used
+    # and the record says so.
+    custom = {g: Path(p) for g, p in (symbolspec_custom or {}).items()
+              if g in golds}
+    slot_gold = next((g for g in golds if g in custom), None)
     spec_doc = None
-    if symbolspec_export and Path(symbolspec_export).is_file():
-        raw = Path(symbolspec_export).read_bytes()
+    if slot_gold is not None:
+        spec_file: Path | None = custom[slot_gold]
+        spec_source: dict = {
+            "basis": "custom-symbol export (this run, gate stage 4, after "
+                     "import)",
+            "gold": slot_gold,
+            "symbol": GOLD_FILES[slot_gold]["tester_symbol"]}
+    else:
+        spec_file = Path(symbolspec_export) if symbolspec_export else None
+        spec_source = {"basis": "stage-3 broker export (no custom-symbol "
+                                "export supplied)",
+                       "gold": None, "symbol": None}
+    if spec_file is not None and spec_file.is_file():
+        raw = spec_file.read_bytes()
+        spec_source.update({"file": str(spec_file),
+                            "sha256": _sha_bytes(raw)})
         put_bytes(og.LAYOUT["symbolspec"], raw,
-                  f"stage-3 SymbolSpec export {Path(symbolspec_export).name}")
+                  f"{spec_source['basis']}: {spec_file.name}")
         try:
             spec_doc = json.loads(gs.decode_bom_aware(raw))
         except ValueError:
             spec_doc = None
+        if isinstance(spec_doc, dict) and spec_source["symbol"] is None:
+            sym = spec_doc.get("symbol")
+            spec_source["symbol"] = (sym.get("name") if isinstance(sym, dict)
+                                     else sym)
     else:
-        not_built[og.LAYOUT["symbolspec"]] = f"stage-3 export not found: {symbolspec_export}"
+        spec_source["file"] = str(spec_file) if spec_file else None
+        not_built[og.LAYOUT["symbolspec"]] = (
+            f"{spec_source['basis']}: export not found: {spec_file}")
     spec_symbol = spec_doc.get("symbol") if isinstance(spec_doc, dict) else None
 
     # --- environment.json -------------------------------------------------
@@ -1207,7 +1237,8 @@ def build_package(*, repo: Path | str, package: Path | str,
     # --- reconciliation/<gold>.json ----------------------------------------
     for gold in golds:
         rel = og.LAYOUT[f"reconciliation_{gold}"]
-        why = _build_reconciliation(repo, pkg, gold, na, head, put_json, ev)
+        why = _build_reconciliation(repo, pkg, gold, na, head, put_json, ev,
+                                    spec_path=custom.get(gold))
         if why:
             not_built[rel] = why
 
@@ -1220,6 +1251,7 @@ def build_package(*, repo: Path | str, package: Path | str,
               "built": dict(sorted(built.items())), "sources": sources,
               "not_built": dict(sorted(not_built.items())),
               "removed_previous_build": removed,
+              "symbolspec_source": spec_source,
               "not_applicable": {g: na[g] for g in sorted(na)}}
     put_json(GATE_BUILD_REL, record, "this builder")
     record["built"][GATE_BUILD_REL] = built[GATE_BUILD_REL]
@@ -1241,7 +1273,8 @@ def build_package(*, repo: Path | str, package: Path | str,
 
 def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
                           head: str | None, put_json,
-                          gate_evidence: Path | None = None) -> str | None:
+                          gate_evidence: Path | None = None,
+                          spec_path: Path | None = None) -> str | None:
     """Write reconciliation/<gold>.json; return the reason when it cannot be
     built honestly."""
     files = GOLD_FILES[gold]
@@ -1252,10 +1285,19 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
     py, py_note = python_entries(expected, manifest.get("timeframe"))
     if py is None:
         return py_note
-    # the stage-3 SymbolSpec export the gate staged into the package: its
+    # this gold's own custom-symbol export when the gate supplied one (the
+    # tester trades that symbol), else the package's symbolspec slot: its
     # flat MEASURED spread_points (S8-SPEC-1) feeds the expected fill
     # model and the window-run cost; manifest fallback stated otherwise
-    spec_doc = _load(pkg / og.LAYOUT["symbolspec"])
+    spec_file = Path(spec_path) if spec_path else pkg / og.LAYOUT["symbolspec"]
+    spec_doc = _load(spec_file)
+    sym = spec_doc.get("symbol") if isinstance(spec_doc, dict) else None
+    spread_source = {
+        "file": str(spec_file),
+        "sha256": _sha(spec_file) if spec_file.is_file() else None,
+        "symbol": sym.get("name") if isinstance(sym, dict) else sym,
+        "basis": ("this gold's custom-symbol export (gate stage 4)"
+                  if spec_path else "package symbolspec slot")}
     fill, fill_note = fill_spec_of(
         manifest, spec_doc if isinstance(spec_doc, dict) else None)
     if fill is None:
@@ -1403,6 +1445,7 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
         "fill_model": {"buy": fill_model_buy_name(fill),
                        "sell": FILL_MODEL_SELL,
                        "inputs": fill, "inputs_source": fill_note,
+                       "spread_source": spread_source,
                        "slippage_applied": False, "note": FILL_MODEL_NOTE},
         "expected_set": {m: {
             "set": (EXPECTED_SET_WINDOW_RUN if expected_sets[m][0]

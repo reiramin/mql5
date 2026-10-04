@@ -1370,6 +1370,116 @@ def tester_leg_evidence(report_json_path: Path | str,
             "coverage_record": coverage_record}
 
 
+# ---------------------------------------------------------------------------
+# SymbolSpec export freshness (gate_run31: the gate packaged a 2026-09-15
+# export because it only COPIED data\broker_exports\EURUSD.json and never ran
+# Mql5BotExportSymbolSpec). Every export the gate uses must be produced inside
+# THIS run's window, by a terminal that states its build, for the symbol the
+# gate asked for -- otherwise the stage FAILs naming the file.
+# ---------------------------------------------------------------------------
+
+def _export_time_utc(doc: dict) -> tuple[float | None, str | None, str]:
+    """(epoch seconds, raw value, key) of the export's own time. The flat
+    ISO ``timestamp`` (TimeGMT, "...Z") is preferred; the legacy
+    ``exported_at`` ("YYYY.MM.DD HH:MM:SS GMT", TimeGMT) is read only so a
+    stale file can be NAMED with its date, never to make it acceptable."""
+    from datetime import datetime, timezone
+    raw = doc.get("timestamp")
+    if isinstance(raw, str) and raw:
+        try:
+            t = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if t.tzinfo is None:
+                t = t.replace(tzinfo=timezone.utc)
+            return t.timestamp(), raw, "timestamp"
+        except ValueError:
+            return None, raw, "timestamp"
+    raw = doc.get("exported_at")
+    if isinstance(raw, str) and raw:
+        m = re.fullmatch(r"(\d{4})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?"
+                         r"(?: GMT)?", raw.strip())
+        if m:
+            y, mo, d, h, mi, s = (int(x or 0) for x in m.groups())
+            return (datetime(y, mo, d, h, mi, s, tzinfo=timezone.utc)
+                    .timestamp(), raw, "exported_at")
+        return None, raw, "exported_at"
+    return None, None, "timestamp"
+
+
+def symbolspec_export_freshness(path: Path | str, symbol: str,
+                                run_start_utc: str,
+                                now_utc: str | None = None) -> dict:
+    """Decide whether one Mql5BotExportSymbolSpec output may be used by
+    this gate run. ALL must hold, else ok=False with the file named:
+
+    * the file exists and parses as a JSON object;
+    * its export time (flat ``timestamp``, else ``exported_at``) lies in
+      [run start, now] at whole-second resolution -- the exporter writes
+      TimeGMT() truncated to seconds, so the run start is floored to the
+      second; no further tolerance;
+    * ``terminal_build`` is present and a positive integer;
+    * the exported symbol (nested ``symbol.name``, else a flat string
+      ``symbol``) is exactly ``symbol``.
+    """
+    import math
+    from datetime import datetime, timezone
+
+    p = Path(path)
+    out: dict = {"ok": False, "file": str(p), "symbol_requested": symbol,
+                 "reasons": []}
+    try:
+        doc = json.loads(decode_bom_aware(p.read_bytes()))
+    except OSError:
+        out["reasons"].append(f"{p}: export file missing (the exporter "
+                              "produced nothing at this path)")
+        return out
+    except ValueError:
+        out["reasons"].append(f"{p}: export file is not valid JSON")
+        return out
+    if not isinstance(doc, dict):
+        out["reasons"].append(f"{p}: export is not a JSON object")
+        return out
+
+    def _utc(v: str) -> float:
+        t = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        return t.timestamp()
+
+    start = math.floor(_utc(run_start_utc))
+    now = math.ceil(_utc(now_utc) if now_utc else
+                    datetime.now(timezone.utc).timestamp())
+    ts, raw, key = _export_time_utc(doc)
+    out.update({"export_time": raw, "export_time_key": key,
+                "run_window_utc": [
+                    datetime.fromtimestamp(start, timezone.utc).isoformat(),
+                    datetime.fromtimestamp(now, timezone.utc).isoformat()]})
+    if ts is None:
+        out["reasons"].append(
+            f"{p}: no parsable export time ({key}={raw!r}) -- freshness "
+            "cannot be shown")
+    elif not start <= ts <= now:
+        out["reasons"].append(
+            f"{p}: STALE -- {key} {raw!r} is outside this run's window "
+            f"{out['run_window_utc'][0]} .. {out['run_window_utc'][1]}; "
+            "never used, never a fallback")
+    build = doc.get("terminal_build")
+    out["terminal_build"] = build
+    if not (isinstance(build, int) and not isinstance(build, bool)
+            and build > 0):
+        out["reasons"].append(
+            f"{p}: terminal_build missing or not a positive integer "
+            f"({build!r}) -- not an output of the S8-SPEC-2 exporter")
+    sym = doc.get("symbol")
+    name = sym.get("name") if isinstance(sym, dict) else sym
+    out["symbol_exported"] = name
+    if name != symbol:
+        out["reasons"].append(f"{p}: exported symbol {name!r} != requested "
+                              f"{symbol!r}")
+    out["spread_points"] = doc.get("spread_points")
+    out["ok"] = not out["reasons"]
+    return out
+
+
 __all__ = [
     "BAR_FIXTURE_COLUMNS",
     "REAL_TICK_COVERAGE_NONE_BAR_ONLY",
@@ -1406,6 +1516,7 @@ __all__ = [
     "run_self_protection",
     "sha256_bytes",
     "sha256_file",
+    "symbolspec_export_freshness",
     "tester_leg_evidence",
     "verify_autocrlf_false",
     "verify_clean_tree",

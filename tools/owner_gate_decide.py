@@ -161,8 +161,23 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--golds", required=True, help="comma list (the scope)")
     p.add_argument("--symbolspec", default="",
                    help="the stage-3 SymbolSpec export the gate used")
+    p.add_argument("--symbolspec-custom", action="append", default=[],
+                   help="gold=path: this run's export of the gold's CUSTOM "
+                        "tester symbol (the tester trades it, so the package "
+                        "symbolspec + measured spread come from it)")
     p.add_argument("--host-os", default="")
     p.add_argument("--host-timezone", default="")
+
+    p = sub.add_parser("symbolspec-fresh",
+                       help="stages 3/4: was this Mql5BotExportSymbolSpec "
+                            "output produced inside THIS run's window, by a "
+                            "terminal stating its build, for the requested "
+                            "symbol? FAIL names the file")
+    p.add_argument("--export", required=True)
+    p.add_argument("--symbol", required=True)
+    p.add_argument("--run-start", required=True,
+                   help="the gate's run start, ISO-8601 UTC")
+    p.add_argument("--now", default="", help="override 'now' (tests)")
 
     p = sub.add_parser("stage8-divergence-note",
                        help="stage 8: quote each gold's first divergence from "
@@ -346,8 +361,16 @@ def main(argv: list[str] | None = None) -> int:
                 data_folder=args.data_folder or None,
                 golds=[g for g in args.golds.split(",") if g],
                 symbolspec_export=args.symbolspec or None,
+                symbolspec_custom=dict(
+                    kv.split("=", 1) for kv in args.symbolspec_custom
+                    if "=" in kv),
                 host={"os": args.host_os, "timezone": args.host_timezone})
             return _emit(rec)
+
+        if args.cmd == "symbolspec-fresh":
+            return _emit(gs.symbolspec_export_freshness(
+                args.export, args.symbol, args.run_start,
+                args.now or None))
 
         if args.cmd == "stage8-divergence-note":
             try:

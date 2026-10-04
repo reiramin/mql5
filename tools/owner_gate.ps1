@@ -67,6 +67,11 @@ $Decide = Join-Path $PSScriptRoot "owner_gate_decide.py"
 # the check cannot possibly see it. (Historical bug: creating evidence\ up
 # front left `?? evidence/` in the porcelain and the gate blocked itself.)
 $Stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmss")
+# RUN WINDOW START (gate_run31): every SymbolSpec export the gate uses must
+# be produced AFTER this instant -- symbolspec-fresh checks it.
+$Script:RunStartUtc = (Get-Date).ToUniversalTime().ToString("o")
+# gold -> this run's export of the gold's CUSTOM tester symbol (stage 4)
+$Script:CustomSpecs = @{}
 $Evidence = Join-Path $RepoRoot ("evidence\owner_gate\" + $Stamp)
 
 # ordered stage ledger; each entry: name/status/reason/artifacts
@@ -335,9 +340,14 @@ function Find-Exe([string]$name, [string]$explicit, [string]$envVar) {
 # the importer WHICH gold it is and EXACTLY where to write its JSON, instead of
 # relying on the script's compiled-in defaults. Returns launch status so the
 # caller can tell "never launched" from "ran but produced nothing".
-function Invoke-TerminalScript([string]$scriptRel, [string]$label, [string]$presetName = "") {
+function Invoke-TerminalScript([string]$scriptRel, [string]$label, [string]$presetName = "", [string]$symbol = "") {
     $iniPath = Join-Path $Evidence ($label + ".ini")
     $iniLines = @("[StartUp]", "Script=$scriptRel")
+    # [StartUp] Symbol= opens the script's chart on THAT symbol (MT5
+    # "Configuration at Startup"): a symbol-scoped script such as
+    # Mql5BotExportSymbolSpec (it exports _Symbol) runs on it, not on
+    # whatever chart the terminal last had open.
+    if ($symbol) { $iniLines += "Symbol=$symbol" }
     if ($presetName) { $iniLines += "ScriptParameters=$presetName" }
     $iniLines += "ShutdownTerminal=1"
     [IO.File]::WriteAllText($iniPath, ($iniLines -join "`r`n") + "`r`n", [Text.Encoding]::ASCII)
@@ -358,6 +368,68 @@ function Invoke-TerminalScript([string]$scriptRel, [string]$label, [string]$pres
         $exited = $false
     }
     return [pscustomobject]@{ launched = $true; exited = $exited }
+}
+
+# RUN the compiled Mql5BotExportSymbolSpec on $symbol (gate_run31: the gate
+# only COPIED a 2026-09-15 data\broker_exports\EURUSD.json and never ran the
+# exporter, so the flat S8-SPEC-2 fields and spread_points never existed).
+# Same headless mechanism as the importer: a [StartUp] ini (Script= +
+# Symbol= + ScriptParameters=) and a validated UTF-16LE preset in
+# MQL5\Presets carrying the inputs explicitly. The output is byte-copied
+# into evidence\ (sha256 before/after) and judged by committed Python
+# (symbolspec-fresh): inside THIS run's window, terminal_build present,
+# exported symbol == $symbol. A stale file left at the path by an earlier
+# run can therefore never pass. Returns ok/evidence/reasons/artifacts.
+function Invoke-SymbolSpecExport([string]$symbol) {
+    $arts = New-Object System.Collections.ArrayList
+    $label = "export_symbolspec_" + $symbol
+    $presets = Join-Path $DataFolder "MQL5\Presets"
+    New-Item -ItemType Directory -Force -Path $presets | Out-Null
+    $setName = "mql5bot_export_symbolspec_" + $symbol + ".set"
+    $exportSetLines = @(
+        "InpExportDir=Mql5Bot\broker_exports\",
+        "InpDenomProbeTicks=100"
+    )
+    $setStaged = Join-Path $presets $setName
+    [IO.File]::WriteAllText($setStaged, (($exportSetLines -join "`r`n") + "`r`n"), [Text.Encoding]::Unicode)
+    $setEvidence = Join-Path $Evidence ($label + ".set")
+    Copy-Item -LiteralPath $setStaged -Destination $setEvidence -Force
+    [void]$arts.Add((New-Artifact $setEvidence))
+    $expectArgs = @()
+    foreach ($sl in $exportSetLines) { $expectArgs += @("--expect", $sl) }
+    $pv = Invoke-Decide (@("validate-preset", $setStaged) + $expectArgs)
+    if (-not $pv.ok) {
+        $why = if ($pv.data -and (Get-DataProp $pv.data "reasons")) { ((Get-DataProp $pv.data "reasons") -join "; ") } else { "staged preset failed validation" }
+        return [pscustomobject]@{ ok = $false; evidence = ""; artifacts = $arts
+            reasons = @(("[preset_invalid] {0}: {1}" -f $setStaged, $why)) }
+    }
+    $run = Invoke-TerminalScript "Mql5Bot\Mql5BotExportSymbolSpec" $label $setName $symbol
+    [void]$arts.Add((New-Artifact (Join-Path $Evidence ($label + ".ini"))))
+    if (-not $run.launched) {
+        return [pscustomobject]@{ ok = $false; evidence = ""; artifacts = $arts
+            reasons = @(("[exporter_not_launched] {0}: terminal never started" -f $symbol)) }
+    }
+    $outFile = Join-Path $DataFolder ("MQL5\Files\Mql5Bot\broker_exports\" + $symbol + ".json")
+    $copy = Join-Path $Evidence ("symbolspec_" + $symbol + ".json")
+    if (Test-Path -LiteralPath $outFile) {
+        $shaBefore = Get-Sha256 $outFile
+        Copy-Item -LiteralPath $outFile -Destination $copy -Force
+        if ((Get-Sha256 $copy) -ne $shaBefore) {
+            return [pscustomobject]@{ ok = $false; evidence = ""; artifacts = $arts
+                reasons = @(("[export_copy_mismatch] {0}: evidence copy differs from {1}" -f $copy, $outFile)) }
+        }
+        [void]$arts.Add([ordered]@{ path = $outFile; sha256 = $shaBefore })
+        [void]$arts.Add((New-Artifact $copy))
+    }
+    $judged = if (Test-Path -LiteralPath $copy) { $copy } else { $outFile }
+    $fr = Invoke-Decide @("symbolspec-fresh", "--export", $judged, "--symbol", $symbol, "--run-start", $Script:RunStartUtc)
+    [void]$arts.Add((New-Artifact $fr.raw))
+    if (-not $fr.ok) {
+        $why = if ($fr.data -and (Get-DataProp $fr.data "reasons")) { ((Get-DataProp $fr.data "reasons") -join "; ") } else { ("{0}: freshness check failed" -f $judged) }
+        return [pscustomobject]@{ ok = $false; evidence = ""; artifacts = $arts
+            reasons = @(("[symbolspec_not_fresh] " + $why)) }
+    }
+    return [pscustomobject]@{ ok = $true; evidence = $copy; artifacts = $arts; reasons = @() }
 }
 
 # backstop for stage 4: when the importer wrote no JSON, grep the MT5 logs for
@@ -664,10 +736,45 @@ Record-Stage 2 "dsl_parity" "PASS" ("{0}/{1} fixtures EXACT + tampered refused" 
 # the owner attaches Mql5BotExportSymbolSpec to each chart symbol; the
 # committed exports land under data\broker_exports\ (gitignored, owner-side)
 Enter-Stage 3 "broker_parity"
+# (a) the broker-symbol export used for parity and the stage-4 import spec:
+# the gate RUNS the exporter on EURUSD itself (gate_run31: it used to copy a
+# 2026-09-15 file). -SymbolSpecExport stays an explicit override, used and
+# recorded as "owner-supplied file" -- and judged by the SAME freshness rule
+# (inside this run's window, terminal_build present, symbol EURUSD): an
+# override is never a back door for a stale file.
+$s3art = New-Object System.Collections.ArrayList
+if ($SymbolSpecExport) {
+    $brokerSpecSource = "owner-supplied file"
+    $fr = Invoke-Decide @("symbolspec-fresh", "--export", $SymbolSpecExport, "--symbol", "EURUSD", "--run-start", $Script:RunStartUtc)
+    [void]$s3art.Add((New-Artifact $fr.raw))
+    if (-not $fr.ok) {
+        $why = if ($fr.data -and (Get-DataProp $fr.data "reasons")) { ((Get-DataProp $fr.data "reasons") -join "; ") } else { ("{0}: freshness check failed" -f $SymbolSpecExport) }
+        Record-Stage 3 "broker_parity" "FAIL" ("[symbolspec_not_fresh] owner-supplied file: " + $why) @($s3art) | Out-Null
+        Finish-Gate "broker_parity"
+    }
+    [void]$s3art.Add((New-Artifact $SymbolSpecExport))
+} else {
+    $brokerSpecSource = "gate-run Mql5BotExportSymbolSpec (this run)"
+    $ex = Invoke-SymbolSpecExport "EURUSD"
+    foreach ($a in @($ex.artifacts)) { [void]$s3art.Add($a) }
+    if (-not $ex.ok) {
+        Record-Stage 3 "broker_parity" "FAIL" ("EURUSD export: " + (@($ex.reasons) -join "; ")) @($s3art) | Out-Null
+        Finish-Gate "broker_parity"
+    }
+    $SymbolSpecExport = $ex.evidence
+}
+# the parity tool reads data\broker_exports\*.json: the fresh EURUSD export
+# replaces the stale copy there before it runs
+$brokerExportsDir = Join-Path $RepoRoot "data\broker_exports"
+New-Item -ItemType Directory -Force -Path $brokerExportsDir | Out-Null
+$parityEurusd = Join-Path $brokerExportsDir "EURUSD.json"
+if ([IO.Path]::GetFullPath($SymbolSpecExport) -ne [IO.Path]::GetFullPath($parityEurusd)) {
+    Copy-Item -LiteralPath $SymbolSpecExport -Destination $parityEurusd -Force
+}
 $parityReport = Join-Path $RepoRoot "data\broker_exports\parity_report.json"
 & $Python (Join-Path $PSScriptRoot "broker_symbol_parity.py") | Out-Null
 if (-not (Test-Path -LiteralPath $parityReport)) {
-    Record-Stage 3 "broker_parity" "FAIL" "no data\broker_exports\parity_report.json (attach Mql5BotExportSymbolSpec to each symbol first)" @() | Out-Null
+    Record-Stage 3 "broker_parity" "FAIL" "no data\broker_exports\parity_report.json (attach Mql5BotExportSymbolSpec to each symbol first)" @($s3art) | Out-Null
     Finish-Gate "broker_parity"
 }
 $parityCopy = Join-Path $Evidence "parity_report.json"
@@ -675,16 +782,11 @@ Copy-Item -LiteralPath $parityReport -Destination $parityCopy -Force
 $d = Invoke-Decide @("broker-scope", $parityCopy)
 if (-not $d.ok) {
     $r = if ($d.data) { ((Get-DataProp $d.data "reasons") -join "; ") } else { "broker parity scope failed" }
-    Record-Stage 3 "broker_parity" "FAIL" $r @((New-Artifact $parityCopy)) | Out-Null
+    Record-Stage 3 "broker_parity" "FAIL" $r (@((New-Artifact $parityCopy)) + @($s3art)) | Out-Null
     Finish-Gate "broker_parity"
 }
 $excl = if ((Get-DataProp $d.data "pending_excluded_crypto")) { ((Get-DataProp $d.data "pending_excluded_crypto") | ForEach-Object { $_ -join ":" }) -join ", " } else { "none" }
-Record-Stage 3 "broker_parity" "PASS" ("{0} MATCH rows; crypto PENDING excluded: {1}" -f (Get-DataProp $d.data "match_count"), $excl) @((New-Artifact $parityCopy)) | Out-Null
-
-# resolve the SymbolSpec export used for stage 4 (EURUSD by default)
-if (-not $SymbolSpecExport) {
-    $SymbolSpecExport = Join-Path $RepoRoot "data\broker_exports\EURUSD.json"
-}
+Record-Stage 3 "broker_parity" "PASS" ("{0} MATCH rows; crypto PENDING excluded: {1}; EURUSD export: {2} {3}" -f (Get-DataProp $d.data "match_count"), $excl, $brokerSpecSource, $SymbolSpecExport) (@((New-Artifact $parityCopy)) + @($s3art)) | Out-Null
 
 # =====================================================================
 # STAGE 4 -- gold fixture import into a custom symbol (round-trip hash)
@@ -858,12 +960,23 @@ foreach ($g in $goldImports) {
         Record-Stage 4 "fixture_import" "FAIL" ("[{0}] {1}" -f $case, $msg) @($stage4art) | Out-Null
         Finish-Gate "fixture_import"
     }
+    # (b) AFTER this gold's import: RUN the exporter on its CUSTOM symbol.
+    # The tester trades this symbol, so this export is what stage 8
+    # packages; its spread_points is the measured tester spread. Not fresh
+    # / not produced -> stage 4 FAILs naming the file; never a fallback.
+    $cx = Invoke-SymbolSpecExport $g.name
+    foreach ($a in @($cx.artifacts)) { [void]$stage4art.Add($a) }
+    if (-not $cx.ok) {
+        Record-Stage 4 "fixture_import" "FAIL" (("{0} custom-symbol export: " -f $g.name) + (@($cx.reasons) -join "; ")) @($stage4art) | Out-Null
+        Finish-Gate "fixture_import"
+    }
+    $Script:CustomSpecs[$g.gold] = $cx.evidence
 }
 if (-not $stage4ok) {
     Record-Stage 4 "fixture_import" "FAIL" "custom-symbol import did not produce a faithful round-trip for both golds" @($stage4art) | Out-Null
     Finish-Gate "fixture_import"
 }
-Record-Stage 4 "fixture_import" "PASS" "both gold fixtures imported; round-trip dataset hash == manifest" @($stage4art) | Out-Null
+Record-Stage 4 "fixture_import" "PASS" ("both gold fixtures imported; round-trip dataset hash == manifest; custom-symbol exports (this run): {0}" -f ((@($Script:CustomSpecs.Keys) | Sort-Object | ForEach-Object { "{0}={1}" -f $_, $Script:CustomSpecs[$_] }) -join ", ")) @($stage4art) | Out-Null
 
 # =====================================================================
 # STAGES 5-7 -- six tester legs (Gold#1/#2 x m1_ohlc/every_tick/real_ticks)
@@ -1246,11 +1359,18 @@ foreach ($leg in $legs) {
 # (python = expected_execution, mt5 = log trade lists) and, LAST, the archive
 # manifest via owner_evidence_bind.py. safety/*.json are NEVER built: 8a-8d
 # have not run on MT5, so they stay MISSING.
-$pkgBuild = Invoke-Decide @("build-stage8-package", "--package", $evidencePkg,
+# the package's symbolspec + measured spread come from this run's export
+# of each scoped gold's CUSTOM tester symbol (stage 4); the stage-3 broker
+# export stays the named fallback the builder records when none exists
+$customSpecArgs = @()
+foreach ($cg in @($Script:CustomSpecs.Keys | Sort-Object)) {
+    $customSpecArgs += @("--symbolspec-custom", ("{0}={1}" -f $cg, $Script:CustomSpecs[$cg]))
+}
+$pkgBuild = Invoke-Decide (@("build-stage8-package", "--package", $evidencePkg,
     "--gate-evidence", $Evidence, "--data-folder", $DataFolder,
     "--golds", (@($Script:Scope) -join ","), "--symbolspec", $SymbolSpecExport,
     "--host-os", [Environment]::OSVersion.VersionString,
-    "--host-timezone", [TimeZoneInfo]::Local.Id)
+    "--host-timezone", [TimeZoneInfo]::Local.Id) + $customSpecArgs)
 [void]$s8Art.Add((New-Artifact $pkgBuild.raw))
 if ($pkgBuild.data -and (Get-DataProp $pkgBuild.data "not_built")) {
     $nb = Get-DataProp $pkgBuild.data "not_built"
