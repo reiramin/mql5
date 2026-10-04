@@ -1183,3 +1183,29 @@ preserved verbatim, not renumbered.
   never passed; nothing is certified.
 - This log entry itself is committed on docs/autolog-2026-10-04-merges
   (never directly to master), PR opened, not merged.
+
+## 2026-10-04 (7) — merge PR #24 into master; PR #23 left open (conflict)
+
+**Merge:** PR #24 (42afb29) merged --no-ff as 4803520, body "Approved by
+Sal + reviewer in chat; no GitHub review recorded." (owner reviewed line
+by line in chat, including both mql5/ edits under S8-SPEC-2). Push
+887ffa8..4803520, no force/amend. GitHub: PR #24 MERGED.
+origin/master = 4803520.
+
+**Gates (exit codes read on the merge commit, before push):** ruff on
+python/ tests/ tools/ factory/ = 0; full pytest (-rfEX, pwsh on PATH)
+= 0. A first pytest run on the merge commit was killed by a session
+restart (exit -1, not a test result) and was re-run to completion.
+
+**PR #23 NOT merged, and why:** instructed "merge ... if it applies
+cleanly"; it does not — git merge --no-commit hit a content conflict in
+AUTONOMOUS_LOG.md (its "(6)" entry and PR #24's "(5)" entry both append
+at the same pre-#24 end of file). The merge was aborted, nothing
+committed; PR #23 remains OPEN awaiting an owner call (pure-append-union
+resolution per the PR #20 precedent would work if authorized).
+
+**NOT done, and why:** nothing ran on MT5; the merge changes no gate
+verdict — stage 5's record stands as graded, stages 6-10 have never run,
+stage 8 has never passed; nothing is certified. This log entry is
+committed on docs/autolog-2026-10-04-pr24-merge (never directly to
+master), PR opened, not merged.
