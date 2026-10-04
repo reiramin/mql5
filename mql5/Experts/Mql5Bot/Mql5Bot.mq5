@@ -359,6 +359,50 @@ void SyncRecords()
      }
   }
 
+// Record our OWN just-opened position in the ticket registry with the SAME
+// record SyncRecords builds, so the next sync finds it known instead of
+// warn-adopting it as restart recovery (that WARN path above is unchanged
+// for genuinely unknown positions). Registry bookkeeping only: nothing here
+// decides when or what to trade.
+bool RegisterOwnPosition(const ulong ticket)
+  {
+   if(ticket == 0 || g_store.HasTicket(ticket))
+      return false;
+   if(!PositionSelectByTicket(ticket))
+      return false;
+   if(PositionGetString(POSITION_SYMBOL) != g_symbol ||
+      PositionGetInteger(POSITION_MAGIC) != g_magic)
+      return false;
+   STicketRec rec;
+   rec.ticket     = ticket;
+   rec.strategyId = g_strategyId;
+   rec.symbol     = g_symbol;
+   rec.type       = (long)PositionGetInteger(POSITION_TYPE);
+   rec.entry      = PositionGetDouble(POSITION_PRICE_OPEN);
+   rec.openTime   = (datetime)PositionGetInteger(POSITION_TIME);
+   rec.lots       = PositionGetDouble(POSITION_VOLUME);
+   rec.partialDone = false;
+   rec.beDone     = false;
+   g_store.Upsert(rec);
+   g_log.Info("registered own entry position #" + IntegerToString(ticket));
+   return true;
+  }
+
+// A filled market open does not return the position ticket, so right after
+// a successful entry order the EA sweeps for its own not-yet-registered
+// positions (symbol + magic) and registers each one.
+void RegisterOwnEntryPositions()
+  {
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong t = PositionGetTicket(i);
+      if(t == 0) continue;
+      if(PositionGetString(POSITION_SYMBOL) != g_symbol) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != g_magic) continue;
+      RegisterOwnPosition(t);
+     }
+  }
+
 // Enqueue SL verification for every managed position that is not secured.
 // desired SL comes from the active strategy signal, or a structural ATR
 // fallback; if neither is available the guard closes the position (a bare
@@ -1074,6 +1118,10 @@ void OnNewBar()
 
    if(ok)
      {
+      //--- record our own new position immediately (a pending/queued order
+      //--- has no position yet; its fill is registered from the entry deal
+      //--- in OnTradeTransaction)
+      RegisterOwnEntryPositions();
       //--- post-fill SL enforcement (S1): verify, remediate, close
       g_slguard.Enqueue(g_magic, g_symbol, TimeCurrent(), slAbs, tpAbs, 0);
       g_log.Info(StringFormat("ENTRY %s %.2f lots risk=%.2f (%.2f%%) sl=%.5f tp=%.5f",
@@ -1114,6 +1162,12 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
          long magic = HistoryDealGetInteger(deal, DEAL_MAGIC);
          if(magic == g_magic)
            {
+            //--- an entry deal of ours: register the position it opened
+            //--- (covers pending and retry-queue fills, where the entry
+            //--- path's immediate sweep ran before the position existed)
+            if(HistoryDealGetInteger(deal, DEAL_ENTRY) == DEAL_ENTRY_IN)
+               RegisterOwnPosition((ulong)HistoryDealGetInteger(deal,
+                                   DEAL_POSITION_ID));
             double pnl    = HistoryDealGetDouble(deal, DEAL_PROFIT);
             double vol    = HistoryDealGetDouble(deal, DEAL_VOLUME);
             double price  = HistoryDealGetDouble(deal, DEAL_PRICE);

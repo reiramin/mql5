@@ -1082,3 +1082,76 @@ after gate_run29 records the current behaviour.
 - The verifier change itself: owner sequenced it after gate_run29.
 - Docs PR not merged (not asked). Nothing ran on MT5. Certification record
   unchanged: stage 8 has never passed; nothing is certified.
+
+## 2026-10-04 (5) — branch `feat/ea-symbolspec-fields-and-entry-recording`
+
+**Branch:** `feat/ea-symbolspec-fields-and-entry-recording` from
+origin/master 887ffa8 (separate worktree; the main checkout's uncommitted
+`feat/gate-scoped-gold2-run` work was left untouched).
+
+**Owner authorization recorded (docs/DECISIONS.md S8-SPEC-2):** a SCOPED
+mql5/ exception (Sal, in chat, 2026-10-04), limited to EXACTLY two items;
+nothing else under mql5/, artifacts/, evidence/, manifests or frozen
+inputs changed; no change to the gold legs' trading behaviour (signal,
+sizing, exits, session, flip untouched).
+
+**Done (built, unit-tested, never run live; MQL5 NOT compiled — no
+metaeditor64.exe on this Mac, strict-compile 0/0 is the owner's stage-1
+gate):**
+- Item 1 `mql5/Scripts/Mql5Bot/Mql5BotExportSymbolSpec.mq5`: all 19
+  owner_gate.SYMBOLSPEC_REQUIRED fields now FLAT at the top level of the
+  same export document (nested `symbol` object retained byte-for-byte for
+  tools/broker_symbol_parity.py; it satisfies the required `symbol` key),
+  each from the S8-SPEC-1 source: AccountInfoString(ACCOUNT_COMPANY),
+  TerminalInfoInteger(TERMINAL_BUILD), TimeGMT()/TimeCurrent() as ISO
+  (new JsonIso8601 helper), SymbolInfo* for the 14 per-symbol fields.
+  Measured spread also flat: spread_points (SYMBOL_SPREAD), spread_float,
+  custom_symbol, custom_fixed_spread_points.
+- Item 2 `mql5/Experts/Mql5Bot/Mql5Bot.mq5`: RegisterOwnPosition builds
+  the SAME record SyncRecords builds and Upserts it;
+  RegisterOwnEntryPositions sweeps right after a successful entry order;
+  OnTradeTransaction registers DEAL_ENTRY_IN deals of our magic via
+  DEAL_POSITION_ID (pending/retry fills). Next sync no longer warn-adopts
+  our own entries; the "[WARN] adopted unknown position (restart
+  recovery)" path is unchanged for genuinely unknown positions. Registry
+  bookkeeping only.
+- Python (no verifier line touched — owner_gate.verify_symbolspec,
+  SYMBOLSPEC_REQUIRED, verify_environment, tools/verify_owner_mt5_gate.py
+  all unchanged): stage8_package.fill_spec_of reads the export's flat
+  MEASURED spread_points (buy fill model named
+  "ask_open=bid+measured_spread(N points, symbolspec export)"), manifest
+  fallback with the reason stated; expected_set_window_run takes the same
+  measured spread for the WINDOW run's cost only (frozen-trace
+  reproduction keeps the manifest cost); build_package fills
+  environment.json terminal_build/broker from the export's flat fields
+  when the leg windows did not state them, sources named. The gate's ps1
+  needed no change: it already copies this export file.
+- Tests: tests/test_ea_symbolspec_flat_fields_and_entry_recording.py
+  (static pins for both .mq5 edits + measured counts); run26 fixture in
+  tests/test_stage8_package_from_gate.py parametrized + FLAT_EXPORT
+  fixture and 4 new tests (env fill, unchanged verifier accepts the flat
+  shape, measured fill model, stated manifest fallback).
+
+**Measured on the gate_run29/30 log trade lists (byte copies in
+tests/data; gate_run30 on HEAD 887ffa8 measured the same counts on them —
+this is NOT an MT5 run):** with measured spread 2 points, entry_price
+37/37 equal per leg (owner's prediction HOLDS: all 19 buys python ==
+bid+2pt == mt5); volume 11/37 equal per leg, DOWN from 14/37 (owner's
+"volume equality to rise" does NOT hold: costs.py treats the bar open as
+MID, so a round trip charges spread + 2x slippage = 4 points vs the
+tester's 2; the equity paths diverge more). Nothing bent to a prediction.
+Predicted gate_run31 per leg: 37 PAIRED / 0 / 0, side 37/37, timestamp
+36/37, entry_price 37/37, volume 11/37 equal.
+
+**Exit codes (read):** ruff on python/ tests/ tools/ factory/ = 0; full
+pytest (pwsh 7.6.6 on PATH, -rfEX) = 0 before commit, re-read after
+commit on the identical tree.
+
+**NOT done, and why:**
+- No MQL5 compile (impossible on this host) — both edits are
+  source-pinned only; owner's stage-1 gate is the compile proof.
+- Not merged, as instructed. Stage 5 remains FAIL as a gate verdict;
+  stages 6-10 have never run; nothing is certified.
+- The volume residual is NOT closed: closing it needs a cost-model
+  decision (python mid-price convention vs MT5 bid bars), which is the
+  owner's, not a tester-matching patch.
