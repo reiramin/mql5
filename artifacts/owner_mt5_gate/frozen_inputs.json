@@ -14,20 +14,20 @@
   },
   "gold_2": {
     "artifact_hash_chain": {
-      "dsl_trace.json": "badea3fc62cd81faf6cb0f57a8198d764d12167e16c8debd8989ff8f59de05bb",
-      "expected_execution.json": "a472c28cc2fee51cbd520b2feed6eaef80fe84b0123635d29ee283f128f47741",
+      "dsl_trace.json": "e2a046a0e456208fb20f618352edf38d173cd69f0decab48e1b6f5a9676bb619",
+      "expected_execution.json": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753",
       "gold2_fixture.csv": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
-      "manifest.json": "251deec862f4a9e3864f387fd4f2fc96a5cbcb30edd63eba8ebc1d0bf9cad1ab",
-      "python_trace.json": "815f3b3e9025f9f721c5b288e90e9dff16ba943596f1ec834989f4e676b8c2be",
-      "reconciliation.json": "caa8a973934c61cd0e416af3755865af787c4339a94ab2779d2facbfe52eb9ff"
+      "manifest.json": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f",
+      "python_trace.json": "d0d571498dd848fc756a20237f281ea9a4dafe3ad262661f4fc6855e4138e655",
+      "reconciliation.json": "9d68bbc1b830039c7097868efb02367a6226af0628041d140276af796dd848c3"
     },
     "config_hash": "69e54b83eafa1f232a1289104bbfdf0a3ffddb8e5a74b206ca32b3b7bd1d98e7",
     "dataset_hash_from_manifest": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
-    "expected_execution_sha256": "a472c28cc2fee51cbd520b2feed6eaef80fe84b0123635d29ee283f128f47741",
+    "expected_execution_sha256": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753",
     "fixture": "artifacts/gold_2/gold2_fixture.csv",
     "fixture_sha256": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
-    "git_commit_recorded": "6b172dac92a6",
-    "manifest_sha256": "251deec862f4a9e3864f387fd4f2fc96a5cbcb30edd63eba8ebc1d0bf9cad1ab",
+    "git_commit_recorded": "8b9ed02446cd",
+    "manifest_sha256": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f",
     "provenance_label": "GOLD_2_RECONSTRUCTED_NEW_PROVENANCE",
     "spec_hash": "1ed001b8b65c31c155068be90fd8b2fa8a269b2fc64a560dc6f3fd0e5fc2b9d1",
     "status": "FROZEN (GOLD_2_RECONSTRUCTED_NEW_PROVENANCE) — 56 trades is the semantic contract; never target 100",
@@ -36,7 +36,7 @@
   },
   "source": {
     "branch": "master",
-    "commit": "a85cba3757eecbde74951068bfbccd0e43a59e84",
-    "note": "FROZEN SOURCE COMMIT: the anchor the owner's clean-room clone is measured against. Anchor history 781bea4 -> 54613aa -> 52cbaa5 (2026-09-08, see docs/DECISIONS.md entries of the same date): each migration was forced by the first REAL MetaEditor compiles (non-compilable identifiers, then strict-gate warnings) and is MQL5-compilation-correctness-only. Re-anchored 2026-09-16 to 227bf66 (see docs/DECISIONS.md 2026-09-16 entry): the repository was published as a squashed snapshot (single 'Initial commit' 227bf66) and the prior anchor 52cbaa5 is genuinely unreachable -- not a shallow clone, so `git fetch --unshallow` cannot recover it. Re-anchored 2026-09-18 to a85cba3 (see docs/DECISIONS.md 2026-09-18 entry): 227bf66 predates the generic DSL runtime (92b3102), the reserved-word compile fix and the P0-1 sizing fix (4257f1e), so it can never be the commit to run. This re-anchor is superseded-by-newer-work provenance: it is authorised by the owner-observed strict compile 0 errors / 0 warnings on 4257f1e plus 14/14 DSL parity (EXACT + tampered refused), both recorded on branch windows/evidence-4257f1e. Every re-anchor is provenance-correctness-only: the five engine semantics, gold fixtures, manifests and certification protocol below are pinned UNCHANGED (all fixture/config/dataset/manifest/spec hashes in this file are byte-untouched; the golds are present exactly as frozen, so `git diff <anchor> HEAD -- artifacts/gold artifacts/gold_2` is empty). Stage 0 no longer requires HEAD == this SHA: a clean HEAD that DESCENDS from this anchor with every frozen artifact byte-identical PASSES with a recorded NOTE; only an older, diverged or unknown-anchor HEAD (or a changed frozen artifact / dirty tree / autocrlf) fails. Owner flow: clone the anchored history, checkout this commit or a descendant of it on master, run tools\\compile.ps1 -Strict directly (PowerShell 5.1 safe, pure ASCII), then verify evidence from the latest checkout carrying this frozen_inputs.json."
+    "commit": "734bb8da918d224f1d8c50947fcc38078001b2d6",
+    "note": "FROZEN SOURCE COMMIT: the anchor the owner's clean-room clone is measured against. Anchor history 781bea4 -> 54613aa -> 52cbaa5 (2026-09-08, see docs/DECISIONS.md entries of the same date): each migration was forced by the first REAL MetaEditor compiles (non-compilable identifiers, then strict-gate warnings) and is MQL5-compilation-correctness-only. Re-anchored 2026-09-16 to 227bf66 (see docs/DECISIONS.md 2026-09-16 entry): the repository was published as a squashed snapshot (single 'Initial commit' 227bf66) and the prior anchor 52cbaa5 is genuinely unreachable -- not a shallow clone, so `git fetch --unshallow` cannot recover it. Re-anchored 2026-09-18 to a85cba3 (see docs/DECISIONS.md 2026-09-18 entry): 227bf66 predates the generic DSL runtime (92b3102), the reserved-word compile fix and the P0-1 sizing fix (4257f1e), so it can never be the commit to run. This re-anchor is superseded-by-newer-work provenance: it is authorised by the owner-observed strict compile 0 errors / 0 warnings on 4257f1e plus 14/14 DSL parity (EXACT + tampered refused), both recorded on branch windows/evidence-4257f1e. Every re-anchor is provenance-correctness-only: the five engine semantics, gold fixtures, manifests and certification protocol below are pinned UNCHANGED (all fixture/config/dataset/manifest/spec hashes in this file are byte-untouched; the golds are present exactly as frozen, so `git diff <anchor> HEAD -- artifacts/gold artifacts/gold_2` is empty). Stage 0 no longer requires HEAD == this SHA: a clean HEAD that DESCENDS from this anchor with every frozen artifact byte-identical PASSES with a recorded NOTE; only an older, diverged or unknown-anchor HEAD (or a changed frozen artifact / dirty tree / autocrlf) fails. Owner flow: clone the anchored history, checkout this commit or a descendant of it on master, run tools\\compile.ps1 -Strict directly (PowerShell 5.1 safe, pure ASCII), then verify evidence from the latest checkout carrying this frozen_inputs.json. Re-anchored 2026-10-04 to 734bb8da918d224f1d8c50947fcc38078001b2d6 (the merge commit of PR #18; see docs/DECISIONS.md entries S8-FLIP-1, S8-FLIP-REGEN and S8-REANCHOR-1 of the same dates). WHY: the owner ruled (S8-FLIP-1) that the manifest flip_rule \"close opposite (signal_exit); enter next bar\" is binding and the python engine was the defective side (gate_run28 finding 1); PR #17 fixed the engine and PR #18 regenerated artifacts/gold_2 under a scoped owner authorization (S8-FLIP-REGEN). WHAT CHANGED: source.commit a85cba3757eecbde74951068bfbccd0e43a59e84 -> 734bb8da918d224f1d8c50947fcc38078001b2d6; gold_2 artifact_hash_chain for dsl_trace.json, expected_execution.json, manifest.json, python_trace.json and reconciliation.json; gold_2 expected_execution_sha256, manifest_sha256 and git_commit_recorded (6b172dac92a6 -> 8b9ed02446cd) -- every value computed by tools/owner_evidence_bind.py bind from the committed bytes at the new anchor, never typed. WHAT DID NOT CHANGE: gold_1 entirely; gold_2 fixture_sha256, gold2_fixture.csv chain hash, dataset_hash_from_manifest, config_hash and spec_hash (verified equal to the new anchor's manifest), provenance_label, the 56-trade contract, and the certification protocol. This is the first re-anchor that changes a gold: the freeze invariant (golds byte-identical since the anchor) holds again from the new anchor onward."
   }
 }

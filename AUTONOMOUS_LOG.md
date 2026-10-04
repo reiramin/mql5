@@ -892,3 +892,49 @@ it in engine + fast_engine; regenerate gold_2 again.
 - S8-FLIP-2 engine gate + second regeneration: premise false; owner must
   reconfirm with the evidence.
 - frozen_inputs.json untouched (re-anchor PR). Nothing ran on MT5.
+
+## 2026-10-04 (3) — merge PR #18 (re-approved at 561f66f); reanchor/gold2-flip-next-bar
+
+**Merge:** PR #18 merged as M = 734bb8da918d224f1d8c50947fcc38078001b2d6
+(--no-ff, "Approved by Sal + reviewer in chat; no GitHub review
+recorded."), merging the re-approved head 561f66f (verified equal to the
+remote branch head). Gates on M before push: ruff exit 0; full pytest exit
+0 with failures reported (-rfEX): 0 FAILED, 0 XPASS; exactly the 4 strict
+xfails. Push 8c8f08d..734bb8d, no force/amend. GitHub: MERGED, merge commit
+734bb8d.
+
+**Branch:** `reanchor/gold2-flip-next-bar` from M.
+
+**Owner decisions recorded (docs/DECISIONS.md):** S8-FLIP-2 WITHDRAWN by the
+owner (premise wrong; no engine change). S8-REANCHOR-1: scoped exception to
+edit artifacts/owner_mt5_gate/frozen_inputs.json ONLY.
+
+**Done (built, unit-tested, never run live):**
+- frozen_inputs.json re-anchored by a script that extracts each gold_2 file
+  from M (`git show M:<path>`) and hashes it with `tools/owner_evidence_
+  bind.py bind`; git_commit_recorded read from manifest.json at M; the
+  script asserts the unchanged fields (fixture, dataset, config, spec) equal
+  M's bytes/manifest and refuses otherwise. Diff: exactly 10 lines
+  (5 chain hashes, expected_execution_sha256, manifest_sha256,
+  git_commit_recorded, source.commit, source.note + appended dated
+  paragraph). gold_1 byte-identical; source.branch unchanged; no new
+  non-ASCII characters. Computed values equal PR #18's table.
+- The 4 strict xfail markers removed (the split-out
+  test_gold_artifacts_unchanged_since_freeze_anchor stays as a normal
+  test); an unused `import pytest` added only for the marker removed.
+- docs/OWNER_GATE.md anchor text updated; test docstring anchor updated.
+
+**Not cleared by the re-anchor (measured, recorded, NOT changed):**
+verify_compile and the reconciliation cross-check require the gate's
+SOURCE_COMMIT (its HEAD) to EQUAL source.commit. A frozen record can't name
+the commit containing it, so the gate always runs at a descendant of M (at M
+itself the old frozen record fails stage 0): compile/reconciliation
+source_commit stays MISMATCHED, as with a85cba3 before. Owner decision.
+
+**Exit codes:** see the commit/PR (ruff and full pytest pre- and
+post-commit, read).
+
+**NOT done, and why**
+- No verifier rule changed (source_commit equality is an owner decision).
+- Not merged, as instructed. Nothing ran on MT5. Certification record
+  unchanged: stage 8 has never passed; nothing is certified.
