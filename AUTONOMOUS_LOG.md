@@ -938,3 +938,54 @@ post-commit, read).
 - No verifier rule changed (source_commit equality is an owner decision).
 - Not merged, as instructed. Nothing ran on MT5. Certification record
   unchanged: stage 8 has never passed; nothing is certified.
+
+## 2026-10-04 (4) — fix/stage8-fill-model-and-window-basis (gate_run29 findings a/b; analysis c)
+
+**Branch:** `fix/stage8-fill-model-and-window-basis` from origin/master
+5392cc4 (separate worktree; the main checkout's uncommitted edits on
+feat/gate-scoped-gold2-run were left untouched).
+
+**Evidence used:** gate_run29.zip (HEAD 5392cc4, -Golds gold2). Its
+reconciliation/gold2.json was re-read and matches the brief: 37 paired,
+1 missing, 0 extra; 19 buys +0.00002; volume ratio 1.12 → 0.939. A byte
+copy of its m1_ohlc log trade list is committed as test data.
+
+**Done (built, unit-tested, never run live):**
+- TASK A: `stage8_package.expected_fill` / `fill_spec_of`. Every event with
+  a python entry carries `fill_model`: sell `bid_open`, buy
+  `ask_open=bid+spread` (manifest spread_points 1.0 × point). No slippage,
+  because the engine slips every fill, sells included. gate_run29: 18 sells
+  equal; all 19 buys still diverge by +1 point (MT5 bought at bid + 2
+  points). If the manifest lacks spread/point/digits, the builder refuses
+  the reconciliation, so a bare open is never compared.
+- TASK B: `window_basis_volumes`. Re-runs the frozen generator's engine
+  (config_hash == manifest) at weight 1.0, flat before the measured start,
+  from 10000. Self-checks: frozen trace reproduced 56/56, frozen approvals
+  62/62, window-run lots == recomputed. Events record
+  `python_volume_frozen_basis`, `python_volume_window_basis` and
+  `python_volume_basis`. Ratio 1.12 → 0.939 becomes 1.000–1.015 (14/37
+  equal). If refused, the frozen column is compared; a window DROP is
+  compared as 0.0.
+- TASK C: docs/analysis/gate_run29_missing_0808.md. The 08:08 row is a
+  persistence re-entry after 7 meta_scale_dropped bars at day weight 0.5.
+  The EA (weight 1.0) held the 08:01 short to 08:45; the python engine at
+  weight 1.0 does not enter at 08:08 either. Recommendation: python side
+  changes, EA does not. Nothing changed for it.
+- docs/DECISIONS.md S8-FILL-1 / S8-BASIS-1.
+
+**Verifier:** no line changed. Comparison stays zero-tolerance.
+
+**Exit codes (read, pre-commit):** ruff on python/ tests/ tools/ factory/ =
+0; full pytest = 0, pwsh on PATH. The 5 pwsh test files: 191 passed, 0
+skipped. New tests: 15 passed; test_stage8_package_from_gate.py: 28 passed.
+
+**NOT done, and why**
+- The 08:08 MISSING_IN_MT5 is not resolved. Analysis only, by instruction;
+  the fix is an owner decision.
+- The +1 point buy residual is not hidden. The custom symbol's tester
+  spread (2 points measured) differs from the manifest's 1. Changing the
+  importer means changing mql5/, which is out of scope.
+- gold1 has no generator wired, so its window basis is refused and the
+  frozen column is compared.
+- Not merged, as instructed. Nothing ran on MT5. Stage 8 has never passed;
+  nothing is certified.

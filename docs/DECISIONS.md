@@ -3222,3 +3222,52 @@ reconciliation binding therefore stay MISMATCHED, exactly as before with
 `a85cba3`. Stage 0 accepts a clean descendant with byte-identical frozen
 artifacts; whether compile/reconciliation should accept the same is an
 owner decision — no verifier rule was changed or loosened here.
+
+## S8-FILL-1 / S8-BASIS-1 — stage-8 package: named expected fill model + window-consistent sizing basis (2026-10-04)
+
+**Evidence (gate_run29, HEAD 5392cc4, `-Golds gold2`).** 37 PAIRED_BY_TIME,
+1 MISSING_IN_MT5, 0 EXTRA. (a) entry_price: every buy (19/37) mt5 − python
+= +0.00002; every sell equal. The python column was the bare fixture open.
+(b) volume: 36/37 differ, ratio mt5/python 1.12 → 0.94. The python column
+was sized on the frozen run's equity, which includes the 2024-01-01 trades
+MT5 never ran and the generator's day weights 0.5/0.1.
+
+**S8-FILL-1 (package builder only).** Every event that has a python entry
+carries `fill_model`. A sell is `bid_open` (fixture open). A buy is
+`ask_open=bid+spread`: open + `cost_config.spread_points` × `point`,
+rounded to `digits`. **Slippage is not added.** The engine's cost model
+(`costs.entry_fill`) is a mid convention that slips every fill, sells
+included, so no source applies slippage to buys only. Adding it to buys
+would pick a term to match MT5. Result on gate_run29: sells equal; every
+buy still diverges by +1 point. MT5 bought at bid + 2 points, the manifest
+spread is 1. The custom symbol's tester spread is not set by the importer
+(`rates[i].spread = 0`). That remains a measured divergence.
+
+**S8-BASIS-1 (package builder only).** `python_volume_window_basis`: the
+frozen generator's engine (`tools/build_gold2_standard.py`) is re-run at
+the tester weight 1.0, flat before the measured MT5 window start, from
+equity_start. The frozen sizing rule (size_position, risk_percent, the
+entry's frozen stop_distance) is applied to that run's signal-bar-close
+equity. MT5 is compared against this column. `python_volume_frozen_basis`
+(meta["1.0"].final_lots) is recorded beside it, and `python_volume_basis`
+states which one was compared. The window basis is refused, and the frozen
+column compared instead (never a looser rule), unless:
+
+- the generator's `_config_hash()` equals the manifest's,
+- the re-run with the generator's own schedule reproduces the frozen trace
+  trade for trade,
+- the frozen sizing reproduces every frozen approved_lots, and
+- every window-run entry carries exactly the recomputed lots.
+
+A window DROP is compared as 0.0, never dropped. On gate_run29 the ratio is
+now 1.000–1.015 (14/37 equal). Diagnostic only: the frozen sizing rule on
+MT5's own balance reproduces all 37 MT5 volumes, so the remaining gap is
+the equity path (fill costs), not the sizing rule.
+
+**Verifier.** No verifier line changed (`tools/verify_owner_mt5_gate.py`
+and `owner_gate.py` untouched). Comparison stays zero-tolerance. Not
+touched: artifacts/, mql5/, manifests, frozen inputs.
+
+**Open (owner decision):** gate_run29's MISSING_IN_MT5 at 08:08 is a
+python-side comparison-column defect (`docs/analysis/gate_run29_missing_0808.md`).
+Nothing was changed for it.
