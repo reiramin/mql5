@@ -3271,3 +3271,46 @@ touched: artifacts/, mql5/, manifests, frozen inputs.
 **Open (owner decision):** gate_run29's MISSING_IN_MT5 at 08:08 is a
 python-side comparison-column defect (`docs/analysis/gate_run29_missing_0808.md`).
 Nothing was changed for it.
+
+## S8-WEIGHT-1 — OWNER DECISION: the tester leg's expected entry set is the weight-in-force run, not the scheduled-weight frozen trace (2026-10-04)
+
+**Decision (Sal, in chat, 2026-10-04).** Option 1 of
+`docs/analysis/gate_run29_missing_0808.md`. For a tester leg the EXPECTED
+ENTRY SET is the weight-in-force run (InpBaseGateWeight=1.0, no allocation
+file staged; the same guarded window re-run `stage8_package` already
+performs and self-checks), not the scheduled-weight frozen trace. The
+frozen artifacts and the anchor do not change.
+
+**Why.** gate_run29's one MISSING_IN_MT5 (python short 0.02 at
+2024-01-02T08:08, signal 08:07) is a scheduled-weight artifact: a
+persistence re-entry after seven `meta_scale_dropped` bars at the
+generator's day-2 weight 0.5. The EA leg runs at weight 1.0, entered at
+08:01 and held; the python engine at weight 1.0 does not enter at 08:08
+either. Comparing a weight-1.0 tester leg against a 0.5-weight entry set
+judges the EA by an expectation scoped to a different configuration.
+
+**Implementation (package builder only; no verifier line changed).**
+`stage8_package.expected_set_window_run`: the pairing's python column is
+the weight-1.0 window run's own entries/side/lots/fill. Every event
+records `expected_set: "weight_in_force_1.0_window_run"` and a
+`frozen_row_index` cross-reference into expected_execution (null when
+none). A frozen row with no weight-1.0 counterpart is
+`FROZEN_ONLY_SCHEDULED_WEIGHT` with a measured reason
+(before_window_start / scheduled_weight_only / at_or_after_window_end):
+informational, no compared fields, never a divergence, counted in
+limitations. Guards -- if ANY fails, the frozen column is compared and
+the fallback is stated on every event, never silent:
+config_hash == manifest; fixture bytes == frozen_inputs.json
+fixture_sha256; measured window start and derivable end; frozen trace
+reproduced trade for trade; frozen approvals reproduced; run lots ==
+the frozen sizing rule on the run's own signal-bar-close equity.
+
+**Measured on gate_run29 (both legs):** 74 PAIRED, 0 MISSING_IN_MT5,
+0 EXTRA_IN_MT5; per leg: entry_side 37/37 equal, timestamp 36/37 (MT5's
+08:32:01 entry deal is one second after the bar -- already so in the
+gate_run29 reconciliation), entry_price 18/37 equal (all 19 buys stay +1
+point: the S8-FILL-1 tester-spread residual, untouched by this change),
+volume 14/37 equal / 20/37 within one volume_step. FROZEN_ONLY 21 per
+leg (19 + 1 + 1); OUT_OF_TESTED_WINDOW 30 per leg (the weight-1.0 run
+trades the excluded ToDate day). The residuals remain divergences under
+the zero-tolerance rule.

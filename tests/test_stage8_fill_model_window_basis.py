@@ -1,11 +1,12 @@
-"""Stage 8: named expected fill model + window-consistent sizing basis.
+"""Stage 8: named expected fill model (S8-FILL-1) + the guarded weight-in-
+force expected-set run it feeds (S8-WEIGHT-1 guards).
 
-gate_run29 (HEAD 5392cc4, -Golds gold2, re-anchored) paired 37 MT5 entries
-BY TIME. Two systematic per-trade differences were measured there:
+gate_run29 (HEAD 5392cc4, -Golds gold2, re-anchored) measured two
+systematic per-trade differences:
 
   (a) entry_price: 19/37 (every buy) mt5 - python == +0.00002; every sell
       equal. The python column was the BARE fixture open.
-  (b) volume: 36/37 differ, ratio mt5/python 1.12 falling to 0.93. The
+  (b) volume: 36/37 differ, ratio mt5/python 1.12 falling to 0.94. The
       python column was sized on the frozen run's equity, which carries the
       2024-01-01 trades MT5 never ran and the generator's day weights
       0.5/0.1 that the tester leg does not apply.
@@ -15,6 +16,10 @@ tests/data/owner_gate/gate_run29_gold2_m1_ohlc_log_trades.json, a byte copy
 of owner_mt5_package/log_trades/gold2_m1_ohlc.json from that run). The
 window start is the one MT5 stated in that run ("EURUSD.G2: start time
 changed to 2024.01.02 00:00 to provide data at beginning").
+
+The expected-set pairing itself (74 PAIRED across both legs, FROZEN_ONLY
+rows, measured equal-counts) is pinned in
+tests/test_stage8_expected_set_weight_in_force.py.
 """
 
 from __future__ import annotations
@@ -41,36 +46,34 @@ START_LINE = ("LH\t3\t01:56:38.082\tCore 1\tEURUSD.G2: start time changed "
 END = "2024-01-04T00:00:00"
 
 
-def _events(window_volumes=None, fill="manifest"):
+@pytest.fixture(scope="module")
+def expected_set():
+    sd, note = s8p.expected_set_window_run(REPO, "gold2", START, END)
+    assert sd is not None, note
+    return sd, note
+
+
+def _events(expected_sets, fill="manifest"):
     py, _ = s8p.python_entries(EXPECTED, MANIFEST["timeframe"])
     deals = json.loads(RUN29.read_text())["deals"]
     entries, _ = s8p.mt5_entries(deals)
     if fill == "manifest":
         fill = s8p.fill_spec_of(MANIFEST)[0]
-    if window_volumes is None:
-        window_volumes = {"m1_ohlc": s8p.window_basis_volumes(
-            REPO, "gold2", START)}
     events, summary = s8p.reconciliation_events(
         py, {"m1_ohlc": entries}, "EURUSD.G2",
         window_starts={"m1_ohlc": (START, START_LINE)}, window_end=END,
         fixture_opens=s8p.fixture_minute_opens(FIXTURE), fill=fill,
-        window_volumes=window_volumes)
+        expected_sets=expected_sets)
     return events, summary
 
 
 @pytest.fixture(scope="module")
-def run29():
-    return _events()
+def run29(expected_set):
+    return _events({"m1_ohlc": expected_set})
 
 
 def _paired(events):
     return [e for e in events if e.get("pairing") == s8p.PAIRED_BY_TIME]
-
-
-def test_gate_run29_pairing_is_unchanged(run29):
-    _, summary = run29
-    s = summary["m1_ohlc"]
-    assert (s["paired"], s["missing_in_mt5"], s["extra_in_mt5"]) == (37, 1, 0)
 
 
 # ---------------------------------------------------------------- TASK A
@@ -78,7 +81,9 @@ def test_gate_run29_pairing_is_unchanged(run29):
 def test_fill_model_is_named_on_every_python_event(run29):
     events, _ = run29
     with_python = [e for e in events if "python_side_declared" in e]
-    assert len(with_python) == 37 + 1 + 24
+    # 37 paired + 30 out-of-window (weight-1.0 run, 2024-01-04) + 21
+    # frozen-only scheduled-weight rows
+    assert len(with_python) == 37 + 30 + 21
     for e in with_python:
         want = (s8p.FILL_MODEL_BUY if e["python_side_declared"] == "long"
                 else s8p.FILL_MODEL_SELL)
@@ -115,8 +120,8 @@ def test_the_19_gate_run29_buys_use_ask_and_the_residual_stays_divergent(
         assert not og._field_divergent(price)
 
 
-def test_no_fill_spec_means_no_python_price_and_the_builder_refuses():
-    events, _ = _events(fill=None)
+def test_no_fill_spec_means_no_python_price(expected_set):
+    events, _ = _events({"m1_ohlc": expected_set}, fill=None)
     for e in _paired(events):
         assert "python" not in e["fields"]["entry_price"]
         assert e["fill_model"] is None
@@ -134,9 +139,9 @@ def test_expected_fill_never_adds_slippage():
                                                        s8p.FILL_MODEL_SELL)
 
 
-# ---------------------------------------------------------------- TASK B
+# -------------------------------------------- TASK B / S8-WEIGHT-1 guards
 
-def test_window_basis_collapses_the_volume_ratio_toward_one(run29):
+def test_window_run_collapses_the_volume_ratio_toward_one(run29):
     events, _ = run29
     paired = _paired(events)
     frozen = [e["fields"]["volume"]["mt5"] / e["python_volume_frozen_basis"]
@@ -164,7 +169,7 @@ def test_both_volume_columns_are_recorded_and_the_basis_stated(run29):
         assert e["fields"]["volume"]["python"] == \
             e["python_volume_window_basis"]
         assert e["python_volume_frozen_basis"] is not None
-        assert e["python_volume_basis"].startswith("WINDOW: ")
+        assert e["python_volume_basis"].startswith("WINDOW_RUN: ")
         assert "2024-01-02T00:00:00" in e["python_volume_basis"]
         assert "equity_start 10000.0" in e["python_volume_basis"]
     e46 = next(e for e in _paired(events)
@@ -173,10 +178,12 @@ def test_both_volume_columns_are_recorded_and_the_basis_stated(run29):
             e46["python_volume_window_basis"]) == (0.25, 0.28)
 
 
-def test_window_basis_starts_at_equity_start():
-    wv, note = s8p.window_basis_volumes(REPO, "gold2", START)
-    assert wv is not None, note
-    assert wv["2024-01-02T08:01"]["basis"] == 10000.0
+def test_expected_set_starts_flat_at_the_window_start(expected_set):
+    sd, _ = expected_set
+    rows = sd["rows"]
+    assert rows[0]["fill_time"] == "2024-01-02T08:01:00"
+    assert (rows[0]["side"], rows[0]["lots"]) == ("short", 0.01)
+    assert all(r["fill_time"] >= START for r in rows)
     # frozen basis at the same signal bar carries 2024-01-01 (19 trades)
     first = next(r for r in EXPECTED["entries"]
                  if r["signal_time"] == "2024-01-02T08:00:00")
@@ -186,8 +193,8 @@ def test_window_basis_starts_at_equity_start():
 def test_mt5_volumes_follow_the_same_sizing_rule_on_mt5_balance():
     """Diagnostic, never the compared column: the frozen sizing rule on
     MT5's OWN balance (10000 + its closed-deal pnl) reproduces all 37 MT5
-    volumes, so the residual window-basis gap is the equity path, not the
-    sizing rule."""
+    volumes, so the residual gap is the equity path, not the sizing
+    rule."""
     spec = SymbolSpec(**MANIFEST["broker_spec"])
     py, _ = s8p.python_entries(EXPECTED, "M1")
     by_signal = {r["signal_time"]: r for r in EXPECTED["entries"]}
@@ -207,52 +214,55 @@ def test_mt5_volumes_follow_the_same_sizing_rule_on_mt5_balance():
     assert (hits, n) == (37, 37)
 
 
-def test_missing_0808_stays_a_divergence_and_the_rerun_does_not_enter(run29):
-    events, _ = run29
-    (m,) = [e for e in events if e.get("pairing") == s8p.MISSING_IN_MT5]
-    assert m["python_signal_time"] == "2024-01-02T08:07:00"
-    assert m["fields"]["state"]["mt5"].startswith(s8p.MISSING_IN_MT5)
-    assert og._field_divergent(m["fields"]["state"])
-    # recorded only: at tester weight 1.0 the python engine itself does not
-    # enter at 08:08 (the 08:01 short is still open)
-    assert m["window_basis_run_entered_here"] is False
-    assert m["python_volume_frozen_basis"] == 0.02
-
-
-def test_refused_window_basis_compares_the_frozen_column(run29):
-    events, _ = _events(window_volumes={"m1_ohlc": (None, "refused (test)")})
+def test_refused_expected_set_compares_the_frozen_column():
+    events, summary = _events({"m1_ohlc": (None, "refused (test)")})
+    s = summary["m1_ohlc"]
+    # the 08:08 scheduled-weight row is back as a MISSING_IN_MT5
+    # divergence on the frozen column -- the fallback never hides it
+    assert (s["paired"], s["missing_in_mt5"]) == (37, 1)
+    assert s["expected_set"] == \
+        s8p.EXPECTED_SET_FROZEN + " (fallback: refused (test))"
     for e in _paired(events):
         assert e["fields"]["volume"]["python"] == \
             e["python_volume_frozen_basis"]
         assert e["python_volume_window_basis"] is None
         assert e["python_volume_basis"].startswith("FROZEN: ")
         assert "refused (test)" in e["python_volume_basis"]
+        assert e["expected_set"].startswith(s8p.EXPECTED_SET_FROZEN)
 
 
-def test_window_drop_is_compared_as_zero_never_dropped(run29):
-    wv, note = s8p.window_basis_volumes(REPO, "gold2", START)
-    wv = dict(wv)
-    wv["2024-01-02T08:46"] = dict(wv["2024-01-02T08:46"], lots=0.0,
-                                  action="DROP")
-    events, _ = _events(window_volumes={"m1_ohlc": (wv, note)})
-    e46 = next(e for e in _paired(events)
-               if e["time"] == "2024-01-02T08:46:00")
-    assert e46["fields"]["volume"] == {"python": 0.0, "mt5": 0.28}
-    assert og._field_divergent(e46["fields"]["volume"])
+def test_expected_set_is_refused_without_a_measured_window():
+    sd, why = s8p.expected_set_window_run(REPO, "gold2", None, END)
+    assert sd is None and "window-start" in why
+    sd, why = s8p.expected_set_window_run(REPO, "gold2", START, None)
+    assert sd is None and "window end" in why
 
 
-def test_window_basis_is_refused_for_a_foreign_generator(monkeypatch):
+def test_expected_set_is_refused_for_a_foreign_generator(monkeypatch):
     class Fake:
         @staticmethod
         def _config_hash():
             return "not-the-manifest-hash"
     monkeypatch.setattr(s8p, "_gold_generator", lambda repo, rel: Fake)
-    wv, why = s8p.window_basis_volumes(REPO, "gold2", START)
-    assert wv is None and "config_hash" in why
+    sd, why = s8p.expected_set_window_run(REPO, "gold2", START, END)
+    assert sd is None and "config_hash" in why
 
 
-def test_window_basis_is_refused_when_the_trace_is_not_reproduced(
-        monkeypatch, tmp_path):
+def test_expected_set_is_refused_when_the_fixture_differs(monkeypatch):
+    real = s8p._load
+
+    def tampered(path):
+        doc = real(path)
+        if Path(path).name == "frozen_inputs.json":
+            doc["gold_2"]["fixture_sha256"] = "0" * 64
+        return doc
+    monkeypatch.setattr(s8p, "_load", tampered)
+    sd, why = s8p.expected_set_window_run(REPO, "gold2", START, END)
+    assert sd is None and "byte-identical" in why
+
+
+def test_expected_set_is_refused_when_the_trace_is_not_reproduced(
+        monkeypatch):
     real = s8p._load
 
     def tampered(path):
@@ -261,10 +271,10 @@ def test_window_basis_is_refused_when_the_trace_is_not_reproduced(
             doc["trades"][0]["pnl"] += 0.01
         return doc
     monkeypatch.setattr(s8p, "_load", tampered)
-    wv, why = s8p.window_basis_volumes(REPO, "gold2", START)
-    assert wv is None and "does not reproduce the frozen trace" in why
+    sd, why = s8p.expected_set_window_run(REPO, "gold2", START, END)
+    assert sd is None and "does not reproduce the frozen trace" in why
 
 
 def test_gold_without_a_wired_generator_is_refused():
-    wv, why = s8p.window_basis_volumes(REPO, "gold1", START)
-    assert wv is None and "no frozen generator" in why
+    sd, why = s8p.expected_set_window_run(REPO, "gold1", START, END)
+    assert sd is None and "no frozen generator" in why

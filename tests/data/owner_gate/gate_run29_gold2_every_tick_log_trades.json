@@ -1,0 +1,1060 @@
+{
+  "bars": 2880,
+  "deals": [
+    {
+      "entry": "open",
+      "lines": [
+        "PN\t0\t01:57:14.149\tCore 1\t2024.01.02 08:01:00   [2024.01.02 08:01:00] [INFO] DEAL #2 EURUSD.G2 vol=0.01 price=1.09589 pnl=0.00",
+        "JJ\t0\t01:57:14.149\tCore 1\t2024.01.02 08:01:00   deal #2 sell 0.01 EURUSD.G2 at 1.09589 done (based on order #2)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09589,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 2,
+      "time": "2024.01.02 08:01:00",
+      "volume": 0.01
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "PK\t0\t01:57:14.149\tCore 1\t2024.01.02 08:45:00   [2024.01.02 08:45:00] [INFO] DEAL #3 EURUSD.G2 vol=0.01 price=1.09705 pnl=-1.16",
+        "NL\t0\t01:57:14.149\tCore 1\t2024.01.02 08:45:00   deal #3 buy 0.01 EURUSD.G2 at 1.09705 done (based on order #3)"
+      ],
+      "pnl": -1.16,
+      "price": 1.09705,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 3,
+      "time": "2024.01.02 08:45:00",
+      "volume": 0.01
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "IL\t0\t01:57:14.149\tCore 1\t2024.01.02 08:46:00   [2024.01.02 08:46:00] [INFO] DEAL #4 EURUSD.G2 vol=0.28 price=1.09727 pnl=0.00",
+        "NJ\t0\t01:57:14.149\tCore 1\t2024.01.02 08:46:00   deal #4 buy 0.28 EURUSD.G2 at 1.09727 done (based on order #4)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09727,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 4,
+      "time": "2024.01.02 08:46:00",
+      "volume": 0.28
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "HN\t0\t01:57:14.149\tCore 1\t2024.01.02 09:12:00   [2024.01.02 09:12:00] [INFO] DEAL #5 EURUSD.G2 vol=0.28 price=1.09677 pnl=-14.00",
+        "RL\t0\t01:57:14.149\tCore 1\t2024.01.02 09:12:00   deal #5 sell 0.28 EURUSD.G2 at 1.09677 done (based on order #5)"
+      ],
+      "pnl": -14.0,
+      "price": 1.09677,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 5,
+      "time": "2024.01.02 09:12:00",
+      "volume": 0.28
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "RS\t0\t01:57:14.149\tCore 1\t2024.01.02 09:13:00   [2024.01.02 09:13:00] [INFO] DEAL #6 EURUSD.G2 vol=0.98 price=1.09655 pnl=0.00",
+        "NG\t0\t01:57:14.149\tCore 1\t2024.01.02 09:13:00   deal #6 sell 0.98 EURUSD.G2 at 1.09655 done (based on order #6)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09655,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 6,
+      "time": "2024.01.02 09:13:00",
+      "volume": 0.98
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "EL\t0\t01:57:14.149\tCore 1\t2024.01.02 09:41:00   [2024.01.02 09:41:00] [INFO] DEAL #7 EURUSD.G2 vol=0.98 price=1.09701 pnl=-45.08",
+        "GP\t0\t01:57:14.149\tCore 1\t2024.01.02 09:41:00   deal #7 buy 0.98 EURUSD.G2 at 1.09701 done (based on order #7)"
+      ],
+      "pnl": -45.08,
+      "price": 1.09701,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 7,
+      "time": "2024.01.02 09:41:00",
+      "volume": 0.98
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "HP\t0\t01:57:14.149\tCore 1\t2024.01.02 09:42:00   [2024.01.02 09:42:00] [INFO] DEAL #8 EURUSD.G2 vol=1.48 price=1.09721 pnl=0.00",
+        "LN\t0\t01:57:14.149\tCore 1\t2024.01.02 09:42:00   deal #8 buy 1.48 EURUSD.G2 at 1.09721 done (based on order #8)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09721,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 8,
+      "time": "2024.01.02 09:42:00",
+      "volume": 1.48
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "LR\t0\t01:57:14.149\tCore 1\t2024.01.02 10:12:00   [2024.01.02 10:12:00] [INFO] DEAL #9 EURUSD.G2 vol=1.48 price=1.09677 pnl=-65.12",
+        "IH\t0\t01:57:14.149\tCore 1\t2024.01.02 10:12:00   deal #9 sell 1.48 EURUSD.G2 at 1.09677 done (based on order #9)"
+      ],
+      "pnl": -65.12,
+      "price": 1.09677,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 9,
+      "time": "2024.01.02 10:12:00",
+      "volume": 1.48
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "MD\t0\t01:57:14.149\tCore 1\t2024.01.02 10:13:00   [2024.01.02 10:13:00] [INFO] DEAL #10 EURUSD.G2 vol=1.59 price=1.09655 pnl=0.00",
+        "PS\t0\t01:57:14.149\tCore 1\t2024.01.02 10:13:00   deal #10 sell 1.59 EURUSD.G2 at 1.09655 done (based on order #10)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09655,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 10,
+      "time": "2024.01.02 10:13:00",
+      "volume": 1.59
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "PQ\t0\t01:57:14.149\tCore 1\t2024.01.02 10:41:00   [2024.01.02 10:41:00] [INFO] DEAL #11 EURUSD.G2 vol=1.59 price=1.09701 pnl=-73.14",
+        "CG\t0\t01:57:14.149\tCore 1\t2024.01.02 10:41:00   deal #11 buy 1.59 EURUSD.G2 at 1.09701 done (based on order #11)"
+      ],
+      "pnl": -73.14,
+      "price": 1.09701,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 11,
+      "time": "2024.01.02 10:41:00",
+      "volume": 1.59
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "HD\t0\t01:57:14.149\tCore 1\t2024.01.02 10:42:00   [2024.01.02 10:42:00] [INFO] DEAL #12 EURUSD.G2 vol=1.58 price=1.09721 pnl=0.00",
+        "IL\t0\t01:57:14.149\tCore 1\t2024.01.02 10:42:00   deal #12 buy 1.58 EURUSD.G2 at 1.09721 done (based on order #12)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09721,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 12,
+      "time": "2024.01.02 10:42:00",
+      "volume": 1.58
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "LQ\t0\t01:57:14.149\tCore 1\t2024.01.02 11:12:00   [2024.01.02 11:12:00] [INFO] DEAL #13 EURUSD.G2 vol=1.58 price=1.09677 pnl=-69.52",
+        "IK\t0\t01:57:14.149\tCore 1\t2024.01.02 11:12:00   deal #13 sell 1.58 EURUSD.G2 at 1.09677 done (based on order #13)"
+      ],
+      "pnl": -69.52,
+      "price": 1.09677,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 13,
+      "time": "2024.01.02 11:12:00",
+      "volume": 1.58
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "ES\t0\t01:57:14.149\tCore 1\t2024.01.02 11:13:00   [2024.01.02 11:13:00] [INFO] DEAL #14 EURUSD.G2 vol=1.59 price=1.09655 pnl=0.00",
+        "OS\t0\t01:57:14.149\tCore 1\t2024.01.02 11:13:00   deal #14 sell 1.59 EURUSD.G2 at 1.09655 done (based on order #14)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09655,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 14,
+      "time": "2024.01.02 11:13:00",
+      "volume": 1.59
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "FQ\t0\t01:57:14.149\tCore 1\t2024.01.02 11:41:00   [2024.01.02 11:41:00] [INFO] DEAL #15 EURUSD.G2 vol=1.59 price=1.09701 pnl=-73.14",
+        "PG\t0\t01:57:14.149\tCore 1\t2024.01.02 11:41:00   deal #15 buy 1.59 EURUSD.G2 at 1.09701 done (based on order #15)"
+      ],
+      "pnl": -73.14,
+      "price": 1.09701,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 15,
+      "time": "2024.01.02 11:41:00",
+      "volume": 1.59
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "ID\t0\t01:57:14.149\tCore 1\t2024.01.02 11:42:00   [2024.01.02 11:42:00] [INFO] DEAL #16 EURUSD.G2 vol=1.55 price=1.09721 pnl=0.00",
+        "CL\t0\t01:57:14.149\tCore 1\t2024.01.02 11:42:00   deal #16 buy 1.55 EURUSD.G2 at 1.09721 done (based on order #16)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09721,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 16,
+      "time": "2024.01.02 11:42:00",
+      "volume": 1.55
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "EQ\t0\t01:57:14.149\tCore 1\t2024.01.02 12:12:00   [2024.01.02 12:12:00] [INFO] DEAL #17 EURUSD.G2 vol=1.55 price=1.09677 pnl=-68.20",
+        "IH\t0\t01:57:14.149\tCore 1\t2024.01.02 12:12:00   deal #17 sell 1.55 EURUSD.G2 at 1.09677 done (based on order #17)"
+      ],
+      "pnl": -68.2,
+      "price": 1.09677,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 17,
+      "time": "2024.01.02 12:12:00",
+      "volume": 1.55
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "IS\t0\t01:57:14.149\tCore 1\t2024.01.02 12:13:00   [2024.01.02 12:13:00] [INFO] DEAL #18 EURUSD.G2 vol=1.57 price=1.09655 pnl=0.00",
+        "NS\t0\t01:57:14.149\tCore 1\t2024.01.02 12:13:00   deal #18 sell 1.57 EURUSD.G2 at 1.09655 done (based on order #18)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09655,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 18,
+      "time": "2024.01.02 12:13:00",
+      "volume": 1.57
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "NN\t0\t01:57:14.149\tCore 1\t2024.01.02 12:41:00   [2024.01.02 12:41:00] [INFO] DEAL #19 EURUSD.G2 vol=1.57 price=1.09701 pnl=-72.22",
+        "IG\t0\t01:57:14.149\tCore 1\t2024.01.02 12:41:00   deal #19 buy 1.57 EURUSD.G2 at 1.09701 done (based on order #19)"
+      ],
+      "pnl": -72.22,
+      "price": 1.09701,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 19,
+      "time": "2024.01.02 12:41:00",
+      "volume": 1.57
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "FD\t0\t01:57:14.149\tCore 1\t2024.01.02 12:42:00   [2024.01.02 12:42:00] [INFO] DEAL #20 EURUSD.G2 vol=1.53 price=1.09721 pnl=0.00",
+        "FL\t0\t01:57:14.149\tCore 1\t2024.01.02 12:42:00   deal #20 buy 1.53 EURUSD.G2 at 1.09721 done (based on order #20)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09721,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 20,
+      "time": "2024.01.02 12:42:00",
+      "volume": 1.53
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "JN\t0\t01:57:14.149\tCore 1\t2024.01.02 13:12:00   [2024.01.02 13:12:00] [INFO] DEAL #21 EURUSD.G2 vol=1.53 price=1.09677 pnl=-67.32",
+        "NH\t0\t01:57:14.149\tCore 1\t2024.01.02 13:12:00   deal #21 sell 1.53 EURUSD.G2 at 1.09677 done (based on order #21)"
+      ],
+      "pnl": -67.32,
+      "price": 1.09677,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 21,
+      "time": "2024.01.02 13:12:00",
+      "volume": 1.53
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "IS\t0\t01:57:14.149\tCore 1\t2024.01.02 13:13:00   [2024.01.02 13:13:00] [INFO] DEAL #22 EURUSD.G2 vol=1.54 price=1.09655 pnl=0.00",
+        "JP\t0\t01:57:14.149\tCore 1\t2024.01.02 13:13:00   deal #22 sell 1.54 EURUSD.G2 at 1.09655 done (based on order #22)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09655,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 22,
+      "time": "2024.01.02 13:13:00",
+      "volume": 1.54
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "HN\t0\t01:57:14.149\tCore 1\t2024.01.02 13:41:00   [2024.01.02 13:41:00] [INFO] DEAL #23 EURUSD.G2 vol=1.54 price=1.09701 pnl=-70.84",
+        "QF\t0\t01:57:14.149\tCore 1\t2024.01.02 13:41:00   deal #23 buy 1.54 EURUSD.G2 at 1.09701 done (based on order #23)"
+      ],
+      "pnl": -70.84,
+      "price": 1.09701,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 23,
+      "time": "2024.01.02 13:41:00",
+      "volume": 1.54
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "RS\t0\t01:57:14.149\tCore 1\t2024.01.02 13:42:00   [2024.01.02 13:42:00] [INFO] DEAL #24 EURUSD.G2 vol=1.51 price=1.09721 pnl=0.00",
+        "MO\t0\t01:57:14.149\tCore 1\t2024.01.02 13:42:00   deal #24 buy 1.51 EURUSD.G2 at 1.09721 done (based on order #24)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09721,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 24,
+      "time": "2024.01.02 13:42:00",
+      "volume": 1.51
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "RN\t0\t01:57:14.149\tCore 1\t2024.01.02 14:12:00   [2024.01.02 14:12:00] [INFO] DEAL #25 EURUSD.G2 vol=1.51 price=1.09677 pnl=-66.44",
+        "KH\t0\t01:57:14.149\tCore 1\t2024.01.02 14:12:00   deal #25 sell 1.51 EURUSD.G2 at 1.09677 done (based on order #25)"
+      ],
+      "pnl": -66.44,
+      "price": 1.09677,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 25,
+      "time": "2024.01.02 14:12:00",
+      "volume": 1.51
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "MR\t0\t01:57:14.149\tCore 1\t2024.01.02 14:13:00   [2024.01.02 14:13:00] [INFO] DEAL #26 EURUSD.G2 vol=1.52 price=1.09655 pnl=0.00",
+        "OP\t0\t01:57:14.149\tCore 1\t2024.01.02 14:13:00   deal #26 sell 1.52 EURUSD.G2 at 1.09655 done (based on order #26)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09655,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 26,
+      "time": "2024.01.02 14:13:00",
+      "volume": 1.52
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "QN\t0\t01:57:14.149\tCore 1\t2024.01.02 14:41:00   [2024.01.02 14:41:00] [INFO] DEAL #27 EURUSD.G2 vol=1.52 price=1.09701 pnl=-69.92",
+        "DF\t0\t01:57:14.149\tCore 1\t2024.01.02 14:41:00   deal #27 buy 1.52 EURUSD.G2 at 1.09701 done (based on order #27)"
+      ],
+      "pnl": -69.92,
+      "price": 1.09701,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 27,
+      "time": "2024.01.02 14:41:00",
+      "volume": 1.52
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "GS\t0\t01:57:14.149\tCore 1\t2024.01.02 14:42:00   [2024.01.02 14:42:00] [INFO] DEAL #28 EURUSD.G2 vol=1.49 price=1.09721 pnl=0.00",
+        "MO\t0\t01:57:14.149\tCore 1\t2024.01.02 14:42:00   deal #28 buy 1.49 EURUSD.G2 at 1.09721 done (based on order #28)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09721,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 28,
+      "time": "2024.01.02 14:42:00",
+      "volume": 1.49
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "CO\t0\t01:57:14.149\tCore 1\t2024.01.02 15:12:00   [2024.01.02 15:12:00] [INFO] DEAL #29 EURUSD.G2 vol=1.49 price=1.09677 pnl=-65.56",
+        "MI\t0\t01:57:14.149\tCore 1\t2024.01.02 15:12:00   deal #29 sell 1.49 EURUSD.G2 at 1.09677 done (based on order #29)"
+      ],
+      "pnl": -65.56,
+      "price": 1.09677,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 29,
+      "time": "2024.01.02 15:12:00",
+      "volume": 1.49
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "FS\t0\t01:57:14.149\tCore 1\t2024.01.02 15:13:00   [2024.01.02 15:13:00] [INFO] DEAL #30 EURUSD.G2 vol=1.50 price=1.09655 pnl=0.00",
+        "NS\t0\t01:57:14.149\tCore 1\t2024.01.02 15:13:00   deal #30 sell 1.5 EURUSD.G2 at 1.09655 done (based on order #30)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09655,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 30,
+      "time": "2024.01.02 15:13:00",
+      "volume": 1.5
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "QN\t0\t01:57:14.149\tCore 1\t2024.01.02 15:41:00   [2024.01.02 15:41:00] [INFO] DEAL #31 EURUSD.G2 vol=1.50 price=1.09701 pnl=-69.00",
+        "OE\t0\t01:57:14.149\tCore 1\t2024.01.02 15:41:00   deal #31 buy 1.5 EURUSD.G2 at 1.09701 done (based on order #31)"
+      ],
+      "pnl": -69.0,
+      "price": 1.09701,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 31,
+      "time": "2024.01.02 15:41:00",
+      "volume": 1.5
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "ID\t0\t01:57:14.149\tCore 1\t2024.01.02 15:42:00   [2024.01.02 15:42:00] [INFO] DEAL #32 EURUSD.G2 vol=1.46 price=1.09721 pnl=0.00",
+        "EL\t0\t01:57:14.149\tCore 1\t2024.01.02 15:42:00   deal #32 buy 1.46 EURUSD.G2 at 1.09721 done (based on order #32)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09721,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 32,
+      "time": "2024.01.02 15:42:00",
+      "volume": 1.46
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "GL\t0\t01:57:14.149\tCore 1\t2024.01.02 16:01:01   [2024.01.02 16:01:01] [INFO] DEAL #33 EURUSD.G2 vol=1.46 price=1.09746 pnl=36.50",
+        "MI\t0\t01:57:14.149\tCore 1\t2024.01.02 16:01:01   deal #33 sell 1.46 EURUSD.G2 at 1.09746 done (based on order #33)"
+      ],
+      "pnl": 36.5,
+      "price": 1.09746,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 33,
+      "time": "2024.01.02 16:01:01",
+      "volume": 1.46
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "IE\t0\t01:57:14.149\tCore 1\t2024.01.03 08:01:00   [2024.01.03 08:01:00] [INFO] DEAL #34 EURUSD.G2 vol=3.51 price=1.09969 pnl=0.00",
+        "QM\t0\t01:57:14.149\tCore 1\t2024.01.03 08:01:00   deal #34 buy 3.51 EURUSD.G2 at 1.09969 done (based on order #34)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09969,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 34,
+      "time": "2024.01.03 08:01:00",
+      "volume": 3.51
+    },
+    {
+      "entry": null,
+      "lines": [
+        "NG\t0\t01:57:14.149\tCore 1\t2024.01.03 08:30:05   [2024.01.03 08:30:05] [INFO] DEAL #35 EURUSD.G2 vol=3.51 price=1.10011 pnl=147.42",
+        "LL\t0\t01:57:14.149\tCore 1\t2024.01.03 08:30:05   deal #35 sell 3.51 EURUSD.G2 at 1.10011 done (based on order #35)"
+      ],
+      "pnl": 147.42,
+      "price": 1.10011,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 35,
+      "time": "2024.01.03 08:30:05",
+      "volume": 3.51
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "NK\t0\t01:57:14.149\tCore 1\t2024.01.03 08:31:00   [2024.01.03 08:31:00] [INFO] DEAL #36 EURUSD.G2 vol=2.26 price=1.10138 pnl=0.00",
+        "EG\t0\t01:57:14.149\tCore 1\t2024.01.03 08:31:00   deal #36 buy 2.26 EURUSD.G2 at 1.10138 done (based on order #36)"
+      ],
+      "pnl": 0.0,
+      "price": 1.10138,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 36,
+      "time": "2024.01.03 08:31:00",
+      "volume": 2.26
+    },
+    {
+      "entry": null,
+      "lines": [
+        "QL\t0\t01:57:14.149\tCore 1\t2024.01.03 08:31:04   [2024.01.03 08:31:04] [INFO] DEAL #37 EURUSD.G2 vol=2.26 price=1.10097 pnl=-92.66",
+        "OJ\t0\t01:57:14.149\tCore 1\t2024.01.03 08:31:04   deal #37 sell 2.26 EURUSD.G2 at 1.10097 done (based on order #37)"
+      ],
+      "pnl": -92.66,
+      "price": 1.10097,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 37,
+      "time": "2024.01.03 08:31:04",
+      "volume": 2.26
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "CQ\t0\t01:57:14.149\tCore 1\t2024.01.03 08:32:01   [2024.01.03 08:32:01] [INFO] DEAL #38 EURUSD.G2 vol=0.84 price=1.09636 pnl=0.00",
+        "NQ\t0\t01:57:14.149\tCore 1\t2024.01.03 08:32:01   deal #38 sell 0.84 EURUSD.G2 at 1.09636 done (based on order #38)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09636,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 38,
+      "time": "2024.01.03 08:32:01",
+      "volume": 0.84
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "EL\t0\t01:57:14.149\tCore 1\t2024.01.03 09:07:00   [2024.01.03 09:07:00] [INFO] DEAL #39 EURUSD.G2 vol=0.84 price=1.09676 pnl=-33.60",
+        "RP\t0\t01:57:14.149\tCore 1\t2024.01.03 09:07:00   deal #39 buy 0.84 EURUSD.G2 at 1.09676 done (based on order #39)"
+      ],
+      "pnl": -33.6,
+      "price": 1.09676,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 39,
+      "time": "2024.01.03 09:07:00",
+      "volume": 0.84
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "EQ\t0\t01:57:14.149\tCore 1\t2024.01.03 09:08:00   [2024.01.03 09:08:00] [INFO] DEAL #40 EURUSD.G2 vol=2.69 price=1.09667 pnl=0.00",
+        "DI\t0\t01:57:14.149\tCore 1\t2024.01.03 09:08:00   deal #40 buy 2.69 EURUSD.G2 at 1.09667 done (based on order #40)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09667,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 40,
+      "time": "2024.01.03 09:08:00",
+      "volume": 2.69
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "PL\t0\t01:57:14.149\tCore 1\t2024.01.03 09:21:00   [2024.01.03 09:21:00] [INFO] DEAL #41 EURUSD.G2 vol=2.69 price=1.09656 pnl=-29.59",
+        "MN\t0\t01:57:14.149\tCore 1\t2024.01.03 09:21:00   deal #41 sell 2.69 EURUSD.G2 at 1.09656 done (based on order #41)"
+      ],
+      "pnl": -29.59,
+      "price": 1.09656,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 41,
+      "time": "2024.01.03 09:21:00",
+      "volume": 2.69
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "CQ\t0\t01:57:14.149\tCore 1\t2024.01.03 09:22:00   [2024.01.03 09:22:00] [INFO] DEAL #42 EURUSD.G2 vol=3.65 price=1.09646 pnl=0.00",
+        "NF\t0\t01:57:14.149\tCore 1\t2024.01.03 09:22:00   deal #42 sell 3.65 EURUSD.G2 at 1.09646 done (based on order #42)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 42,
+      "time": "2024.01.03 09:22:00",
+      "volume": 3.65
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "KL\t0\t01:57:14.149\tCore 1\t2024.01.03 09:44:00   [2024.01.03 09:44:00] [INFO] DEAL #43 EURUSD.G2 vol=3.65 price=1.09658 pnl=-43.80",
+        "QP\t0\t01:57:14.149\tCore 1\t2024.01.03 09:44:00   deal #43 buy 3.65 EURUSD.G2 at 1.09658 done (based on order #43)"
+      ],
+      "pnl": -43.8,
+      "price": 1.09658,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 43,
+      "time": "2024.01.03 09:44:00",
+      "volume": 3.65
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "IQ\t0\t01:57:14.149\tCore 1\t2024.01.03 09:45:00   [2024.01.03 09:45:00] [INFO] DEAL #44 EURUSD.G2 vol=4.33 price=1.09668 pnl=0.00",
+        "KI\t0\t01:57:14.149\tCore 1\t2024.01.03 09:45:00   deal #44 buy 4.33 EURUSD.G2 at 1.09668 done (based on order #44)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09668,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 44,
+      "time": "2024.01.03 09:45:00",
+      "volume": 4.33
+    },
+    {
+      "entry": null,
+      "lines": [
+        "KR\t0\t01:57:14.149\tCore 1\t2024.01.03 10:07:59   [2024.01.03 10:07:59] [INFO] DEAL #45 EURUSD.G2 vol=4.33 price=1.09646 pnl=-95.26",
+        "KP\t0\t01:57:14.149\tCore 1\t2024.01.03 10:07:59   deal #45 sell 4.33 EURUSD.G2 at 1.09646 done (based on order #45)"
+      ],
+      "pnl": -95.26,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 45,
+      "time": "2024.01.03 10:07:59",
+      "volume": 4.33
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "NG\t0\t01:57:14.149\tCore 1\t2024.01.03 10:08:00   [2024.01.03 10:08:00] [INFO] DEAL #46 EURUSD.G2 vol=4.49 price=1.09646 pnl=0.00",
+        "KO\t0\t01:57:14.149\tCore 1\t2024.01.03 10:08:00   deal #46 sell 4.49 EURUSD.G2 at 1.09646 done (based on order #46)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 46,
+      "time": "2024.01.03 10:08:00",
+      "volume": 4.49
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "ER\t0\t01:57:14.149\tCore 1\t2024.01.03 10:30:00   [2024.01.03 10:30:00] [INFO] DEAL #47 EURUSD.G2 vol=4.49 price=1.09658 pnl=-53.88",
+        "MJ\t0\t01:57:14.149\tCore 1\t2024.01.03 10:30:00   deal #47 buy 4.49 EURUSD.G2 at 1.09658 done (based on order #47)"
+      ],
+      "pnl": -53.88,
+      "price": 1.09658,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 47,
+      "time": "2024.01.03 10:30:00",
+      "volume": 4.49
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "RG\t0\t01:57:14.149\tCore 1\t2024.01.03 10:31:00   [2024.01.03 10:31:00] [INFO] DEAL #48 EURUSD.G2 vol=4.47 price=1.09668 pnl=0.00",
+        "IS\t0\t01:57:14.149\tCore 1\t2024.01.03 10:31:00   deal #48 buy 4.47 EURUSD.G2 at 1.09668 done (based on order #48)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09668,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 48,
+      "time": "2024.01.03 10:31:00",
+      "volume": 4.47
+    },
+    {
+      "entry": null,
+      "lines": [
+        "FK\t0\t01:57:14.149\tCore 1\t2024.01.03 10:53:59   [2024.01.03 10:53:59] [INFO] DEAL #49 EURUSD.G2 vol=4.47 price=1.09646 pnl=-98.34",
+        "CI\t0\t01:57:14.149\tCore 1\t2024.01.03 10:53:59   deal #49 sell 4.47 EURUSD.G2 at 1.09646 done (based on order #49)"
+      ],
+      "pnl": -98.34,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 49,
+      "time": "2024.01.03 10:53:59",
+      "volume": 4.47
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "PM\t0\t01:57:14.149\tCore 1\t2024.01.03 10:54:00   [2024.01.03 10:54:00] [INFO] DEAL #50 EURUSD.G2 vol=4.42 price=1.09646 pnl=0.00",
+        "OE\t0\t01:57:14.149\tCore 1\t2024.01.03 10:54:00   deal #50 sell 4.42 EURUSD.G2 at 1.09646 done (based on order #50)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 50,
+      "time": "2024.01.03 10:54:00",
+      "volume": 4.42
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "CK\t0\t01:57:14.149\tCore 1\t2024.01.03 11:16:00   [2024.01.03 11:16:00] [INFO] DEAL #51 EURUSD.G2 vol=4.42 price=1.09658 pnl=-53.04",
+        "QM\t0\t01:57:14.149\tCore 1\t2024.01.03 11:16:00   deal #51 buy 4.42 EURUSD.G2 at 1.09658 done (based on order #51)"
+      ],
+      "pnl": -53.04,
+      "price": 1.09658,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 51,
+      "time": "2024.01.03 11:16:00",
+      "volume": 4.42
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "JN\t0\t01:57:14.149\tCore 1\t2024.01.03 11:17:00   [2024.01.03 11:17:00] [INFO] DEAL #52 EURUSD.G2 vol=4.39 price=1.09668 pnl=0.00",
+        "CJ\t0\t01:57:14.149\tCore 1\t2024.01.03 11:17:00   deal #52 buy 4.39 EURUSD.G2 at 1.09668 done (based on order #52)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09668,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 52,
+      "time": "2024.01.03 11:17:00",
+      "volume": 4.39
+    },
+    {
+      "entry": null,
+      "lines": [
+        "NQ\t0\t01:57:14.149\tCore 1\t2024.01.03 11:39:59   [2024.01.03 11:39:59] [INFO] DEAL #53 EURUSD.G2 vol=4.39 price=1.09646 pnl=-96.58",
+        "MG\t0\t01:57:14.149\tCore 1\t2024.01.03 11:39:59   deal #53 sell 4.39 EURUSD.G2 at 1.09646 done (based on order #53)"
+      ],
+      "pnl": -96.58,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 53,
+      "time": "2024.01.03 11:39:59",
+      "volume": 4.39
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "ID\t0\t01:57:14.149\tCore 1\t2024.01.03 11:40:00   [2024.01.03 11:40:00] [INFO] DEAL #54 EURUSD.G2 vol=4.34 price=1.09646 pnl=0.00",
+        "FS\t0\t01:57:14.149\tCore 1\t2024.01.03 11:40:00   deal #54 sell 4.34 EURUSD.G2 at 1.09646 done (based on order #54)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 54,
+      "time": "2024.01.03 11:40:00",
+      "volume": 4.34
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "QQ\t0\t01:57:14.149\tCore 1\t2024.01.03 12:02:00   [2024.01.03 12:02:00] [INFO] DEAL #55 EURUSD.G2 vol=4.34 price=1.09658 pnl=-52.08",
+        "JG\t0\t01:57:14.149\tCore 1\t2024.01.03 12:02:00   deal #55 buy 4.34 EURUSD.G2 at 1.09658 done (based on order #55)"
+      ],
+      "pnl": -52.08,
+      "price": 1.09658,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 55,
+      "time": "2024.01.03 12:02:00",
+      "volume": 4.34
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "ID\t0\t01:57:14.149\tCore 1\t2024.01.03 12:03:00   [2024.01.03 12:03:00] [INFO] DEAL #56 EURUSD.G2 vol=4.32 price=1.09668 pnl=0.00",
+        "FL\t0\t01:57:14.149\tCore 1\t2024.01.03 12:03:00   deal #56 buy 4.32 EURUSD.G2 at 1.09668 done (based on order #56)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09668,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 56,
+      "time": "2024.01.03 12:03:00",
+      "volume": 4.32
+    },
+    {
+      "entry": null,
+      "lines": [
+        "GF\t0\t01:57:14.149\tCore 1\t2024.01.03 12:25:59   [2024.01.03 12:25:59] [INFO] DEAL #57 EURUSD.G2 vol=4.32 price=1.09646 pnl=-95.04",
+        "HL\t0\t01:57:14.149\tCore 1\t2024.01.03 12:25:59   deal #57 sell 4.32 EURUSD.G2 at 1.09646 done (based on order #57)"
+      ],
+      "pnl": -95.04,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 57,
+      "time": "2024.01.03 12:25:59",
+      "volume": 4.32
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "EJ\t0\t01:57:14.149\tCore 1\t2024.01.03 12:26:00   [2024.01.03 12:26:00] [INFO] DEAL #58 EURUSD.G2 vol=4.27 price=1.09646 pnl=0.00",
+        "OH\t0\t01:57:14.149\tCore 1\t2024.01.03 12:26:00   deal #58 sell 4.27 EURUSD.G2 at 1.09646 done (based on order #58)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 58,
+      "time": "2024.01.03 12:26:00",
+      "volume": 4.27
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "JG\t0\t01:57:14.149\tCore 1\t2024.01.03 12:48:00   [2024.01.03 12:48:00] [INFO] DEAL #59 EURUSD.G2 vol=4.27 price=1.09658 pnl=-51.24",
+        "DN\t0\t01:57:14.149\tCore 1\t2024.01.03 12:48:00   deal #59 buy 4.27 EURUSD.G2 at 1.09658 done (based on order #59)"
+      ],
+      "pnl": -51.24,
+      "price": 1.09658,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 59,
+      "time": "2024.01.03 12:48:00",
+      "volume": 4.27
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "QK\t0\t01:57:14.149\tCore 1\t2024.01.03 12:49:00   [2024.01.03 12:49:00] [INFO] DEAL #60 EURUSD.G2 vol=4.24 price=1.09668 pnl=0.00",
+        "CG\t0\t01:57:14.149\tCore 1\t2024.01.03 12:49:00   deal #60 buy 4.24 EURUSD.G2 at 1.09668 done (based on order #60)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09668,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 60,
+      "time": "2024.01.03 12:49:00",
+      "volume": 4.24
+    },
+    {
+      "entry": null,
+      "lines": [
+        "KL\t0\t01:57:14.149\tCore 1\t2024.01.03 13:11:59   [2024.01.03 13:11:59] [INFO] DEAL #61 EURUSD.G2 vol=4.24 price=1.09646 pnl=-93.28",
+        "EJ\t0\t01:57:14.149\tCore 1\t2024.01.03 13:11:59   deal #61 sell 4.24 EURUSD.G2 at 1.09646 done (based on order #61)"
+      ],
+      "pnl": -93.28,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 61,
+      "time": "2024.01.03 13:11:59",
+      "volume": 4.24
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "OQ\t0\t01:57:14.149\tCore 1\t2024.01.03 13:12:00   [2024.01.03 13:12:00] [INFO] DEAL #62 EURUSD.G2 vol=4.20 price=1.09646 pnl=0.00",
+        "HE\t0\t01:57:14.149\tCore 1\t2024.01.03 13:12:00   deal #62 sell 4.2 EURUSD.G2 at 1.09646 done (based on order #62)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 62,
+      "time": "2024.01.03 13:12:00",
+      "volume": 4.2
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "CO\t0\t01:57:14.149\tCore 1\t2024.01.03 13:34:00   [2024.01.03 13:34:00] [INFO] DEAL #63 EURUSD.G2 vol=4.20 price=1.09658 pnl=-50.40",
+        "QR\t0\t01:57:14.149\tCore 1\t2024.01.03 13:34:00   deal #63 buy 4.2 EURUSD.G2 at 1.09658 done (based on order #63)"
+      ],
+      "pnl": -50.4,
+      "price": 1.09658,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 63,
+      "time": "2024.01.03 13:34:00",
+      "volume": 4.2
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "CR\t0\t01:57:14.149\tCore 1\t2024.01.03 13:35:00   [2024.01.03 13:35:00] [INFO] DEAL #64 EURUSD.G2 vol=4.17 price=1.09668 pnl=0.00",
+        "CN\t0\t01:57:14.149\tCore 1\t2024.01.03 13:35:00   deal #64 buy 4.17 EURUSD.G2 at 1.09668 done (based on order #64)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09668,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 64,
+      "time": "2024.01.03 13:35:00",
+      "volume": 4.17
+    },
+    {
+      "entry": null,
+      "lines": [
+        "DD\t0\t01:57:14.149\tCore 1\t2024.01.03 13:57:59   [2024.01.03 13:57:59] [INFO] DEAL #65 EURUSD.G2 vol=4.17 price=1.09646 pnl=-91.74",
+        "IR\t0\t01:57:14.149\tCore 1\t2024.01.03 13:57:59   deal #65 sell 4.17 EURUSD.G2 at 1.09646 done (based on order #65)"
+      ],
+      "pnl": -91.74,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 65,
+      "time": "2024.01.03 13:57:59",
+      "volume": 4.17
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "KH\t0\t01:57:14.149\tCore 1\t2024.01.03 13:58:00   [2024.01.03 13:58:00] [INFO] DEAL #66 EURUSD.G2 vol=4.13 price=1.09646 pnl=0.00",
+        "FN\t0\t01:57:14.149\tCore 1\t2024.01.03 13:58:00   deal #66 sell 4.13 EURUSD.G2 at 1.09646 done (based on order #66)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 66,
+      "time": "2024.01.03 13:58:00",
+      "volume": 4.13
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "DE\t0\t01:57:14.149\tCore 1\t2024.01.03 14:20:00   [2024.01.03 14:20:00] [INFO] DEAL #67 EURUSD.G2 vol=4.13 price=1.09658 pnl=-49.56",
+        "QH\t0\t01:57:14.149\tCore 1\t2024.01.03 14:20:00   deal #67 buy 4.13 EURUSD.G2 at 1.09658 done (based on order #67)"
+      ],
+      "pnl": -49.56,
+      "price": 1.09658,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 67,
+      "time": "2024.01.03 14:20:00",
+      "volume": 4.13
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "NI\t0\t01:57:14.149\tCore 1\t2024.01.03 14:21:00   [2024.01.03 14:21:00] [INFO] DEAL #68 EURUSD.G2 vol=4.10 price=1.09668 pnl=0.00",
+        "PR\t0\t01:57:14.149\tCore 1\t2024.01.03 14:21:00   deal #68 buy 4.1 EURUSD.G2 at 1.09668 done (based on order #68)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09668,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 68,
+      "time": "2024.01.03 14:21:00",
+      "volume": 4.1
+    },
+    {
+      "entry": null,
+      "lines": [
+        "IM\t0\t01:57:14.149\tCore 1\t2024.01.03 14:43:59   [2024.01.03 14:43:59] [INFO] DEAL #69 EURUSD.G2 vol=4.10 price=1.09646 pnl=-90.20",
+        "JH\t0\t01:57:14.149\tCore 1\t2024.01.03 14:43:59   deal #69 sell 4.1 EURUSD.G2 at 1.09646 done (based on order #69)"
+      ],
+      "pnl": -90.2,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 69,
+      "time": "2024.01.03 14:43:59",
+      "volume": 4.1
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "JP\t0\t01:57:14.149\tCore 1\t2024.01.03 14:44:00   [2024.01.03 14:44:00] [INFO] DEAL #70 EURUSD.G2 vol=4.06 price=1.09646 pnl=0.00",
+        "DG\t0\t01:57:14.149\tCore 1\t2024.01.03 14:44:00   deal #70 sell 4.06 EURUSD.G2 at 1.09646 done (based on order #70)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 70,
+      "time": "2024.01.03 14:44:00",
+      "volume": 4.06
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "DM\t0\t01:57:14.149\tCore 1\t2024.01.03 15:06:00   [2024.01.03 15:06:00] [INFO] DEAL #71 EURUSD.G2 vol=4.06 price=1.09658 pnl=-48.72",
+        "FS\t0\t01:57:14.149\tCore 1\t2024.01.03 15:06:00   deal #71 buy 4.06 EURUSD.G2 at 1.09658 done (based on order #71)"
+      ],
+      "pnl": -48.72,
+      "price": 1.09658,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 71,
+      "time": "2024.01.03 15:06:00",
+      "volume": 4.06
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "GP\t0\t01:57:14.149\tCore 1\t2024.01.03 15:07:00   [2024.01.03 15:07:00] [INFO] DEAL #72 EURUSD.G2 vol=4.03 price=1.09668 pnl=0.00",
+        "GH\t0\t01:57:14.149\tCore 1\t2024.01.03 15:07:00   deal #72 buy 4.03 EURUSD.G2 at 1.09668 done (based on order #72)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09668,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 72,
+      "time": "2024.01.03 15:07:00",
+      "volume": 4.03
+    },
+    {
+      "entry": null,
+      "lines": [
+        "MR\t0\t01:57:14.149\tCore 1\t2024.01.03 15:29:59   [2024.01.03 15:29:59] [INFO] DEAL #73 EURUSD.G2 vol=4.03 price=1.09646 pnl=-88.66",
+        "QP\t0\t01:57:14.149\tCore 1\t2024.01.03 15:29:59   deal #73 sell 4.03 EURUSD.G2 at 1.09646 done (based on order #73)"
+      ],
+      "pnl": -88.66,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 73,
+      "time": "2024.01.03 15:29:59",
+      "volume": 4.03
+    },
+    {
+      "entry": "open",
+      "lines": [
+        "OF\t0\t01:57:14.149\tCore 1\t2024.01.03 15:30:00   [2024.01.03 15:30:00] [INFO] DEAL #74 EURUSD.G2 vol=3.99 price=1.09646 pnl=0.00",
+        "KL\t0\t01:57:14.149\tCore 1\t2024.01.03 15:30:00   deal #74 sell 3.99 EURUSD.G2 at 1.09646 done (based on order #74)"
+      ],
+      "pnl": 0.0,
+      "price": 1.09646,
+      "side": "sell",
+      "symbol": "EURUSD.G2",
+      "ticket": 74,
+      "time": "2024.01.03 15:30:00",
+      "volume": 3.99
+    },
+    {
+      "entry": "close",
+      "lines": [
+        "HQ\t0\t01:57:14.149\tCore 1\t2024.01.03 16:01:01   [2024.01.03 16:01:01] [INFO] DEAL #75 EURUSD.G2 vol=3.99 price=1.09638 pnl=31.92",
+        "PE\t0\t01:57:14.149\tCore 1\t2024.01.03 16:01:01   deal #75 buy 3.99 EURUSD.G2 at 1.09638 done (based on order #75)"
+      ],
+      "pnl": 31.92,
+      "price": 1.09638,
+      "side": "buy",
+      "symbol": "EURUSD.G2",
+      "ticket": 75,
+      "time": "2024.01.03 16:01:01",
+      "volume": 3.99
+    }
+  ],
+  "evidence_class": "PASS_FROM_LOG",
+  "fields": {},
+  "final_balance": 8017.51,
+  "final_balance_currency": "USD",
+  "from_log": true,
+  "leg": "gold2_every_tick",
+  "metrics": {},
+  "note": "Trade list read from the EA's own tester-log lines because MT5 wrote no report for this leg. Not a report: no report metrics exist. Stage 8 accepts it at log_trades/<gold>_<model>.json and records the trade source as the log.",
+  "report_present": false,
+  "schema": "mql5bot.log_trade_list/1",
+  "settings": {
+    "history quality": "100%",
+    "model": "Every tick",
+    "symbol": "EURUSD.G2"
+  },
+  "source": "tester agent log",
+  "tables": 0,
+  "ticks": 1894944,
+  "window_sha256": "b272df604145aaa1ec6e93a10e898e2eee47fd6316baebc727e68478208779ad"
+}
