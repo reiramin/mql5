@@ -295,17 +295,20 @@ def test_unpaired_trades_inside_the_window_are_divergences(run26):
     # nothing on the excluded ToDate day is ever MISSING_IN_MT5
     assert all(e["python_signal_time"] < "2024-01-04" for e in missing)
     m0 = min(missing, key=lambda e: e["index"])
-    assert m0["python_signal_time"] == "2024-01-02T08:06:00"
+    # regenerated gold_2 (S8-FLIP-REGEN): the 08:07 persistence re-entry
+    # moved one bar (knock-on of the flip-next-bar fix) -> signal 08:07
+    assert m0["python_signal_time"] == "2024-01-02T08:07:00"
     spec = m0["fields"]["state"]
-    assert spec["python"] == "entry 2024-01-02T08:07:00 short 0.02 lots"
+    assert spec["python"] == "entry 2024-01-02T08:08:00 short 0.02 lots"
     assert spec["mt5"].startswith("MISSING_IN_MT5")
     assert og.classify_field("state") == og.STATE_MISMATCH
     # paired volume/price divergences stay measured: 08:46 buy 0.28 at
-    # 1.09700 (MT5) vs python 0.26 at the fixture open 1.09725
+    # 1.09700 (MT5) vs python 0.25 at the fixture open 1.09725
+    # (0.26 before S8-FLIP-REGEN: basis 9402.53 -> 9085.28)
     e46 = next(e for e in recon["events"]
                if e.get("pairing") == s8p.PAIRED_BY_TIME
                and e["time"] == "2024-01-02T08:46:00")
-    assert e46["fields"]["volume"] == {"python": 0.26, "mt5": 0.28}
+    assert e46["fields"]["volume"] == {"python": 0.25, "mt5": 0.28}
     assert e46["fields"]["entry_price"] == {"python": 1.09725, "mt5": 1.097}
     assert e46["fields"]["entry_side"] == {"python": "buy", "mt5": "buy"}
 
@@ -508,11 +511,12 @@ def test_first_divergence_is_surfaced_on_a_fail(run26, tmp_path):
     trade = rep["first_trade_divergence"]["gold2"]
     # the window itself is NOT the first divergence: the 2024-01-01 python
     # trades are OUT_OF_TESTED_WINDOW, so the first divergence is the first
-    # IN-WINDOW python entry MT5 has no deal for (08:07), not a positional
+    # IN-WINDOW python entry MT5 has no deal for (08:08 in the regenerated
+    # gold_2; 08:07 before S8-FLIP-REGEN), not a positional
     # 01-01-vs-01-02 TIMESTAMP_MISMATCH at trade 0
     assert trade["first_divergent_field"] == "state"
     assert trade["python_value"] == \
-        "entry 2024-01-02T08:07:00 short 0.02 lots"
+        "entry 2024-01-02T08:08:00 short 0.02 lots"
     assert trade["mt5_value"].startswith("MISSING_IN_MT5")
     assert trade["trade_index"] == 1
     assert trade["classification"] == og.STATE_MISMATCH
@@ -533,7 +537,7 @@ def test_cli_divergence_note_quotes_the_report(run26, tmp_path):
                          "--golds", "gold2"],
                         capture_output=True, text=True, check=False)
     assert cp.returncode == 0, cp.stderr
-    assert "python='entry 2024-01-02T08:07:00 short 0.02 lots'" in \
+    assert "python='entry 2024-01-02T08:08:00 short 0.02 lots'" in \
         json.loads(cp.stdout)["note"]
 
 

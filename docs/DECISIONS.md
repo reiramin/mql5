@@ -3108,3 +3108,73 @@ frozen one (measured on this change: 56 -> 56 trades, 18 unchanged entry
 minutes, 38 entries moved +1 bar, 0 vanished, 0 appeared, 45 matched
 trades with changed lots, 8 with changed exit_reason). The regeneration
 itself remains the owner's decision.
+
+---
+
+## S8-FLIP-REGEN — OWNER AUTHORIZATION: scoped regeneration of artifacts/gold_2 with the flip-next-bar engine (2026-10-04)
+
+**Authorization (Sal, in chat, 2026-10-04, after PR #17 merged as
+`8b9ed02` and PR #14 as `8c8f08d`).** A SCOPED exception to the frozen
+artifacts rule: regenerate `artifacts/gold_2` ONLY — `python_trace.json`,
+`expected_execution.json`, `dsl_trace.json`, `reconciliation.json`,
+`provenance.json`, `manifest.json` — with the flip-next-bar engine.
+Nothing else under `artifacts/` changes in that PR: `gold_1`,
+`owner_mt5_gate` (incl. `frozen_inputs.json`), and
+`certification_manifest.json` stay byte-untouched, and
+`gold2_fixture.csv` stays byte-identical (dataset_hash unchanged).
+
+**Reason.** gate_run28 finding 1 / S8-FLIP-1: the frozen gold_2 was built
+by an engine that entered a flip's new side in the same bar it closed the
+old one, contradicting the manifest `flip_rule` ("close opposite
+(signal_exit); enter next bar") that the EA implements. The owner ruled the
+python side defective; PR #17 fixed the engine; this regeneration makes the
+gold describe the contract.
+
+**How (never hand-edited).** The real builder
+(`tools/build_gold2_standard.py --git-commit 8b9ed02446cd`, the builder's
+own 12-char commit format) ran on the byte-identical fixture. The builder's
+expected-execution derivation was corrected in the same PR to model the
+rule from the engine's own `flip_deferred` events: a flip transition yields
+no entry at signal+1 (listed under `flip_deferrals`), and its entry is a
+`flip_deferred_entry` row decided at the close bar. spec_hash, config_hash
+and dataset_hash came out unchanged (none depends on engine code);
+git_commit, python_version (3.13.1 — the frozen 3.11.2 interpreter is not
+installed here), manifest_hash and the artifact hashes changed. The
+re-anchor of `frozen_inputs.json` is a separate PR; until it lands, stage 0
+FAILS on Windows (gold_2 bytes no longer equal the frozen hash chain).
+
+## S8-FLIP-2 — finding WITHDRAWN: its premise was wrong; the owner's "refuse" decision is recorded but NOT implemented pending reconfirmation (2026-10-04)
+
+**What PR #18 claimed (wrong).** That the deferred flip entry filling at
+2024-01-01 16:00 (decision bar 15:59, flattened 16:01) would be refused by
+the EA's session gate (`Mql5Bot.mq5:961`), so stage 8 would show it as
+`MISSING_IN_MT5`.
+
+**Owner decision taken on that premise (Sal, in chat, 2026-10-04).** "The
+EA's session gate is the contract; a deferred flip entry whose fill bar is
+at/after session end is REFUSED (no entry), never entered-then-flattened."
+
+**Why it is not implemented — measured, file:line.** On the gold tester
+legs the EA's session gate is OFF:
+- the gate passes `InpUseSession = False` to every gold leg
+  (`python/mql5bot/gold_leg_inputs.py:191`, rule: "the DSL bundle carries
+  the session filter"; tester preset default likewise
+  `python/mql5bot/mt5tester.py:117`);
+- `CSessionFilter.Init(enabled=false)` sets `m_enabled = false`
+  (`mql5/Include/Mql5Bot/Session.mqh`), and `IsTradingTime()` returns
+  `true` when disabled (`Session.mqh:54-57`) — so `Mql5Bot.mq5:961` never
+  refuses on a gold leg;
+- at the 16:00 bar the EA reads `positions[n-2]` (`Mql5Bot.mq5:248`) = the
+  closed 15:59 bar's desired = +1, exposure 0 (flip-closed at 15:59), so it
+  ENTERS; at 16:01 the DSL bundle's own session filter makes desired 0 and
+  the EA closes ("DSL desired flat — closing exposure", `Mql5Bot.mq5:975`).
+
+That is exactly what the regenerated python gold_2 does (enter 16:00,
+flatten 16:01). Implementing "refuse" in the engine would CREATE a
+python-vs-EA divergence on the gold leg and bake it into the frozen gold.
+The divergence the finding described does not exist under the gate's
+actual tester configuration. The owner must reconfirm or withdraw the
+decision with this evidence; nothing was changed in either engine.
+(If the owner wants the EA gate active on gold legs, that is a change to
+`gold_leg_inputs.py`'s `InpUseSession` rule plus the matching engine gate
+— a different decision from the one recorded above.)

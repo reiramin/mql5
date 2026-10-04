@@ -768,3 +768,127 @@ on PATH; 0 FAILED lines in the log).
 - PR #14 not merged (as instructed).
 - Nothing ran on MT5; the engine change has never seen a live gate run.
 - Nothing merged from this branch. Certification record unchanged.
+
+## 2026-10-04 (1) — merge PRs #17 + #14; regen/gold2-flip-next-bar (owner-authorized scoped gold_2 regeneration)
+
+**Merges (clean worktree; main checkout untouched):** PR #17 merged as
+8b9ed02 and PR #14 as 8c8f08d (both --no-ff, "Approved by Sal + reviewer in
+chat; no GitHub review recorded."). PR #14's AUTONOMOUS_LOG conflict was two
+independent appended entries — resolved keeping both, in entry order (6),
+(7); the #14 merge adds exactly its 2 files. Gates on 8c8f08d before push:
+ruff exit 0, full pytest exit 0. Push a02a07a..8c8f08d, no force/amend.
+GitHub: PR #17 MERGED, PR #14 MERGED.
+
+**Branch**: `regen/gold2-flip-next-bar` from 8c8f08d.
+
+**Owner authorization recorded** (docs/DECISIONS.md S8-FLIP-REGEN): scoped
+exception — regenerate artifacts/gold_2 ONLY (python_trace, expected_
+execution, dsl_trace, reconciliation, provenance, manifest). Verified: only
+those 6 files changed under artifacts/; gold2_fixture.csv byte-identical;
+artifacts/gold (gold_1) and artifacts/owner_mt5_gate untouched.
+
+**Done (built, unit-tested, never run live):**
+- Real builder `tools/build_gold2_standard.py --git-commit 8b9ed02446cd`
+  (PR #17 merge commit, builder's 12-char format), venv Python 3.13.1 (the
+  frozen 3.11.2 is not installed; the builder records it). Exit 0, signal
+  and trade parity true, python_vs_dsl MATCHED. spec_hash / config_hash /
+  dataset_hash UNCHANGED (none depends on engine code).
+- Builder fix (necessary, tools/ only): expected_execution modelled
+  same-bar flips (transition row at signal bar i, fill i+1). It now reads
+  the engine's own `flip_deferred` events: flip transitions are listed in
+  `flip_deferrals` (no entry at i+1) and their entries are
+  `flip_deferred_entry` rows decided at the close bar (full boundary
+  block). Without this, stage 8 would still expect flip fills one bar
+  early. 62 entries: 37 flip_deferred_entry, 21 signal_transition, 4
+  persistence_reentry; 37 flip_deferrals.
+- Regenerated python_trace == tools/preview_gold2_regen.py preview
+  (trades identical). expected_execution/dsl_trace/reconciliation differ
+  from the preview only in the embedded manifest_hash (git_commit differs).
+  Diff vs frozen: 56 -> 56 trades, 18 unchanged, 38 moved +1 bar (37 flip
+  deferrals + 1 knock-on persistence re-entry 2024-01-02 08:07->08:08), 0
+  vanished, 0 appeared, 45 lots changed, 8 exit_reason changed.
+- Un-xfailed test_every_entry_reconciles_sizing_and_meta: PASSES on the new
+  artifacts. Boundary test extended to the labelled flip_deferred_entry
+  kind (held to the same full-boundary-block rule). New test pins
+  flip_deferrals against the engine's events. Stage-8 tests updated to the
+  regenerated gold's values (first in-window MISSING 08:07->08:08 fill;
+  08:46 python volume 0.26->0.25, basis 9402.53->9085.28).
+
+**NEW OPEN FINDING S8-FLIP-2 (owner decision pending):** one deferred flip
+entry fills OUTSIDE the session — 2024-01-01 16:00 long (decision bar
+15:59), flattened 16:01. The EA's session gate (Mql5Bot.mq5:961) would
+refuse it. Not changed on either side.
+
+**xfail (strict=True; reason "gold_2 regenerated under S8-FLIP-REGEN;
+frozen_inputs.json re-anchor pending in a separate PR (stage 0 FAILS until
+then)"):** each verified to fail ONLY because frozen_inputs.json still pins
+the old gold_2 bytes (SELF_PROTECT_FROZEN_HASH_MISMATCH / fail-closed
+trade-count binding):
+- tests/test_owner_gate_log_trades.py::test_python_trade_count_comes_from_the_hash_pinned_reconciliation
+- tests/test_owner_gate_ps1.py::test_run_self_protection_passes_when_head_descends_from_anchor
+- tests/test_owner_gate_ps1.py::test_clean_checkout_with_evidence_dir_passes_stage0
+strict=True: they XPASS (= suite failure) once the re-anchor lands, forcing
+removal of the markers.
+
+**Stale frozen_inputs.json fields (for the re-anchor PR; NOT edited here):**
+gold_2.artifact_hash_chain.{dsl_trace,expected_execution,manifest,
+python_trace,reconciliation}.json, gold_2.expected_execution_sha256,
+gold_2.manifest_sha256, gold_2.git_commit_recorded (new values in the PR
+body), plus source.commit (anchor a85cba3, against which stage 0 diffs
+artifacts/gold_2).
+
+**Exit codes (read, not polled).** ruff -> 0; full pytest -> 0 (pwsh 7.6.6
+on PATH; 3 XFAIL listed above, 0 FAILED).
+
+**NOT done, and why**
+- frozen_inputs.json not edited (separate re-anchor PR, as instructed);
+  until it lands stage 0 FAILS on Windows and stage 8 loses the
+  hash-pinned python trade count (fail-closed).
+- S8-FLIP-2 not resolved: contract question for the owner.
+- Nothing ran on MT5. Not merged. Certification record unchanged.
+
+## 2026-10-04 (2) — PR #18 merge HALTED; corrections pushed to PR #18 (re-approval needed); S8-FLIP-2 not implemented
+
+**What was asked:** merge PR #18; record owner decision S8-FLIP-2 ("refuse
+a deferred flip entry whose fill bar is at/after session end"); implement
+it in engine + fast_engine; regenerate gold_2 again.
+
+**What happened (truthfully):**
+- The PR #18 merge was built locally (1b57331) and the gates run: ruff 0,
+  but full pytest EXIT 1 — tests/test_docs_contract.py::
+  test_owner_mt5_gate_package_exists_and_is_pending_owner fails "gold
+  artifacts changed since freeze" (it diffs `<anchor> HEAD`, so it only
+  sees COMMITTED gold changes). On the PR #18 branch the full suite ran
+  BEFORE the commit and the post-commit re-check covered only 4 modules,
+  so PR #18's "full pytest -> 0 (re-checked post-commit)" was not fully
+  accurate. The local merge was discarded (never pushed); master stays
+  8c8f08d. PR #18 remains OPEN.
+- S8-FLIP-2's premise (written by me in PR #18) is WRONG: gold tester legs
+  run with InpUseSession=False (gold_leg_inputs.py:191), so the EA's
+  session gate (Mql5Bot.mq5:961) is a no-op there; the EA enters at 16:00
+  from the closed 15:59 desired (Mql5Bot.mq5:248) and closes at 16:01 via
+  the DSL session flat (Mql5Bot.mq5:975) — identical to the regenerated
+  python gold. Implementing "refuse" would CREATE a divergence. Not
+  implemented; branch fix/engine-session-gate-on-deferred-entry NOT
+  created; gold_2 NOT regenerated again.
+- PR #18 also said there is no certification_manifest.json under
+  artifacts/: wrong — it is artifacts/owner_mt5_gate/
+  certification_manifest.json (untouched; scope unaffected).
+
+**Correction commit on PR #18's branch (new commit, no force):**
+- tests/test_docs_contract.py: the gold-unchanged-since-anchor assertion
+  split into its own test, strict-xfail (same reason as the other three);
+  every other owner-package assertion stays active.
+- docs/DECISIONS.md S8-FLIP-2 rewritten: finding withdrawn with the
+  measured chain; the owner's decision recorded as taken, NOT implemented
+  pending reconfirmation.
+- tests/test_gold2_standard.py comment corrected.
+
+**Exit codes:** see the commit/PR comment (ruff and full pytest, read).
+
+**NOT done, and why**
+- PR #18 not merged: the approved head changed (correction commit) —
+  re-approval needed.
+- S8-FLIP-2 engine gate + second regeneration: premise false; owner must
+  reconfirm with the evidence.
+- frozen_inputs.json untouched (re-anchor PR). Nothing ran on MT5.
