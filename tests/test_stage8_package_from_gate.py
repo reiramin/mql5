@@ -99,7 +99,7 @@ def _stage5_record() -> dict:
             "utc": "2026-10-03T12:00:00.0000000Z"}
 
 
-def _build(tmp_path, spec_payload: dict):
+def _build(tmp_path, spec_payload: dict, symbolspec_custom=None):
     """gate evidence dir + data folder + package, as after gate_run26's
     stage 5 and the stage-8 log-trade placement; ``spec_payload`` is the
     staged stage-3 SymbolSpec export document."""
@@ -134,7 +134,8 @@ def _build(tmp_path, spec_payload: dict):
     rec = s8p.build_package(repo=REPO, package=pkg, gate_evidence=ev,
                             data_folder=data, golds=["gold2"],
                             symbolspec_export=spec,
-                            host={"os": "Windows (test)", "timezone": "UTC"})
+                            host={"os": "Windows (test)", "timezone": "UTC"},
+                            symbolspec_custom=symbolspec_custom)
     return rec, pkg, ev
 
 
@@ -749,10 +750,12 @@ def _s8() -> str:
 def test_ps1_builds_the_package_before_stage8_verifies():
     s8 = _s8()
     assert s8.index('Invoke-Decide @("place-log-trades"') \
-        < s8.index('Invoke-Decide @("build-stage8-package"') \
+        < s8.index('Invoke-Decide (@("build-stage8-package"') \
         < s8.index("verify_owner_mt5_gate.py")
     assert '"--gate-evidence", $Evidence' in s8
     assert '"--symbolspec", $SymbolSpecExport' in s8
+    # this run's custom-symbol exports (stage 4) reach the builder
+    assert '"--symbolspec-custom"' in s8 and "+ $customSpecArgs)" in s8
 
 
 def test_ps1_quotes_the_divergence_and_classifies_only_verified_ones():
