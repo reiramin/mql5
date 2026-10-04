@@ -73,6 +73,25 @@ generator's config_hash equals the manifest's AND the re-run reproduces the
 frozen trace trade for trade AND the frozen sizing reproduces every frozen
 approval.
 
+EXPECTED ENTRY SET (S8-WEIGHT-1, owner decision, 2026-10-04): the tester
+leg runs at the weight in force (InpBaseGateWeight=1.0, no allocation file
+staged), while the frozen trace/expected_execution come from the generator's
+SCHEDULED-weight run (day weights 1.0/0.5/0.1/0.0). gate_run29's one
+MISSING_IN_MT5 (python short 0.02 at 2024-01-02T08:08) was a scheduled-
+weight artifact: a persistence re-entry after seven meta_scale_dropped bars
+at day weight 0.5 that the weight-1.0 run (and the EA) never makes. The
+expected entry set for a tester leg is therefore the guarded weight-1.0
+window run itself (entries, side, lots, fill), labelled
+``expected_set: weight_in_force_1.0_window_run`` on every event, with a
+``frozen_row_index`` cross-reference into expected_execution where one
+exists. A frozen row with no weight-1.0 counterpart is
+FROZEN_ONLY_SCHEDULED_WEIGHT -- informational, never a divergence, listed
+in limitations. Guards (config_hash == manifest, fixture bytes == the
+frozen record, measured window start/end, frozen trace + approvals
+reproduced, run lots == recomputed lots): if any fails the frozen column
+is compared instead and the fallback is stated, never silent. The frozen
+artifacts and the anchor do not change.
+
 Built, unit-tested, never run live.
 """
 
@@ -147,6 +166,15 @@ PAIRED_BY_TIME = "PAIRED_BY_TIME"
 OUT_OF_TESTED_WINDOW = "OUT_OF_TESTED_WINDOW"
 MISSING_IN_MT5 = "MISSING_IN_MT5"
 EXTRA_IN_MT5 = "EXTRA_IN_MT5"
+# informational pairing state (S8-WEIGHT-1): a frozen scheduled-weight row
+# with no weight-in-force counterpart -- recorded, never a divergence
+FROZEN_ONLY_SCHEDULED_WEIGHT = "FROZEN_ONLY_SCHEDULED_WEIGHT"
+# expected-set labels, recorded on every event
+EXPECTED_SET_WINDOW_RUN = "weight_in_force_1.0_window_run"
+EXPECTED_SET_FROZEN = "frozen_scheduled_weight"
+# frozen_inputs.json keys per gold (its records use gold_1/gold_2)
+FROZEN_GOLD_KEYS = {"gold1": "gold_1", "gold2": "gold_2"}
+FROZEN_INPUTS_REL = "artifacts/owner_mt5_gate/frozen_inputs.json"
 _NA_FIXTURE_RE = re.compile(
     r"\b(gold\d)_real_ticks: " + og.STAGE5_NOT_APPLICABLE
     + r": fixture (\S+) is bar-only")
@@ -294,7 +322,8 @@ def python_entries(expected: dict, timeframe: str) -> tuple[list[dict] | None,
     if step is None:
         return None, f"timeframe {timeframe!r} has no bar length"
     out = []
-    for row in sorted(rows, key=lambda r: str(r.get("signal_time"))):
+    for idx, row in sorted(enumerate(rows),
+                           key=lambda t: str(t[1].get("signal_time"))):
         risk = row.get("risk") or {}
         if risk.get("rejected"):
             continue
@@ -315,7 +344,11 @@ def python_entries(expected: dict, timeframe: str) -> tuple[list[dict] | None,
                  "fill_time": (sig + timedelta(seconds=step)).isoformat(),
                  "side": row.get("side"),
                  "lots": risk.get("approved_lots"),
-                 "compare_lots": compare_lots}
+                 "compare_lots": compare_lots,
+                 # cross-reference into expected_execution.json's entries
+                 # array, and the frozen-basis volume column (S8-WEIGHT-1)
+                 "frozen_row_index": idx,
+                 "frozen_basis_lots": compare_lots}
         if why:
             entry["compare_lots_note"] = why
         out.append(entry)
@@ -373,35 +406,65 @@ def _gold_generator(repo: Path, rel: str):
     return mod
 
 
-def window_basis_volumes(repo: Path | str, gold: str,
-                         window_start: str | None,
-                         weight: float = float(TESTER_WEIGHT_COLUMN)
-                         ) -> tuple[dict | None, str]:
-    """fill minute -> window-basis sizing for every approved python entry.
+def expected_set_window_run(repo: Path | str, gold: str,
+                            window_start: str | None,
+                            window_end: str | None,
+                            weight: float = float(TESTER_WEIGHT_COLUMN),
+                            frozen_rel: str = FROZEN_INPUTS_REL
+                            ) -> tuple[dict | None, str]:
+    """The tester leg's EXPECTED ENTRY SET (S8-WEIGHT-1): the weight-in-
+    force run.
 
     The frozen generator's engine is re-run at the tester ``weight`` with
     the frozen desired-position series flattened before ``window_start``
-    (the measured MT5 start; None = the trace start), from the manifest's
-    equity_start. Each entry's frozen sizing rule (size_position,
-    risk_percent, its frozen stop_distance, the manifest broker spec) is
-    applied to THAT run's equity at the signal bar close -- the same basis
-    the generator uses (equity[i]) -- then the meta floor rule at
-    ``weight``.
+    (the measured MT5 start), from the manifest's equity_start. The run's
+    OWN trades are the expected entries (side, lots, fill), each cross-
+    referenced to the frozen expected_execution row at the same fill
+    minute (``frozen_row_index``, None when there is none). Frozen
+    approved rows with no counterpart come back under ``frozen_only`` with
+    a measured reason (before_window_start / scheduled_weight_only /
+    at_or_after_window_end) -- informational, never divergences.
 
-    Refused (None, reason) unless: the generator's config_hash equals the
-    manifest's; the engine re-run with the generator's own schedule
-    reproduces the frozen trace trade for trade; the frozen sizing
-    reproduces every frozen approved_lots; and every window-run entry at an
-    entry's fill minute carries exactly the recomputed lots."""
+    Refused (None, reason) -- the caller then compares the frozen column
+    and says so -- unless ALL guards hold:
+
+    * ``window_start`` and ``window_end`` are measured (non-None);
+    * the fixture bytes hash to the frozen record's ``fixture_sha256``
+      (``frozen_rel``);
+    * the generator's config_hash equals the manifest's;
+    * the engine re-run with the generator's own schedule reproduces the
+      frozen trace trade for trade;
+    * the frozen sizing rule reproduces every frozen approved_lots;
+    * every window-run entry with a frozen counterpart carries exactly the
+      lots the frozen sizing rule gives on the run's signal-bar-close
+      equity (meta floor at ``weight``).
+    """
     repo = Path(repo)
     files = GOLD_FILES.get(gold, {})
     if not files.get("generator") or not files.get("trace"):
         return None, f"{gold}: no frozen generator/trace wired for a re-run"
+    if window_start is None:
+        return None, ("no measured MT5 window-start line for this leg: "
+                      "the expected set cannot be windowed")
+    if window_end is None:
+        return None, ("no derivable tester window end "
+                      "(mt5tester.fixture_date_range)")
     manifest = _load(repo / files["manifest"])
     expected = _load(repo / files["expected"])
     trace = _load(repo / files["trace"])
-    if not all(isinstance(d, dict) for d in (manifest, expected, trace)):
-        return None, f"{gold}: manifest/expected/trace unreadable"
+    frozen_rec = _load(repo / frozen_rel)
+    if not all(isinstance(d, dict)
+               for d in (manifest, expected, trace, frozen_rec)):
+        return None, f"{gold}: manifest/expected/trace/frozen record unreadable"
+    fixture = repo / files["fixture"]
+    frozen_fixture = (frozen_rec.get(FROZEN_GOLD_KEYS.get(gold, "")) or {}
+                      ).get("fixture_sha256")
+    if not frozen_fixture:
+        return None, (f"{frozen_rel} carries no fixture_sha256 for {gold}")
+    if _sha(fixture) != frozen_fixture:
+        return None, (f"{files['fixture']} sha256 != the frozen record's "
+                      "fixture_sha256: not byte-identical to the frozen "
+                      "fixture")
     try:
         import pandas as pd
 
@@ -414,8 +477,7 @@ def window_basis_volumes(repo: Path | str, gold: str,
         if gen._config_hash() != manifest.get("config_hash"):
             return None, (f"{files['generator']} config_hash != manifest "
                           "config_hash: not the frozen generator")
-        df = pd.read_csv(repo / files["fixture"], parse_dates=["time"]
-                         ).set_index("time")
+        df = pd.read_csv(fixture, parse_dates=["time"]).set_index("time")
         bars = trace.get("bars") or []
         if [str(b.get("timestamp")) for b in bars] != \
                 [ts.isoformat() for ts in df.index]:
@@ -455,16 +517,17 @@ def window_basis_volumes(repo: Path | str, gold: str,
         if trade_rows(run(sig, gen.META_SCHEDULE)) != frozen:
             return None, ("engine re-run with the generator's schedule does "
                           "not reproduce the frozen trace")
-        start = pd.Timestamp(window_start) if window_start else df.index[0]
+        start = pd.Timestamp(window_start)
         win_sig = sig.where(sig.index >= start, 0)
         win = run(win_sig, ((df.index[0], weight),))
-    except Exception as exc:  # noqa: BLE001 -- any failure refuses the basis
-        return None, f"window-basis re-run failed: {type(exc).__name__}: {exc}"
-    win_entries = {r[0][:16]: r for r in trade_rows(win)}
+    except Exception as exc:  # noqa: BLE001 -- any failure refuses the set
+        return None, f"expected-set re-run failed: {type(exc).__name__}: {exc}"
     step, vmin = float(spec.volume_step), float(spec.volume_min)
     step_s = TF_SECONDS[str(manifest.get("timeframe"))]
-    out: dict[str, dict] = {}
-    for row in expected.get("entries") or []:
+    bar = pd.Timedelta(seconds=step_s)
+    # frozen approved rows by fill minute (original array index kept)
+    frozen_by_fill: dict[str, tuple[int, dict]] = {}
+    for idx, row in enumerate(expected.get("entries") or []):
         r = row.get("risk") or {}
         if r.get("rejected") or not row.get("stop_distance"):
             continue
@@ -477,29 +540,77 @@ def window_basis_volumes(repo: Path | str, gold: str,
                 r.get("approved_lots"):
             return None, (f"frozen sizing does not reproduce approved_lots "
                           f"at {row['signal_time']}")
-        sig_ts = pd.Timestamp(row["signal_time"])
-        fill = (sig_ts + pd.Timedelta(seconds=step_s)).isoformat()[:16]
-        basis = float(win.equity.loc[sig_ts])
-        approved = round(float(sized(basis).lots), 6)
-        final = math.floor(approved * weight / step + 1e-9) * step
-        send = vmin <= final <= approved + 1e-12
-        lots = round(final, 6) if send else 0.0
-        hit = win_entries.get(fill)
-        if hit is not None and hit[2] != lots:
-            return None, (f"window run entered {hit[2]} lots at {fill} but "
-                          f"the frozen sizing rule gives {lots}")
-        out[fill] = {"lots": lots, "action": "SEND" if send else "DROP",
-                     "approved_lots": approved, "basis": round(basis, 6),
-                     "window_run_entry": hit is not None}
-    note = (f"engine re-run of {files['generator']} (config_hash == "
-            f"manifest) at tester weight {weight}, python trades only from "
-            f"{start.isoformat()} (flat before), equity_start "
-            f"{float(risk['equity_start'])}; frozen sizing rule "
-            "(size_position, risk_percent, frozen stop_distance) on that "
-            "run's signal-bar-close equity; self-checks: frozen trace "
-            "reproduced, frozen approvals reproduced, window-run lots == "
-            "recomputed lots")
-    return out, note
+        fill = (pd.Timestamp(row["signal_time"]) + bar).isoformat()
+        frozen_by_fill[fill[:16]] = (idx, row)
+
+    def frozen_lots_of(row: dict):
+        meta = (row.get("meta") or {}).get(TESTER_WEIGHT_COLUMN) or {}
+        return meta.get("final_lots") if meta.get("action") == "SEND" else None
+
+    rows_out: list[dict] = []
+    used: set[str] = set()
+    for _, t in win.trades.iterrows():
+        fill_ts = pd.Timestamp(t["entry_time"])
+        fill = fill_ts.isoformat()
+        lots = round(float(t["lots"]), 6)
+        hit = frozen_by_fill.get(fill[:16])
+        if hit is not None:
+            used.add(fill[:16])
+            idx, row = hit
+            # cross-check: the run's lots equal the frozen sizing rule on
+            # the run's own signal-bar-close equity, meta-floored at weight
+            basis = float(win.equity.loc[fill_ts - bar])
+            approved = round(float(size_position(
+                spec, mode=risk["mode"], equity=basis,
+                stop_distance=float(row["stop_distance"]),
+                value=float(risk["risk_percent"])).lots), 6)
+            final = math.floor(approved * weight / step + 1e-9) * step
+            recomputed = (round(final, 6)
+                          if vmin <= final <= approved + 1e-12 else 0.0)
+            if recomputed != lots:
+                return None, (f"window run entered {lots} lots at {fill} "
+                              f"but the frozen sizing rule gives "
+                              f"{recomputed}")
+        rows_out.append({
+            "signal_time": (fill_ts - bar).isoformat(),
+            "fill_time": fill,
+            "side": str(t["side"]),
+            "lots": lots,
+            "compare_lots": lots,
+            "window_run_fill": round(float(t["entry_price"]), 10),
+            "expected_set": EXPECTED_SET_WINDOW_RUN,
+            "frozen_row_index": hit[0] if hit is not None else None,
+            "frozen_basis_lots": (frozen_lots_of(hit[1])
+                                  if hit is not None else None),
+        })
+    frozen_only: list[dict] = []
+    for fill_min in sorted(set(frozen_by_fill) - used):
+        idx, row = frozen_by_fill[fill_min]
+        fill = (pd.Timestamp(row["signal_time"]) + bar).isoformat()
+        if fill < window_start:
+            reason = "before_window_start"
+        elif fill >= window_end:
+            reason = "at_or_after_window_end"
+        else:
+            reason = "scheduled_weight_only"
+        frozen_only.append({
+            "frozen_row_index": idx,
+            "signal_time": row["signal_time"],
+            "fill_time": fill,
+            "side": row.get("side"),
+            "entry_kind": row.get("entry_kind"),
+            "frozen_basis_lots": frozen_lots_of(row),
+            "reason": reason,
+        })
+    note = (f"expected entry set = engine re-run of {files['generator']} "
+            f"(config_hash == manifest; fixture bytes == {frozen_rel}) at "
+            f"the weight in force ({weight}: InpBaseGateWeight, no "
+            f"allocation file staged), python trades only from "
+            f"{window_start} (flat before), equity_start "
+            f"{float(risk['equity_start'])}; self-checks: frozen trace "
+            "reproduced, frozen approvals reproduced, run lots == frozen "
+            "sizing rule on the run's signal-bar-close equity")
+    return {"rows": rows_out, "frozen_only": frozen_only}, note
 
 
 def tested_window_start(window_text: str,
@@ -578,7 +689,7 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                           window_end_source: str | None = None,
                           fixture_opens: dict[str, float] | None = None,
                           fill: dict | None = None,
-                          window_volumes: dict | None = None
+                          expected_sets: dict | None = None
                           ) -> tuple[list[dict], dict]:
     """Per-model events pairing python entries with MT5 entry deals BY TIME
     (same fill minute), never by list position. Returns (events, summary).
@@ -603,16 +714,27 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
       manifest fills at next bar open) -- never a bare open; when either
       side lacks a value the field carries only what was measured, never
       an invented one;
-    * the volume compared is ``python_volume_window_basis`` when
-      ``window_volumes[model]`` (window_basis_volumes) holds the fill
-      minute, else ``python_volume_frozen_basis`` (meta[TESTER_WEIGHT_
-      COLUMN].final_lots); both are recorded, and the basis is stated;
+    * the python column is the model's EXPECTED SET
+      (``expected_sets[model]`` = (set_doc, note) from
+      expected_set_window_run, S8-WEIGHT-1): the weight-in-force run's own
+      entries/side/lots/fill. When the set is None the FROZEN column
+      (``py``: expected_execution meta[TESTER_WEIGHT_COLUMN]) is compared
+      and the fallback reason is stated on every event -- never silent.
+      Every event records ``expected_set`` and the ``frozen_row_index``
+      cross-reference (None when there is none); the volume columns
+      ``python_volume_frozen_basis`` / ``python_volume_window_basis`` are
+      both recorded with the compared basis stated;
+    * a frozen scheduled-weight row with no weight-in-force counterpart
+      is a FROZEN_ONLY_SCHEDULED_WEIGHT event: informational, NO compared
+      fields, never a divergence, with a measured ``reason``
+      (before_window_start / scheduled_weight_only /
+      at_or_after_window_end);
     * `trade_index` numbers a model's per-trade events in time order;
     * a final event compares per-model entry counts INSIDE the window (the
       out-of-window count is beside it, uncompared).
     """
     window_starts = window_starts or {}
-    window_volumes = window_volumes or {}
+    expected_sets = expected_sets or {}
 
     def fill_model_of(p: dict) -> str | None:
         if fill is None:
@@ -625,15 +747,27 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
     for model in sorted(mt5_by_model):
         entries = mt5_by_model[model]
         start, start_line = window_starts.get(model, (None, None))
-        wv, wv_note = window_volumes.get(
-            model, (None, "no window-basis re-run supplied"))
-        before = [p for p in py
+        sd, sd_note = expected_sets.get(
+            model, (None, "no expected-set run supplied"))
+        if sd is not None:
+            rows = sd["rows"]
+            frozen_only = sd["frozen_only"]
+            set_label = EXPECTED_SET_WINDOW_RUN
+            basis_note = f"WINDOW_RUN: {sd_note}"
+        else:
+            rows = py
+            frozen_only = []
+            set_label = f"{EXPECTED_SET_FROZEN} (fallback: {sd_note})"
+            basis_note = ("FROZEN: expected_execution "
+                          f"meta[{TESTER_WEIGHT_COLUMN!r}].final_lots "
+                          f"(expected-set run unavailable: {sd_note})")
+        before = [p for p in rows
                   if start is not None and str(p["fill_time"]) < start]
-        after = [p for p in py
+        after = [p for p in rows
                  if window_end is not None
                  and str(p["fill_time"]) >= window_end
                  and (start is None or str(p["fill_time"]) >= start)]
-        in_window = [p for p in py
+        in_window = [p for p in rows
                      if (start is None or str(p["fill_time"]) >= start)
                      and (window_end is None
                           or str(p["fill_time"]) < window_end)]
@@ -644,6 +778,8 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
             "out_of_tested_window": len(before) + len(after),
             "out_before_start": len(before),
             "out_at_or_after_end": len(after),
+            "frozen_only_scheduled_weight": len(frozen_only),
+            "expected_set": set_label,
             "mt5_window_start": start,
             "mt5_window_start_line": start_line,
             "mt5_window_end": window_end,
@@ -657,6 +793,8 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                 "python_side_declared": p["side"],
                 "python_lots": p["lots"],
                 "fill_model": fill_model_of(p),
+                "expected_set": set_label,
+                "frozen_row_index": p.get("frozen_row_index"),
                 "mt5_window_start": start,
                 "mt5_window_start_line": start_line,
                 "fields": {},
@@ -674,6 +812,8 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                 "python_side_declared": p["side"],
                 "python_lots": p["lots"],
                 "fill_model": fill_model_of(p),
+                "expected_set": set_label,
+                "frozen_row_index": p.get("frozen_row_index"),
                 "mt5_window_end": window_end,
                 "mt5_window_end_source": window_end_source,
                 "fields": {},
@@ -682,6 +822,24 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                          "recorded, not compared -- the window is a named "
                          "limitation, never this comparison's divergence"),
             }))
+        for fo in frozen_only:
+            raw.append((str(fo["fill_time"]), model, {
+                "model": model, "symbol": symbol,
+                "pairing": FROZEN_ONLY_SCHEDULED_WEIGHT,
+                "expected_set": set_label,
+                "frozen_row_index": fo["frozen_row_index"],
+                "python_signal_time": fo["signal_time"],
+                "python_fill_time": fo["fill_time"],
+                "python_side_declared": fo["side"],
+                "fill_model": fill_model_of(fo),
+                "entry_kind": fo.get("entry_kind"),
+                "python_volume_frozen_basis": fo.get("frozen_basis_lots"),
+                "reason": fo["reason"],
+                "fields": {},
+                "note": ("frozen scheduled-weight row with no weight-in-"
+                         "force counterpart (S8-WEIGHT-1): informational, "
+                         "recorded uncompared, never a divergence"),
+            }))
         per_trade: list[tuple[str, dict]] = []
         for p, deal in pairs:
             facts = mt5_deal_line_facts(deal, symbol)
@@ -689,8 +847,7 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
             fields: dict = {
                 "timestamp": {"python": p["fill_time"], "mt5": mt5_time},
             }
-            w = (wv or {}).get(str(p["fill_time"])[:16])
-            py_volume = w["lots"] if w is not None else p.get("compare_lots")
+            py_volume = p.get("compare_lots")
             if py_volume is not None:
                 fields["volume"] = {"python": py_volume,
                                     "mt5": deal.get("volume")}
@@ -722,20 +879,25 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                 "python_side_declared": p["side"],
                 # the volume column in force, recorded per event — and the
                 # weight-free approval beside it, labelled, uncompared
-                "python_volume_column": TESTER_WEIGHT_SOURCE,
+                "python_volume_column": (TESTER_WEIGHT_SOURCE
+                                         if sd is None else
+                                         "weight-in-force window run lots "
+                                         "(S8-WEIGHT-1)"),
                 "python_approved_lots": p.get("lots"),
-                "python_volume_frozen_basis": p.get("compare_lots"),
-                "python_volume_window_basis": (None if w is None
-                                               else w["lots"]),
-                "python_volume_basis": (
-                    f"WINDOW: {wv_note}; basis {w['basis']} at the signal "
-                    "bar close" if w is not None else
-                    "FROZEN: expected_execution sizing_basis (window "
-                    f"basis unavailable: {wv_note})"),
+                "python_volume_frozen_basis": p.get("frozen_basis_lots"),
+                "python_volume_window_basis": (p.get("compare_lots")
+                                               if sd is not None else None),
+                "python_volume_basis": basis_note,
                 "fill_model": fill_model_of(p),
+                "expected_set": set_label,
+                "frozen_row_index": p.get("frozen_row_index"),
                 "mt5_ticket": deal.get("ticket"),
                 "fields": fields,
             }
+            if p.get("window_run_fill") is not None:
+                # the engine run's own fill (mid +/- costs), labelled,
+                # NEVER the compared column (that is the named fill model)
+                event["python_window_run_fill"] = p["window_run_fill"]
             if py_volume is None:
                 event["python_volume_unavailable"] = p.get(
                     "compare_lots_note",
@@ -746,23 +908,18 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                 event["unmeasured_mt5_fields"] = unmeasured
             per_trade.append((str(p["fill_time"]), event))
         for p in missing:
-            w = (wv or {}).get(str(p["fill_time"])[:16])
-            extra_info: dict = {}
-            if w is not None:
-                # recorded, never a reclassification: the event stays a
-                # MISSING_IN_MT5 divergence whatever the re-run did
-                extra_info = {
-                    "python_volume_window_basis": w["lots"],
-                    "window_basis_run_entered_here": w["window_run_entry"],
-                    "python_volume_basis": f"WINDOW: {wv_note}"}
             per_trade.append((str(p["fill_time"]), {
                 "model": model, "symbol": symbol,
                 "pairing": MISSING_IN_MT5,
                 "python_signal_time": p["signal_time"],
                 "python_side_declared": p["side"],
-                "python_volume_frozen_basis": p.get("compare_lots"),
+                "python_volume_frozen_basis": p.get("frozen_basis_lots"),
+                "python_volume_window_basis": (p.get("compare_lots")
+                                               if sd is not None else None),
+                "python_volume_basis": basis_note,
                 "fill_model": fill_model_of(p),
-                **extra_info,
+                "expected_set": set_label,
+                "frozen_row_index": p.get("frozen_row_index"),
                 "fields": {"state": {
                     "python": (f"entry {p['fill_time']} {p['side']} "
                                f"{p['lots']} lots"),
@@ -775,6 +932,7 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
             per_trade.append((str(mt5_time), {
                 "model": model, "symbol": symbol,
                 "pairing": EXTRA_IN_MT5,
+                "expected_set": set_label,
                 "time": mt5_time,
                 "mt5_ticket": deal.get("ticket"),
                 "fields": {"state": {
@@ -799,9 +957,14 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
         "python_out_of_tested_window": {
             m: summary[m]["out_of_tested_window"]
             for m in sorted(mt5_by_model)},
-        "note": ("per-model entry counts INSIDE the tested window; python "
-                 "trades before the measured MT5 window start are counted "
-                 "beside, never compared"),
+        "python_frozen_only_scheduled_weight": {
+            m: summary[m]["frozen_only_scheduled_weight"]
+            for m in sorted(mt5_by_model)},
+        "expected_set": {m: summary[m]["expected_set"]
+                         for m in sorted(mt5_by_model)},
+        "note": ("per-model entry counts INSIDE the tested window, from "
+                 "each model's expected set; out-of-window and frozen-only "
+                 "rows are counted beside, never compared"),
     })
     return events, summary
 
@@ -1089,23 +1252,43 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
             "tester config uses); MT5 ToDate is exclusive")
     except ValueError:
         window_end, window_end_source = None, None
-    # window-consistent sizing basis, one engine re-run per distinct
-    # measured window start (models normally share it)
+    # expected entry set (S8-WEIGHT-1): one guarded weight-in-force run
+    # per distinct measured window start (models normally share it)
     by_start: dict = {}
-    window_volumes = {}
+    expected_sets = {}
     for model in sorted(mt5_by_model):
         start = window_starts.get(model, (None, None))[0]
         if start not in by_start:
-            by_start[start] = window_basis_volumes(repo, gold, start)
-        window_volumes[model] = by_start[start]
+            by_start[start] = expected_set_window_run(
+                repo, gold, start, window_end)
+        expected_sets[model] = by_start[start]
     events, pairing = reconciliation_events(
         py, mt5_by_model, files["tester_symbol"],
         window_starts=window_starts,
         window_end=window_end, window_end_source=window_end_source,
         fixture_opens=fixture_minute_opens(fixture), fill=fill,
-        window_volumes=window_volumes)
+        expected_sets=expected_sets)
     limitations = []
     for model in sorted(mt5_by_model):
+        sd, sd_note = expected_sets[model]
+        if sd is None:
+            limitations.append(
+                f"{model}: expected set FALLBACK to the frozen scheduled-"
+                f"weight column -- the weight-in-force run was refused: "
+                f"{sd_note}; the comparison is stated on every event, "
+                "never silent")
+        else:
+            reasons: dict[str, int] = {}
+            for fo in sd["frozen_only"]:
+                reasons[fo["reason"]] = reasons.get(fo["reason"], 0) + 1
+            if reasons:
+                detail = ", ".join(f"{n} {r}" for r, n in sorted(
+                    reasons.items()))
+                limitations.append(
+                    f"{model}: {sum(reasons.values())} frozen scheduled-"
+                    "weight rows have no weight-in-force counterpart "
+                    f"(FROZEN_ONLY_SCHEDULED_WEIGHT, informational, never "
+                    f"a divergence): {detail}")
         n_before = pairing[model]["out_before_start"]
         n_after = pairing[model]["out_at_or_after_end"]
         start, line = window_starts.get(model, (None, None))
@@ -1142,11 +1325,10 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
         "fill_model": {"buy": FILL_MODEL_BUY, "sell": FILL_MODEL_SELL,
                        "inputs": fill, "inputs_source": fill_note,
                        "slippage_applied": False, "note": FILL_MODEL_NOTE},
-        "volume_basis": {m: ("WINDOW: " + window_volumes[m][1]
-                             if window_volumes[m][0] is not None else
-                             "FROZEN (window basis refused): "
-                             + window_volumes[m][1])
-                         for m in sorted(window_volumes)},
+        "expected_set": {m: {
+            "set": (EXPECTED_SET_WINDOW_RUN if expected_sets[m][0]
+                    is not None else EXPECTED_SET_FROZEN + " (fallback)"),
+            "note": expected_sets[m][1]} for m in sorted(expected_sets)},
         "limitations": limitations,
         "note": ("Events pair python entries with MT5 entry deals BY TIME "
                  "(same fill minute, signal_time + 1 bar), never by list "
@@ -1156,17 +1338,16 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
                  "uncompared); "
                  "unpaired trades inside the window are MISSING_IN_MT5 / "
                  "EXTRA_IN_MT5 divergences. Compared fields per pair: "
-                 "timestamp, volume (python column: "
-                 "python_volume_window_basis -- the frozen sizing rule on a "
-                 "tester-weight re-run that starts at the measured MT5 "
-                 "window start from equity_start -- when its self-checks "
-                 'hold, else meta["1.0"].final_lots on the frozen basis; '
-                 "both recorded, the basis stated per event; the "
-                 "weight-free approved_lots is recorded beside, labelled, "
-                 "uncompared), and entry side/price when the MT5 journal "
-                 "deal line states them (python entry price = the named "
-                 "fill model on the fixture open at the fill minute: "
-                 f"{FILL_MODEL_SELL} / {FILL_MODEL_BUY}). Bindings nothing "
+                 "timestamp, volume and entry side/price when the MT5 "
+                 "journal deal line states them. The python column is the "
+                 "EXPECTED SET (S8-WEIGHT-1): the guarded weight-in-force "
+                 "run's own entries/side/lots, else the frozen scheduled-"
+                 "weight column with the fallback stated on every event. "
+                 "Frozen rows with no weight-in-force counterpart are "
+                 "FROZEN_ONLY_SCHEDULED_WEIGHT (informational, never a "
+                 "divergence). The python entry price is the named fill "
+                 "model on the fixture open at the fill minute: "
+                 f"{FILL_MODEL_SELL} / {FILL_MODEL_BUY}. Bindings nothing "
                  "measured are omitted and the verifier names them."),
     }
     put_json(og.LAYOUT[f"reconciliation_{gold}"], doc,
@@ -1199,9 +1380,12 @@ def divergence_note(verify_report: dict, golds: list[str]) -> str:
 
 
 __all__ = [
+    "EXPECTED_SET_FROZEN",
+    "EXPECTED_SET_WINDOW_RUN",
     "EXTRA_IN_MT5",
     "FILL_MODEL_BUY",
     "FILL_MODEL_SELL",
+    "FROZEN_ONLY_SCHEDULED_WEIGHT",
     "GATE_BUILD_REL",
     "MISSING_IN_MT5",
     "OUT_OF_TESTED_WINDOW",
@@ -1212,6 +1396,7 @@ __all__ = [
     "compile_identity",
     "divergence_note",
     "expected_fill",
+    "expected_set_window_run",
     "fill_spec_of",
     "fixture_minute_opens",
     "mt5_deal_line_facts",
@@ -1220,6 +1405,5 @@ __all__ = [
     "python_entries",
     "reconciliation_events",
     "tested_window_start",
-    "window_basis_volumes",
     "window_facts",
 ]

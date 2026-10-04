@@ -241,47 +241,66 @@ def test_reconciliation_pairs_by_time_never_by_position(run26):
     assert e0["fields"]["entry_price"] == {"python": 1.09589, "mt5": 1.09589}
     assert "unmeasured_mt5_fields" not in e0
     assert "deal #2 sell 0.01 EURUSD.G2 at 1.09589" in e0["mt5_deal_line"]
-    # entry counts compare INSIDE the window: 38 in-window python entries
-    # (62 approved - 19 filling on 2024-01-01 before the measured start
-    # - 5 filling on 2024-01-04, at/after the ToDate end), never the 62
+    # S8-WEIGHT-1: the python column is the weight-in-force window run,
+    # cross-referenced to the frozen row (08:00 signal = array index 19)
+    assert e0["expected_set"] == s8p.EXPECTED_SET_WINDOW_RUN
+    assert e0["frozen_row_index"] == 19
+    # entry counts compare INSIDE the window: 37 in-window entries of the
+    # weight-1.0 window run (the frozen trace's 62 approved rows are the
+    # cross-reference, never the compared set)
     count = recon["events"][-1]
-    assert count["fields"]["entry_count:m1_ohlc"] == {"python": 38, "mt5": 2}
-    assert count["python_out_of_tested_window"]["m1_ohlc"] == 24
+    assert count["fields"]["entry_count:m1_ohlc"] == {"python": 37, "mt5": 2}
+    assert count["python_out_of_tested_window"]["m1_ohlc"] == 30
+    assert count["python_frozen_only_scheduled_weight"]["m1_ohlc"] == 21
 
 
-def test_python_trades_before_the_mt5_start_are_out_of_window(run26):
+def test_out_of_window_and_frozen_only_rows_are_never_divergences(run26):
     _, pkg, _ = run26
     recon = json.loads((pkg / "reconciliation/gold2.json").read_text())
     out = [e for e in recon["events"]
            if e.get("pairing") == s8p.OUT_OF_TESTED_WINDOW]
-    # per model: 19 approved python entries fill on 2024-01-01 (before the
-    # measured start) + 5 fill on 2024-01-04 (at/after the ToDate end)
-    assert len(out) == 48
-    before = [e for e in out if "mt5_window_start_line" in e]
-    after = [e for e in out if "mt5_window_end_source" in e]
-    assert (len(before), len(after)) == (38, 10)
-    for e in before:
-        assert e["python_fill_time"] < "2024-01-02T00:00:00"
-        assert e["mt5_window_start"] == "2024-01-02T00:00:00"
-        # the measured MT5 start line is QUOTED, the trade never dropped,
-        # never matched, and carries NO compared fields (no divergence)
-        assert "start time changed to 2024.01.02 00:00" in \
-            e["mt5_window_start_line"]
-        assert e["fields"] == {}
-        assert "trade_index" not in e
-    # gate_run28 fix: the 5 python 2024-01-04 entries are OUT (ToDate
-    # 2024.01.04 is exclusive), no longer MISSING_IN_MT5 divergences
-    for e in after:
+    # S8-WEIGHT-1: the expected set is the weight-1.0 window run, flat
+    # before the measured start -- nothing can fill before it. Its 30
+    # 2024-01-04 entries (the ToDate day; MT5 ToDate is exclusive) are
+    # OUT per model, recorded uncompared
+    assert len(out) == 60
+    for e in out:
         assert e["python_fill_time"] >= "2024-01-04T00:00:00"
         assert e["mt5_window_end"] == "2024-01-04T00:00:00"
         assert "ToDate 2024.01.04" in e["mt5_window_end_source"]
         assert "exclusive" in e["mt5_window_end_source"]
+        assert e["expected_set"] == s8p.EXPECTED_SET_WINDOW_RUN
         assert e["fields"] == {}
         assert "trade_index" not in e
-    # the window itself is a NAMED LIMITATION of the comparison, both ends
-    assert any("OUT_OF_TESTED_WINDOW" in lim and "named limitation" in lim
+    # the 2024-01-01 frozen rows (19), the 08:08 scheduled-weight
+    # persistence re-entry (1) and the frozen 01-04 10:38 row the
+    # weight-1.0 run does not make (1) are FROZEN_ONLY_SCHEDULED_WEIGHT:
+    # informational, NO compared fields, never divergences
+    fo = [e for e in recon["events"]
+          if e.get("pairing") == s8p.FROZEN_ONLY_SCHEDULED_WEIGHT]
+    assert len(fo) == 42
+    reasons = sorted(e["reason"] for e in fo
+                     if e["model"] == "m1_ohlc")
+    assert reasons.count("before_window_start") == 19
+    assert reasons.count("scheduled_weight_only") == 1
+    assert reasons.count("at_or_after_window_end") == 1
+    sw = next(e for e in fo if e["reason"] == "scheduled_weight_only"
+              and e["model"] == "m1_ohlc")
+    assert sw["python_signal_time"] == "2024-01-02T08:07:00"
+    assert sw["entry_kind"] == "persistence_reentry"
+    assert sw["frozen_row_index"] == 20
+    assert sw["python_volume_frozen_basis"] == 0.02
+    for e in fo:
+        assert e["fields"] == {}
+        assert "trade_index" not in e
+    # window and frozen-only are NAMED LIMITATIONS, never divergences
+    assert any("OUT_OF_TESTED_WINDOW" in lim
+               and "never this comparison's divergence" in lim
                for lim in recon["limitations"])
     assert any("window end 2024-01-04T00:00:00" in lim
+               for lim in recon["limitations"])
+    assert any("FROZEN_ONLY_SCHEDULED_WEIGHT" in lim
+               and "1 scheduled_weight_only" in lim
                for lim in recon["limitations"])
 
 
@@ -290,16 +309,18 @@ def test_unpaired_trades_inside_the_window_are_divergences(run26):
     recon = json.loads((pkg / "reconciliation/gold2.json").read_text())
     missing = [e for e in recon["events"]
                if e.get("pairing") == s8p.MISSING_IN_MT5]
-    # 38 in-window python entries, 2 paired per model -> 36 missing each
-    assert len(missing) == 72
+    # 37 in-window entries of the weight-1.0 run, 2 paired per model ->
+    # 35 missing each (S8-WEIGHT-1: the 08:08 scheduled-weight re-entry is
+    # FROZEN_ONLY, no longer a MISSING_IN_MT5 divergence)
+    assert len(missing) == 70
     # nothing on the excluded ToDate day is ever MISSING_IN_MT5
     assert all(e["python_signal_time"] < "2024-01-04" for e in missing)
+    assert not any(e["python_signal_time"] == "2024-01-02T08:07:00"
+                   for e in missing)
     m0 = min(missing, key=lambda e: e["index"])
-    # regenerated gold_2 (S8-FLIP-REGEN): the 08:07 persistence re-entry
-    # moved one bar (knock-on of the flip-next-bar fix) -> signal 08:07
-    assert m0["python_signal_time"] == "2024-01-02T08:07:00"
+    assert m0["python_signal_time"] == "2024-01-02T09:12:00"
     spec = m0["fields"]["state"]
-    assert spec["python"] == "entry 2024-01-02T08:08:00 short 0.02 lots"
+    assert spec["python"] == "entry 2024-01-02T09:13:00 short 0.98 lots"
     assert spec["mt5"].startswith("MISSING_IN_MT5")
     assert og.classify_field("state") == og.STATE_MISMATCH
     # paired volume/price divergences stay measured: 08:46 buy 0.28 at
@@ -313,7 +334,7 @@ def test_unpaired_trades_inside_the_window_are_divergences(run26):
     assert e46["fields"]["volume"] == {"python": 0.28, "mt5": 0.28}
     assert e46["python_volume_frozen_basis"] == 0.25
     assert e46["python_volume_window_basis"] == 0.28
-    assert e46["python_volume_basis"].startswith("WINDOW: ")
+    assert e46["python_volume_basis"].startswith("WINDOW_RUN: ")
     assert e46["fill_model"] == s8p.FILL_MODEL_BUY
     assert e46["fields"]["entry_price"] == {"python": 1.09726, "mt5": 1.097}
     assert e46["fields"]["entry_side"] == {"python": "buy", "mt5": "buy"}
@@ -339,7 +360,10 @@ def test_extra_mt5_entries_are_divergences():
     assert summary["m1_ohlc"] == {
         "paired": 1, "missing_in_mt5": 0, "extra_in_mt5": 1,
         "out_of_tested_window": 0, "out_before_start": 0,
-        "out_at_or_after_end": 0, "mt5_window_start": None,
+        "out_at_or_after_end": 0, "frozen_only_scheduled_weight": 0,
+        "expected_set": (s8p.EXPECTED_SET_FROZEN
+                         + " (fallback: no expected-set run supplied)"),
+        "mt5_window_start": None,
         "mt5_window_start_line": None, "mt5_window_end": None}
     # no measured window start -> nothing is out of window, and the paired
     # event's side/price stay unmeasured when no MT5 journal line states them
@@ -515,17 +539,15 @@ def test_first_divergence_is_surfaced_on_a_fail(run26, tmp_path):
     div = rep["first_divergence"]["gold2"]
     assert div is not None
     trade = rep["first_trade_divergence"]["gold2"]
-    # the window itself is NOT the first divergence: the 2024-01-01 python
-    # trades are OUT_OF_TESTED_WINDOW, so the first divergence is the first
-    # IN-WINDOW python entry MT5 has no deal for (08:08 in the regenerated
-    # gold_2; 08:07 before S8-FLIP-REGEN), not a positional
-    # 01-01-vs-01-02 TIMESTAMP_MISMATCH at trade 0
-    assert trade["first_divergent_field"] == "state"
-    assert trade["python_value"] == \
-        "entry 2024-01-02T08:08:00 short 0.02 lots"
-    assert trade["mt5_value"].startswith("MISSING_IN_MT5")
+    # S8-WEIGHT-1: trade 0 (08:01) matches on every field, and the 08:08
+    # scheduled-weight row is FROZEN_ONLY (informational), so the first
+    # divergence is the 08:46 entry_price: the synthetic MT5 line bought
+    # at 1.09700 while the named buy fill model gives 1.09726
+    assert trade["first_divergent_field"] == "entry_price"
+    assert trade["python_value"] == 1.09726
+    assert trade["mt5_value"] == 1.097
     assert trade["trade_index"] == 1
-    assert trade["classification"] == og.STATE_MISMATCH
+    assert trade["classification"] == og.EXECUTION_MISMATCH
     # the package's source_commit is the gate HEAD; the verifier binds it
     # only when it EQUALS the frozen anchor. Any other HEAD (every commit
     # after the anchor, incl. the re-anchor commit itself) leaves the
@@ -539,7 +561,7 @@ def test_first_divergence_is_surfaced_on_a_fail(run26, tmp_path):
     at_anchor = head == frozen["source"]["commit"]
     assert trade["binding_verified"] is at_anchor
     note = s8p.divergence_note(rep, ["gold2"])
-    assert "first per-trade divergence: field 'state'" in note
+    assert "first per-trade divergence: field 'entry_price'" in note
     assert ("[observed; binding chain NOT verified]" in note) is \
         (not at_anchor)
 
@@ -553,8 +575,8 @@ def test_cli_divergence_note_quotes_the_report(run26, tmp_path):
                          "--golds", "gold2"],
                         capture_output=True, text=True, check=False)
     assert cp.returncode == 0, cp.stderr
-    assert "python='entry 2024-01-02T08:08:00 short 0.02 lots'" in \
-        json.loads(cp.stdout)["note"]
+    assert ("field 'entry_price' python=1.09726 mt5=1.097"
+            in json.loads(cp.stdout)["note"])
 
 
 def test_full_coverage_beside_a_not_applicable_leg_is_a_mismatch(run26, tmp_path):

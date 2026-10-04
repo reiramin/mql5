@@ -989,3 +989,73 @@ skipped. New tests: 15 passed; test_stage8_package_from_gate.py: 28 passed.
   frozen column is compared.
 - Not merged, as instructed. Nothing ran on MT5. Stage 8 has never passed;
   nothing is certified.
+
+## 2026-10-04 (5) — fix/stage8-expected-set-weight-in-force (S8-WEIGHT-1); PR #21 merge BLOCKED locally
+
+**PR #21 merge:** approved by Sal + reviewer in chat, but the local
+--no-ff merge to master was REFUSED by this session's permission system
+(merge-without-review classifier). Not worked around: PR #21 is still
+OPEN. The owner can merge with `gh pr merge 21 --merge` (body "Approved
+by Sal + reviewer in chat; no GitHub review recorded.") or a local
+--no-ff merge + push; the gates on its head 53431ce were read in session
+(4): ruff 0, full pytest 0.
+
+**Branch:** `fix/stage8-expected-set-weight-in-force` from 53431ce (PR
+#21's head — master 5392cc4 + PR #21; stacked, since the merge was
+blocked). Once #21 merges, the PR diff collapses to this one commit.
+
+**Owner decision recorded (docs/DECISIONS.md): S8-WEIGHT-1** — the tester
+leg's expected entry set is the weight-in-force run (InpBaseGateWeight=
+1.0, no allocation file), not the scheduled-weight frozen trace; frozen
+artifacts and the anchor unchanged.
+
+**Done (built, unit-tested, never run live):**
+- `stage8_package.expected_set_window_run` replaces the PR #21
+  window-basis overlay: the python column is the guarded weight-1.0
+  window run's own entries/side/lots/fill. Every event records
+  `expected_set: "weight_in_force_1.0_window_run"` + `frozen_row_index`
+  (null when none); the run's own fill is `python_window_run_fill`,
+  labelled, never compared (the compared price stays the S8-FILL-1 named
+  fill model). Frozen rows with no weight-1.0 counterpart are
+  FROZEN_ONLY_SCHEDULED_WEIGHT (informational, fields {}, never a
+  divergence, in limitations) with measured reasons: 19
+  before_window_start, 1 scheduled_weight_only (the 08:08 re-entry), 1
+  at_or_after_window_end.
+- Guards (any failure -> frozen column compared, fallback stated on
+  every event, never silent): config_hash == manifest; fixture bytes ==
+  frozen_inputs.json fixture_sha256; measured window start + derivable
+  end; frozen trace reproduced 56/56; frozen approvals reproduced 62/62;
+  run lots == frozen sizing rule on the run's signal-bar-close equity.
+- Test data: byte copy of gate_run29's every_tick log trade list added
+  beside the m1_ohlc one; new tests/test_stage8_expected_set_weight_in_
+  force.py runs BOTH legs.
+
+**Measured on gate_run29 (both legs), vs the owner's predictions:**
+74 PAIRED / 0 MISSING / 0 EXTRA (predicted 74/0/0 — holds). Per leg:
+side 37/37; timestamp 36/37 (MT5's 08:32:01 entry deal, one second after
+the bar — gate_run29's own reconciliation was also 36/37); entry_price
+18/37 equal (PREDICTED 37/37 — does NOT hold: all 19 buys stay +1 point,
+the S8-FILL-1 tester-spread residual, untouched by the set switch);
+volume 14/37 equal, 20/37 within one volume_step (PREDICTED all 37
+within one step — does NOT hold: python's cost model charges 3pt/round
+trip vs MT5's 2pt, so the equity paths drift to 0.06 lots by 01-03
+15:30). Nothing was bent to meet a prediction; the residuals stay
+divergences.
+
+**Verifier:** no line changed. mql5/, artifacts/, evidence/, manifests,
+frozen inputs untouched.
+
+**Exit codes (read):** ruff on python/ tests/ tools/ factory/ = 0; full
+pytest (pwsh on PATH) = 0, 0 FAILED/XPASS/ERROR. The 5 pwsh test files:
+191 passed, 0 skipped. Stage-8 test files: 48 passed (6 new expected-set
++ 14 fill-model/guards + 28 package).
+
+**NOT done, and why**
+- PR #21 not merged (permission denial above); this PR not merged, as
+  instructed.
+- The +1 point buy price residual and the volume drift are NOT closed:
+  they need a measured tester spread (or an owner decision on the symbol
+  import, which means mql5/) — out of scope; inventing a +2 term to
+  match MT5 would violate S8-FILL-1.
+- Nothing ran on MT5; gate_run30 counts in the PR are predictions, not
+  results. Stage 8 has never passed; nothing is certified.
