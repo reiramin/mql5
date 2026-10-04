@@ -9,8 +9,6 @@ changes.
 import subprocess
 from pathlib import Path
 
-import pytest
-
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 
 # Canonical owner protocol (mission §5, 2026-09-07): ONE numbered
@@ -147,15 +145,11 @@ def test_mql5_execution_surface_is_exactly_five_builtin_engines():
     assert "input ENUM_MQL5BOT_STRATEGY InpStrategy" in ea
 
 
-@pytest.mark.xfail(
-    reason="gold_2 regenerated under S8-FLIP-REGEN; frozen_inputs.json "
-           "re-anchor pending in a separate PR (stage 0 FAILS until then)",
-    strict=True)
 def test_gold_artifacts_unchanged_since_freeze_anchor():
     """The freeze invariant: the gold artifacts are UNCHANGED since the
-    frozen source anchor (later commits never touch the golds). Split out
-    of the owner-package test so this one expected failure (scoped
-    gold_2 regeneration, re-anchor pending) hides no other check."""
+    frozen source anchor (later commits never touch the golds). Kept
+    separate from the owner-package test so a gold change fails exactly
+    this invariant without hiding the package checks."""
     import json
 
     repo = Path(__file__).resolve().parents[1]

@@ -178,8 +178,9 @@ def test_run_self_protection_reports_first_named_failure(repo: Path):
 
 
 def test_live_repo_head_relates_to_anchor_not_a_hard_abort():
-    """After the 2026-09-18 re-anchor the frozen anchor (a85cba3) is a real
-    commit on master, and HEAD is that commit or a descendant of it. The
+    """The frozen anchor (re-anchored 2026-10-04 to 734bb8d, the PR #18
+    merge; previously a85cba3) is a real commit on master, and HEAD is
+    that commit or a descendant of it. The
     head-relation check must therefore PASS (exact or ahead-of-anchor) --
     the stale-anchor hard abort is gone. It never silently accepts an older
     or diverged HEAD; that is covered by the ancestry tests below."""
@@ -249,10 +250,6 @@ def test_head_unknown_anchor_fails(repo: Path):
     assert "not present in this clone" in res["detail"]
 
 
-@pytest.mark.xfail(
-    reason="gold_2 regenerated under S8-FLIP-REGEN; frozen_inputs.json "
-           "re-anchor pending in a separate PR (stage 0 FAILS until then)",
-    strict=True)
 def test_run_self_protection_passes_when_head_descends_from_anchor(repo: Path):
     """Full stage-A run: re-anchor the committed frozen_inputs to the current
     commit, then land a newer clean commit. HEAD descends from the anchor and
@@ -288,10 +285,6 @@ def test_run_self_protection_still_aborts_on_dirty_tree(repo: Path):
     assert res["reason"] == gs.SELF_PROTECT_DIRTY_TREE
 
 
-@pytest.mark.xfail(
-    reason="gold_2 regenerated under S8-FLIP-REGEN; frozen_inputs.json "
-           "re-anchor pending in a separate PR (stage 0 FAILS until then)",
-    strict=True)
 def test_clean_checkout_with_evidence_dir_passes_stage0(repo: Path):
     """The stage-0 self-block regression: the gate creates
     evidence/owner_gate/<UTC>/ on every run, then its own clean-tree check used

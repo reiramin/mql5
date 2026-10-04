@@ -229,10 +229,6 @@ def _tool():
     return tool
 
 
-@pytest.mark.xfail(
-    reason="gold_2 regenerated under S8-FLIP-REGEN; frozen_inputs.json "
-           "re-anchor pending in a separate PR (stage 0 FAILS until then)",
-    strict=True)
 def test_python_trade_count_comes_from_the_hash_pinned_reconciliation():
     frozen = json.loads((REPO / "artifacts" / "owner_mt5_gate"
                          / "frozen_inputs.json").read_text(encoding="utf-8"))

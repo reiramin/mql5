@@ -136,11 +136,17 @@ exists, and the stage-8 reason quotes them. `binding_verified: false` means
 the binding chain failed. In that case the divergence is shown but never
 classified as the expected sizing divergence.
 
-**Gaps the gate cannot close (as of 2026-10-03):**
-- `source_commit` / `SOURCE_COMMIT` is the gate's HEAD. It differs from the
-  frozen anchor `a85cba3`, so compile evidence and the reconciliation binding
-  chain are MISMATCHED until the owner re-anchors. `mql5/` has changed since
-  the anchor.
+**Gaps the gate cannot close (as of 2026-10-04):**
+- `source_commit` / `SOURCE_COMMIT` is the gate's HEAD. The 2026-10-04
+  re-anchor moved the frozen anchor to `734bb8d` (the PR #18 merge), which
+  clears stage 0 and the gold hash bindings — but `verify_compile`
+  (`owner_gate.py`) and the reconciliation cross-check still require
+  `SOURCE_COMMIT` to EQUAL the anchor, while the gate always runs at a
+  descendant (the re-anchor commit itself descends from the anchor; at the
+  anchor commit its own older `frozen_inputs.json` fails stage 0). So
+  compile evidence and the reconciliation binding stay MISMATCHED under the
+  current equality rule; changing that rule is an owner decision (see
+  `docs/DECISIONS.md` S8-REANCHOR-1).
 - The SymbolSpec exporter emits no `broker`, `timestamp` or `terminal_build`
   key, so the verifier's SymbolSpec contract is INVALID on the real export.
 - `broker`, `terminal_build` and `account_mode` are unmeasured in the
@@ -198,10 +204,12 @@ them.
 
 The frozen record is governed by an owner-authority re-anchor (see
 `artifacts/owner_mt5_gate/frozen_inputs.json` `source.note` and the
-`docs/DECISIONS.md` 2026-09-18 entry). The anchor is now `a85cba3` — the
-227bf66 anchor predated the generic DSL runtime, the reserved-word compile
-fix and the P0-1 sizing fix (`4257f1e`), so it could never be the commit to
-run. Stage A no longer requires `HEAD` to equal the anchor: a clean `HEAD`
+`docs/DECISIONS.md` 2026-09-18 and S8-REANCHOR-1 entries). The anchor is
+now `734bb8da918d224f1d8c50947fcc38078001b2d6` (2026-10-04, the PR #18
+merge carrying the flip-next-bar regenerated `artifacts/gold_2`); before
+that it was `a85cba3` — the 227bf66 anchor predated the generic DSL
+runtime, the reserved-word compile fix and the P0-1 sizing fix (`4257f1e`),
+so it could never be the commit to run. Stage A no longer requires `HEAD` to equal the anchor: a clean `HEAD`
 that **descends** from the anchor, with every frozen artifact byte-identical,
 PASSES with a recorded NOTE (`SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR`). Only an
 **older** HEAD, a **diverged** HEAD, an **unknown** anchor, a changed frozen

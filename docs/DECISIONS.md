@@ -3143,7 +3143,9 @@ installed here), manifest_hash and the artifact hashes changed. The
 re-anchor of `frozen_inputs.json` is a separate PR; until it lands, stage 0
 FAILS on Windows (gold_2 bytes no longer equal the frozen hash chain).
 
-## S8-FLIP-2 — finding WITHDRAWN: its premise was wrong; the owner's "refuse" decision is recorded but NOT implemented pending reconfirmation (2026-10-04)
+## S8-FLIP-2 — WITHDRAWN by the owner (2026-10-04): the premise was wrong; no engine change
+
+**Owner (Sal, in chat, 2026-10-04): S8-FLIP-2 is WITHDRAWN.** The premise was wrong: gold legs run with `InpUseSession=False`, and the bundle's session filter acts at the next closed bar in BOTH the EA and the engine (EA: enter 16:00 from the closed 15:59 desired, flat at 16:01 from the closed 16:00 desired; the regenerated python gold does the same). No engine change; the "refuse" decision below is void. The evidence that led to the withdrawal is kept as written:
 
 **What PR #18 claimed (wrong).** That the deferred flip entry filling at
 2024-01-01 16:00 (decision bar 15:59, flattened 16:01) would be refused by
@@ -3178,3 +3180,45 @@ decision with this evidence; nothing was changed in either engine.
 (If the owner wants the EA gate active on gold legs, that is a change to
 `gold_leg_inputs.py`'s `InpUseSession` rule plus the matching engine gate
 — a different decision from the one recorded above.)
+
+---
+
+## S8-REANCHOR-1 — OWNER AUTHORIZATION: re-anchor frozen_inputs.json to the gold_2 flip-next-bar regeneration (2026-10-04)
+
+**Authorization (Sal, in chat, 2026-10-04, after PR #18 merged as
+`734bb8da918d224f1d8c50947fcc38078001b2d6` = M).** A scoped exception to
+edit `artifacts/owner_mt5_gate/frozen_inputs.json` ONLY.
+
+**Why.** S8-FLIP-1 (the manifest `flip_rule` is binding; the engine was the
+defective side) and S8-FLIP-REGEN (gold_2 regenerated with the fixed engine
+in PR #18) left the frozen record pinning the old gold_2 bytes and the old
+anchor `a85cba3`, so stage 0 refused every checkout
+(`SELF_PROTECT_FROZEN_HASH_MISMATCH`) and four tests ran as strict xfails.
+
+**What changed (every value computed from the committed bytes at M by
+`tools/owner_evidence_bind.py bind`, never typed; computation printed in
+the PR):** `source.commit` a85cba3757eecbde74951068bfbccd0e43a59e84 -> M;
+gold_2 `artifact_hash_chain` for dsl_trace.json, expected_execution.json,
+manifest.json, python_trace.json, reconciliation.json;
+`expected_execution_sha256`; `manifest_sha256`; `git_commit_recorded`
+6b172dac92a6 -> 8b9ed02446cd (read from manifest.json at M). A dated
+re-anchor paragraph is appended to `source.note`.
+
+**What did not change:** gold_1 (byte-identical object); gold_2
+`fixture_sha256`, `gold2_fixture.csv` chain hash,
+`dataset_hash_from_manifest`, `config_hash`, `spec_hash` (each verified
+equal to M's bytes/manifest by the script, which refuses otherwise);
+`provenance_label`; `source.branch`; the 56-trade contract. The four
+strict xfails are removed and pass.
+
+**What the re-anchor does NOT clear (measured, not changed):** the gate
+writes `SOURCE_COMMIT` = its HEAD (`stage8_package.py`), and
+`verify_compile` plus the reconciliation cross-check require it to EQUAL
+`source.commit` (`owner_gate.py` `verify_compile`, reconciliation `cross`).
+A frozen record can never name the commit that contains it, so the gate
+always runs at a descendant of M (at M itself, M's older frozen record
+fails stage 0). Under the current equality rule compile evidence and the
+reconciliation binding therefore stay MISMATCHED, exactly as before with
+`a85cba3`. Stage 0 accepts a clean descendant with byte-identical frozen
+artifacts; whether compile/reconciliation should accept the same is an
+owner decision — no verifier rule was changed or loosened here.

@@ -520,12 +520,22 @@ def test_first_divergence_is_surfaced_on_a_fail(run26, tmp_path):
     assert trade["mt5_value"].startswith("MISSING_IN_MT5")
     assert trade["trade_index"] == 1
     assert trade["classification"] == og.STATE_MISMATCH
-    # the gate HEAD is not the frozen anchor, so the chain does not verify:
-    # the divergence is OBSERVED, never the verifier's binding-verified one
-    assert trade["binding_verified"] is False
+    # the package's source_commit is the gate HEAD; the verifier binds it
+    # only when it EQUALS the frozen anchor. Any other HEAD (every commit
+    # after the anchor, incl. the re-anchor commit itself) leaves the
+    # divergence OBSERVED, never binding-verified; at the anchor commit the
+    # chain verifies. Both branches are pinned exactly.
+    frozen = json.loads((REPO / "artifacts" / "owner_mt5_gate"
+                         / "frozen_inputs.json").read_text(encoding="utf-8"))
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO,
+                          capture_output=True, text=True,
+                          check=True).stdout.strip()
+    at_anchor = head == frozen["source"]["commit"]
+    assert trade["binding_verified"] is at_anchor
     note = s8p.divergence_note(rep, ["gold2"])
     assert "first per-trade divergence: field 'state'" in note
-    assert "[observed; binding chain NOT verified]" in note
+    assert ("[observed; binding chain NOT verified]" in note) is \
+        (not at_anchor)
 
 
 def test_cli_divergence_note_quotes_the_report(run26, tmp_path):
