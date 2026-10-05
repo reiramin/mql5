@@ -3463,3 +3463,172 @@ metaeditor64.exe): source-pinned by
 `tests/test_exporter_wait_for_sync.py`; the strict-compile 0/0 proof is
 the owner's stage-1 gate. Built, unit-tested, never run live: whether the
 wait resolves the non-negative loss is unknown until a gate run.
+
+---
+
+## S8-SPEC-3 — OWNER DECISION: custom-symbol identity and derived tick value in verify_symbolspec; custom-symbol fill spread (2026-10-05)
+
+**Evidence (gate_run34, HEAD a17aed7, owner analysis).** Stages 0-5 PASS,
+stage 8 FAIL. Paired 74/74, side 37/37. entry_price: sells 18/18 exact,
+buys 19/19 exactly +2 points. Volume equal every_tick 30/37, m1_ohlc
+25/37. The custom-symbol export reported `spread_points` 0 while the
+tester filled buys at bid + 2.
+
+**Bug fixed (verifier).** `verify_symbolspec` compared the frozen
+`broker_spec.name` to the export's `symbol`, which the exporter
+(`mql5bot.broker_export/1`) writes as a NESTED object. A string never
+equals a dict, so `name` could never be EXACT_MATCH. It now reads
+`symbol.name`, or a flat string. `identity.symbol` is the name.
+
+**Custom-symbol identity.** When the export has `custom_symbol: true`,
+`name` is EXACT_MATCH only if BOTH hold:
+- the name equals the gate-declared tester symbol of an in-scope gold
+  (`owner_gate.GOLD_TESTER_SYMBOLS`, e.g. `EURUSD.G2`; `stage8_package.
+  GOLD_FILES` now reads the same constant);
+- `symbol.path` starts with `Custom\Mql5Bot\gold\`.
+
+Anything else is DECISION_CHANGING. The basis is recorded in
+`field_bases.name`.
+
+**Custom-symbol tick_value_profit.** An export readback of 0 is the
+importer's named limitation (CALCULATED, derived lazily on a bars-only
+symbol). It is DERIVED_EXACT_MATCH (a new class in `SYMBOLSPEC_CLASSES`)
+only if BOTH witnesses equal the frozen value:
+- (a) the package's `symbolspec/import_<gold>.json` (a byte copy of the
+  same-run stage-4 record `import_<symbol>.json`, bound in
+  `archive_manifest.json` with a matching hash) has exactly one
+  `SYMBOL_TRADE_TICK_VALUE` `verified_properties` row with `ok: true` and
+  `readback` == frozen;
+- (b) `tick_size * contract_size` == frozen (float product, `==`), AND
+  `currency_profit` == the `[Tester] Currency` of every packaged leg
+  `.ini` of that gold (`tester/<gold>_<model>.ini`, each bound in the
+  manifest; at least one required).
+
+Any witness missing, unbound, tampered or unequal is DECISION_CHANGING. A
+non-zero readback that differs is DECISION_CHANGING without derivation.
+The basis and every failing reason are in `field_bases.tick_value_profit`.
+Non-custom symbols: unchanged.
+
+**Fill-model spread (package builder).** For `custom_symbol: true` the live
+`spread_points` is NEVER used. The fill model uses
+`custom_fixed_spread_points` when it is numeric (named
+`ask_open=bid+custom_fixed_spread(N points, symbolspec export)`).
+Otherwise it falls back to manifest `cost_config.spread_points`, and
+`inputs_source` states the reason. Non-custom exports: unchanged.
+
+**compile_metadata TERMINAL_BUILD.** The builder fills it from the
+same-run export's flat `terminal_build`, and names the source in
+`TERMINAL_BUILD_SOURCE`, the way `environment.json` already does.
+Before this change it was omitted.
+
+**Verifier lines changed** (`python/mql5bot/owner_gate.py`): constants
+`DERIVED_EXACT_MATCH`, `SYMBOLSPEC_CLASSES`, `GOLD_TESTER_SYMBOLS`,
+`CUSTOM_SYMBOL_PATH_PREFIX`; new `_custom_identity_class`,
+`_bound_bytes`, `_ini_currency` and `_custom_tick_value_class`;
+`verify_symbolspec` (takes the scope; name lookup; the two custom
+branches); `run_gate` passes the scope. No other acceptance rule changed.
+
+**Tests.** `tests/test_s8_spec3_identity_and_anchor.py`. It includes the
+negatives the owner named: import readback 0.9, deposit EUR, and a
+missing import record. It also covers unbound, ok:false, no ini, a
+non-zero export value, a wrong product and tampered bytes.
+
+Built, unit-tested, never run live.
+
+## S8-COST-1 — OWNER DECISION: CostConfig price_basis; "bid" in the stage-8 window run only (2026-10-05)
+
+**Decision (Sal, 2026-10-05).** `CostConfig.price_basis`. The default is
+`"mid"` (unchanged: the bar open is the mid; spread/2 + slippage on every
+fill). `"bid"` means:
+- the bar open is the BID;
+- a buy fills at open + spread*point, a sell fills at open;
+- a long closes at the bid, a short closes at the ask = bid + spread;
+- a short's SL/TP trigger on the ask, and its gap fill is the ask open;
+- slippage is 0, matching the tester.
+
+`validate()` refuses `"bid"` with a slippage other than 0, and refuses
+pending-stop entries under it. Mark-to-market (the equity curve) is not
+changed by the basis.
+
+**Scope.** `"bid"` is used ONLY in `stage8_package.expected_set_window_run`
+(the default there; slippage 0). The frozen-trace self-check in the same
+function stays at the manifest cost (`"mid"`, manifest slippage 1.0), and
+it still reproduces the frozen trace. The window-run note states both
+bases.
+
+`fast_engine` is not used by the window run (it runs
+`engine.PortfolioEngine`). It builds its own mid CostConfig from kwargs,
+so no `"bid"` path reaches it. It is unchanged, and no parity test was
+added.
+
+**Measured on the recorded gate_run29 log trade lists** (real MT5 deals;
+that tester filled buys at bid + 2). This is not a gate run.
+- Inside the tested window the expected entry set is identical under
+  both bases: 37 entries, same sides. 25 of the 37 lots differ, because
+  the equity path differs.
+- Out-of-window entries on the excluded 2024-01-04 day go from 30 to 29.
+- Volume equal, window spread 1: mid 14/37; bid 17/37 (m1_ohlc) and
+  18/37 (every_tick).
+- Volume equal, window spread 2: mid 11/37; bid 37/37 (m1_ohlc) and
+  25/37 (every_tick).
+- entry_price, side, timestamp and pairing are unchanged.
+
+The existing tests that pin the S8-FILL-1, S8-WEIGHT-1 and S8-SPEC-2
+measurements now pass `price_basis="mid"` explicitly, so those records
+stay true. `tests/test_s8_cost_bid_basis.py` pins the bid numbers and the
+cost/engine semantics.
+
+Built, unit-tested, never run live. Nothing here predicts gate_run35.
+
+## S8-ANCHOR-REL-1 — IMPLEMENTED (2026-10-05)
+
+Implements the 2026-10-04 owner decision above. A recorded
+`source_commit` (compile metadata `SOURCE_COMMIT`, reconciliation
+`bindings.source_commit`) is valid iff it == the anchor, OR both of these
+hold:
+- the anchor is an ancestor of it (`git merge-base --is-ancestor`);
+- every file hash `frozen_inputs.json` lists (`owner_gate.
+  frozen_file_pins`: both golds' fixture, manifest and
+  expected_execution, plus gold_2's artifact_hash_chain) equals the
+  sha256 that the verifier recomputes from that file's bytes AT the
+  recorded commit (`git show <commit>:<path>`).
+
+It never trusts a builder boolean. The relation is recorded as
+`DESCENDANT_FROZEN_BYTES_IDENTICAL` in `source_commit_relation`, with
+every pin and its recomputed hash.
+
+It is refused when:
+- the recorded commit is not a full 40-hex SHA, or is absent from the
+  repository;
+- the recorded commit is older than the anchor, or diverged from it;
+- any frozen byte differs at the commit;
+- no repository is bound (then only equality is accepted).
+
+A working-tree edit cannot launder a committed change. Stage 0
+(`gate_selfcheck.verify_frozen_hashes`) now reads the same pin list (same
+files, same order, same messages).
+
+**Verifier lines changed.**
+- `python/mql5bot/owner_gate.py`: new `frozen_file_pins`,
+  `anchor_relation`, `source_commit_relation` and
+  `ANCHOR_RELATION_EXACT`/`_DESCENDANT`. `verify_compile` takes
+  `relation_of`, and its source_commit check goes through
+  `source_commit_relation`. The `verify_reconciliation` source_commit
+  cross-check is now the relation; the other four cross-checks are
+  unchanged. `run_gate` takes `repo` and binds the relation; without
+  `repo` the old equality rule applies.
+- `tools/verify_owner_mt5_gate.py`: passes `--repo` into `run_gate`. The
+  gate already passes `--repo $RepoRoot`.
+- `python/mql5bot/gate_selfcheck.py`: `verify_frozen_hashes` reads the
+  shared pin list.
+
+The archive-manifest identity check is unchanged: it compares the frozen
+record's own `source.commit`, which always equals the anchor.
+
+**Measured effect.** At HEAD a17aed7 (a descendant of anchor 734bb8d)
+the package's `source_commit` binding now verifies.
+`tests/test_stage8_package_from_gate.py::
+test_first_divergence_is_surfaced_on_a_fail` computes the relation and
+pins `binding_verified` to it.
+
+Built, unit-tested, never run live.

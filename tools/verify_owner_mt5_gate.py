@@ -107,7 +107,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: --golds must name golds from {list(og.GOLDS)}",
               file=sys.stderr)
         return 2
-    report = og.run_gate(Path(args.evidence_dir), frozen, golds)
+    # S8-ANCHOR-REL-1: the repository the anchor relation is evaluated in
+    report = og.run_gate(Path(args.evidence_dir), frozen, golds, repo=repo)
     report["frozen_source_commit"] = frozen.get("source", {}).get(
         "commit", "")
     report["verifier"] = "mql5bot.owner_gate"

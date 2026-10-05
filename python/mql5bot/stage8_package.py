@@ -118,13 +118,13 @@ GOLD_FILES = {
     "gold1": {"manifest": "artifacts/gold/manifest.json",
               "fixture": "artifacts/gold/gold_fixture.csv",
               "expected": "artifacts/gold/expected_execution.json",
-              "tester_symbol": "EURUSD.G1"},
+              "tester_symbol": og.GOLD_TESTER_SYMBOLS["gold1"]},
     "gold2": {"manifest": "artifacts/gold_2/manifest.json",
               "fixture": "artifacts/gold_2/gold2_fixture.csv",
               "expected": "artifacts/gold_2/expected_execution.json",
               "trace": "artifacts/gold_2/python_trace.json",
               "generator": "tools/build_gold2_standard.py",
-              "tester_symbol": "EURUSD.G2"},
+              "tester_symbol": og.GOLD_TESTER_SYMBOLS["gold2"]},
 }
 EA_EX5_REL = Path("MQL5") / "Experts" / "Mql5Bot" / "Mql5Bot.ex5"
 TF_SECONDS = {"M1": 60, "M5": 300, "M15": 900, "M30": 1800, "H1": 3600,
@@ -390,24 +390,37 @@ def fill_model_buy_name(fill: dict | None) -> str:
 def fill_spec_of(manifest: dict,
                  symbolspec: dict | None = None) -> tuple[dict | None, str]:
     """spread_points / point / digits for the expected fill model. The
-    spread comes from the stage-3 SymbolSpec export's flat MEASURED
+    spread comes from the SymbolSpec export's flat MEASURED
     ``spread_points`` when ``symbolspec`` carries one (``spread_source``
     then names it), falling back to the manifest cost_config value with
-    the reason stated. None (with the reason) when point/digits or every
+    the reason stated. For a CUSTOM symbol (``custom_symbol`` true) the
+    live ``spread_points`` is never used: only a numeric
+    ``custom_fixed_spread_points``, else the manifest value. None (with the reason) when point/digits or every
     spread source is missing: the price column is then never built from a
     bare open."""
     cost = manifest.get("cost_config") or {}
     spec = manifest.get("broker_spec") or {}
     out = {"point": spec.get("point"), "digits": spec.get("digits")}
-    measured = (symbolspec or {}).get("spread_points")
+    doc = symbolspec or {}
+    custom = doc.get("custom_symbol") is True
+    # A CUSTOM symbol's live spread_points is never the tester spread
+    # (gate_run34: export 0, tester filled bid+2): only its configured
+    # fixed spread is (custom_fixed_spread_points, written when
+    # SYMBOL_SPREAD_FLOAT is false).
+    key = "custom_fixed_spread_points" if custom else "spread_points"
+    measured = doc.get(key)
+    if isinstance(measured, bool):
+        measured = None
     try:
         measured = float(measured)
     except (TypeError, ValueError):
         measured = None
     if measured is not None:
         out["spread_points"] = measured
-        out["spread_source"] = (f"measured_spread({_num(measured)} points, "
-                                "symbolspec export)")
+        out["spread_source"] = (
+            f"custom_fixed_spread({_num(measured)} points, symbolspec "
+            "export)" if custom else
+            f"measured_spread({_num(measured)} points, symbolspec export)")
         src = out["spread_source"]
     else:
         # fallback: the manifest assumption, with the reason stated; the
@@ -415,6 +428,10 @@ def fill_spec_of(manifest: dict,
         # spread_source), the reason lives in this note / inputs_source
         out["spread_points"] = cost.get("spread_points")
         src = ("manifest cost_config" if symbolspec is None else
+               "manifest cost_config -- fallback: the custom-symbol export "
+               "carries no numeric custom_fixed_spread_points (its live "
+               "spread_points is never used for a custom symbol)"
+               if custom else
                "manifest cost_config -- fallback: the symbolspec export "
                "carries no numeric flat spread_points")
     gaps = sorted(k for k in ("spread_points", "point", "digits")
@@ -456,7 +473,8 @@ def expected_set_window_run(repo: Path | str, gold: str,
                             weight: float = float(TESTER_WEIGHT_COLUMN),
                             frozen_rel: str = FROZEN_INPUTS_REL,
                             spread_points: float | None = None,
-                            spread_source: str | None = None
+                            spread_source: str | None = None,
+                            price_basis: str = "bid"
                             ) -> tuple[dict | None, str]:
     """The tester leg's EXPECTED ENTRY SET (S8-WEIGHT-1): the weight-in-
     force run.
@@ -491,6 +509,13 @@ def expected_set_window_run(repo: Path | str, gold: str,
     measured cost the expected fill model uses (S8-SPEC-1). The frozen-
     trace reproduction guard always runs on the manifest value: the
     frozen trace was built with it.
+
+    ``price_basis`` (S8-COST-1, owner decision 2026-10-05) applies to the
+    WINDOW run only: "bid" (default) models the tester -- bar prices are
+    BID, a buy fills at open + spread, a sell at open, a long closes at the
+    bid, a short at the ask (its SL/TP trigger on the ask), slippage 0. The
+    frozen-trace reproduction guard always runs at the manifest cost
+    ("mid", manifest slippage) and must still reproduce.
     """
     repo = Path(repo)
     files = GOLD_FILES.get(gold, {})
@@ -541,12 +566,16 @@ def expected_set_window_run(repo: Path | str, gold: str,
         ec, cc = manifest["engine_config"], manifest["cost_config"]
         risk = manifest["risk_config"]
 
-        def run(signal, schedule, spread=None):
+        def run(signal, schedule, spread=None, basis="mid"):
+            # "mid" = the manifest cost the frozen trace was built with;
+            # "bid" = the tester model (S8-COST-1): slippage 0
             costs = CostConfig(symbol=manifest["symbol"],
                                spread_points=(cc["spread_points"]
                                               if spread is None else spread),
-                               slippage_points=cc["slippage_points"],
-                               commission_per_lot=cc["commission_per_lot"])
+                               slippage_points=(cc["slippage_points"]
+                                                if basis == "mid" else 0.0),
+                               commission_per_lot=cc["commission_per_lot"],
+                               price_basis=basis)
             cfg = RunConfig(initial_capital=float(risk["equity_start"]),
                             mode=ec["mode"], allow_short=ec["allow_short"],
                             sizing_mode=ec["sizing_mode"],
@@ -573,7 +602,8 @@ def expected_set_window_run(repo: Path | str, gold: str,
                           "not reproduce the frozen trace")
         start = pd.Timestamp(window_start)
         win_sig = sig.where(sig.index >= start, 0)
-        win = run(win_sig, ((df.index[0], weight),), spread_points)
+        win = run(win_sig, ((df.index[0], weight),), spread_points,
+                  price_basis)
     except Exception as exc:  # noqa: BLE001 -- any failure refuses the set
         return None, f"expected-set re-run failed: {type(exc).__name__}: {exc}"
     step, vmin = float(spec.volume_step), float(spec.volume_min)
@@ -666,9 +696,13 @@ def expected_set_window_run(repo: Path | str, gold: str,
             f"allocation file staged), python trades only from "
             f"{window_start} (flat before), equity_start "
             f"{float(risk['equity_start'])}, window-run entry cost "
-            f"{spread_note}; self-checks: frozen trace reproduced (manifest "
-            "cost), frozen approvals reproduced, run lots == frozen "
-            "sizing rule on the run's signal-bar-close equity")
+            f"{spread_note}, price_basis {price_basis!r}"
+            + (" (S8-COST-1: bar prices are BID; buy at open+spread, sell "
+               "at open; shorts close/stop on the ask; slippage 0)"
+               if price_basis == "bid" else "")
+            + "; self-checks: frozen trace reproduced (manifest cost, "
+            "price_basis 'mid'), frozen approvals reproduced, run lots == "
+            "frozen sizing rule on the run's signal-bar-close equity")
     return {"rows": rows_out, "frozen_only": frozen_only}, note
 
 
@@ -1097,6 +1131,7 @@ def build_package(*, repo: Path | str, package: Path | str,
     # --- compile/ (stage 1) ----------------------------------------------
     logs = sorted(ev.glob("compile-*.log"), key=lambda p: p.stat().st_mtime)
     ident: dict = {}
+    meta: dict | None = None  # written after symbolspec/ (TERMINAL_BUILD)
     if not logs:
         for key in ("compile_log", "compile_metadata", "ex5"):
             not_built[og.LAYOUT[key]] = "no stage-1 compile log copy in the gate evidence"
@@ -1132,8 +1167,6 @@ def build_package(*, repo: Path | str, package: Path | str,
                          ("WARNINGS", ident.get("warnings"))):
             if val is not None:
                 meta[key] = val
-        put_json(og.LAYOUT["compile_metadata"], meta,
-                 "parsed stage-1 compile log + git HEAD")
 
     # --- symbolspec/ ------------------------------------------------------
     # The tester trades the CUSTOM gold symbol, so the package carries this
@@ -1177,6 +1210,44 @@ def build_package(*, repo: Path | str, package: Path | str,
         not_built[og.LAYOUT["symbolspec"]] = (
             f"{spec_source['basis']}: export not found: {spec_file}")
     spec_symbol = spec_doc.get("symbol") if isinstance(spec_doc, dict) else None
+
+    # --- compile/compile_metadata.json (after symbolspec/) ---------------
+    # TERMINAL_BUILD: the compile log states none, so it comes from the
+    # same-run SymbolSpec export's flat terminal_build (the terminal that
+    # compiled and ran this gate), source named -- as environment.json does
+    if meta is not None:
+        tb_export = (spec_doc.get("terminal_build")
+                     if isinstance(spec_doc, dict) else None)
+        if tb_export not in (None, ""):
+            meta["TERMINAL_BUILD"] = tb_export
+            meta["TERMINAL_BUILD_SOURCE"] = (
+                f"{spec_source['basis']} flat terminal_build "
+                "(TerminalInfoInteger(TERMINAL_BUILD)), "
+                f"{Path(spec_source['file']).name}")
+        put_json(og.LAYOUT["compile_metadata"], meta,
+                 "parsed stage-1 compile log + git HEAD"
+                 + (" + same-run SymbolSpec export terminal_build"
+                    if "TERMINAL_BUILD" in meta else ""))
+
+    # --- symbolspec/import_<gold>.json + tester/<gold>_<model>.ini --------
+    # S8-SPEC-3 witnesses for a custom symbol's derived tick value: the
+    # same-run stage-4 import record (its SYMBOL_TRADE_TICK_VALUE read-back)
+    # and each leg's intended tester .ini (deposit Currency); byte copies,
+    # bound by archive_manifest.json like every package file
+    for gold in golds:
+        sym = GOLD_FILES[gold]["tester_symbol"]
+        rec = ev / f"import_{sym}.json"
+        if rec.is_file():
+            put_bytes(og.symbolspec_import_rel(gold), rec.read_bytes(),
+                      f"gate stage-4 import record {rec.name}")
+        else:
+            not_built[og.symbolspec_import_rel(gold)] = (
+                f"no stage-4 import record {rec.name} in the gate evidence")
+        for model in LEG_MODELS:
+            ini = ev / f"tester_{gold}_{model}.ini"
+            if ini.is_file():
+                put_bytes(og.tester_ini_rel(gold, model), ini.read_bytes(),
+                          f"gate stage-5 intended tester config {ini.name}")
 
     # --- environment.json -------------------------------------------------
     windows = [gs.read_text_bom_aware(p) for g in golds

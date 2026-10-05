@@ -48,7 +48,11 @@ END = "2024-01-04T00:00:00"
 
 @pytest.fixture(scope="module")
 def expected_set():
-    sd, note = s8p.expected_set_window_run(REPO, "gold2", START, END)
+    # price_basis "mid": the S8-FILL-1/S8-BASIS-1 numbers pinned here were
+    # measured on the mid-convention window run (S8-COST-1 "bid" is in
+    # tests/test_s8_cost_bid_basis.py)
+    sd, note = s8p.expected_set_window_run(REPO, "gold2", START, END,
+                                           price_basis="mid")
     assert sd is not None, note
     return sd, note
 

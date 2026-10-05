@@ -45,6 +45,15 @@ Fill conventions (documented, conservative):
 5. A position whose SL/TP sits inside the broker freeze zone around the
    current price cannot be placed/modified — the engine records the
    event instead of silently trading around the rule (conservative).
+
+``price_basis`` (S8-COST-1, owner decision 2026-10-05) names what the bar
+prices ARE. ``"mid"`` (the default, unchanged) is convention 1 above.
+``"bid"`` models the MT5 tester on a bid-quoted symbol: the bar open/high/
+low/close are BID; a buy fills at ``open + spread*point`` (the ask), a sell
+at ``open`` (the bid); a long closes at the bid, a short at the ask
+(``bid + spread*point``), and a short's stop/take-profit trigger and gap-
+fill on the ask. Slippage must be 0 under ``"bid"`` (the tester applies
+none); pending-stop entries are not modelled under it and are refused.
 """
 
 from __future__ import annotations
@@ -57,6 +66,10 @@ from dataclasses import dataclass, replace
 ENTRY_MARKET = "market"
 ENTRY_PENDING_STOP = "pending_stop"
 ENTRY_MODES = (ENTRY_MARKET, ENTRY_PENDING_STOP)
+# what the bar prices are (S8-COST-1)
+PRICE_BASIS_MID = "mid"
+PRICE_BASIS_BID = "bid"
+PRICE_BASES = (PRICE_BASIS_MID, PRICE_BASIS_BID)
 
 # reasons recorded by the engine (canonical vocabulary)
 REASON_STOP_LOSS = "stop_loss"
@@ -104,6 +117,8 @@ class CostConfig:
     entry_mode: str = ENTRY_MARKET
     pending_offset_points: float = 0.0
     pending_expire_bars: int = 0  # 0 = no expiry
+    # price basis (S8-COST-1) -------------------------------------------
+    price_basis: str = PRICE_BASIS_MID  # 'mid' | 'bid'
 
     def validate(self, n_bars: int | None = None) -> None:
         if self.spread_mode not in ("fixed", "variable"):
@@ -118,6 +133,16 @@ class CostConfig:
             raise ValueError(f"entry_mode must be one of {ENTRY_MODES}")
         if self.pending_offset_points < 0 or self.pending_expire_bars < 0:
             raise ValueError("pending offset/expiry must be >= 0")
+        if self.price_basis not in PRICE_BASES:
+            raise ValueError(f"price_basis must be one of {PRICE_BASES}, "
+                             f"got {self.price_basis!r}")
+        if self.price_basis == PRICE_BASIS_BID:
+            if self.slippage_points != 0:
+                raise ValueError("price_basis 'bid' models the tester: "
+                                 "slippage_points must be 0")
+            if self.entry_mode != ENTRY_MARKET:
+                raise ValueError("price_basis 'bid' supports market entries "
+                                 "only")
         if self.spread_mode == "variable":
             if self.spread_series is None:
                 raise ValueError("variable spread mode requires spread_series")
@@ -249,8 +274,14 @@ def entry_fill(
     spread_points: float,
     slippage_points: float,
     point: float,
+    price_basis: str = PRICE_BASIS_MID,
 ) -> float:
-    """Mid-price convention: buy pays +spread/2 +slippage, sell the mirror."""
+    """Mid-price convention: buy pays +spread/2 +slippage, sell the mirror.
+    ``price_basis="bid"``: the open is the bid; a buy fills at the ask
+    (open + spread), a sell at the bid (open); slippage is adverse."""
+    if price_basis == PRICE_BASIS_BID:
+        ask_add = spread_points * point if side > 0 else 0.0
+        return bar_open + ask_add + side * slippage_points * point
     surcharge = (spread_points / 2.0 + slippage_points) * point
     return bar_open + side * surcharge
 
@@ -261,10 +292,26 @@ def exit_fill(
     spread_points: float,
     slippage_points: float,
     point: float,
+    price_basis: str = PRICE_BASIS_MID,
 ) -> float:
-    """Exit at ``price`` (stop/tp/close): adverse half-spread + slippage."""
+    """Exit at ``price`` (stop/tp/close): adverse half-spread + slippage.
+    ``price_basis="bid"``: ``price`` is a bid quote; a long closes at the
+    bid, a short at the ask (bid + spread); slippage is adverse."""
+    if price_basis == PRICE_BASIS_BID:
+        return price + ask_offset(side, spread_points, point, price_basis) \
+            - side * slippage_points * point
     surcharge = (spread_points / 2.0 + slippage_points) * point
     return price - side * surcharge
+
+
+def ask_offset(side: int, spread_points: float, point: float,
+               price_basis: str = PRICE_BASIS_MID) -> float:
+    """Price offset from the bar's quote to the side a position CLOSES on.
+    Zero under ``"mid"`` and for a long; under ``"bid"`` a short closes on
+    the ask, so its stop/take-profit trigger and gap-fill on bid + spread."""
+    if price_basis == PRICE_BASIS_BID and side < 0:
+        return spread_points * point
+    return 0.0
 
 
 def commission_cash(lots: float, cfg: CostConfig) -> float:

@@ -34,6 +34,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
@@ -227,12 +228,32 @@ SYMBOLSPEC_REQUIRED = (
     "terminal_build",
 )
 EXACT_MATCH = "EXACT_MATCH"
+# S8-SPEC-3: a custom symbol's CALCULATED tick value reads back 0 (the
+# importer's named limitation); it equals the frozen value only through two
+# independent same-run witnesses (verify_symbolspec)
+DERIVED_EXACT_MATCH = "DERIVED_EXACT_MATCH"
 SEMANTICALLY_COMPATIBLE = "SEMANTICALLY_COMPATIBLE"
 DECISION_CHANGING_MISMATCH = "DECISION_CHANGING_MISMATCH"
 UNSUPPORTED_BROKER_DIFFERENCE = "UNSUPPORTED_BROKER_DIFFERENCE"
-SYMBOLSPEC_CLASSES = (EXACT_MATCH, SEMANTICALLY_COMPATIBLE,
+SYMBOLSPEC_CLASSES = (EXACT_MATCH, DERIVED_EXACT_MATCH,
+                      SEMANTICALLY_COMPATIBLE,
                       DECISION_CHANGING_MISMATCH,
                       UNSUPPORTED_BROKER_DIFFERENCE)
+# S8-SPEC-3: the custom symbol each gold's tester legs trade (the gate's
+# stage-4 import names them; tools/owner_gate.ps1 $goldImports) and the
+# folder the importer creates them in (InpSymbolGroup "Mql5Bot\gold")
+GOLD_TESTER_SYMBOLS = {"gold1": "EURUSD.G1", "gold2": "EURUSD.G2"}
+CUSTOM_SYMBOL_PATH_PREFIX = "Custom\\Mql5Bot\\gold\\"
+
+
+def symbolspec_import_rel(gold: str) -> str:
+    """The package copy of this gold's same-run stage-4 import record."""
+    return f"symbolspec/import_{gold}.json"
+
+
+def tester_ini_rel(gold: str, model: str) -> str:
+    """The package copy of a leg's intended tester .ini (stage 5)."""
+    return f"tester/{gold}_{model}.ini"
 # fields whose difference can change a trading decision (never rewritten
 # silently; a DECISION_CHANGING_MISMATCH stops the leg)
 _DECISION_FIELDS = frozenset({
@@ -345,7 +366,123 @@ def scan_package(root: Path | str) -> dict[str, dict]:
 # 2. compiler evidence (§8: identity + freshness, attack-resistant)
 # ---------------------------------------------------------------------------
 
-def verify_compile(root: Path | str, frozen_source_commit: str) -> dict:
+ANCHOR_RELATION_EXACT = "EXACT_ANCHOR"
+ANCHOR_RELATION_DESCENDANT = "DESCENDANT_FROZEN_BYTES_IDENTICAL"
+_FULL_SHA_RE = re.compile(r"[0-9a-f]{40}")
+
+
+def frozen_file_pins(frozen_inputs: dict) -> list[tuple[str, str, str]]:
+    """(repo path, sha256 pin, label) for EVERY file hash frozen_inputs.json
+    lists: both golds' fixture / manifest / expected_execution and gold_2's
+    full artifact_hash_chain. Stage 0 (gate_selfcheck.verify_frozen_hashes)
+    and S8-ANCHOR-REL-1 read the same list."""
+    g1 = frozen_inputs.get("gold_1") or {}
+    g2 = frozen_inputs.get("gold_2") or {}
+    pins = [
+        ("artifacts/gold/gold_fixture.csv", g1.get("fixture_sha256", ""),
+         "gold_1 fixture"),
+        ("artifacts/gold/manifest.json", g1.get("manifest_sha256", ""),
+         "gold_1 manifest"),
+        ("artifacts/gold/expected_execution.json",
+         g1.get("expected_execution_sha256", ""), "gold_1 expected"),
+        ("artifacts/gold_2/gold2_fixture.csv", g2.get("fixture_sha256", ""),
+         "gold_2 fixture"),
+        ("artifacts/gold_2/manifest.json", g2.get("manifest_sha256", ""),
+         "gold_2 manifest"),
+        ("artifacts/gold_2/expected_execution.json",
+         g2.get("expected_execution_sha256", ""), "gold_2 expected"),
+    ]
+    pins += [(f"artifacts/gold_2/{fn}", want, f"gold_2 chain {fn}")
+             for fn, want in (g2.get("artifact_hash_chain") or {}).items()]
+    return [p for p in pins if p[1]]
+
+
+def anchor_relation(repo: Path | str, anchor: str, commit: str,
+                    frozen_inputs: dict, runner=None) -> dict:
+    """S8-ANCHOR-REL-1 (owner decision 2026-10-04): how a recorded commit
+    relates to the frozen anchor. DESCENDANT_FROZEN_BYTES_IDENTICAL only when
+    BOTH hold:
+
+    * the anchor is an ancestor of the commit (git merge-base --is-ancestor);
+    * every file hash frozen_inputs.json lists equals the sha256 of that
+      file's bytes AT the commit (git show <commit>:<path>), recomputed here
+      -- never a builder's boolean.
+
+    ``runner(args) -> CompletedProcess`` replaces git in tests. Returns
+    {"relation": str|None, "reasons": [...], "frozen_files": {...}}."""
+    def git(args: list[str], text: bool = True):
+        if runner is not None:
+            return runner(args)
+        return subprocess.run(["git", "-C", str(repo), *args],
+                              capture_output=True, text=text, check=False)
+
+    anchor = str(anchor or "").strip().lower()
+    commit = str(commit or "").strip().lower()
+    out: dict = {"anchor": anchor, "commit": commit, "relation": None,
+                 "reasons": [], "frozen_files": {}}
+    why = out["reasons"]
+    if commit and commit == anchor:
+        out["relation"] = ANCHOR_RELATION_EXACT
+        return out
+    if not _FULL_SHA_RE.fullmatch(commit):
+        why.append(f"recorded commit {commit!r} is not a full 40-hex SHA")
+        return out
+    if not _FULL_SHA_RE.fullmatch(anchor):
+        why.append(f"frozen anchor {anchor!r} is not a full 40-hex SHA")
+        return out
+    if repo is None and runner is None:
+        why.append("no repository to evaluate the anchor relation in")
+        return out
+    for sha, label in ((commit, "recorded commit"), (anchor, "anchor")):
+        if git(["cat-file", "-e", sha + "^{commit}"]).returncode != 0:
+            why.append(f"{label} {sha} is not a commit in this repository")
+    if why:
+        return out
+    if git(["merge-base", "--is-ancestor", anchor, commit]).returncode != 0:
+        why.append(f"anchor {anchor} is not an ancestor of {commit}")
+        return out
+    pins = frozen_file_pins(frozen_inputs)
+    if not pins:
+        why.append("frozen_inputs.json lists no file hash to compare")
+    for rel, want, label in pins:
+        cp = git(["show", f"{commit}:{rel}"], text=False)
+        data = cp.stdout if cp.returncode == 0 else None
+        if isinstance(data, str):
+            data = data.encode()
+        got = hashlib.sha256(data).hexdigest() if data is not None else None
+        out["frozen_files"][rel] = {"pin": want, "at_commit": got}
+        if got is None:
+            why.append(f"{label}: {rel} absent at {commit}")
+        elif got != want.lower():
+            why.append(f"{label}: {rel} sha256 at {commit} != frozen pin")
+    if not why:
+        out["relation"] = ANCHOR_RELATION_DESCENDANT
+    return out
+
+
+def source_commit_relation(recorded, frozen_source_commit: str,
+                           relation_of=None) -> dict:
+    """A recorded source commit is accepted iff it == the frozen anchor, or
+    ``relation_of(recorded)`` (anchor_relation bound to a repo) returns
+    DESCENDANT_FROZEN_BYTES_IDENTICAL. Nothing else is accepted."""
+    rec = str(recorded or "").strip().lower()
+    want = str(frozen_source_commit or "").strip().lower()
+    if rec and rec == want:
+        return {"accepted": True, "relation": ANCHOR_RELATION_EXACT,
+                "recorded": rec, "anchor": want, "reasons": []}
+    if relation_of is None:
+        return {"accepted": False, "relation": None, "recorded": rec,
+                "anchor": want, "reasons": [
+                    "no repository bound: only HEAD == anchor is accepted"]}
+    rel = relation_of(rec)
+    return {"accepted": rel.get("relation") == ANCHOR_RELATION_DESCENDANT,
+            "relation": rel.get("relation"), "recorded": rec,
+            "anchor": want, "reasons": list(rel.get("reasons") or []),
+            "frozen_files": rel.get("frozen_files") or {}}
+
+
+def verify_compile(root: Path | str, frozen_source_commit: str,
+                   relation_of=None) -> dict:
     root = Path(root)
     report: dict = {"checks": {}, "state": MISSING, "reasons": []}
     log = root / LAYOUT["compile_log"]
@@ -391,14 +528,16 @@ def verify_compile(root: Path | str, frozen_source_commit: str) -> dict:
         report["reasons"].append("compile log bytes do not match the "
                                  "recorded hash (stale/edited log)")
 
-    # source identity: commit identity, never the branch name (§4)
-    checks["source_commit"] = ("VALID"
-                               if str(doc.get("SOURCE_COMMIT", "")).lower()
-                               == str(frozen_source_commit).lower()
-                               else MISMATCHED)
+    # source identity: commit identity, never the branch name (§4); a
+    # descendant is accepted only through S8-ANCHOR-REL-1 (relation_of)
+    rel = source_commit_relation(doc.get("SOURCE_COMMIT"),
+                                 frozen_source_commit, relation_of)
+    report["source_commit_relation"] = rel
+    checks["source_commit"] = "VALID" if rel["accepted"] else MISMATCHED
     if checks["source_commit"] != "VALID":
         report["reasons"].append("source commit does not match the frozen "
-                                 "anchor")
+                                 "anchor" + (f" ({'; '.join(rel['reasons'])})"
+                                             if rel["reasons"] else ""))
 
     # zero errors / zero warnings — declared counts AND a token scan of
     # the raw log (MetaEditor `file(line,col): error|warning ...` rows)
@@ -445,8 +584,160 @@ def verify_compile(root: Path | str, frozen_source_commit: str) -> dict:
 # 3. SymbolSpec verification (§9)
 # ---------------------------------------------------------------------------
 
+def _custom_identity_class(name, path, scope: tuple[str, ...]
+                           ) -> tuple[str, dict]:
+    """S8-SPEC-3: a custom symbol's name is EXACT_MATCH only when it IS the
+    tester symbol the gate declares for an in-scope gold AND it lives in the
+    importer's folder. Anything else is DECISION_CHANGING."""
+    golds = [g for g in scope if GOLD_TESTER_SYMBOLS.get(g) == name]
+    path_ok = isinstance(path, str) and path.startswith(
+        CUSTOM_SYMBOL_PATH_PREFIX)
+    basis = {"rule": "S8-SPEC-3 custom-symbol identity",
+             "name": name, "path": path,
+             "declared_tester_symbols": {g: GOLD_TESTER_SYMBOLS[g]
+                                         for g in scope},
+             "name_is_declared_tester_symbol": bool(golds),
+             "gold": golds[0] if golds else None,
+             "path_prefix_required": CUSTOM_SYMBOL_PATH_PREFIX,
+             "path_prefix_ok": path_ok}
+    return (EXACT_MATCH if golds and path_ok
+            else DECISION_CHANGING_MISMATCH), basis
+
+
+def _bound_bytes(root: Path, rel: str) -> tuple[bytes | None, str]:
+    """A package file's bytes, ONLY when archive_manifest.json binds it by a
+    hash equal to those bytes; else (None, why)."""
+    path = root / rel
+    if not path.is_file():
+        return None, f"{rel} missing from the package"
+    man = _load_json(root / LAYOUT["archive_manifest"])
+    arts = man.get("artifacts") if isinstance(man, dict) else None
+    want = arts.get(rel) if isinstance(arts, dict) else None
+    if not isinstance(want, str):
+        return None, f"{rel} not bound in archive_manifest.json"
+    data = path.read_bytes()
+    if hashlib.sha256(data).hexdigest() != want.lower():
+        return None, f"{rel} bytes != its archive_manifest.json hash"
+    return data, ""
+
+
+def _ini_currency(data: bytes) -> str | None:
+    """`Currency=` of an ini's [Tester] section (utf-8/utf-16, BOM-aware)."""
+    text = (data.decode("utf-16") if data[:2] in (b"\xff\xfe", b"\xfe\xff")
+            else data.decode("utf-8-sig", errors="replace"))
+    section = ""
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("[") and line.endswith("]"):
+            section = line[1:-1].strip().lower()
+        elif section == "tester" and line.lower().startswith("currency="):
+            return line.split("=", 1)[1].strip()
+    return None
+
+
+def _custom_tick_value_class(root: Path, doc: dict, name, actual, expected,
+                             scope: tuple[str, ...]) -> tuple[str, dict]:
+    """S8-SPEC-3: a custom symbol's tick_value_profit export readback of 0
+    is the importer's named limitation (CALCULATED, derived lazily on a
+    bars-only symbol). It is DERIVED_EXACT_MATCH only when BOTH same-run
+    witnesses equal the frozen value:
+
+    (a) the package's import record (symbolspec/import_<gold>.json, bound
+        in archive_manifest.json) shows the settable SYMBOL_TRADE_TICK_VALUE
+        read back == frozen with ok:true;
+    (b) tick_size * contract_size == frozen exactly AND currency_profit ==
+        the tester deposit Currency of every packaged leg .ini of that gold
+        (each bound in archive_manifest.json).
+
+    Any witness missing or unequal -> DECISION_CHANGING."""
+    golds = [g for g in scope if GOLD_TESTER_SYMBOLS.get(g) == name]
+    gold = golds[0] if golds else None
+    basis: dict = {"rule": "S8-SPEC-3 custom-symbol tick_value_profit",
+                   "export_readback": actual, "frozen": expected,
+                   "gold": gold, "witness_a": {}, "witness_b": {},
+                   "reasons": []}
+    why = basis["reasons"]
+    if actual != 0:
+        why.append(f"export readback {actual!r} is not the importer's named "
+                   "limitation (0): no derivation is applied")
+    if gold is None:
+        why.append(f"symbol {name!r} is no in-scope gold's tester symbol")
+    # (a) same-run import record
+    a = basis["witness_a"]
+    if gold is not None:
+        rel = symbolspec_import_rel(gold)
+        a["file"] = rel
+        raw, bad = _bound_bytes(root, rel)
+        rec = None
+        if raw is None:
+            why.append(f"witness (a): {bad}")
+        else:
+            try:
+                rec = json.loads(raw.decode("utf-8-sig"))
+            except ValueError:
+                why.append(f"witness (a): {rel} unparsable")
+        if isinstance(rec, dict):
+            rows = [r for r in rec.get("verified_properties") or []
+                    if isinstance(r, dict)
+                    and r.get("enum") == "SYMBOL_TRADE_TICK_VALUE"]
+            if len(rows) != 1:
+                why.append(f"witness (a): {rel} carries {len(rows)} "
+                           "SYMBOL_TRADE_TICK_VALUE verified_properties rows "
+                           "(exactly 1 required)")
+            else:
+                row = rows[0]
+                try:
+                    readback = float(row.get("readback"))
+                except (TypeError, ValueError):
+                    readback = None
+                a.update({"readback": row.get("readback"),
+                          "ok": row.get("ok")})
+                if row.get("ok") is not True:
+                    why.append("witness (a): SYMBOL_TRADE_TICK_VALUE "
+                               "read-back ok is not true")
+                if readback != expected:
+                    why.append(f"witness (a): SYMBOL_TRADE_TICK_VALUE "
+                               f"readback {row.get('readback')!r} != frozen "
+                               f"{expected!r}")
+    # (b) arithmetic + deposit currency
+    b = basis["witness_b"]
+    ts, cs, cp = (doc.get("tick_size"), doc.get("contract_size"),
+                  doc.get("currency_profit"))
+    try:
+        product = float(ts) * float(cs)
+    except (TypeError, ValueError):
+        product = None
+    b.update({"tick_size": ts, "contract_size": cs, "product": product,
+              "currency_profit": cp, "deposit_currency": {}})
+    if product is None or product != expected:
+        why.append(f"witness (b): tick_size*contract_size {product!r} != "
+                   f"frozen {expected!r}")
+    if gold is not None:
+        inis = sorted((root / "tester").glob(f"{gold}_*.ini"))
+        if not inis:
+            why.append(f"witness (b): no tester/{gold}_*.ini in the package")
+        for p in inis:
+            rel = f"tester/{p.name}"
+            raw, bad = _bound_bytes(root, rel)
+            cur = _ini_currency(raw) if raw is not None else None
+            b["deposit_currency"][rel] = cur
+            if raw is None:
+                why.append(f"witness (b): {bad}")
+            elif cur is None:
+                why.append(f"witness (b): {rel} states no [Tester] Currency")
+            elif cur != cp:
+                why.append(f"witness (b): {rel} deposit Currency {cur!r} != "
+                           f"currency_profit {cp!r}")
+    return (DECISION_CHANGING_MISMATCH if why
+            else DERIVED_EXACT_MATCH), basis
+
+
 def verify_symbolspec(root: Path | str,
-                      frozen_expected: dict | None) -> dict:
+                      frozen_expected: dict | None,
+                      golds: tuple[str, ...] | list[str] | None = None
+                      ) -> dict:
+    """``golds`` is the verified scope (default: every gold); S8-SPEC-3
+    accepts only an in-scope gold's declared tester symbol."""
     root = Path(root)
     path = root / LAYOUT["symbolspec"]
     if not path.is_file():
@@ -478,20 +769,40 @@ def verify_symbolspec(root: Path | str,
     # is always None -> UNSUPPORTED_BROKER_DIFFERENCE -> silently ignored, and
     # a leg run on the WRONG symbol whose decision numerics coincide would pass
     # identity. A wrong symbol identity is decision-changing (STOP).
-    _FROZEN_TO_DOC = {"name": "symbol"}
+    # The exporter (mql5bot.broker_export/1) nests the symbol as an OBJECT
+    # whose name is `symbol.name`; a flat string is accepted too. Comparing
+    # the frozen name to the object could never match.
     _IDENTITY_FIELDS = {"name", "symbol"}
+    sym_obj = doc.get("symbol")
+    sym_name = (sym_obj.get("name") if isinstance(sym_obj, dict)
+                else sym_obj)
+    sym_path = (sym_obj.get("path") if isinstance(sym_obj, dict) else None)
+    custom = doc.get("custom_symbol") is True
+    identity["symbol"] = sym_name
+    report["field_bases"] = {}
+    scope = tuple(golds) if golds else GOLDS
     decision_changing = []
     for field, expected in frozen_expected.items():
-        actual = doc.get(_FROZEN_TO_DOC.get(field, field))
-        if actual is None:
+        actual = (sym_name if field in _IDENTITY_FIELDS
+                  else doc.get(field))
+        if field in _IDENTITY_FIELDS and custom:
+            cls, basis = _custom_identity_class(sym_name, sym_path, scope)
+            report["field_bases"][field] = basis
+        elif (field == "tick_value_profit" and custom
+              and actual is not None and actual != expected):
+            cls, basis = _custom_tick_value_class(
+                root, doc, sym_name, actual, expected, scope)
+            report["field_bases"][field] = basis
+        elif actual is None:
             cls = UNSUPPORTED_BROKER_DIFFERENCE
         elif actual == expected:
             cls = EXACT_MATCH
         elif field in _DECISION_FIELDS or field in _IDENTITY_FIELDS:
             cls = DECISION_CHANGING_MISMATCH
-            decision_changing.append(field)
         else:
             cls = SEMANTICALLY_COMPATIBLE
+        if cls == DECISION_CHANGING_MISMATCH:
+            decision_changing.append(field)
         report["field_classes"][field] = cls
 
     if decision_changing:
@@ -896,8 +1207,15 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
         report["reasons"].append(f"binding chain broken at: {broken}")
         return report
     fman = frozen.get(gold, {})
+    # source_commit: == the anchor, or S8-ANCHOR-REL-1's descendant relation
+    # (``frozen["relation_of"]``, bound to a repository by run_gate)
+    src_rel = None
+    if frozen.get("source_commit"):
+        src_rel = source_commit_relation(bindings.get("source_commit"),
+                                         frozen["source_commit"],
+                                         frozen.get("relation_of"))
+        report["source_commit_relation"] = src_rel
     cross = (
-        ("source_commit", frozen.get("source_commit")),
         ("fixture_sha256", fman.get("fixture_sha256")),
         ("config_hash", fman.get("config_hash")),
         ("dataset_hash", fman.get("dataset_hash_from_manifest")),
@@ -914,10 +1232,14 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
     )
     mism = [name for name, expected in cross
             if expected and str(bindings.get(name)) != str(expected)]
+    if src_rel is not None and not src_rel["accepted"]:
+        mism.insert(0, "source_commit")
     if mism:
         report["state"] = MISMATCHED
         report["reasons"].append(
-            f"bindings disagree with the frozen record: {mism}")
+            f"bindings disagree with the frozen record: {mism}"
+            + (f" (source_commit: {'; '.join(src_rel['reasons'])})"
+               if "source_commit" in mism and src_rel["reasons"] else ""))
         return report
 
     # the binding hashes must equal the ACTUAL bytes on disk — a
@@ -1310,10 +1632,15 @@ def classify_anchor_changes(changed_paths: list[str]) -> dict:
 # ---------------------------------------------------------------------------
 
 def run_gate(evidence_dir: Path | str, frozen_inputs: dict,
-             golds: tuple[str, ...] | list[str] = GOLDS) -> dict:
+             golds: tuple[str, ...] | list[str] = GOLDS,
+             repo: Path | str | None = None) -> dict:
     """Consume the owner directory; produce the machine-readable report
     and the explainable verdict. Never returns a positive verdict on
     missing, stale, wrong, partial or simulated evidence.
+
+    ``repo`` binds S8-ANCHOR-REL-1: a recorded source commit other than the
+    anchor is accepted only when anchor_relation() in that repository says
+    DESCENDANT_FROZEN_BYTES_IDENTICAL. Without it only HEAD == anchor is.
 
     ``golds`` scopes the verification (owner_gate.ps1 -Golds). A scoped run
     examines ONLY those golds; the others are OUT_OF_SCOPE (not missing, not
@@ -1349,7 +1676,16 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict,
                        if v["state"] == INVALID)
 
     frozen_source = frozen_inputs.get("source", {}).get("commit", "")
-    compile_rep = verify_compile(root, frozen_source)
+    relations: dict[str, dict] = {}
+
+    def relation_of(commit: str) -> dict:
+        if commit not in relations:
+            relations[commit] = anchor_relation(repo, frozen_source, commit,
+                                                frozen_inputs)
+        return relations[commit]
+
+    rel_fn = relation_of if repo is not None else None
+    compile_rep = verify_compile(root, frozen_source, rel_fn)
     spec_expected = frozen_inputs.get("symbolspec_expectations")
     spec_rep = verify_symbolspec(root, spec_expected if isinstance(
         spec_expected, dict) else None)
@@ -1369,6 +1705,7 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict,
     gold_reps = {
         g: verify_reconciliation(root, g, {
             "source_commit": frozen_source,
+            "relation_of": rel_fn,
             "gold1": frozen_inputs.get("gold_1", {}),
             "gold2": frozen_inputs.get("gold_2", {}),
         }, model_identities) for g in scope}
