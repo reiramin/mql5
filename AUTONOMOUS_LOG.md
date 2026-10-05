@@ -1315,3 +1315,22 @@ not exist. Not pushed, no PR opened: a PR without the exporter fix would
 not address gate_run32/33. Nothing ran on MT5; the exporter was never
 compiled here (no metaeditor64.exe on this host). Stage 3 stays FAIL;
 stage 5 is FAIL; stages 6-10 have never run.
+
+## 2026-10-05 (3) — branch `fix/exporter-wait-for-sync` — exporter edit applied (completes (2))
+
+**What changed since (2):** the owner applied the reviewed patch to
+`mql5/Scripts/Mql5Bot/Mql5BotExportSymbolSpec.mq5` themselves (byte-identical
+to the reviewed copy, checked with cmp). Committed as be78dad with the
+DECISIONS.md entry S3-SYNC-1, tests/test_exporter_wait_for_sync.py (7
+source pins), and the tests/test_mql5_sources.py S3 Sleep allow-list
+extended by exactly the exporter's two bounded Sleeps. That test first
+FAILED on the new Sleeps (as it should) before the allow-list was updated.
+
+**Exit codes (read):** ruff on python/ tests/ tools/ factory/ = 0; full
+pytest (-rfEX, pwsh on PATH) = 0 on the tree committed as be78dad.
+
+**NOT done, and why:** not compiled (no metaeditor64.exe on this host),
+so the strict-compile 0/0 proof is the owner's stage-1 gate. Never run on
+MT5, so whether the wait resolves the non-negative loss is unknown until a
+gate run. Not merged, as instructed. Stage 3 stays FAIL until a run says
+otherwise; stage 5 is FAIL; stages 6-10 have never run.
