@@ -1425,6 +1425,10 @@ def _export_time_utc(doc: dict) -> tuple[float | None, str | None, str]:
     return None, None, "timestamp"
 
 
+# the exporter's reason for both probes on a bars-only custom symbol
+PROBE_NOT_APPLICABLE_CUSTOM = "NOT_APPLICABLE_CUSTOM_SYMBOL_BARS_ONLY"
+
+
 def symbolspec_export_freshness(path: Path | str, symbol: str,
                                 run_start_utc: str,
                                 now_utc: str | None = None) -> dict:
@@ -1439,6 +1443,11 @@ def symbolspec_export_freshness(path: Path | str, symbol: str,
     * ``terminal_build`` is present and a positive integer;
     * the exported symbol (nested ``symbol.name``, else a flat string
       ``symbol``) is exactly ``symbol``.
+
+    ``probes``/``probe_note`` RECORD the margin and denomination probes'
+    ok/reason; they never add a reason (a custom symbol's
+    NOT_APPLICABLE_CUSTOM_SYMBOL_BARS_ONLY is recorded at stage 4, never a
+    failure).
     """
     import math
     from datetime import datetime, timezone
@@ -1496,6 +1505,22 @@ def symbolspec_export_freshness(path: Path | str, symbol: str,
         out["reasons"].append(f"{p}: exported symbol {name!r} != requested "
                               f"{symbol!r}")
     out["spread_points"] = doc.get("spread_points")
+    # probes are RECORDED, never judged here: a custom symbol's exporter
+    # writes both as {ok:false, reason:NOT_APPLICABLE_CUSTOM_SYMBOL_BARS_ONLY}
+    # (owner authorization 2026-10-05) -- stage 4 records that, never fails
+    # on it (stage 3 judges the broker symbol's probes, unchanged)
+    probes = {}
+    for name in ("margin_probe", "denomination_probe"):
+        pr = sym.get(name) if isinstance(sym, dict) else None
+        probes[name] = ({"ok": pr.get("ok"), "reason": pr.get("reason")}
+                        if isinstance(pr, dict) else None)
+    out["probes"] = probes
+    out["probe_note"] = "; ".join(
+        f"{name} " + ("absent" if pr is None else
+                      PROBE_NOT_APPLICABLE_CUSTOM + " (recorded, not a "
+                      "failure)" if pr["reason"] == PROBE_NOT_APPLICABLE_CUSTOM
+                      else f"ok={pr['ok']!r} reason={pr['reason']!r}")
+        for name, pr in probes.items())
     out["ok"] = not out["reasons"]
     return out
 
