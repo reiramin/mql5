@@ -2279,3 +2279,24 @@ def test_ps1_stage8_records_a_log_trade_source_in_every_verdict():
     fails = [ln for ln in body.splitlines()
              if 'Record-Stage 8 "reconciliation" "FAIL" ((' in ln]
     assert fails and all("$srcNote" in ln for ln in fails)
+
+
+def test_broker_in_scope_pending_quotes_failed_probe_only_for_in_scope():
+    report = {
+        "rows": [
+            {"symbol": "EURUSD", "field": "point", "status": "MATCH"},
+            {"symbol": "EURUSD", "field": "sizer.behaviour", "status": "PENDING"},
+            {"symbol": "BTCUSD", "field": "sizer.behaviour", "status": "PENDING"},
+        ],
+        "denomination_probes": {
+            "EURUSD": {"ok": False, "reason": "NOT_SYNCED_AFTER_60s",
+                       "last_error": 0, "attempts": 1, "waited_seconds": 60.25},
+            "BTCUSD": {"ok": False, "reason": "x", "last_error": 0},
+        },
+    }
+    r = gs.broker_parity_scope(report)
+    assert not r["ok"]
+    assert r["reasons"][-1] == (
+        'EURUSD denomination_probe: reason="NOT_SYNCED_AFTER_60s" '
+        'attempts=1 waited_seconds=60.25 last_error=0')
+    assert not any("BTCUSD denomination_probe" in x for x in r["reasons"])

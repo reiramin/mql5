@@ -233,6 +233,24 @@ def _is_crypto(symbol: str) -> bool:
     return any(mark in s for mark in _CRYPTO_MARKERS)
 
 
+def _failed_probe_quotes(report: dict, symbols: set) -> list[str]:
+    """Quote, verbatim, the exporter's failed denomination_probe facts for
+    the given in-scope symbols (parity_report.json `denomination_probes`).
+    Each value is rendered as its JSON text; a field the export did not
+    write reads `absent` - nothing is inferred."""
+    probes = report.get("denomination_probes") or {}
+    out: list[str] = []
+    for sym in sorted(symbols, key=str):
+        probe = probes.get(sym)
+        if not isinstance(probe, dict) or probe.get("ok") is True:
+            continue
+        parts = [f"{k}={json.dumps(probe[k]) if k in probe else 'absent'}"
+                 for k in ("reason", "attempts", "waited_seconds",
+                           "last_error")]
+        out.append(f"{sym} denomination_probe: " + " ".join(parts))
+    return out
+
+
 def broker_parity_scope(report: dict) -> dict:
     """Classify a parity_report.json into gate PASS / FAIL / excluded.
 
@@ -257,6 +275,8 @@ def broker_parity_scope(report: dict) -> dict:
     if pending_inscope:
         reasons.append("in-scope PENDING rows (not verified, not a pass): "
                        f"{pending_inscope}")
+        reasons += _failed_probe_quotes(
+            report, {s for s, _ in pending_inscope})
     if not matched and not mism:
         reasons.append("no MATCH rows - nothing was positively verified")
 
