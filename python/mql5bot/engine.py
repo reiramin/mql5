@@ -120,6 +120,7 @@ from .costs import (
     REASON_STOP_LOSS,
     REASON_TAKE_PROFIT,
     CostConfig,
+    ask_offset,
     commission_cash,
     entry_fill,
     exit_fill,
@@ -547,13 +548,21 @@ class PortfolioEngine:
             return round_to_tick(entry_fill(ln.o[bar], side,
                                             ln.costs.spread_at(bar),
                                             ln.costs.slippage_points,
-                                            ln.point), ln.spec)
+                                            ln.point,
+                                            ln.costs.price_basis), ln.spec)
 
         def fill_exit(ln: _Line, bar: int, side: int, price: float) -> float:
             return round_to_tick(exit_fill(price, side,
                                            ln.costs.spread_at(bar),
                                            ln.costs.slippage_points,
-                                           ln.point), ln.spec)
+                                           ln.point,
+                                           ln.costs.price_basis), ln.spec)
+
+        def close_quote_offset(ln: _Line, bar: int, side: int) -> float:
+            # S8-COST-1: under price_basis "bid" a short closes on the ask,
+            # so its stop/TP trigger and gap-fill on bid + spread (0 else)
+            return ask_offset(side, ln.costs.spread_at(bar), ln.point,
+                              ln.costs.price_basis)
 
         # -- PnL / accounting ---------------------------------------------
         def mark_books(bar: int) -> float:
@@ -963,12 +972,15 @@ class PortfolioEngine:
                 if b not in books:
                     continue
                 # intrabar stop first (conservative), then take-profit
-                hit_sl, fill_sl = stop_fill(ln.o[bar], ln.l[bar], ln.h[bar],
+                off = close_quote_offset(ln, bar, b.side)
+                hit_sl, fill_sl = stop_fill(ln.o[bar] + off, ln.l[bar] + off,
+                                            ln.h[bar] + off,
                                             b.side, b.sl, ln.costs, ln.point)
                 if hit_sl:
                     close_whole_book(b, bar, REASON_STOP_LOSS, fill_sl, b.sl)
                     continue
-                hit_tp, fill_tp = tp_fill(ln.o[bar], ln.l[bar], ln.h[bar],
+                hit_tp, fill_tp = tp_fill(ln.o[bar] + off, ln.l[bar] + off,
+                                          ln.h[bar] + off,
                                           b.side, b.tp, ln.costs, ln.point)
                 if hit_tp:
                     close_whole_book(b, bar, REASON_TAKE_PROFIT, fill_tp, b.tp)
@@ -994,11 +1006,13 @@ class PortfolioEngine:
                         close_whole_book(b, bar, REASON_TAKE_PROFIT, ln.o[bar],
                                          b.tp)
                 else:
-                    if ln.o[bar] >= b.sl:
-                        close_whole_book(b, bar, REASON_STOP_LOSS, ln.o[bar],
+                    # the short's closing quote (the ask under "bid")
+                    o_close = ln.o[bar] + close_quote_offset(ln, bar, b.side)
+                    if o_close >= b.sl:
+                        close_whole_book(b, bar, REASON_STOP_LOSS, o_close,
                                          b.sl)
-                    elif ln.o[bar] <= b.tp:
-                        close_whole_book(b, bar, REASON_TAKE_PROFIT, ln.o[bar],
+                    elif o_close <= b.tp:
+                        close_whole_book(b, bar, REASON_TAKE_PROFIT, o_close,
                                          b.tp)
 
         # -- day rollover ----------------------------------------------------

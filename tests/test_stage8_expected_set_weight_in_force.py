@@ -56,7 +56,11 @@ MODELS = ("every_tick", "m1_ohlc")
 
 @pytest.fixture(scope="module")
 def run29_both():
-    sd, note = s8p.expected_set_window_run(REPO, "gold2", START, END)
+    # price_basis "mid": the gate_run29 numbers pinned here were measured
+    # on the mid-convention window run (S8-COST-1 "bid" is in
+    # tests/test_s8_cost_bid_basis.py)
+    sd, note = s8p.expected_set_window_run(REPO, "gold2", START, END,
+                                           price_basis="mid")
     assert sd is not None, note
     py, _ = s8p.python_entries(EXPECTED, MANIFEST["timeframe"])
     mt5_by_model = {}

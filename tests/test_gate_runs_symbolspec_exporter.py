@@ -311,11 +311,14 @@ def test_package_takes_symbolspec_and_spread_from_the_custom_export(
         tmp_path):
     """build_package with BOTH exports: the slot holds the custom-symbol
     export (EURUSD.G2), and the build record + reconciliation name the file
-    and symbol; the broker export is not packaged."""
+    and symbol; the broker export is not packaged. The custom export has
+    gate_run34's shape -- live spread_points 0 -- and the fill model takes
+    its configured custom_fixed_spread_points, never the live 0."""
     from tests.test_stage8_package_from_gate import FLAT_EXPORT, _build
 
     broker = dict(FLAT_EXPORT, spread_points=0)
-    custom = dict(FLAT_EXPORT, spread_points=2,
+    custom = dict(FLAT_EXPORT, spread_points=0, custom_symbol=True,
+                  spread_float=False, custom_fixed_spread_points=1,
                   symbol={"name": "EURUSD.G2", "point": 1e-05})
     custom_file = tmp_path / "symbolspec_EURUSD.G2.json"
     custom_file.write_text(json.dumps(custom), encoding="utf-8")
@@ -333,9 +336,9 @@ def test_package_takes_symbolspec_and_spread_from_the_custom_export(
     assert in_pkg["symbolspec_source"] == src
     recon = json.loads((pkg / "reconciliation/gold2.json").read_text())
     fm = recon["fill_model"]
-    assert fm["inputs"]["spread_points"] == 2.0      # custom, not broker 0
+    assert fm["inputs"]["spread_points"] == 1.0   # fixed, never live 0
     assert fm["buy"] == \
-        "ask_open=bid+measured_spread(2 points, symbolspec export)"
+        "ask_open=bid+custom_fixed_spread(1 points, symbolspec export)"
     assert fm["spread_source"]["file"] == str(custom_file)
     assert fm["spread_source"]["symbol"] == "EURUSD.G2"
 

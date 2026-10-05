@@ -261,30 +261,34 @@ def test_flat_export_passes_the_unchanged_symbolspec_verifier(run_flat):
 
 
 def test_measured_spread_drives_the_fill_model_and_window_run(run_flat):
-    """The reconciliation's expected fill model uses the MEASURED spread
-    from the staged flat export (source named), and the window run's cost
-    uses the same measured value (note states it)."""
+    """The reconciliation's expected fill model uses the staged flat
+    export's spread (source named), and the window run's cost uses the same
+    value (note states it). This export is a CUSTOM symbol, so the value is
+    its configured custom_fixed_spread_points, never the live spread_points
+    (S8-SPEC-3 item 4)."""
     _, pkg, _ = run_flat
     recon = json.loads((pkg / "reconciliation/gold2.json").read_text())
     fm = recon["fill_model"]
     assert fm["buy"] == \
-        "ask_open=bid+measured_spread(2 points, symbolspec export)"
+        "ask_open=bid+custom_fixed_spread(2 points, symbolspec export)"
     assert fm["sell"] == "bid_open"
     assert fm["inputs"]["spread_points"] == 2.0
-    assert "measured_spread(2 points, symbolspec export)" in \
+    assert "custom_fixed_spread(2 points, symbolspec export)" in \
         fm["inputs_source"]
-    # the 08:46 buy: python = fixture open 1.09725 + 2 measured points
+    # the 08:46 buy: python = fixture open 1.09725 + 2 configured fixed points
     e46 = next(e for e in recon["events"]
                if e.get("pairing") == s8p.PAIRED_BY_TIME
                and e["time"] == "2024-01-02T08:46:00")
     assert e46["fields"]["entry_price"]["python"] == 1.09727
     assert e46["fill_model"] == \
-        "ask_open=bid+measured_spread(2 points, symbolspec export)"
+        "ask_open=bid+custom_fixed_spread(2 points, symbolspec export)"
     # window-basis volumes were sized on the same measured cost
     note = recon["expected_set"]["m1_ohlc"]["note"]
     assert "window-run entry cost spread_points 2" in note
-    assert "measured_spread(2 points, symbolspec export)" in note
-    assert "frozen trace reproduced (manifest cost)" in note
+    assert "custom_fixed_spread(2 points, symbolspec export)" in note
+    assert "frozen trace reproduced (manifest cost, price_basis 'mid')" \
+        in note
+    assert "price_basis 'bid'" in note
 
 
 def test_fallback_to_manifest_spread_is_stated(run26):
@@ -357,7 +361,10 @@ def test_reconciliation_pairs_by_time_never_by_position(run26):
     # cross-reference, never the compared set)
     count = recon["events"][-1]
     assert count["fields"]["entry_count:m1_ohlc"] == {"python": 37, "mt5": 2}
-    assert count["python_out_of_tested_window"]["m1_ohlc"] == 30
+    # 29 under the S8-COST-1 "bid" window run (30 under "mid"): the
+    # excluded 2024-01-04 day's exits/re-entries shift; the in-window set
+    # is the same 37 entries under both bases
+    assert count["python_out_of_tested_window"]["m1_ohlc"] == 29
     assert count["python_frozen_only_scheduled_weight"]["m1_ohlc"] == 21
 
 
@@ -367,10 +374,11 @@ def test_out_of_window_and_frozen_only_rows_are_never_divergences(run26):
     out = [e for e in recon["events"]
            if e.get("pairing") == s8p.OUT_OF_TESTED_WINDOW]
     # S8-WEIGHT-1: the expected set is the weight-1.0 window run, flat
-    # before the measured start -- nothing can fill before it. Its 30
-    # 2024-01-04 entries (the ToDate day; MT5 ToDate is exclusive) are
-    # OUT per model, recorded uncompared
-    assert len(out) == 60
+    # before the measured start -- nothing can fill before it. Its 29
+    # 2024-01-04 entries (the ToDate day; MT5 ToDate is exclusive; 30
+    # under the "mid" basis, see S8-COST-1) are OUT per model, recorded
+    # uncompared
+    assert len(out) == 58
     for e in out:
         assert e["python_fill_time"] >= "2024-01-04T00:00:00"
         assert e["mt5_window_end"] == "2024-01-04T00:00:00"
@@ -656,16 +664,18 @@ def test_first_divergence_is_surfaced_on_a_fail(run26, tmp_path):
     assert trade["trade_index"] == 1
     assert trade["classification"] == og.EXECUTION_MISMATCH
     # the package's source_commit is the gate HEAD; the verifier binds it
-    # only when it EQUALS the frozen anchor. Any other HEAD (every commit
-    # after the anchor, incl. the re-anchor commit itself) leaves the
-    # divergence OBSERVED, never binding-verified; at the anchor commit the
-    # chain verifies. Both branches are pinned exactly.
+    # when it EQUALS the frozen anchor or, S8-ANCHOR-REL-1, when HEAD
+    # descends from the anchor with every frozen file byte-identical (the
+    # verifier recomputes that relation itself). Anything else leaves the
+    # divergence OBSERVED, never binding-verified.
     frozen = json.loads((REPO / "artifacts" / "owner_mt5_gate"
                          / "frozen_inputs.json").read_text(encoding="utf-8"))
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO,
                           capture_output=True, text=True,
                           check=True).stdout.strip()
-    at_anchor = head == frozen["source"]["commit"]
+    rel = og.anchor_relation(REPO, frozen["source"]["commit"], head, frozen)
+    at_anchor = rel["relation"] in (og.ANCHOR_RELATION_EXACT,
+                                    og.ANCHOR_RELATION_DESCENDANT)
     assert trade["binding_verified"] is at_anchor
     note = s8p.divergence_note(rep, ["gold2"])
     assert "first per-trade divergence: field 'entry_price'" in note

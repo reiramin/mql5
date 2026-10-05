@@ -36,6 +36,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from mql5bot import owner_gate as og
+
 try:  # reuse the closed taxonomy; avoid duplicating it
     from mql5bot.owner_gate import classify_field
 except ImportError:  # pragma: no cover - owner_gate always importable in-repo
@@ -763,22 +765,8 @@ def verify_frozen_hashes(repo: Path | str, frozen: dict) -> dict:
         elif sha256_file(p) != want:
             bad.append(f"{label}: {rel} sha256 != frozen pin")
 
-    g1 = frozen.get("gold_1", {})
-    check("artifacts/gold/gold_fixture.csv", g1.get("fixture_sha256", ""),
-          "gold_1 fixture")
-    check("artifacts/gold/manifest.json", g1.get("manifest_sha256", ""),
-          "gold_1 manifest")
-    check("artifacts/gold/expected_execution.json",
-          g1.get("expected_execution_sha256", ""), "gold_1 expected")
-    g2 = frozen.get("gold_2", {})
-    check("artifacts/gold_2/gold2_fixture.csv", g2.get("fixture_sha256", ""),
-          "gold_2 fixture")
-    check("artifacts/gold_2/manifest.json", g2.get("manifest_sha256", ""),
-          "gold_2 manifest")
-    check("artifacts/gold_2/expected_execution.json",
-          g2.get("expected_execution_sha256", ""), "gold_2 expected")
-    for fn, want in (g2.get("artifact_hash_chain") or {}).items():
-        check(f"artifacts/gold_2/{fn}", want, f"gold_2 chain {fn}")
+    for rel, want, label in og.frozen_file_pins(frozen):
+        check(rel, want, label)
 
     if bad:
         return {"ok": False, "reason": SELF_PROTECT_FROZEN_HASH_MISMATCH,
