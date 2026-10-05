@@ -405,8 +405,10 @@ def anchor_relation(repo: Path | str, anchor: str, commit: str,
 
     * the anchor is an ancestor of the commit (git merge-base --is-ancestor);
     * every file hash frozen_inputs.json lists equals the sha256 of that
-      file's bytes AT the commit (git show <commit>:<path>), recomputed here
-      -- never a builder's boolean.
+      file's bytes AT the commit (git show <commit>:<path>) AND at the
+      anchor (git show <anchor>:<path>), recomputed here -- never a
+      builder's boolean. The anchor check refuses a descendant that
+      changed an artifact and its pin together.
 
     ``runner(args) -> CompletedProcess`` replaces git in tests. Returns
     {"relation": str|None, "reasons": [...], "frozen_files": {...}}."""
@@ -444,13 +446,25 @@ def anchor_relation(repo: Path | str, anchor: str, commit: str,
     pins = frozen_file_pins(frozen_inputs)
     if not pins:
         why.append("frozen_inputs.json lists no file hash to compare")
-    for rel, want, label in pins:
-        cp = git(["show", f"{commit}:{rel}"], text=False)
+    def sha_at(ref: str, rel: str) -> str | None:
+        cp = git(["show", f"{ref}:{rel}"], text=False)
         data = cp.stdout if cp.returncode == 0 else None
         if isinstance(data, str):
             data = data.encode()
-        got = hashlib.sha256(data).hexdigest() if data is not None else None
-        out["frozen_files"][rel] = {"pin": want, "at_commit": got}
+        return hashlib.sha256(data).hexdigest() if data is not None else None
+
+    # every pin must hold at the ANCHOR as well as at the commit: the pins
+    # are read from the frozen record at HEAD, so a descendant that changed
+    # an artifact AND its pin together would otherwise pass
+    for rel, want, label in pins:
+        at_anchor, got = sha_at(anchor, rel), sha_at(commit, rel)
+        out["frozen_files"][rel] = {"pin": want, "at_anchor": at_anchor,
+                                    "at_commit": got}
+        if at_anchor is None:
+            why.append(f"{label}: {rel} absent at the anchor {anchor}")
+        elif at_anchor != want.lower():
+            why.append(f"{label}: {rel} sha256 at the anchor {anchor} != "
+                       "frozen pin (the pin does not hold at the anchor)")
         if got is None:
             why.append(f"{label}: {rel} absent at {commit}")
         elif got != want.lower():

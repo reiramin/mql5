@@ -3591,7 +3591,12 @@ hold:
   frozen_file_pins`: both golds' fixture, manifest and
   expected_execution, plus gold_2's artifact_hash_chain) equals the
   sha256 that the verifier recomputes from that file's bytes AT the
-  recorded commit (`git show <commit>:<path>`).
+  recorded commit (`git show <commit>:<path>`) AND at the anchor
+  (`git show <anchor>:<path>`). The pins are read from the frozen record
+  at HEAD, so without the anchor check a descendant that changed an
+  artifact AND its pin together would pass (owner review of PR #28). A
+  pin that does not hold at the anchor yields relation None, with the
+  reason stated.
 
 It never trusts a builder boolean. The relation is recorded as
 `DESCENDANT_FROZEN_BYTES_IDENTICAL` in `source_commit_relation`, with
@@ -3601,7 +3606,8 @@ It is refused when:
 - the recorded commit is not a full 40-hex SHA, or is absent from the
   repository;
 - the recorded commit is older than the anchor, or diverged from it;
-- any frozen byte differs at the commit;
+- any frozen byte differs at the commit, or a pin does not hold at the
+  anchor (an artifact re-pinned together with its change);
 - no repository is bound (then only equality is accepted).
 
 A working-tree edit cannot launder a committed change. Stage 0

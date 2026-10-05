@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -328,7 +329,7 @@ def test_descendant_with_identical_frozen_bytes_is_accepted(anchored):
     rel = og.anchor_relation(repo, anchor, head, frozen)
     assert rel["relation"] == og.ANCHOR_RELATION_DESCENDANT, rel["reasons"]
     assert len(rel["frozen_files"]) == 4
-    assert all(v["pin"] == v["at_commit"]
+    assert all(v["pin"] == v["at_commit"] == v["at_anchor"]
                for v in rel["frozen_files"].values())
     acc = og.source_commit_relation(
         head, anchor, lambda c: og.anchor_relation(repo, anchor, c, frozen))
@@ -344,6 +345,40 @@ def test_descendant_that_changed_a_frozen_file_is_refused(anchored):
     rel = og.anchor_relation(repo, anchor, head, frozen)
     assert rel["relation"] is None
     assert any("reconciliation.json sha256" in r for r in rel["reasons"])
+
+
+def test_artifact_and_its_pin_changed_together_is_refused(anchored):
+    """A descendant that edits a frozen artifact AND frozen_inputs.json's
+    pin for it (so pin == bytes at the commit) is refused: the new pin does
+    not hold at the anchor."""
+    repo, anchor, _, frozen = anchored
+    rel = "artifacts/gold_2/reconciliation.json"
+    (repo / rel).write_text("[1]\n")
+    new_pin = hashlib.sha256((repo / rel).read_bytes()).hexdigest()
+    repinned = json.loads(json.dumps(frozen))
+    repinned["gold_2"]["artifact_hash_chain"]["reconciliation.json"] = new_pin
+    (repo / "frozen_inputs.json").write_text(json.dumps(repinned))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "edit a frozen file and re-pin it")
+    head = _git(repo, "rev-parse", "HEAD")
+    out = og.anchor_relation(repo, anchor, head, repinned)
+    assert out["relation"] is None
+    assert out["frozen_files"][rel]["at_commit"] == new_pin
+    assert out["frozen_files"][rel]["at_anchor"] != new_pin
+    assert any("does not hold at the anchor" in r for r in out["reasons"])
+    assert not any(f"sha256 at {head}" in r for r in out["reasons"])
+
+
+def test_gold_tester_symbols_match_the_gate_imports():
+    """owner_gate.GOLD_TESTER_SYMBOLS == the custom-symbol names
+    tools/owner_gate.ps1 declares in $goldImports (parsed)."""
+    ps1 = (REPO / "tools" / "owner_gate.ps1").read_text(encoding="utf-8")
+    i = ps1.index("$goldImports = @(")
+    block = ps1[i:ps1.index("\n)", i)]
+    found = dict(re.findall(
+        r'@\{\s*gold\s*=\s*"(gold\d)";\s*name\s*=\s*"([^"]+)"', block))
+    assert found == og.GOLD_TESTER_SYMBOLS
+    assert found == {"gold1": "EURUSD.G1", "gold2": "EURUSD.G2"}
 
 
 def test_working_tree_bytes_are_not_what_is_judged(anchored):
