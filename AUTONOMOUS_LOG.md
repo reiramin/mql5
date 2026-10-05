@@ -1334,3 +1334,38 @@ so the strict-compile 0/0 proof is the owner's stage-1 gate. Never run on
 MT5, so whether the wait resolves the non-negative loss is unknown until a
 gate run. Not merged, as instructed. Stage 3 stays FAIL until a run says
 otherwise; stage 5 is FAIL; stages 6-10 have never run.
+
+## 2026-10-05 (4) — branch `fix/s8-spec-identity-and-cost` — PR-A of the gate_run34 follow-ups
+
+**Commits:** fd71df1 (code + tests + DECISIONS S8-SPEC-3, S8-COST-1,
+S8-ANCHOR-REL-1 implemented). The branch is based on master a17aed7.
+
+**What was done (python only):**
+- verify_symbolspec now reads the nested `symbol.name`. Before, the frozen
+  name was compared to a dict and could never match.
+- S8-SPEC-3 custom-symbol identity, and the two-witness derived
+  tick_value_profit.
+- The package carries `symbolspec/import_<gold>.json` and
+  `tester/<gold>_<model>.ini`, bound by archive_manifest.
+- Custom-symbol fill spread = custom_fixed_spread_points, else the
+  manifest value with the reason stated.
+- compile TERMINAL_BUILD comes from the same-run export.
+- S8-ANCHOR-REL-1 is implemented in the verifier, which recomputes the
+  frozen hashes at the recorded commit via git.
+- CostConfig.price_basis "bid" is used only in the stage-8 window run.
+
+**Exit codes (read):** ruff on python/ tests/ tools/ factory/ = 0. Full
+pytest (-rfEX) = 0 on the committed tree: 2408 passed, 1 skipped, counted
+from the progress output.
+
+**Measured, not a gate run.** These come from the gate_run29 log trade
+lists. Window-run spread 2: volume equal mid 11/37, bid 37/37 (m1_ohlc)
+and 25/37 (every_tick). Window-run spread 1: mid 14/37, bid 17-18/37.
+entry_price, side and pairing are unchanged.
+
+**NOT done, and why:**
+- Not merged: the owner reviews first.
+- fast_engine is unchanged and has no parity test: it is not on the
+  stage-8 window-run path.
+- Never run on MT5. The owner's gate_run34 analysis reports stage 8 FAIL;
+  nothing here changes safety 8a-8d, which stay MISSING.

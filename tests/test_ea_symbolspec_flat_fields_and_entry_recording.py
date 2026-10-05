@@ -159,9 +159,12 @@ def test_the_new_helpers_touch_no_trading_path():
 def measured_events():
     fill, _ = s8p.fill_spec_of(MANIFEST, MEASURED_SPREAD)
     assert fill["spread_points"] == 2.0
+    # price_basis "mid": the S8-SPEC-2 measurement below was taken on the
+    # mid-convention window run; the S8-COST-1 "bid" run is measured in
+    # tests/test_s8_cost_bid_basis.py
     sd, note = s8p.expected_set_window_run(
         REPO, "gold2", START, END, spread_points=2.0,
-        spread_source=fill["spread_source"])
+        spread_source=fill["spread_source"], price_basis="mid")
     assert sd is not None, note
     py, _ = s8p.python_entries(EXPECTED, MANIFEST["timeframe"])
     mt5 = {}
