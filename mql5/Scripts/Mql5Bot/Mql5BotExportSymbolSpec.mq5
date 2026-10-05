@@ -18,6 +18,19 @@
 input string InpExportDir = "Mql5Bot\\broker_exports\\"; // relative to MQL5\Files
 input int InpDenomProbeTicks = 100; // optional OrderCalcProfit denomination witness
 
+//--- Readiness bound before any probe and witness retry bound.  gate_run32
+//--- and gate_run33 (headless [StartUp] Script= launch, the script runs
+//--- right after terminal start) both wrote denomination_probe
+//--- "BUY OrderCalcProfit returned non-negative loss" with last_error 0:
+//--- quotes were present but the EUR-account / USD-profit conversion data
+//--- OrderCalcProfit needs was not yet synced.  The passing 2026-09-15
+//--- export was run by hand on a long-open chart.
+#define EXPORT_SYNC_WAIT_MS 60000  // bounded readiness wait (60 s)
+#define EXPORT_SYNC_STEP_MS 500    // readiness poll step
+#define DENOM_RETRY_MAX     10     // OrderCalcProfit witness attempts
+#define DENOM_RETRY_STEP_MS 1000   // pause between witness attempts
+#define DENOM_NONNEG_LOSS   "BUY OrderCalcProfit returned non-negative loss"
+
 //--- JSON string escaping (generic) ---------------------------------------
 // Every string written into the export document passes through here, so a
 // broker-supplied value can never break the document: SYMBOL_PATH, the
@@ -68,9 +81,45 @@ string JsonIso8601(datetime t)
                        dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec);
   }
 
+//--- "" when every readiness condition holds, else the first unmet one
+string SymbolReadiness(const string sym)
+  {
+   if(TerminalInfoInteger(TERMINAL_CONNECTED) == 0)
+      return "terminal not connected";
+   if(!SymbolIsSynchronized(sym))
+      return "symbol not synchronized";
+   MqlTick tick;
+   if(!SymbolInfoTick(sym, tick) || !(tick.bid > 0.0 && tick.ask > 0.0))
+      return "no tick with bid>0 && ask>0";
+   if(!(SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_VALUE) > 0.0))
+      return "SYMBOL_TRADE_TICK_VALUE not > 0";
+   return "";
+  }
+
+//--- select the symbol, then poll readiness until it holds or the bound
+//--- (EXPORT_SYNC_WAIT_MS) runs out; returns the last unmet condition
+string WaitForSymbolReady(const string sym)
+  {
+   SymbolSelect(sym, true);
+   ulong start = GetTickCount64();
+   string unmet = SymbolReadiness(sym);
+   while(unmet != "" && !IsStopped()
+         && GetTickCount64() - start < (ulong)EXPORT_SYNC_WAIT_MS)
+     {
+      Sleep(EXPORT_SYNC_STEP_MS);
+      unmet = SymbolReadiness(sym);
+     }
+   return unmet;
+  }
+
 void Main()
   {
    string sym = _Symbol;
+   ulong exportStartMs = GetTickCount64();
+
+   //--- readiness BEFORE any probe (margin and denomination alike)
+   string syncUnmet = WaitForSymbolReady(sym);
+   bool synced = (syncUnmet == "");
 
    double bid = SymbolInfoDouble(sym, SYMBOL_BID);
    double ask = SymbolInfoDouble(sym, SYMBOL_ASK);
@@ -103,75 +152,100 @@ void Main()
    double sellGainProfit = 0.0;
    double tickValueLossAtProbe = 0.0;
    double tickValueProfitAtProbe = 0.0;
+   double tickValueAtProbe = 0.0;
    double denomBid = bid;
    double denomAsk = ask;
-   ResetLastError();
-   if(probeTicks > 0.0 && probeTickSize > 0.0 && denomBid > 0.0 && denomAsk > 0.0)
+   int denomAttempts = 0;
+   //--- The witness is retried (bounded) ONLY while it returns a
+   //--- non-negative BUY loss -- the unsynced-conversion symptom.  Every
+   //--- other outcome is final on the attempt that produced it.
+   for(int attempt = 1; attempt <= DENOM_RETRY_MAX; attempt++)
      {
-      probeMove = probeTicks * probeTickSize;
-      // Re-read both tick values at the same probe moment as the witness.
+      if(attempt > 1)
+         Sleep(DENOM_RETRY_STEP_MS);
+      denomAttempts = attempt;
+      denomOk = false;
+      buyLossProfit = 0.0;
+      sellGainProfit = 0.0;
+      //--- Observe quote and tick values at this attempt, the same probe
+      //--- moment as the witness; written to the JSON whatever the outcome.
+      denomBid = SymbolInfoDouble(sym, SYMBOL_BID);
+      denomAsk = SymbolInfoDouble(sym, SYMBOL_ASK);
       tickValueLossAtProbe = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_VALUE_LOSS);
       tickValueProfitAtProbe = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_VALUE_PROFIT);
-      if(!MathIsValidNumber(probeTicks) || !MathIsValidNumber(probeTickSize)
-         || !MathIsValidNumber(denomBid) || !MathIsValidNumber(denomAsk)
-         || !MathIsValidNumber(probeMove) || probeMove <= 0.0
-         || !MathIsValidNumber(tickValueLossAtProbe)
-         || !MathIsValidNumber(tickValueProfitAtProbe)
-         || tickValueLossAtProbe < 0.0 || tickValueProfitAtProbe < 0.0)
+      tickValueAtProbe = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_VALUE);
+      ResetLastError();
+      if(probeTicks > 0.0 && probeTickSize > 0.0 && denomBid > 0.0 && denomAsk > 0.0)
         {
-         denomReason = "invalid denomination probe numeric inputs";
-         denomLastError = GetLastError();
-        }
-      else
-        {
-         ResetLastError();
-         bool buyOk = OrderCalcProfit(ORDER_TYPE_BUY, sym, 1.0, denomAsk,
-                                      denomAsk - probeMove, buyLossProfit);
-         denomLastError = GetLastError();
-         if(!buyOk)
+         probeMove = probeTicks * probeTickSize;
+         if(!MathIsValidNumber(probeTicks) || !MathIsValidNumber(probeTickSize)
+            || !MathIsValidNumber(denomBid) || !MathIsValidNumber(denomAsk)
+            || !MathIsValidNumber(probeMove) || probeMove <= 0.0
+            || !MathIsValidNumber(tickValueLossAtProbe)
+            || !MathIsValidNumber(tickValueProfitAtProbe)
+            || tickValueLossAtProbe < 0.0 || tickValueProfitAtProbe < 0.0)
            {
-            denomReason = "BUY OrderCalcProfit failed";
-           }
-         else if(!MathIsValidNumber(buyLossProfit))
-           {
-            denomReason = "BUY OrderCalcProfit returned invalid profit";
-           }
-         else if(buyLossProfit >= 0.0)
-           {
-            denomReason = "BUY OrderCalcProfit returned non-negative loss";
+            denomReason = "invalid denomination probe numeric inputs";
+            denomLastError = GetLastError();
            }
          else
            {
             ResetLastError();
-            bool sellOk = OrderCalcProfit(ORDER_TYPE_SELL, sym, 1.0, denomBid,
-                                          denomBid - probeMove, sellGainProfit);
+            bool buyOk = OrderCalcProfit(ORDER_TYPE_BUY, sym, 1.0, denomAsk,
+                                         denomAsk - probeMove, buyLossProfit);
             denomLastError = GetLastError();
-            if(!sellOk)
+            if(!buyOk)
               {
-               denomReason = "SELL OrderCalcProfit failed";
+               denomReason = "BUY OrderCalcProfit failed";
               }
-            else if(!MathIsValidNumber(sellGainProfit))
+            else if(!MathIsValidNumber(buyLossProfit))
               {
-               denomReason = "SELL OrderCalcProfit returned invalid profit";
+               denomReason = "BUY OrderCalcProfit returned invalid profit";
               }
-            else if(sellGainProfit <= 0.0)
+            else if(buyLossProfit >= 0.0)
               {
-               denomReason = "SELL OrderCalcProfit returned non-positive gain";
+               denomReason = DENOM_NONNEG_LOSS;
               }
             else
               {
-               denomOk = buyOk && sellOk && buyLossProfit < 0.0
-                         && sellGainProfit > 0.0;
-               denomReason = denomOk ? "" : "denomination probe success conditions failed";
+               ResetLastError();
+               bool sellOk = OrderCalcProfit(ORDER_TYPE_SELL, sym, 1.0, denomBid,
+                                             denomBid - probeMove, sellGainProfit);
+               denomLastError = GetLastError();
+               if(!sellOk)
+                 {
+                  denomReason = "SELL OrderCalcProfit failed";
+                 }
+               else if(!MathIsValidNumber(sellGainProfit))
+                 {
+                  denomReason = "SELL OrderCalcProfit returned invalid profit";
+                 }
+               else if(sellGainProfit <= 0.0)
+                 {
+                  denomReason = "SELL OrderCalcProfit returned non-positive gain";
+                 }
+               else
+                 {
+                  denomOk = buyOk && sellOk && buyLossProfit < 0.0
+                            && sellGainProfit > 0.0;
+                  denomReason = denomOk ? "" : "denomination probe success conditions failed";
+                 }
               }
            }
         }
+      else
+        {
+         denomReason = "invalid denomination probe inputs or quote";
+         denomLastError = GetLastError();
+        }
+      if(denomReason != DENOM_NONNEG_LOSS || IsStopped())
+         break;
      }
-   else
-     {
-      denomReason = "invalid denomination probe inputs or quote";
-      denomLastError = GetLastError();
-     }
+   //--- A failed witness after a readiness wait that ran out is named for
+   //--- the readiness failure; sync_unmet below says which condition.
+   if(!denomOk && !synced)
+      denomReason = StringFormat("NOT_SYNCED_AFTER_%ds", EXPORT_SYNC_WAIT_MS / 1000);
+   double waitedSeconds = (double)(GetTickCount64() - exportStartMs) / 1000.0;
 
    string j = "{\n";
    j += "  " + JsonQuote("schema") + ": " + JsonQuote("mql5bot.broker_export/1") + ",\n";
@@ -262,16 +336,23 @@ void Main()
    j += "      " + JsonQuote("currency_profit") + ": " + JsonQuote(SymbolInfoString(sym, SYMBOL_CURRENCY_PROFIT)) + ",\n";
    j += "      " + JsonQuote("currency_margin") + ": " + JsonQuote(SymbolInfoString(sym, SYMBOL_CURRENCY_MARGIN)) + ",\n";
    j += "      " + JsonQuote("currency_base") + ": " + JsonQuote(SymbolInfoString(sym, SYMBOL_CURRENCY_BASE)) + ",\n";
-   j += "      " + JsonQuote("bid") + ": " + (denomOk ? DoubleToString(denomBid, 12) : "null") + ",\n";
-   j += "      " + JsonQuote("ask") + ": " + (denomOk ? DoubleToString(denomAsk, 12) : "null") + ",\n";
+   //--- bid/ask/tick values: the values OBSERVED at the last attempt,
+   //--- written whatever the outcome (never nulled on failure)
+   j += "      " + JsonQuote("bid") + ": " + DoubleToString(denomBid, 12) + ",\n";
+   j += "      " + JsonQuote("ask") + ": " + DoubleToString(denomAsk, 12) + ",\n";
    j += "      " + JsonQuote("tick_size_at_probe") + ": " + (denomOk ? DoubleToString(probeTickSize, 12) : "null") + ",\n";
    j += "      " + JsonQuote("probe_ticks") + ": " + (denomOk ? DoubleToString(probeTicks, 0) : "null") + ",\n";
    j += "      " + JsonQuote("lot_size") + ": " + (denomOk ? "1.0" : "null") + ",\n";
    j += "      " + JsonQuote("move") + ": " + (denomOk ? DoubleToString(probeMove, 12) : "null") + ",\n";
    j += "      " + JsonQuote("buy_loss_profit") + ": " + (denomOk ? DoubleToString(buyLossProfit, 12) : "null") + ",\n";
    j += "      " + JsonQuote("sell_gain_profit") + ": " + (denomOk ? DoubleToString(sellGainProfit, 12) : "null") + ",\n";
-   j += "      " + JsonQuote("tick_value_loss_at_probe") + ": " + (denomOk ? DoubleToString(tickValueLossAtProbe, 12) : "null") + ",\n";
-   j += "      " + JsonQuote("tick_value_profit_at_probe") + ": " + (denomOk ? DoubleToString(tickValueProfitAtProbe, 12) : "null") + "\n";
+   j += "      " + JsonQuote("tick_value_loss_at_probe") + ": " + DoubleToString(tickValueLossAtProbe, 12) + ",\n";
+   j += "      " + JsonQuote("tick_value_profit_at_probe") + ": " + DoubleToString(tickValueProfitAtProbe, 12) + ",\n";
+   j += "      " + JsonQuote("tick_value_at_probe") + ": " + DoubleToString(tickValueAtProbe, 12) + ",\n";
+   j += "      " + JsonQuote("attempts") + ": " + IntegerToString(denomAttempts) + ",\n";
+   j += "      " + JsonQuote("waited_seconds") + ": " + DoubleToString(waitedSeconds, 3) + ",\n";
+   j += "      " + JsonQuote("synced") + ": " + (synced ? "true" : "false") + ",\n";
+   j += "      " + JsonQuote("sync_unmet") + ": " + JsonQuote(syncUnmet) + "\n";
    j += "    }\n";
    j += "  }\n}\n";
 

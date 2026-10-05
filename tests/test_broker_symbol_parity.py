@@ -1169,3 +1169,90 @@ def test_the_classifier_has_no_class_stealing_if_elif_chain():
         "asset-class coverage must be decided by independent checks, not by an "
         "if/elif chain where the first matching rule consumes the symbol "
         "(that is how Metals\\XAUEUR was counted as FX): " + "; ".join(offenders))
+
+
+# ---------------------------------------------------------------------------
+# stage 3 FAIL text quotes the exporter's failed probe verbatim
+# (gate_run32 / gate_run33: denomination_probe ok:false, "BUY OrderCalcProfit
+# returned non-negative loss", last_error 0 -- and the stage verdict only
+# said "in-scope PENDING rows", never why)
+# ---------------------------------------------------------------------------
+
+
+def _failed_probe(**over):
+    probe = {
+        "ok": False, "reason": "NOT_SYNCED_AFTER_60s", "last_error": 0,
+        "source": "OrderCalcProfit", "calc_mode": 0,
+        "account_leverage": 100.0, "account_currency": "EUR",
+        "currency_profit": "USD", "currency_margin": "EUR", "currency_base": "EUR",
+        "bid": 1.17012, "ask": 1.17014, "tick_size_at_probe": None,
+        "probe_ticks": None, "lot_size": None, "move": None,
+        "buy_loss_profit": None, "sell_gain_profit": None,
+        "tick_value_loss_at_probe": 0.0, "tick_value_profit_at_probe": 0.0,
+        "tick_value_at_probe": 0.0, "attempts": 10, "waited_seconds": 70.512,
+        "synced": False, "sync_unmet": "SYMBOL_TRADE_TICK_VALUE not > 0",
+    }
+    probe.update(over)
+    return probe
+
+
+def _run_parity_and_scope(tmp_path, monkeypatch, probe):
+    from broker_symbol_parity import main
+    from mql5bot import gate_selfcheck as gs
+
+    exports = tmp_path / "exports"
+    exports.mkdir()
+    _synthetic_export(exports, denomination_probe=probe)
+    out = tmp_path / "parity_report.json"
+    monkeypatch.setattr(sys, "argv", [
+        "broker_symbol_parity", "--exports", str(exports), "--out-json", str(out)])
+    main()
+    report = json.loads(out.read_text(encoding="utf-8"))
+    return report, gs.broker_parity_scope(report)
+
+
+def test_parity_report_carries_the_probe_facts_as_written(tmp_path, monkeypatch):
+    report, _ = _run_parity_and_scope(tmp_path, monkeypatch, _failed_probe())
+    assert report["denomination_probes"] == {"EURUSD": {
+        "ok": False, "reason": "NOT_SYNCED_AFTER_60s", "last_error": 0,
+        "attempts": 10, "waited_seconds": 70.512}}
+
+
+def test_stage3_fail_text_quotes_reason_attempts_waited_seconds(tmp_path, monkeypatch):
+    _, scope = _run_parity_and_scope(tmp_path, monkeypatch, _failed_probe())
+    assert not scope["ok"]
+    assert ["EURUSD", "sizer.behaviour"] in [list(x) for x in scope["pending_in_scope"]]
+    assert ('EURUSD denomination_probe: reason="NOT_SYNCED_AFTER_60s" '
+            'attempts=10 waited_seconds=70.512 last_error=0') in scope["reasons"]
+
+
+def test_stage3_fail_text_quotes_last_ordercalcprofit_reason(tmp_path, monkeypatch):
+    probe = _failed_probe(reason="BUY OrderCalcProfit returned non-negative loss",
+                          synced=True, sync_unmet="", waited_seconds=12.004)
+    _, scope = _run_parity_and_scope(tmp_path, monkeypatch, probe)
+    assert ('EURUSD denomination_probe: reason="BUY OrderCalcProfit returned '
+            'non-negative loss" attempts=10 waited_seconds=12.004 last_error=0'
+            ) in scope["reasons"]
+
+
+def test_older_export_without_attempts_reads_absent_not_invented(tmp_path, monkeypatch):
+    """The gate_run33 export shape (pre-wait exporter): no attempts, no
+    waited_seconds, bid/ask null. Quoted as absent, never filled in."""
+    probe = _failed_probe(reason="BUY OrderCalcProfit returned non-negative loss",
+                          bid=None, ask=None, tick_value_loss_at_probe=None,
+                          tick_value_profit_at_probe=None)
+    for k in ("attempts", "waited_seconds", "tick_value_at_probe", "synced",
+              "sync_unmet"):
+        del probe[k]
+    _, scope = _run_parity_and_scope(tmp_path, monkeypatch, probe)
+    assert ('EURUSD denomination_probe: reason="BUY OrderCalcProfit returned '
+            'non-negative loss" attempts=absent waited_seconds=absent '
+            'last_error=0') in scope["reasons"]
+
+
+def test_passing_probe_adds_no_probe_quote(tmp_path, monkeypatch):
+    report, scope = _run_parity_and_scope(
+        tmp_path, monkeypatch,
+        _synthetic_export(tmp_path)["symbol"]["denomination_probe"])
+    assert report["denomination_probes"]["EURUSD"]["ok"] is True
+    assert not any("denomination_probe:" in r for r in scope["reasons"])

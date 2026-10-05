@@ -261,6 +261,28 @@ def assess_tick_value_denomination(doc: dict) -> dict[str, object]:
     return base
 
 
+#: denomination_probe facts carried verbatim into parity_report.json so the
+#: gate's stage-3 FAIL text can quote them (gate_run32/33: the probe reason
+#: never reached the stage verdict). attempts / waited_seconds come from the
+#: readiness-waiting exporter; an export without them simply lacks the key.
+DENOMINATION_PROBE_QUOTED = ("ok", "reason", "last_error", "attempts",
+                             "waited_seconds")
+
+
+def denomination_probe_summary(exports: list[dict]) -> dict[str, dict]:
+    """Per exported symbol, the probe's own fields copied as-is (never
+    re-derived); a field the export lacks is left out."""
+    out: dict[str, dict] = {}
+    for doc in exports:
+        sym = doc.get("symbol", {})
+        probe = sym.get("denomination_probe")
+        if not isinstance(probe, dict):
+            continue
+        out[str(sym.get("name", "<unknown>"))] = {
+            k: probe[k] for k in DENOMINATION_PROBE_QUOTED if k in probe}
+    return out
+
+
 def tick_value_denomination(doc: dict) -> str:
     """Return the conservative per-symbol denomination verdict."""
     return str(assess_tick_value_denomination(doc)["verdict"])
@@ -549,6 +571,7 @@ def main() -> int:
         out.write_text(json.dumps({
             "n_exports": len(exports), "coverage": coverage,
             "rows": [r.__dict__ for r in rows],
+            "denomination_probes": denomination_probe_summary(exports),
         }, indent=2), encoding="utf-8")
     # FAIL CLOSED on the exit code (the machine gate). Previously this
     # returned 0 whenever no row was a MISMATCH — so "no export present" and

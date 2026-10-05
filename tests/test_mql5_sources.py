@@ -123,10 +123,18 @@ def test_s3_no_sleep_calls_anywhere_in_ea_sources():
         f"Include/; SPEC §3.4/§8.D): {offenders}")
     # the ONLY script Sleeps are the R9/R10 bounded retries (chart-close
     # poll + deselect retry + delete retry): three calls, fixed 300 ms, in
-    # the fixture importer — anything else is a regression
-    assert script_sleeps == [
+    # the fixture importer; plus S3-SYNC-1 (docs/DECISIONS.md): the
+    # SymbolSpec exporter's bounded readiness poll (<= 60 s) and bounded
+    # OrderCalcProfit witness retry (<= 10 attempts) — anything else is a
+    # regression
+    assert sorted(script_sleeps) == sorted([
         ("Scripts/Mql5Bot/Mql5BotImportFixture.mq5", "Sleep(300);"),
-    ] * 3, script_sleeps
+    ] * 3 + [
+        ("Scripts/Mql5Bot/Mql5BotExportSymbolSpec.mq5",
+         "Sleep(EXPORT_SYNC_STEP_MS);"),
+        ("Scripts/Mql5Bot/Mql5BotExportSymbolSpec.mq5",
+         "Sleep(DENOM_RETRY_STEP_MS);"),
+    ]), script_sleeps
 
 
 # ---------------------------------------------------------------------------
