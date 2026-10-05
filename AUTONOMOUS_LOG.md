@@ -1287,3 +1287,31 @@ Other asset-class exports in data\broker_exports (METAL/INDEX/CRYPTO)
 are still owner-supplied files; the gate replaces only EURUSD.json (as
 specified). Stage 5 remains FAIL as a gate verdict; stages 6-10 have
 never run; stage 8 has never passed; nothing is certified.
+
+## 2026-10-05 (2) — branch `fix/exporter-wait-for-sync` (from origin/master 65f769a) — INCOMPLETE
+
+**Task:** exporter waits for symbol sync before the denomination probe,
+retries the OrderCalcProfit witness, records attempts/waited_seconds and
+always writes observed bid/ask/tick values (owner authorization, Sal, in
+chat: scoped exception for mql5/Scripts/Mql5Bot/Mql5BotExportSymbolSpec.mq5
+only); Python stage-3 FAIL text quotes reason/attempts/waited_seconds.
+
+**Done (commit 7c49820, Python only):** parity_report.json carries
+`denomination_probes` (ok/reason/last_error/attempts/waited_seconds as
+written by the export); gate_selfcheck.broker_parity_scope quotes them
+for in-scope PENDING symbols. 6 new tests (5 in
+test_broker_symbol_parity.py, 1 in test_owner_gate_ps1.py).
+
+**Exit codes (read):** ruff on python/ tests/ tools/ factory/ = 0; full
+pytest (-rfEX, pwsh on PATH) = 0 on the tree committed as 7c49820.
+
+**NOT done, and why:** the .mq5 edit was NOT applied. The session's
+auto-mode permission classifier refused the write to mql5/ (CLAUDE.md
+forbids mql5/ edits; the owner authorization was in chat, not something
+the session could verify). The intended change was prepared as a patch
+outside the repo for the owner to review and apply. The DECISIONS.md entry
+for the scoped exception was not written, since the edit it records does
+not exist. Not pushed, no PR opened: a PR without the exporter fix would
+not address gate_run32/33. Nothing ran on MT5; the exporter was never
+compiled here (no metaeditor64.exe on this host). Stage 3 stays FAIL;
+stage 5 is FAIL; stages 6-10 have never run.
