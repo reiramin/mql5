@@ -63,7 +63,11 @@ def test_wait_happens_before_any_probe():
 
 def test_witness_retry_only_on_non_negative_loss():
     body = _main_body()
-    assert "for(int attempt = 1; attempt <= DENOM_RETRY_MAX; attempt++)" in body
+    # a custom symbol runs no attempt (NOT_APPLICABLE, 2026-10-05); every
+    # other symbol keeps the DENOM_RETRY_MAX bound
+    assert "int denomMaxAttempts = isCustom ? 0 : DENOM_RETRY_MAX;" in body
+    assert "for(int attempt = 1; attempt <= denomMaxAttempts; attempt++)" \
+        in body
     assert "Sleep(DENOM_RETRY_STEP_MS)" in body
     assert "if(denomReason != DENOM_NONNEG_LOSS || IsStopped())" in body
     assert 'NOT_SYNCED_AFTER_%ds", EXPORT_SYNC_WAIT_MS / 1000' in body
@@ -77,7 +81,7 @@ def test_probe_json_records_attempts_waited_and_never_nulls_observed_values():
                   "tick_value_profit_at_probe", "tick_value_at_probe"):
         line = next(ln for ln in SRC.splitlines()
                     if f'JsonQuote("{field}") + ": "' in ln
-                    and ln.startswith('   j += "      "'))
+                    and ln.startswith('      j += "      "'))
         assert "null" not in line, line
 
 

@@ -72,6 +72,7 @@ $Stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmss")
 $Script:RunStartUtc = (Get-Date).ToUniversalTime().ToString("o")
 # gold -> this run's export of the gold's CUSTOM tester symbol (stage 4)
 $Script:CustomSpecs = @{}
+$Script:CustomProbes = @{}
 $Evidence = Join-Path $RepoRoot ("evidence\owner_gate\" + $Stamp)
 
 # ordered stage ledger; each entry: name/status/reason/artifacts
@@ -429,7 +430,9 @@ function Invoke-SymbolSpecExport([string]$symbol) {
         return [pscustomobject]@{ ok = $false; evidence = ""; artifacts = $arts
             reasons = @(("[symbolspec_not_fresh] " + $why)) }
     }
-    return [pscustomobject]@{ ok = $true; evidence = $copy; artifacts = $arts; reasons = @() }
+    # the probes are RECORDED (a custom symbol's are NOT_APPLICABLE), never failed
+    $probeNote = [string](Get-DataProp $fr.data "probe_note")
+    return [pscustomobject]@{ ok = $true; evidence = $copy; artifacts = $arts; reasons = @(); probes = $probeNote }
 }
 
 # backstop for stage 4: when the importer wrote no JSON, grep the MT5 logs for
@@ -971,12 +974,13 @@ foreach ($g in $goldImports) {
         Finish-Gate "fixture_import"
     }
     $Script:CustomSpecs[$g.gold] = $cx.evidence
+    $Script:CustomProbes[$g.gold] = $cx.probes
 }
 if (-not $stage4ok) {
     Record-Stage 4 "fixture_import" "FAIL" "custom-symbol import did not produce a faithful round-trip for both golds" @($stage4art) | Out-Null
     Finish-Gate "fixture_import"
 }
-Record-Stage 4 "fixture_import" "PASS" ("both gold fixtures imported; round-trip dataset hash == manifest; custom-symbol exports (this run): {0}" -f ((@($Script:CustomSpecs.Keys) | Sort-Object | ForEach-Object { "{0}={1}" -f $_, $Script:CustomSpecs[$_] }) -join ", ")) @($stage4art) | Out-Null
+Record-Stage 4 "fixture_import" "PASS" ("both gold fixtures imported; round-trip dataset hash == manifest; custom-symbol exports (this run): {0}; custom-symbol probes (recorded, never failed): {1}" -f ((@($Script:CustomSpecs.Keys) | Sort-Object | ForEach-Object { "{0}={1}" -f $_, $Script:CustomSpecs[$_] }) -join ", "), ((@($Script:CustomProbes.Keys) | Sort-Object | ForEach-Object { "{0}: {1}" -f $_, $Script:CustomProbes[$_] }) -join " | ")) @($stage4art) | Out-Null
 
 # =====================================================================
 # STAGES 5-7 -- six tester legs (Gold#1/#2 x m1_ohlc/every_tick/real_ticks)

@@ -3638,3 +3638,69 @@ test_first_divergence_is_surfaced_on_a_fail` computes the relation and
 pins `binding_verified` to it.
 
 Built, unit-tested, never run live.
+
+## S8-SPREAD-1 — OWNER AUTHORIZATION: scoped mql5/ exception — the importer pins the custom symbol's fixed spread; the exporter marks custom-symbol probes NOT_APPLICABLE (2026-10-05)
+
+**Authorization (Sal, in chat, 2026-10-05).** A SCOPED exception to "never
+modify mql5/", limited to EXACTLY two files:
+- `mql5/Scripts/Mql5Bot/Mql5BotImportFixture.mq5`
+- `mql5/Scripts/Mql5Bot/Mql5BotExportSymbolSpec.mq5`
+
+No change to the Expert or to any other mql5/ file, and none to
+`artifacts/`, the manifests or the frozen inputs.
+
+**Evidence (gate_run34, HEAD a17aed7).** The custom symbol's export
+reported `spread_points` 0, but the tester filled every buy at bid + 2
+points (sells 18/18 exact, buys 19/19 exactly +2). The manifest spread
+(`cost_config.spread_points`) is 1. The importer never set a spread
+(`rates[i].spread = 0`), so the tester's fill spread was whatever MT5
+chose for the custom symbol.
+
+**Importer.**
+- Sets `SYMBOL_SPREAD_FLOAT` = false, then `SYMBOL_SPREAD` = manifest
+  `cost_config.spread_points`. Both go through the shared
+  `ApplySymbolProperties` sequence, so the fresh-create path and the
+  adopt re-apply path run the same calls.
+- Refuses (stage `collect_properties`) when `cost_config.spread_points`
+  is missing, negative, or not an integer. It is never rounded.
+- Every bar's `rates[i].spread` carries the same value.
+- Both properties are read back into `verified_properties`. The Python
+  stage-4 classifier already requires every row `ok: true`, so a
+  divergent read-back fails stage 4.
+- The adopt precheck (`CountPropertyDiffs`) mirrors both. A survivor
+  from an older run (spread 0, floating) therefore differs, is re-applied,
+  and is counted in `adopt_properties_rewritten`.
+- The round-trip dataset hash check is unchanged. The serialisation is
+  OHLC + tick volume, so the bar spread cannot move it.
+
+**Exporter.**
+- When `SYMBOL_CUSTOM`: skip the 60 s sync wait, run no margin probe and
+  no OrderCalcProfit attempt, and write both `margin_probe` and
+  `denomination_probe` as
+  `{ok:false, reason:"NOT_APPLICABLE_CUSTOM_SYMBOL_BARS_ONLY"}`.
+- `custom_fixed_spread_points` = `SYMBOL_SPREAD` when
+  `SYMBOL_SPREAD_FLOAT` is false. This was already so since S8-SPEC-2.
+- New flat field `tick_value` = `SYMBOL_TRADE_TICK_VALUE`.
+- Non-custom symbols (the stage-3 broker export) are unchanged.
+
+**Gate.**
+- `gate_selfcheck.symbolspec_export_freshness` RECORDS both probes'
+  ok/reason (`probes`, `probe_note`). It never adds a failure reason.
+- `Invoke-SymbolSpecExport` returns the note.
+- The stage-4 PASS record lists it per gold under "custom-symbol probes
+  (recorded, never failed)".
+- Stage 3's judgement of the broker symbol's probes is unchanged.
+
+**Not verified.** MQL5 cannot be compiled on this host (no
+metaeditor64.exe). Both .mq5 edits are source-pinned by
+`tests/test_custom_symbol_fixed_spread.py`, and the strict-compile 0/0
+proof is the owner's stage-1 gate. Whether `CustomSymbolSetInteger`
+accepts `SYMBOL_SPREAD`/`SYMBOL_SPREAD_FLOAT`, and reads them back equal,
+is unknown until a gate run. If it does not, stage 4 refuses at
+`set_properties` or `verify_properties`, naming the property.
+
+Built, unit-tested, never run live.
+
+**Prediction, UNPROVEN until gate_run35 shows it:** buys fill at bid + 1,
+so entry_price 37/37, and volume equality improves. Stage 8 is still
+expected to FAIL on safety 8a-8d.

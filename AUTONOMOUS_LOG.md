@@ -1369,3 +1369,26 @@ entry_price, side and pairing are unchanged.
   stage-8 window-run path.
 - Never run on MT5. The owner's gate_run34 analysis reports stage 8 FAIL;
   nothing here changes safety 8a-8d, which stay MISSING.
+
+## 2026-10-05 (5) — branch `fix/custom-symbol-fixed-spread` — PR-B of the gate_run34 follow-ups
+
+**Commits:** the S8-SPREAD-1 commit (importer fixed spread, exporter
+custom-symbol NOT_APPLICABLE probes and flat tick_value, stage-4 probe
+record), then this log entry. The branch is based on master a17aed7 and
+is independent of PR-A. The owner authorized the scoped mql5/ exception
+for exactly the two Scripts files, and the edits were applied directly:
+the session's permission check did not block them.
+
+**Exit codes (read):** ruff on python/ tests/ tools/ factory/ = 0. Full
+pytest (-rfEX, pwsh on PATH) = 0 on the committed tree: 2384 passed, 1
+skipped.
+
+**NOT done, and why:**
+- Not compiled (no metaeditor64.exe on this host); the strict-compile 0/0
+  proof is the owner's stage-1 gate.
+- Never run on MT5. Whether MT5 accepts and reads back
+  SYMBOL_SPREAD/SYMBOL_SPREAD_FLOAT on the custom symbol is unknown; if
+  not, stage 4 refuses and names the property.
+- The prediction (buys at bid+1, entry_price 37/37, volume improves) is
+  UNPROVEN until gate_run35.
+- Not merged: the owner reviews first.

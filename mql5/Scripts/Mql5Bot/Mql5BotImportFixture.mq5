@@ -885,7 +885,7 @@ bool ApplySymbolProperties(const string sym,
                            const double volStep, const double volLimit,
                            const double stopsLevel, const double freezeLevel,
                            const string ccyProfit, const string ccyBase,
-                           const string ccyMargin)
+                           const string ccyMargin, const long spreadPoints)
   {
    bool sok = true;
    sok = sok && SetI(sym, SYMBOL_DIGITS, "SYMBOL_DIGITS", (long)digits,
@@ -928,6 +928,17 @@ bool ApplySymbolProperties(const string sym,
                      (long)stopsLevel, "manifest.broker_spec.stops_level_points");
    sok = sok && SetI(sym, SYMBOL_TRADE_FREEZE_LEVEL, "SYMBOL_TRADE_FREEZE_LEVEL",
                      (long)freezeLevel, "manifest.broker_spec.freeze_level_points");
+   // FIXED TESTER SPREAD (owner authorization, Sal 2026-10-05; gate_run34:
+   // the custom symbol exported spread 0 and the tester filled buys at
+   // bid+2). The tester fills a custom symbol from ITS OWN spread, so the
+   // spread is pinned to the one the frozen gold was built with: floating
+   // OFF first, then SYMBOL_SPREAD = manifest cost_config.spread_points.
+   // Both are read back in verify_properties and mirrored in
+   // CountPropertyDiffs (the adopt path verifies and rewrites them).
+   sok = sok && SetI(sym, SYMBOL_SPREAD_FLOAT, "SYMBOL_SPREAD_FLOAT", 0,
+                     "fixed spread: manifest.cost_config.spread_points");
+   sok = sok && SetI(sym, SYMBOL_SPREAD, "SYMBOL_SPREAD", spreadPoints,
+                     "manifest.cost_config.spread_points");
    // CURRENCY PROPERTIES (R7): a Forex-mode custom symbol DERIVES base and
    // profit currencies from the name (first/second three-char chunks). These
    // two SetString calls therefore return ok=true WITHOUT taking effect -- MT5
@@ -1004,7 +1015,7 @@ int CountPropertyDiffs(const string sym,
                        const double volStep, const double volLimit,
                        const double stopsLevel, const double freezeLevel,
                        const string ccyProfit, const string ccyBase,
-                       const string ccyMargin)
+                       const string ccyMargin, const long spreadPoints)
   {
    g_diffList = ""; g_diffCount = 0;
    DiffI(sym, SYMBOL_DIGITS, "SYMBOL_DIGITS", (long)digits);
@@ -1022,6 +1033,8 @@ int CountPropertyDiffs(const string sym,
          (long)stopsLevel);
    DiffI(sym, SYMBOL_TRADE_FREEZE_LEVEL, "SYMBOL_TRADE_FREEZE_LEVEL",
          (long)freezeLevel);
+   DiffI(sym, SYMBOL_SPREAD_FLOAT, "SYMBOL_SPREAD_FLOAT", 0);
+   DiffI(sym, SYMBOL_SPREAD, "SYMBOL_SPREAD", spreadPoints);
    DiffS(sym, SYMBOL_CURRENCY_PROFIT, "SYMBOL_CURRENCY_PROFIT", ccyProfit);
    DiffS(sym, SYMBOL_CURRENCY_BASE, "SYMBOL_CURRENCY_BASE", ccyBase);
    DiffS(sym, SYMBOL_CURRENCY_MARGIN, "SYMBOL_CURRENCY_MARGIN", ccyMargin);
@@ -1160,6 +1173,26 @@ void OnStart()
                 "manifest broker_spec missing property: "+missing, 0);
        return; }
 
+   // the FIXED tester spread: manifest cost_config.spread_points, an
+   // integer number of points (SYMBOL_SPREAD is an integer property) --
+   // refused, never rounded, when it is not one
+   int ccfg = man.Member(mroot, "cost_config");
+   double spreadCfg = -1;
+   if(ccfg < 0 || !ReqNum(man, ccfg, "spread_points", spreadCfg, missing))
+     { RefuseAt(outPath, sym, "collect_properties",
+                "manifest cost_config.spread_points missing (the fixed "
+                "tester spread is never invented)", 0);
+       return; }
+   if(!MathIsValidNumber(spreadCfg) || spreadCfg < 0.0
+      || spreadCfg != MathFloor(spreadCfg) || spreadCfg > 2147483647.0)
+     { RefuseAt(outPath, sym, "collect_properties",
+                "manifest cost_config.spread_points "+
+                DoubleToString(spreadCfg, 10)+" is not a non-negative "
+                "integer number of points; SYMBOL_SPREAD is an integer "
+                "property and the value is refused, never rounded", 0);
+       return; }
+   long spreadPoints = (long)spreadCfg;
+
    // currency_base/currency_margin are not in the manifest broker_spec;
    // they come from the stage-3 SymbolSpec export, never invented
    string ccyBase="", ccyMargin="";
@@ -1217,7 +1250,7 @@ void OnStart()
                                       tickValProfit, contractSize, volMin,
                                       volMax, volStep, volLimit, stopsLevel,
                                       freezeLevel, ccyProfit, ccyBase,
-                                      ccyMargin);
+                                      ccyMargin, spreadPoints);
       if(adoptDiffs == 0)
         {
          // every settable property already equals the spec: the survivor is
@@ -1310,7 +1343,7 @@ void OnStart()
       if(!ApplySymbolProperties(sym, digits, point, tickSize, tickValProfit,
                                 contractSize, volMin, volMax, volStep,
                                 volLimit, stopsLevel, freezeLevel, ccyProfit,
-                                ccyBase, ccyMargin))
+                                ccyBase, ccyMargin, spreadPoints))
         { int err = GetLastError();
           string suffix = CleanupAfterFail(sym);
           RefuseAt(outPath, sym, "set_properties",
@@ -1340,7 +1373,7 @@ void OnStart()
       rates[i].close        = close[i];
       rates[i].tick_volume  = (long)MathRound(volume[i]);
       rates[i].real_volume  = 0;
-      rates[i].spread       = 0;
+      rates[i].spread       = (int)spreadPoints;  // the fixed spread
      }
    ResetLastError();
    if(CustomRatesUpdate(sym, rates) < 0)
@@ -1382,6 +1415,8 @@ void OnStart()
               (long)stopsLevel) && vok;
    vok = VerI(sym, SYMBOL_TRADE_FREEZE_LEVEL, "SYMBOL_TRADE_FREEZE_LEVEL",
               (long)freezeLevel) && vok;
+   vok = VerI(sym, SYMBOL_SPREAD_FLOAT, "SYMBOL_SPREAD_FLOAT", 0) && vok;
+   vok = VerI(sym, SYMBOL_SPREAD, "SYMBOL_SPREAD", spreadPoints) && vok;
    vok = VerS(sym, SYMBOL_CURRENCY_PROFIT, "SYMBOL_CURRENCY_PROFIT",
               ccyProfit) && vok;
    vok = VerS(sym, SYMBOL_CURRENCY_BASE, "SYMBOL_CURRENCY_BASE",

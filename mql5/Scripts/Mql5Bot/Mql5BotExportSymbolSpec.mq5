@@ -30,6 +30,11 @@ input int InpDenomProbeTicks = 100; // optional OrderCalcProfit denomination wit
 #define DENOM_RETRY_MAX     10     // OrderCalcProfit witness attempts
 #define DENOM_RETRY_STEP_MS 1000   // pause between witness attempts
 #define DENOM_NONNEG_LOSS   "BUY OrderCalcProfit returned non-negative loss"
+//--- A CUSTOM symbol (the gate's bars-only gold fixtures, stage 4) has no
+//--- live quotes and no conversion feed: the sync wait and both probes are
+//--- not applicable to it and are written as this reason, never run
+//--- (owner authorization, Sal 2026-10-05).
+#define PROBE_NA_CUSTOM     "NOT_APPLICABLE_CUSTOM_SYMBOL_BARS_ONLY"
 
 //--- JSON string escaping (generic) ---------------------------------------
 // Every string written into the export document passes through here, so a
@@ -116,9 +121,11 @@ void Main()
   {
    string sym = _Symbol;
    ulong exportStartMs = GetTickCount64();
+   bool isCustom = (SymbolInfoInteger(sym, SYMBOL_CUSTOM) != 0);
 
-   //--- readiness BEFORE any probe (margin and denomination alike)
-   string syncUnmet = WaitForSymbolReady(sym);
+   //--- readiness BEFORE any probe (margin and denomination alike); a
+   //--- custom symbol skips the wait (PROBE_NA_CUSTOM): it never syncs
+   string syncUnmet = isCustom ? PROBE_NA_CUSTOM : WaitForSymbolReady(sym);
    bool synced = (syncUnmet == "");
 
    double bid = SymbolInfoDouble(sym, SYMBOL_BID);
@@ -128,7 +135,7 @@ void Main()
    double marginInitial = 0.0, marginMaintenance = 0.0;
    double probeMarginBuy = 0.0, probeMarginSell = 0.0;
    bool probeOk = false;
-   if(mid > 0.0)
+   if(mid > 0.0 && !isCustom)
      {
       probeOk = OrderCalcMargin(ORDER_TYPE_BUY, sym, 1.0, mid, probeMarginBuy)
                 && OrderCalcMargin(ORDER_TYPE_SELL, sym, 1.0, mid,
@@ -158,8 +165,10 @@ void Main()
    int denomAttempts = 0;
    //--- The witness is retried (bounded) ONLY while it returns a
    //--- non-negative BUY loss -- the unsynced-conversion symptom.  Every
-   //--- other outcome is final on the attempt that produced it.
-   for(int attempt = 1; attempt <= DENOM_RETRY_MAX; attempt++)
+   //--- other outcome is final on the attempt that produced it.  A custom
+   //--- symbol runs no attempt at all (PROBE_NA_CUSTOM).
+   int denomMaxAttempts = isCustom ? 0 : DENOM_RETRY_MAX;
+   for(int attempt = 1; attempt <= denomMaxAttempts; attempt++)
      {
       if(attempt > 1)
          Sleep(DENOM_RETRY_STEP_MS);
@@ -243,7 +252,9 @@ void Main()
      }
    //--- A failed witness after a readiness wait that ran out is named for
    //--- the readiness failure; sync_unmet below says which condition.
-   if(!denomOk && !synced)
+   if(isCustom)
+      denomReason = PROBE_NA_CUSTOM;
+   else if(!denomOk && !synced)
       denomReason = StringFormat("NOT_SYNCED_AFTER_%ds", EXPORT_SYNC_WAIT_MS / 1000);
    double waitedSeconds = (double)(GetTickCount64() - exportStartMs) / 1000.0;
 
@@ -265,11 +276,13 @@ void Main()
    //--- manifest spread_points 1.0 vs measured tester fill bid+2 points).
    long spreadPoints = SymbolInfoInteger(sym, SYMBOL_SPREAD);
    bool spreadFloat  = (SymbolInfoInteger(sym, SYMBOL_SPREAD_FLOAT) != 0);
-   bool isCustom     = (SymbolInfoInteger(sym, SYMBOL_CUSTOM) != 0);
    j += "  " + JsonQuote("broker") + ": " + JsonQuote(AccountInfoString(ACCOUNT_COMPANY)) + ",\n";
    j += "  " + JsonQuote("point") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_POINT), 12) + ",\n";
    j += "  " + JsonQuote("tick_size") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_SIZE), 12) + ",\n";
    j += "  " + JsonQuote("tick_value_profit") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_VALUE_PROFIT), 12) + ",\n";
+   //--- the SETTABLE tick value (the importer sets it from the manifest);
+   //--- on a bars-only custom symbol the CALCULATED _PROFIT reads back 0
+   j += "  " + JsonQuote("tick_value") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_VALUE), 12) + ",\n";
    j += "  " + JsonQuote("contract_size") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_TRADE_CONTRACT_SIZE), 12) + ",\n";
    j += "  " + JsonQuote("volume_min") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_VOLUME_MIN), 12) + ",\n";
    j += "  " + JsonQuote("volume_max") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_VOLUME_MAX), 12) + ",\n";
@@ -319,42 +332,58 @@ void Main()
    j += "    " + JsonQuote("swap_long") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_SWAP_LONG), 12) + ",\n";
    j += "    " + JsonQuote("swap_short") + ": " + DoubleToString(SymbolInfoDouble(sym, SYMBOL_SWAP_SHORT), 12) + ",\n";
    j += "    " + JsonQuote("swap_mode") + ": " + IntegerToString(SymbolInfoInteger(sym, SYMBOL_SWAP_MODE)) + ",\n";
-   j += "    " + JsonQuote("margin_probe") + ":\n    {\n";
-   j += "      " + JsonQuote("ok") + ": " + (probeOk ? "true" : "false") + ",\n";
-   j += "      " + JsonQuote("price") + ": " + DoubleToString(mid, 12) + ",\n";
-   j += "      " + JsonQuote("buy_1lot") + ": " + DoubleToString(probeMarginBuy, 12) + ",\n";
-   j += "      " + JsonQuote("sell_1lot") + ": " + DoubleToString(probeMarginSell, 12) + "\n";
-   j += "    },\n";
-   j += "    " + JsonQuote("denomination_probe") + ":\n    {\n";
-   j += "      " + JsonQuote("ok") + ": " + (denomOk ? "true" : "false") + ",\n";
-   j += "      " + JsonQuote("reason") + ": " + JsonQuote(denomReason) + ",\n";
-   j += "      " + JsonQuote("last_error") + ": " + IntegerToString(denomLastError) + ",\n";
-   j += "      " + JsonQuote("source") + ": " + JsonQuote("OrderCalcProfit") + ",\n";
-   j += "      " + JsonQuote("calc_mode") + ": " + IntegerToString(SymbolInfoInteger(sym, SYMBOL_TRADE_CALC_MODE)) + ",\n";
-   j += "      " + JsonQuote("account_leverage") + ": " + IntegerToString(AccountInfoInteger(ACCOUNT_LEVERAGE)) + ",\n";
-   j += "      " + JsonQuote("account_currency") + ": " + JsonQuote(AccountInfoString(ACCOUNT_CURRENCY)) + ",\n";
-   j += "      " + JsonQuote("currency_profit") + ": " + JsonQuote(SymbolInfoString(sym, SYMBOL_CURRENCY_PROFIT)) + ",\n";
-   j += "      " + JsonQuote("currency_margin") + ": " + JsonQuote(SymbolInfoString(sym, SYMBOL_CURRENCY_MARGIN)) + ",\n";
-   j += "      " + JsonQuote("currency_base") + ": " + JsonQuote(SymbolInfoString(sym, SYMBOL_CURRENCY_BASE)) + ",\n";
-   //--- bid/ask/tick values: the values OBSERVED at the last attempt,
-   //--- written whatever the outcome (never nulled on failure)
-   j += "      " + JsonQuote("bid") + ": " + DoubleToString(denomBid, 12) + ",\n";
-   j += "      " + JsonQuote("ask") + ": " + DoubleToString(denomAsk, 12) + ",\n";
-   j += "      " + JsonQuote("tick_size_at_probe") + ": " + (denomOk ? DoubleToString(probeTickSize, 12) : "null") + ",\n";
-   j += "      " + JsonQuote("probe_ticks") + ": " + (denomOk ? DoubleToString(probeTicks, 0) : "null") + ",\n";
-   j += "      " + JsonQuote("lot_size") + ": " + (denomOk ? "1.0" : "null") + ",\n";
-   j += "      " + JsonQuote("move") + ": " + (denomOk ? DoubleToString(probeMove, 12) : "null") + ",\n";
-   j += "      " + JsonQuote("buy_loss_profit") + ": " + (denomOk ? DoubleToString(buyLossProfit, 12) : "null") + ",\n";
-   j += "      " + JsonQuote("sell_gain_profit") + ": " + (denomOk ? DoubleToString(sellGainProfit, 12) : "null") + ",\n";
-   j += "      " + JsonQuote("tick_value_loss_at_probe") + ": " + DoubleToString(tickValueLossAtProbe, 12) + ",\n";
-   j += "      " + JsonQuote("tick_value_profit_at_probe") + ": " + DoubleToString(tickValueProfitAtProbe, 12) + ",\n";
-   j += "      " + JsonQuote("tick_value_at_probe") + ": " + DoubleToString(tickValueAtProbe, 12) + ",\n";
-   j += "      " + JsonQuote("attempts") + ": " + IntegerToString(denomAttempts) + ",\n";
-   j += "      " + JsonQuote("waited_seconds") + ": " + DoubleToString(waitedSeconds, 3) + ",\n";
-   j += "      " + JsonQuote("synced") + ": " + (synced ? "true" : "false") + ",\n";
-   j += "      " + JsonQuote("sync_unmet") + ": " + JsonQuote(syncUnmet) + "\n";
-   j += "    }\n";
-   j += "  }\n}\n";
+   if(isCustom)
+     {
+      //--- bars-only custom symbol: both probes are not applicable
+      j += "    " + JsonQuote("margin_probe") + ":\n    {\n";
+      j += "      " + JsonQuote("ok") + ": false,\n";
+      j += "      " + JsonQuote("reason") + ": " + JsonQuote(PROBE_NA_CUSTOM) + "\n";
+      j += "    },\n";
+      j += "    " + JsonQuote("denomination_probe") + ":\n    {\n";
+      j += "      " + JsonQuote("ok") + ": false,\n";
+      j += "      " + JsonQuote("reason") + ": " + JsonQuote(PROBE_NA_CUSTOM) + "\n";
+      j += "    }\n";
+      j += "  }\n}\n";
+     }
+   else
+     {
+      j += "    " + JsonQuote("margin_probe") + ":\n    {\n";
+      j += "      " + JsonQuote("ok") + ": " + (probeOk ? "true" : "false") + ",\n";
+      j += "      " + JsonQuote("price") + ": " + DoubleToString(mid, 12) + ",\n";
+      j += "      " + JsonQuote("buy_1lot") + ": " + DoubleToString(probeMarginBuy, 12) + ",\n";
+      j += "      " + JsonQuote("sell_1lot") + ": " + DoubleToString(probeMarginSell, 12) + "\n";
+      j += "    },\n";
+      j += "    " + JsonQuote("denomination_probe") + ":\n    {\n";
+      j += "      " + JsonQuote("ok") + ": " + (denomOk ? "true" : "false") + ",\n";
+      j += "      " + JsonQuote("reason") + ": " + JsonQuote(denomReason) + ",\n";
+      j += "      " + JsonQuote("last_error") + ": " + IntegerToString(denomLastError) + ",\n";
+      j += "      " + JsonQuote("source") + ": " + JsonQuote("OrderCalcProfit") + ",\n";
+      j += "      " + JsonQuote("calc_mode") + ": " + IntegerToString(SymbolInfoInteger(sym, SYMBOL_TRADE_CALC_MODE)) + ",\n";
+      j += "      " + JsonQuote("account_leverage") + ": " + IntegerToString(AccountInfoInteger(ACCOUNT_LEVERAGE)) + ",\n";
+      j += "      " + JsonQuote("account_currency") + ": " + JsonQuote(AccountInfoString(ACCOUNT_CURRENCY)) + ",\n";
+      j += "      " + JsonQuote("currency_profit") + ": " + JsonQuote(SymbolInfoString(sym, SYMBOL_CURRENCY_PROFIT)) + ",\n";
+      j += "      " + JsonQuote("currency_margin") + ": " + JsonQuote(SymbolInfoString(sym, SYMBOL_CURRENCY_MARGIN)) + ",\n";
+      j += "      " + JsonQuote("currency_base") + ": " + JsonQuote(SymbolInfoString(sym, SYMBOL_CURRENCY_BASE)) + ",\n";
+      //--- bid/ask/tick values: the values OBSERVED at the last attempt,
+      //--- written whatever the outcome (never nulled on failure)
+      j += "      " + JsonQuote("bid") + ": " + DoubleToString(denomBid, 12) + ",\n";
+      j += "      " + JsonQuote("ask") + ": " + DoubleToString(denomAsk, 12) + ",\n";
+      j += "      " + JsonQuote("tick_size_at_probe") + ": " + (denomOk ? DoubleToString(probeTickSize, 12) : "null") + ",\n";
+      j += "      " + JsonQuote("probe_ticks") + ": " + (denomOk ? DoubleToString(probeTicks, 0) : "null") + ",\n";
+      j += "      " + JsonQuote("lot_size") + ": " + (denomOk ? "1.0" : "null") + ",\n";
+      j += "      " + JsonQuote("move") + ": " + (denomOk ? DoubleToString(probeMove, 12) : "null") + ",\n";
+      j += "      " + JsonQuote("buy_loss_profit") + ": " + (denomOk ? DoubleToString(buyLossProfit, 12) : "null") + ",\n";
+      j += "      " + JsonQuote("sell_gain_profit") + ": " + (denomOk ? DoubleToString(sellGainProfit, 12) : "null") + ",\n";
+      j += "      " + JsonQuote("tick_value_loss_at_probe") + ": " + DoubleToString(tickValueLossAtProbe, 12) + ",\n";
+      j += "      " + JsonQuote("tick_value_profit_at_probe") + ": " + DoubleToString(tickValueProfitAtProbe, 12) + ",\n";
+      j += "      " + JsonQuote("tick_value_at_probe") + ": " + DoubleToString(tickValueAtProbe, 12) + ",\n";
+      j += "      " + JsonQuote("attempts") + ": " + IntegerToString(denomAttempts) + ",\n";
+      j += "      " + JsonQuote("waited_seconds") + ": " + DoubleToString(waitedSeconds, 3) + ",\n";
+      j += "      " + JsonQuote("synced") + ": " + (synced ? "true" : "false") + ",\n";
+      j += "      " + JsonQuote("sync_unmet") + ": " + JsonQuote(syncUnmet) + "\n";
+      j += "    }\n";
+      j += "  }\n}\n";
+     }
 
    string fname = InpExportDir + sym + ".json";
 //--- The export is UTF-8 by contract: tools/broker_symbol_parity.py loads it
