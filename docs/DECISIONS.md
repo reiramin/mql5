@@ -3421,3 +3421,45 @@ was bent to the prediction. MQL5 cannot be compiled on this host: both
 .mq5 edits are source-pinned by
 `tests/test_ea_symbolspec_flat_fields_and_entry_recording.py`; the
 strict-compile 0/0 proof is the owner's stage-1 gate.
+
+## S3-SYNC-1 — OWNER AUTHORIZATION: scoped mql5/ exception — the SymbolSpec exporter waits for sync before its probes (2026-10-05)
+
+**Authorization (Sal, in chat, 2026-10-05).** A SCOPED exception to "never
+modify mql5/", limited to `mql5/Scripts/Mql5Bot/Mql5BotExportSymbolSpec.mq5`
+ONLY. No change to the Expert or to any other mql5/ file; no change to any
+existing output field's meaning except that the denomination probe's
+`bid`/`ask`/`tick_value_*_at_probe` are no longer nulled on failure.
+
+**Evidence.** gate_run32 (Sunday 21:51Z) and gate_run33 (Monday 07:44Z,
+market open, EURUSD quoting live) both wrote `denomination_probe`
+`{ok:false, reason:"BUY OrderCalcProfit returned non-negative loss",
+last_error:0}`. That branch is only entered with bid>0 && ask>0, so prices
+were present and OrderCalcProfit returned ok with profit >= 0; bid/ask
+were written null only because the failure path nulled them. The gate
+launches the script headless via `[StartUp] Script=`, i.e. right after
+terminal start; the passing 2026-09-15 export was run by hand on a
+long-open chart. Account currency EUR, profit currency USD:
+OrderCalcProfit needs synced conversion data. Stage 3 FAIL: EURUSD
+`sizer.behaviour` + `tick_value_denomination` PENDING.
+
+**Change (exporter).** Before any probe: `SymbolSelect(sym,true)`, then a
+bounded wait (60 s, 500 ms steps) until `TERMINAL_CONNECTED`,
+`SymbolIsSynchronized`, a `SymbolInfoTick` with bid>0 && ask>0, and
+`SYMBOL_TRADE_TICK_VALUE` > 0. The OrderCalcProfit witness is retried up
+to 10 times, 1 s apart, ONLY while it returns a non-negative BUY loss.
+Final failure reason: `NOT_SYNCED_AFTER_60s` when the readiness wait ran
+out, else the last OrderCalcProfit reason. New probe fields: `attempts`,
+`waited_seconds`, `tick_value_at_probe`, `synced`, `sync_unmet` (the
+unmet readiness condition, "" when synced). "Fresh tick" means read in
+the current poll with bid>0 && ask>0; tick age is not checked.
+
+**Python.** `parity_report.json` carries each export's probe
+ok/reason/last_error/attempts/waited_seconds as written;
+`gate_selfcheck.broker_parity_scope` quotes them verbatim in the stage-3
+FAIL text for in-scope PENDING symbols (absent fields read `absent`).
+
+**Not verified.** MQL5 cannot be compiled on this host (no
+metaeditor64.exe): source-pinned by
+`tests/test_exporter_wait_for_sync.py`; the strict-compile 0/0 proof is
+the owner's stage-1 gate. Built, unit-tested, never run live: whether the
+wait resolves the non-negative loss is unknown until a gate run.
