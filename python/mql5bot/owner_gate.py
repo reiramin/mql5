@@ -1878,7 +1878,47 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
 # 7. safety runtime evidence (§20/§21: raw evidence, never screenshots)
 # ---------------------------------------------------------------------------
 _SAFETY_FIELDS = ("action", "initial_state", "resulting_state",
-                  "observed_result", "raw_evidence")
+                  "observed_result", "expected_result", "raw_evidence")
+# SAFETY-RESULT-1 (owner review of PR #31): the required outcome of each
+# tester-runnable safety test is pinned HERE, never read from the file, and
+# the verifier re-grades the bound windows itself (_regrade_safety).
+SAFETY_PINNED_EXPECTED = {
+    "kill_switch": "ZERO_NEW_ORDERS_WHILE_LATCHED",
+    "risk_veto": "ENTRIES_VETOED_FOR_THE_DAY",
+    "meta_reduce": "ALL_SIZES_LE_RISK_APPROVED",
+    "sl_verify": "SL_STRIPPED_AND_RESTORED",
+}
+_BASELINE_RE = re.compile(r"^safety/raw/baseline_(gold\d)_m1_ohlc_window\.txt$")
+
+
+def _regrade_safety(root: Path, name: str, doc: dict
+                    ) -> tuple[str | None, str]:
+    """Re-grade a tester safety file from its BOUND windows (the test
+    window = raw_evidence, the baseline = baseline_evidence; both must be
+    bound by archive_manifest.json with bytes equal to the file's declared
+    hashes) with mql5bot.safety_legs. Returns (observed_result, problem)."""
+    from mql5bot import safety_legs as sl
+
+    raw_ref = doc.get("raw_evidence") or {}
+    base_ref = doc.get("baseline_evidence")
+    if not isinstance(base_ref, dict):
+        return None, f"{name}: no baseline_evidence binding to re-grade with"
+    m = _BASELINE_RE.match(str(base_ref.get("path") or ""))
+    if not m or m.group(1) not in GOLD_TESTER_SYMBOLS:
+        return None, (f"{name}: baseline_evidence is not a gold m1_ohlc "
+                      "window (safety/raw/baseline_<gold>_m1_ohlc_window.txt)")
+    texts = []
+    for ref in (raw_ref, base_ref):
+        data, why = _bound_bytes(root, str(ref.get("path") or ""))
+        if data is None:
+            return None, f"{name}: {why}"
+        if hashlib.sha256(data).hexdigest() != str(ref.get("sha256")).lower():
+            return None, (f"{name}: {ref.get('path')} bytes != the file's "
+                          "declared sha256")
+        texts.append(data.decode("utf-8-sig", errors="replace"))
+    regraded = sl.grade(name, texts[0], texts[1],
+                        GOLD_TESTER_SYMBOLS[m.group(1)])
+    return regraded["observed_result"], ""
 
 
 def verify_safety(root: Path | str) -> dict:
@@ -1926,6 +1966,38 @@ def verify_safety(root: Path | str) -> dict:
             out[name] = {"state": INVALID,
                          "reasons": [(f"{name} evidence is screenshot-"
                                      "only — raw artifacts required")]}
+            continue
+        if name in SAFETY_PINNED_EXPECTED:
+            pinned = SAFETY_PINNED_EXPECTED[name]
+            if doc.get("expected_result") != pinned:
+                out[name] = {"state": INVALID, "reasons": [
+                    (f"{name} expected_result "
+                     f"{doc.get('expected_result')!r} is not the pinned "
+                     f"{pinned!r}")]}
+                continue
+            regraded, why = _regrade_safety(root, name, doc)
+            if why:
+                out[name] = {"state": INVALID, "reasons": [why]}
+                continue
+            if regraded != doc.get("observed_result"):
+                out[name] = {"state": INVALID, "result": regraded,
+                             "reasons": [
+                                 (f"{name} file states "
+                                  f"{doc.get('observed_result')!r}; the "
+                                  "verifier re-grades the bound windows "
+                                  f"as {regraded!r}")]}
+                continue
+        # SAFETY-RESULT-1 (2026-10-06): a safety file is VALID only when
+        # what MT5 showed IS the required outcome. A failed or inconclusive
+        # test is recorded with its observation, never accepted as evidence
+        # (before, any observed_result -- even a failure -- was VALID).
+        if doc.get("observed_result") != doc.get("expected_result"):
+            out[name] = {"state": INVALID,
+                         "result": doc.get("observed_result"),
+                         "reasons": [(f"{name} observed "
+                                     f"{doc.get('observed_result')!r}, "
+                                     "required "
+                                     f"{doc.get('expected_result')!r}")]}
             continue
         out[name] = {"state": VALID,
                      "result": doc.get("observed_result"), "reasons": []}

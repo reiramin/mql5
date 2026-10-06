@@ -1426,3 +1426,29 @@ Stage 8 still FAILS. This was not a gate run.
   someone else's uncommitted changes on feat/gate-scoped-gold2-run (from
   2026-09-30). They were left untouched; this work was done in the
   worktree ../mql5bot-s8tick.
+
+## 2026-10-06 (2) — PR #30 fix + merge; branch `feat/safety-8a-8d`
+
+**PR #30.** One required fix, afde465: the verifier recomputes the
+MT5-equity lots from pinned inputs, and a new test covers a wrong python
+volume with the correct equity. ruff 0; full pytest 0 (2459 passed, 1
+skipped). Merged as 563229d.
+
+**feat/safety-8a-8d** (based on master 563229d). Commit 69bc550:
+- test-only EA inputs, default OFF, for kill_switch / sl_verify /
+  meta_reduce logging;
+- mql5bot.safety_legs graders;
+- ps1 stage-8 safety legs;
+- builder safety/ output;
+- SAFETY-RESULT-1 (observed must equal expected);
+- docs/SAFETY_8A_8D_PLAN.md.
+
+ruff 0; full pytest 0 (2489 passed, 1 skipped; pwsh on PATH).
+
+**NOT done, and why:**
+- Not compiled: no metaeditor here; the stage-1 strict compile is the
+  proof.
+- Never run on MT5: no safety JSON exists yet.
+- lost_response, restart, netting and hedging are demo-only and not
+  implemented, so stage 8 keeps FAILING on them.
+- Not merged: awaiting owner review.
