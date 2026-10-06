@@ -1486,7 +1486,7 @@ foreach ($gld in @($Script:Scope)) {
 $s8Verdict = [string](Get-DataProp $recon "verdict")
 $Script:CertScope = if ($s8Verdict -like "MT5_VALIDATED_BAR_MODELS*") { "bar models" } else { "full" }
 if ($s8Verdict -eq "MT5_VALIDATED" -or $s8Verdict -eq "MT5_VALIDATED_BAR_MODELS" -or ($Script:Partial -and ($s8Verdict -eq "MT5_VALIDATED_PARTIAL_SCOPE" -or $s8Verdict -eq "MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE"))) {
-    $scopeNote = if ($Script:CertScope -eq "bar models") { " [verdict $s8Verdict: bar models -- no real-tick claim; m1_ohlc + every_tick only]" } else { "" }
+    $scopeNote = if ($Script:CertScope -eq "bar models") { " [verdict ${s8Verdict}: bar models -- no real-tick claim; m1_ohlc + every_tick only]" } else { "" }
     Record-Stage 8 "reconciliation" "PASS" ("bindings + 8a-8d verified; gold parity holds on the owner terminal" + $scopeNote + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
 } elseif ($divClass -eq "SIZING_MISMATCH" -or $divClass -eq "RISK_MISMATCH") {
     $note = ("EXPECTED for the 4257f1e sizing fix: first divergence on '{0}' -> {1}. Regenerate the affected expected_execution with NEW provenance (owner/build side); NEVER revert the fix, NEVER patch the gold artifacts here." -f $divField, $divClass)
