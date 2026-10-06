@@ -160,8 +160,13 @@ classified as the expected sizing divergence.
 and `safety/netting.json` / `safety/hedging.json`. Each must state `action`,
 `initial_state`, `resulting_state` and `observed_result`, plus a file-bound
 `raw_evidence` `{path, sha256}` inside the package (from `owner_evidence_bind.py
-bind`). The gate never writes them, so stage 8 keeps FAILING on them until
-8a–8d are actually run.
+bind`), plus `expected_result`: a file is VALID only when the observed
+result IS the expected one (SAFETY-RESULT-1). Since SAFETY-8A-8D-1 the gate
+runs four of them as Strategy Tester legs in stage 8 (kill_switch,
+risk_veto, meta_reduce, sl_verify) and writes `safety/<test>.json` only
+from those legs' graded windows (docs/SAFETY_8A_8D_PLAN.md). lost_response,
+restart, netting and hedging are demo-only: the gate never writes them, so
+stage 8 keeps FAILING on them until they are run on demo.
 
 ## Scoped (partial) runs: `-Golds`
 

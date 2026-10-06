@@ -124,6 +124,10 @@ EA_INPUT_DEFAULTS: dict[str, object] = {
     "InpLogLevel": 2,
     "InpTelemetry": False,
     "InpWebhookUrl": "https://httpbin.org/post",
+    # --- Safety tests 8a-8d (test-only, default OFF; mql5bot.safety_legs) ---
+    "InpTestKillSwitchAfterEntries": 0,
+    "InpTestStripSlEntries": 0,
+    "InpTestSafetyLog": False,
 }
 
 # ---------------------------------------------------------------------------

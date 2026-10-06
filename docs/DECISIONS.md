@@ -3873,6 +3873,59 @@ Outcomes:
 
 gate_run35 replay: unchanged, gold2 VALID / MATCH.
 
+## SAFETY-8A-8D-1 — OWNER AUTHORIZATION: test-only EA inputs for the tester-runnable safety legs (2026-10-06)
+
+**Authorization (owner, 2026-10-06).** `mql5/Experts/Mql5Bot/` may get
+test-only inputs, default OFF. At the defaults the gold legs must behave
+byte-identically.
+
+**Plan.** `docs/SAFETY_8A_8D_PLAN.md`.
+
+**Tester-only (implemented).**
+
+| test | inputs |
+|---|---|
+| kill_switch | `InpTestKillSwitchAfterEntries` |
+| risk_veto | `InpDailyLossPct=0.5` (production input) |
+| meta_reduce | `InpBaseGateWeight=0.5` + `InpTestSafetyLog` |
+| sl_verify | `InpTestStripSlEntries` |
+
+How each leg runs:
+- each runs as one extra tester leg in stage 8, before the package build;
+- `mql5bot.safety_legs` grades its window against the same run's gold
+  m1_ohlc window;
+- the builder writes `safety/<test>.json`, with the window bound as
+  `raw_evidence`.
+
+**Demo-only (not implemented, stay MISSING).** lost_response, restart,
+netting, hedging. The reasons are in the plan.
+
+**SAFETY-RESULT-1 (verifier).** A safety file needs `expected_result`, and
+is VALID only when `observed_result == expected_result`. Before this, any
+observed result, even a failure, was VALID.
+
+**Not verified.** No metaeditor on this host: the EA edit is pinned by
+source tests, and stage 1's strict compile is the proof. No MT5 run has
+produced any of these files.
+
+Built, unit-tested, never run live.
+
+**SAFETY-RESULT-1 amendment (owner review of PR #31, 2026-10-06).**
+- **Pinned results.** The required outcome of each tester-runnable safety
+  test is pinned in the verifier (`owner_gate.SAFETY_PINNED_EXPECTED`):
+  - kill_switch → ZERO_NEW_ORDERS_WHILE_LATCHED;
+  - risk_veto → ENTRIES_VETOED_FOR_THE_DAY;
+  - meta_reduce → ALL_SIZES_LE_RISK_APPROVED;
+  - sl_verify → SL_STRIPPED_AND_RESTORED.
+
+  A file whose `expected_result` differs from the table is INVALID.
+- **Re-grade.** The verifier re-grades every such file itself, with
+  `mql5bot.safety_legs`, on the test window (`raw_evidence`) and the
+  baseline (`baseline_evidence`, a `safety/raw/baseline_<gold>_m1_ohlc_
+  window.txt`). Both must be bound by archive_manifest.json, with bytes
+  equal to the declared hashes.
+- **Pass rule.** It requires regraded == the file's `observed_result` ==
+  the pinned value. The builder's grade is never trusted.
 ## S8-CEILING-1 — OWNER DECISION: MT5_VALIDATED_BAR_MODELS (2026-10-06)
 
 **Finding (gate_run36, HEAD 563229d).**

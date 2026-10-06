@@ -1341,6 +1341,64 @@ $evidencePkg = if ($env:MQL5BOT_EVIDENCE_DIR) { $env:MQL5BOT_EVIDENCE_DIR } else
 # at log_trades/<gold>_<model>.json -- the operator places no file by hand.
 $s8Art = New-Object System.Collections.ArrayList
 $placeNotes = New-Object System.Collections.ArrayList
+
+# 8a-8d SAFETY LEGS (docs/SAFETY_8A_8D_PLAN.md, owner authorization
+# 2026-10-06). The tester-runnable safety tests (kill_switch, risk_veto,
+# meta_reduce, sl_verify) each run ONE extra Strategy Tester leg on the
+# first scoped gold's m1_ohlc configuration: the gold leg's own inputs plus
+# the test's inputs (test-only EA inputs, default OFF). Only the leg's
+# window is kept (tester_safety_<test>_window.txt); stage8_package grades
+# it against this run's gold m1_ohlc window and writes safety/<test>.json.
+# A leg that fails to launch leaves no window, so its file stays MISSING.
+# lost_response / restart / netting / hedging are demo-only and not run.
+$safetyNotes = New-Object System.Collections.ArrayList
+$sgk = @($Script:Scope)[0]
+if ($sgk) {
+    $smeta = $goldMeta[$sgk]
+    $sd = $derived[$sgk]
+    foreach ($stest in @("kill_switch", "risk_veto", "meta_reduce", "sl_verify")) {
+        $si = Invoke-Decide @("safety-leg-inputs", "--test", $stest)
+        [void]$s8Art.Add((New-Artifact $si.raw))
+        if (-not $si.ok) { [void]$safetyNotes.Add(("{0}: no leg inputs" -f $stest)); continue }
+        $stag = [string](Get-DataProp $si.data "tag" -Required)
+        $sli = Invoke-Decide @("stage5-leg-inputs", "--manifest", (Join-Path $RepoRoot $smeta.manifest),
+            "--symbol", $smeta.symbol, "--leg", $stag, "--out-dir", $Evidence,
+            "--data-folder", $DataFolder)
+        [void]$s8Art.Add((New-Artifact $sli.raw))
+        if (-not $sli.ok) { [void]$safetyNotes.Add(("{0}: gold leg inputs underivable -- leg NOT launched" -f $stag)); continue }
+        $sArgs = @()
+        foreach ($kv in @(Get-DataProp $sli.data "input_args" -Required)) { $sArgs += @("--input", [string]$kv) }
+        foreach ($kv in @(Get-DataProp $si.data "input_args" -Required)) { $sArgs += @("--input", [string]$kv) }
+        $sArgs += @("--deposit", ([string](Get-DataProp $sli.data "deposit" -Required)))
+        $sModel = [string](Get-DataProp $si.data "model" -Required)
+        $sIni = Join-Path $Evidence ("tester_" + $stag + ".ini")
+        $sGen = @($runBacktest, "generate-ini", "--symbol", $smeta.symbol,
+            "--timeframe", (Get-DataProp $sd "timeframe" -Required), "--model", $sModel,
+            "--from", (Get-DataProp $sd "date_from" -Required), "--to", (Get-DataProp $sd "date_to" -Required),
+            "--report", $stag, "--defaults", "--output", $sIni) + $sArgs
+        $sgp = Start-Process -FilePath $Python -ArgumentList (Get-ProcArgs $sGen) -Wait -PassThru -NoNewWindow
+        if (Test-Path -LiteralPath $sIni) { [void]$s8Art.Add((New-Artifact $sIni)) }
+        if ($sgp.ExitCode -ne 0) { [void]$safetyNotes.Add(("{0}: generate-ini exit {1} -- leg NOT launched" -f $stag, $sgp.ExitCode)); continue }
+        $sRun = @("run", "--terminal-dir", $terminalDir, "--data-folder", $DataFolder,
+            "--symbol", $smeta.symbol, "--timeframe", (Get-DataProp $sd "timeframe" -Required),
+            "--model", $sModel, "--from", (Get-DataProp $sd "date_from" -Required),
+            "--to", (Get-DataProp $sd "date_to" -Required), "--report", $stag,
+            "--defaults", "--out-dir", $testerOut) + $sArgs
+        $sStart = (Get-Date).AddSeconds(-2)
+        $sMarks = Get-TesterLogMarks
+        $sp = Start-Process -FilePath $Python -ArgumentList (Get-ProcArgs (@($runBacktest) + $sRun)) `
+            -RedirectStandardOutput (Join-Path $Evidence ("tester_" + $stag + "_stdout.txt")) `
+            -RedirectStandardError (Join-Path $Evidence ("tester_" + $stag + "_stderr.txt")) `
+            -Wait -PassThru -NoNewWindow
+        $sWin = Save-TesterWindowLog $stag $sMarks $sStart
+        if ($sWin) {
+            [void]$s8Art.Add($sWin)
+            [void]$safetyNotes.Add(("{0}: tester leg ran (exit {1}); window kept for grading" -f $stag, $sp.ExitCode))
+        } else {
+            [void]$safetyNotes.Add(("{0}: tester leg left no window (exit {1}) -- {2} stays MISSING" -f $stag, $sp.ExitCode, $stest))
+        }
+    }
+}
 foreach ($leg in $legs) {
     $tp = Join-Path $Evidence ("tester_{0}_{1}_log_trades.json" -f $leg.gold, $leg.model)
     if (-not (Test-Path -LiteralPath $tp)) { continue }
@@ -1361,8 +1419,10 @@ foreach ($leg in $legs) {
 # its stage-5 record (NOT_APPLICABLE legs), real-tick coverage NONE for a
 # bar-only gold, environment (measured lines only), reconciliation/<gold>.json
 # (python = expected_execution, mt5 = log trade lists) and, LAST, the archive
-# manifest via owner_evidence_bind.py. safety/*.json are NEVER built: 8a-8d
-# have not run on MT5, so they stay MISSING.
+# manifest via owner_evidence_bind.py. safety/*.json are built ONLY from the
+# safety tester legs above (graded windows); the demo-only ones
+# (lost_response, restart, netting, hedging) never, so they stay MISSING.
+foreach ($sn in $safetyNotes) { [void]$placeNotes.Add(("safety leg {0}" -f $sn)) }
 # the package's symbolspec + measured spread come from this run's export
 # of each scoped gold's CUSTOM tester symbol (stage 4); the stage-3 broker
 # export stays the named fallback the builder records when none exists

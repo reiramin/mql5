@@ -147,6 +147,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--gold", required=True)
     p.add_argument("--model", required=True)
 
+    p = sub.add_parser("safety-leg-inputs",
+                       help=("stage 8a-8d: the extra EA inputs of one "
+                             "tester-runnable safety leg"))
+    p.add_argument("--test", required=True)
+
     p = sub.add_parser("build-stage8-package",
                        help="stage 8 input: build the evidence package from "
                             "the gate's OWN measured outputs (compile, "
@@ -353,6 +358,21 @@ def main(argv: list[str] | None = None) -> int:
                                    for k, v in sorted(d["inputs"].items())]
             d.pop("bundle", None)
             return _emit(d)
+
+        if args.cmd == "safety-leg-inputs":
+            from mql5bot import safety_legs as sl
+            spec = sl.TESTER_SAFETY_LEGS.get(args.test)
+            if spec is None:
+                return _emit({"ok": False, "test": args.test, "reasons": [
+                    (f"{args.test!r} is not a tester-runnable safety leg"
+                     + (f" (demo-only: {sl.DEMO_ONLY[args.test]})"
+                        if args.test in sl.DEMO_ONLY else ""))]})
+            return _emit({"ok": True, "test": args.test,
+                          "tag": sl.leg_tag(args.test),
+                          "model": sl.TESTER_MODEL,
+                          "expected_result": spec["expected_result"],
+                          "input_args": [f"{k}={_ini_value(v)}" for k, v
+                                         in sorted(spec["inputs"].items())]})
 
         if args.cmd == "build-stage8-package":
             rec = s8p.build_package(
