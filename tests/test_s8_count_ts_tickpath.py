@@ -256,11 +256,23 @@ def _paired(doc, model, ticket):
     return e
 
 
-def _verify(pkg, doc=None) -> dict:
+FROZEN_INPUTS = json.loads((REPO / "artifacts/owner_mt5_gate/"
+                            "frozen_inputs.json").read_text())
+
+
+def _ref() -> dict:
+    ref = og.sizing_reference(REPO, FROZEN_INPUTS["gold_2"])
+    assert ref is not None  # the repo files equal the frozen pins
+    return ref
+
+
+def _verify(pkg, doc=None, ref="pinned") -> dict:
     if doc is not None:
         (pkg / "reconciliation/gold2.json").write_text(json.dumps(doc))
-    frozen = {"gold2": {"python_trade_count": 56}}
-    return og.verify_reconciliation(pkg, "gold2", frozen, {})
+    fman = {"python_trade_count": 56}
+    if ref is not None:
+        fman["sizing_reference"] = _ref() if ref == "pinned" else ref
+    return og.verify_reconciliation(pkg, "gold2", {"gold2": fman}, {})
 
 
 def test_window_copies_are_packaged_and_bound(tick):
@@ -357,13 +369,49 @@ def test_python_path_after_the_tick_path_is_refused(tick):
         " ".join(rep["reasons"])
 
 
-def test_inexact_mt5_equity_sizing_diverges(tick):
+def test_wrong_python_volume_with_correct_equity_is_invalid(tick):
+    # the package's python value is never trusted: the verifier recomputes
+    # the lots from the equity it recomputed, the frozen stop_distance and
+    # the pinned broker_spec (owner review of PR #30)
     doc = _recon(tick)
-    _paired(doc, "every_tick", 4)["fields"]["volume"]["python"] = 0.29
+    e = _paired(doc, "every_tick", 4)
+    assert e["mt5_pre_entry_equity"] == 10800.0  # correct equity
+    e["fields"]["volume"]["python"] = 0.29
     rep = _verify(tick, doc)
-    assert rep["state"] == og.MISMATCHED
-    assert og._field_divergent(
-        _paired(doc, "every_tick", 4)["fields"]["volume"])
+    assert rep["state"] == og.INVALID
+    assert ("every_tick: ticket 4 package states python volume 0.29; the "
+            "verifier recomputes 0.3 (equity 10800.0") in \
+        " ".join(rep["reasons"])
+
+
+def test_recomputed_lots_unequal_to_mt5_diverge(tick):
+    # a sizing reference whose rule gives other lots than MT5 traded: the
+    # package agrees with the verifier, and the field diverges
+    ref = copy.deepcopy(_ref())
+    ref["risk_config"]["risk_percent"] = 0.5
+    doc = _recon(tick)
+    e = _paired(doc, "every_tick", 4)
+    from mql5bot.symbolspec import SymbolSpec
+    lots = og.frozen_rule_lots(
+        SymbolSpec(**ref["broker_spec"]), ref["risk_config"], 10800.0,
+        ref["stop_distance_by_row"][e["frozen_row_index"]])
+    assert lots != 0.3
+    e["fields"]["volume"]["python"] = lots
+    rep = _verify(tick, doc, ref=ref)
+    assert rep["state"] == og.MISMATCHED, rep["reasons"]
+    div = rep["first_trade_divergence"]
+    assert div is not None
+
+
+def test_mt5_equity_volume_without_a_pinned_reference_is_invalid(tick):
+    rep = _verify(tick, ref=None)
+    assert rep["state"] == og.INVALID
+    assert "MT5-equity volume not verifiable" in " ".join(rep["reasons"])
+
+
+def test_sizing_reference_refuses_unpinned_bytes():
+    bad = dict(FROZEN_INPUTS["gold_2"], manifest_sha256="0" * 64)
+    assert og.sizing_reference(REPO, bad) is None
 
 
 # --- S8-TS-1 ------------------------------------------------------------------
@@ -377,7 +425,7 @@ def test_bar_level_timestamp_needs_an_exact_entry_price(tick):
     events = [dict(x) for x in doc["events"]]
     _, out, problems, _ = og._log_leg_checks(
         tick, "gold2", _log_docs(tick), events,
-        doc["tick_path_divergence"], 56)
+        doc["tick_path_divergence"], 56, _ref())
     assert problems == []
     (ts,) = [x["fields"]["timestamp"] for x in out
              if x.get("model") == "every_tick" and x.get("mt5_ticket") == 2]
@@ -390,7 +438,7 @@ def test_bar_level_timestamp_holds_beside_an_exact_price(tick):
     doc = _recon(tick)
     _, out, problems, _ = og._log_leg_checks(
         tick, "gold2", _log_docs(tick), doc["events"],
-        doc["tick_path_divergence"], 56)
+        doc["tick_path_divergence"], 56, _ref())
     assert problems == []
     (ts,) = [x["fields"]["timestamp"] for x in out
              if x.get("model") == "every_tick" and x.get("mt5_ticket") == 2]
@@ -403,7 +451,7 @@ def test_a_different_minute_still_diverges(tick):
     e["fields"]["timestamp"]["python"] = "2024-01-02T08:02"
     _, out, _, _ = og._log_leg_checks(
         tick, "gold2", _log_docs(tick), doc["events"],
-        doc["tick_path_divergence"], 56)
+        doc["tick_path_divergence"], 56, _ref())
     (ts,) = [x["fields"]["timestamp"] for x in out
              if x.get("model") == "every_tick" and x.get("mt5_ticket") == 2]
     assert og._field_divergent(ts)
@@ -414,7 +462,7 @@ def test_a_raw_time_that_is_not_the_deals_own_diverges(tick):
     _paired(doc, "every_tick", 2)["mt5_time_raw"] = "2024-01-02T08:01:59"
     _, out, _, _ = og._log_leg_checks(
         tick, "gold2", _log_docs(tick), doc["events"],
-        doc["tick_path_divergence"], 56)
+        doc["tick_path_divergence"], 56, _ref())
     (ts,) = [x["fields"]["timestamp"] for x in out
              if x.get("model") == "every_tick" and x.get("mt5_ticket") == 2]
     assert "raw MT5 time is not the bound deal's time" in ts["s8_ts1_refused"]

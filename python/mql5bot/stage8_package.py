@@ -714,17 +714,9 @@ def expected_set_window_run(repo: Path | str, gold: str,
 
 def frozen_rule_lots(spec, risk: dict, equity: float, stop_distance: float,
                      weight: float = float(TESTER_WEIGHT_COLUMN)) -> float:
-    """The frozen sizing rule: size_position (risk percent of ``equity`` over
-    ``stop_distance``, broker_spec volume step / min / max) then the meta
-    floor at ``weight`` (floor to volume_step; below volume_min -> 0)."""
-    from mql5bot.sizer import size_position
-
-    step, vmin = float(spec.volume_step), float(spec.volume_min)
-    approved = round(float(size_position(
-        spec, mode=risk["mode"], equity=equity, stop_distance=stop_distance,
-        value=float(risk["risk_percent"])).lots), 6)
-    final = math.floor(approved * weight / step + 1e-9) * step
-    return round(final, 6) if vmin <= final <= approved + 1e-12 else 0.0
+    """The frozen sizing rule (owner_gate.frozen_rule_lots: one copy, shared
+    with the verifier)."""
+    return og.frozen_rule_lots(spec, risk, equity, stop_distance, weight)
 
 
 def python_risk_context(repo: Path | str, gold: str) -> tuple[dict | None,

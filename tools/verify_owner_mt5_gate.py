@@ -101,6 +101,14 @@ def main(argv: list[str] | None = None) -> int:
                       _symbolspec_expectations(repo))
 
     _bind_python_trade_counts(repo, frozen)
+    # S8-TICKPATH-1: the verifier recomputes MT5-equity lots from the
+    # hash-pinned manifest broker_spec/risk and frozen stop_distance
+    for key in ("gold_1", "gold_2"):
+        entry = frozen.get(key)
+        if isinstance(entry, dict):
+            ref = og.sizing_reference(repo, entry)
+            if ref is not None:
+                entry["sizing_reference"] = ref
 
     golds = [g.strip() for g in args.golds.split(",") if g.strip()]
     if not golds or set(golds) - set(og.GOLDS):

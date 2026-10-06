@@ -215,6 +215,50 @@ def tick_path_divergence(ref_deals: list[dict], tick_deals: list[dict]
     return None, "deal lists identical: no tick-path divergence"
 
 
+def frozen_rule_lots(spec, risk: dict, equity: float, stop_distance: float,
+                     weight: float = 1.0) -> float:
+    """The frozen sizing rule: size_position (risk percent of ``equity`` over
+    ``stop_distance``, broker_spec volume step / min / max) then the meta
+    floor at ``weight`` (floor to volume_step; below volume_min -> 0)."""
+    import math
+
+    from mql5bot.sizer import size_position
+
+    step, vmin = float(spec.volume_step), float(spec.volume_min)
+    approved = round(float(size_position(
+        spec, mode=risk["mode"], equity=equity, stop_distance=stop_distance,
+        value=float(risk["risk_percent"])).lots), 6)
+    final = math.floor(approved * weight / step + 1e-9) * step
+    return round(final, 6) if vmin <= final <= approved + 1e-12 else 0.0
+
+
+def sizing_reference(repo: Path | str, frozen_gold: dict) -> dict | None:
+    """S8-TICKPATH-1 verifier input: broker_spec + risk_config from the gold
+    manifest and the frozen stop_distance per expected_execution row --
+    ONLY when both files' bytes equal the frozen record's pins
+    (manifest_sha256, expected_execution_sha256). None otherwise
+    (fail-closed: MT5-equity volumes are then not verifiable)."""
+    fixture = frozen_gold.get("fixture")
+    if not fixture:
+        return None
+    base = (Path(repo) / fixture).parent
+    man, exp = base / "manifest.json", base / "expected_execution.json"
+    if not (man.is_file() and exp.is_file()) or \
+            sha256_file(man) != frozen_gold.get("manifest_sha256") or \
+            sha256_file(exp) != frozen_gold.get("expected_execution_sha256"):
+        return None
+    m, e = _load_json(man), _load_json(exp)
+    try:
+        return {"broker_spec": dict(m["broker_spec"]),
+                "risk_config": dict(m["risk_config"]),
+                "stop_distance_by_row": {
+                    i: float(r["stop_distance"])
+                    for i, r in enumerate(e["entries"])
+                    if r.get("stop_distance")}}
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 _ENTRY_REQUEST_RE = re.compile(
     r"\b(?:market|instant)\s+(buy|sell)\s+(-?\d+(?:\.\d+)?)\s+(\S+)\s+at\s+"
     r"(-?\d+(?:\.\d+)?)\s+sl:\s*(-?\d+(?:\.\d+)?)\s+tp:\s*(-?\d+(?:\.\d+)?)",
@@ -1316,7 +1360,8 @@ _PYTHON_SIDE_PAIRINGS = (PAIRED_BY_TIME, MISSING_IN_MT5,
 
 
 def _log_leg_checks(root: Path, gold: str, log_docs: dict, events: list,
-                    tick_paths: dict, py_count: int
+                    tick_paths: dict, py_count: int,
+                    sizing_ref: dict | None = None
                     ) -> tuple[dict, list[dict], list[str], dict]:
     """The log-sourced legs' comparison rules, recomputed from the BOUND
     evidence (log trade lists, window copies, tester ini copies). Returns
@@ -1339,7 +1384,11 @@ def _log_leg_checks(root: Path, gold: str, log_docs: dict, events: list,
       own equity is allowed only on a tick-generating leg AFTER that deal,
       with the pre-entry equity = tester ini Deposit + cumulative pnl of
       the leg's earlier deals, recomputed here; after it, every paired
-      volume must use that basis; m1_ohlc never does.
+      volume must use that basis; m1_ohlc never does. The expected lots
+      are RECOMPUTED here (frozen_rule_lots on that equity, the frozen
+      stop_distance of the event's frozen row, the pinned broker_spec):
+      the package's python value must equal them (else INVALID) and the
+      field's verdict is recomputed lots vs MT5 lots.
     * S8-SLTP-1 -- every paired event carries sl and tp, and their mt5
       values are the ones MT5's own entry request line states (re-parsed
       from the bound window copy whose bytes the log list names)."""
@@ -1424,6 +1473,33 @@ def _log_leg_checks(root: Path, gold: str, log_docs: dict, events: list,
                         f"equity {e.get('mt5_pre_entry_equity')!r} / flat "
                         f"{e.get('book_flat_at_entry')!r}; the bound deals "
                         f"give {eq} / {flat}")
+                    continue
+                stop = ((sizing_ref or {}).get("stop_distance_by_row")
+                        or {}).get(e.get("frozen_row_index"))
+                if sizing_ref is None or stop is None:
+                    problems.append(
+                        f"{model}: ticket {e.get('mt5_ticket')} MT5-equity "
+                        "volume not verifiable: no hash-pinned broker_spec "
+                        "/ frozen stop_distance for frozen row "
+                        f"{e.get('frozen_row_index')!r}")
+                    continue
+                from mql5bot.symbolspec import SymbolSpec
+
+                lots = (frozen_rule_lots(
+                    SymbolSpec(**sizing_ref["broker_spec"]),
+                    sizing_ref["risk_config"], eq, stop) if flat else None)
+                if vol.get("python") != lots:
+                    problems.append(
+                        f"{model}: ticket {e.get('mt5_ticket')} package "
+                        f"states python volume {vol.get('python')!r}; the "
+                        f"verifier recomputes {lots!r} (equity {eq}, frozen "
+                        f"stop_distance {stop!r})")
+                    continue
+                if lots != vol.get("mt5"):
+                    adjusted[id(e)] = {**e, "fields": {
+                        **e["fields"], "volume": {
+                            **vol, "status": "DIVERGENT",
+                            "verifier_recomputed": lots}}}
 
         # --- S8-SLTP-1 ----------------------------------------------------
         levels: dict | None = None
@@ -1473,9 +1549,11 @@ def _log_leg_checks(root: Path, gold: str, log_docs: dict, events: list,
                     and ep.get("status") != "DIVERGENT"):
                 why.append("no exact entry_price match on this event")
             if why:
-                adjusted[id(e)] = {**e, "fields": {**f, "timestamp": {
-                    **ts, "status": "DIVERGENT",
-                    "s8_ts1_refused": why}}}
+                cur = adjusted.get(id(e), e)
+                adjusted[id(e)] = {**cur, "fields": {
+                    **cur["fields"], "timestamp": {
+                        **ts, "status": "DIVERGENT",
+                        "s8_ts1_refused": why}}}
     derived = {"index": -1, "symbol": None, "derived": True,
                "source": TRADE_SOURCE_LOG, "fields": fields}
     out = [adjusted.get(id(e), e) for e in events]
@@ -1726,7 +1804,8 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
             return report
         count_event, events, problems, leg_info = _log_leg_checks(
             root, gold, log_docs, events,
-            doc.get("tick_path_divergence") or {}, py_count)
+            doc.get("tick_path_divergence") or {}, py_count,
+            fman.get("sizing_reference"))
         report["log_trade_counts"] = {
             m: len(log_docs[m]["deals"]) for m in sorted(log_models)}
         report["entry_counts"] = leg_info["entry_counts"]

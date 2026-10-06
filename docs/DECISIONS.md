@@ -3853,3 +3853,22 @@ Stage 8 still FAILS. Stages 6-10 have never run.
 
 Built, unit-tested, replayed offline on gate_run35 evidence; never run
 live through the gate.
+
+**S8-TICKPATH-1 amendment (owner review of PR #30, 2026-10-06).** The
+verifier no longer trusts the package's python value on the
+`mt5_equity_sizing` basis. It RECOMPUTES the expected lots with
+`owner_gate.frozen_rule_lots`, from:
+- the equity it recomputed from the bound deals;
+- the frozen `stop_distance` of the event's expected_execution row;
+- the manifest `broker_spec` / `risk_config`.
+
+Those inputs are bound by `verify_owner_mt5_gate.py` (`sizing_reference`)
+ONLY when the manifest and expected_execution bytes equal the frozen
+record's `manifest_sha256` / `expected_execution_sha256`.
+
+Outcomes:
+- package python value ≠ recomputed lots → INVALID;
+- recomputed lots ≠ MT5 lots → the field DIVERGES;
+- no pinned reference → INVALID.
+
+gate_run35 replay: unchanged, gold2 VALID / MATCH.
