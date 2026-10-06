@@ -257,9 +257,11 @@ def test_ps1_scopes_imports_legs_and_the_stage_8_comparison():
     s8 = _stage('Enter-Stage 8 "reconciliation"', "STAGE 9")
     assert '"--golds", (@($Script:Scope) -join ",")' in s8
     assert 'foreach ($gld in @($Script:Scope))' in s8
-    # the partial verdict is accepted ONLY by a partial run
-    assert '($Script:Partial -and (Get-DataProp $recon "verdict") -eq ' \
-        '"MT5_VALIDATED_PARTIAL_SCOPE")' in s8
+    # the partial verdicts are accepted ONLY by a partial run (S8-CEILING-1
+    # adds the bar-models partial form beside MT5_VALIDATED_PARTIAL_SCOPE)
+    assert ('($Script:Partial -and ($s8Verdict -eq '
+            '"MT5_VALIDATED_PARTIAL_SCOPE" -or $s8Verdict -eq '
+            '"MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE"))') in s8
 
 
 def _refusal_block() -> str:

@@ -1478,10 +1478,16 @@ foreach ($gld in @($Script:Scope)) {
         break
     }
 }
-# a scoped verify reports MT5_VALIDATED_PARTIAL_SCOPE for the scoped golds;
-# only a PARTIAL run may accept it (and a partial run never certifies)
-if ((Get-DataProp $recon "verdict") -eq "MT5_VALIDATED" -or ($Script:Partial -and (Get-DataProp $recon "verdict") -eq "MT5_VALIDATED_PARTIAL_SCOPE")) {
-    Record-Stage 8 "reconciliation" "PASS" ("bindings + 8a-8d verified; gold parity holds on the owner terminal" + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
+# a scoped verify reports MT5_VALIDATED_PARTIAL_SCOPE (or, S8-CEILING-1,
+# MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE) for the scoped golds; only a
+# PARTIAL run may accept it (and a partial run never certifies).
+# S8-CEILING-1: MT5_VALIDATED_BAR_MODELS (VALID REAL_TICK_COVERAGE_NONE) is
+# accepted as its own verdict; stages 9-10 label their scope "bar models".
+$s8Verdict = [string](Get-DataProp $recon "verdict")
+$Script:CertScope = if ($s8Verdict -like "MT5_VALIDATED_BAR_MODELS*") { "bar models" } else { "full" }
+if ($s8Verdict -eq "MT5_VALIDATED" -or $s8Verdict -eq "MT5_VALIDATED_BAR_MODELS" -or ($Script:Partial -and ($s8Verdict -eq "MT5_VALIDATED_PARTIAL_SCOPE" -or $s8Verdict -eq "MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE"))) {
+    $scopeNote = if ($Script:CertScope -eq "bar models") { " [verdict ${s8Verdict}: bar models -- no real-tick claim; m1_ohlc + every_tick only]" } else { "" }
+    Record-Stage 8 "reconciliation" "PASS" ("bindings + 8a-8d verified; gold parity holds on the owner terminal" + $scopeNote + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
 } elseif ($divClass -eq "SIZING_MISMATCH" -or $divClass -eq "RISK_MISMATCH") {
     $note = ("EXPECTED for the 4257f1e sizing fix: first divergence on '{0}' -> {1}. Regenerate the affected expected_execution with NEW provenance (owner/build side); NEVER revert the fix, NEVER patch the gold artifacts here." -f $divField, $divClass)
     Record-Stage 8 "reconciliation" "DIVERGENCE_EXPECTED" ($note + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
@@ -1524,7 +1530,7 @@ if ($ap.ExitCode -ne 0) {
     Record-Stage 9 "archive_manifest" "FAIL" ("owner_evidence_bind.py exit {0}" -f $ap.ExitCode) @() | Out-Null
     Finish-Gate "archive_manifest"
 }
-Record-Stage 9 "archive_manifest" "PASS" "evidence bound by owner_evidence_bind.py (no hand-typed hash)" @((New-Artifact $archiveManifest)) | Out-Null
+Record-Stage 9 "archive_manifest" "PASS" ("evidence bound by owner_evidence_bind.py (no hand-typed hash); scope: " + $Script:CertScope) @((New-Artifact $archiveManifest)) | Out-Null
 
 # =====================================================================
 # STAGE 10 -- certify_strategy.py records whatever state it assigns
@@ -1545,10 +1551,10 @@ if (-not (Test-Path -LiteralPath $certConfig)) {
 $covArgs = @()
 foreach ($pair in $covPairs) { $covArgs += @("--real-tick-coverage", $pair) }
 $cp = Start-Process -FilePath $Python `
-    -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "certify_strategy.py"), "--config", $certConfig, "--out", $certReport) + $covArgs)) `
+    -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "certify_strategy.py"), "--config", $certConfig, "--out", $certReport, "--certificate-scope", $Script:CertScope) + $covArgs)) `
     -Wait -PassThru -NoNewWindow
 $certStatus = if ($cp.ExitCode -eq 0) { "PASS" } else { "FAIL" }
-Record-Stage 10 "certify" $certStatus (("certify_strategy.py exit {0} (state recorded as assigned)" -f $cp.ExitCode) + $covNote) @((New-Artifact $certReport)) | Out-Null
+Record-Stage 10 "certify" $certStatus (("certify_strategy.py exit {0} (state recorded as assigned; certificate scope: {1})" -f $cp.ExitCode, $Script:CertScope) + $covNote) @((New-Artifact $certReport)) | Out-Null
 if ($certStatus -eq "FAIL") { Finish-Gate "certify" }
 
 if ($Script:Stage5FromLog) { Finish-Gate "certified_with_log_graded_legs" }
