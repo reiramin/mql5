@@ -1290,7 +1290,8 @@ def build_package(*, repo: Path | str, package: Path | str,
                   golds: list[str], symbolspec_export: Path | str | None,
                   host: dict | None = None,
                   frozen_rel: str = "artifacts/owner_mt5_gate/frozen_inputs.json",
-                  symbolspec_custom: dict[str, Path | str] | None = None
+                  symbolspec_custom: dict[str, Path | str] | None = None,
+                  demo_evidence: Path | str | None = None
                   ) -> dict:
     repo, pkg, ev = Path(repo), Path(package), Path(gate_evidence)
     pkg.mkdir(parents=True, exist_ok=True)
@@ -1541,7 +1542,11 @@ def build_package(*, repo: Path | str, package: Path | str,
     for name in og.SAFETY_TESTS + ("netting", "hedging"):
         rel = og.LAYOUT.get(name, f"safety/{name}.json")
         if name in sl.DEMO_ONLY:
-            not_built[rel] = f"demo-only, not a tester leg: {sl.DEMO_ONLY[name]}"
+            why = _place_demo_safety(name, rel, demo_evidence, ident,
+                                     put_bytes, put_json, built)
+            if why:
+                not_built[rel] = (f"demo-only, not a tester leg: "
+                                  f"{sl.DEMO_ONLY[name]}; {why}")
             continue
         win = ev / f"tester_{sl.leg_tag(name)}_window.txt"
         if not win.is_file():
@@ -1592,6 +1597,42 @@ def build_package(*, repo: Path | str, package: Path | str,
     record["ok"] = cp.returncode == 0
     record["package"] = str(pkg)
     return record
+
+
+def _place_demo_safety(name: str, rel: str, demo_evidence, ident: dict,
+                       put_bytes, put_json, built: dict) -> str | None:
+    """safety/<name>.json for a demo-harness test (restart / netting /
+    hedging; docs/SAFETY_DEMO_PLAN.md) from <demo_evidence>/<name>/:
+    ealog.txt (the EA's own log lines of that run) + run.json (the harness
+    record). Placed ONLY when the run's EX5 sha256 equals this gate's
+    stage-1 compile hash -- evidence of another binary is never used.
+    Returns the reason when nothing is placed."""
+    from mql5bot import safety_legs as sl
+
+    if not demo_evidence:
+        return "no demo harness evidence supplied (--demo-evidence)"
+    d = Path(demo_evidence) / name
+    log, run = d / "ealog.txt", d / "run.json"
+    if not log.is_file() or not run.is_file():
+        return f"no demo harness run at {d} (ealog.txt + run.json)"
+    rec = _load(run)
+    want = (ident.get("ex5_hashes") or {}).get("Mql5Bot.mq5")
+    got = rec.get("ex5_sha256") if isinstance(rec, dict) else None
+    if not want or not got or str(got).lower() != str(want).lower():
+        return (f"demo run EX5 sha256 {got!r} != this gate's stage-1 "
+                f"compile hash {want!r}: evidence of another binary")
+    raw_rel = f"safety/raw/{name}_ealog.txt"
+    run_rel = f"safety/raw/{name}_run.json"
+    put_bytes(raw_rel, log.read_bytes(), f"demo harness EA log {log}")
+    put_bytes(run_rel, run.read_bytes(), f"demo harness record {run}")
+    doc = sl.grade(name, gs.read_text_bom_aware(log), "", "")
+    doc["raw_evidence"] = {"path": raw_rel, "sha256": built[raw_rel]}
+    doc["run_evidence"] = {"path": run_rel, "sha256": built[run_rel]}
+    doc["source"] = ("graded by mql5bot.safety_legs from the EA log of a "
+                     "demo harness run (mql5bot.demo_harness) with this "
+                     "gate's EX5")
+    put_json(rel, doc, f"graded demo harness run {d}")
+    return None
 
 
 def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,

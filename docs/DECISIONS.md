@@ -3962,3 +3962,41 @@ Built, unit-tested, never run live.
 Tests: `tests/test_verdict_bar_models.py`, one per ladder branch.
 
 Built, unit-tested, never run live.
+
+## SAFETY-DEMO-1 — OWNER AUTHORIZATION: lost_response fault hook; demo harness for restart / netting / hedging (2026-10-06)
+
+**Authorization (Sal, 2026-10-06).** A test-only fault hook in
+`mql5/Include/Mql5Bot/TradeManager.mqh`, default OFF, so lost_response
+runs in the Strategy Tester. At the defaults the gold legs are unchanged.
+
+**lost_response (implemented).**
+- `CTradeManager::TestFaults`, armed only by `InpTestLostResponses` /
+  `InpTestUnsentTimeouts` > 0. At 0, the only change is a guarded branch
+  whose else-arm is the former line; retries never pass through it.
+- It is the fifth stage-8 safety leg, graded and re-graded like PR #31.
+- Pinned result: `LOST_RESPONSE_ADOPTED_NO_DUPLICATE`.
+
+**restart / netting / hedging (implemented, never run on MT5).**
+- **EA probe.** `InpTestDemoProbe` (default 0): 1 = restart probe,
+  2 = account-mode probe, 3 = cleanup. While it is on, the EA's strategy
+  entries and exits are skipped.
+- **Harness.** `mql5bot.demo_harness` + `tools/demo_safety_harness.py`
+  run the terminal from a TEMP `[StartUp]` ini, with credentials from a
+  LOCAL file outside the repo, and kill/relaunch the terminal for restart.
+- **Builder.** It accepts a run's `ealog.txt` + `run.json` ONLY when the
+  run's EX5 sha256 equals this gate's stage-1 compile hash.
+- **Verifier.** It re-grades the bound EA log.
+- **Pinned results.**
+  - restart → `RESTART_RECOVERED_NO_DUPLICATE`;
+  - netting → `NET_ONE_POSITION_PER_SYMBOL`;
+  - hedging → `INDEPENDENT_POSITIONS_ISOLATED_BY_MAGIC`.
+
+**Limitations (named).**
+- **Hedging.** It uses one EA plus a raw order with magic + 1, not two EA
+  instances: a `[StartUp]` ini attaches one chart, and the `.chr` profile
+  format is undocumented.
+- **Restart.** It covers only the open-position cell of the restart
+  matrix.
+
+**Plan.** `docs/SAFETY_DEMO_PLAN.md`, including the owner's manual steps
+and the market hours.

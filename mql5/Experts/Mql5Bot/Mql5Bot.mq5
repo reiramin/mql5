@@ -120,6 +120,9 @@ input group "=== Safety tests (test-only, default OFF) ==="
 input int                     InpTestKillSwitchAfterEntries = 0;     // 8a kill switch: latch after N entries (0=off)
 input int                     InpTestStripSlEntries = 0;             // 8b SL verify: strip the SL of the first N entries (0=off)
 input bool                    InpTestSafetyLog = false;              // 8a meta reduce: log risk-approved vs final lots
+input int                     InpTestLostResponses = 0;              // 8c lost response: drop the answer of N filled entries (0=off)
+input int                     InpTestUnsentTimeouts = 0;             // 8c lost response: suppress N entry sends as TIMEOUT (0=off)
+input int                     InpTestDemoProbe = 0;                  // demo harness: 1=restart 2=account mode 3=cleanup (0=off)
 
 //+------------------------------------------------------------------+
 //| Globals                                                          |
@@ -162,6 +165,9 @@ int             g_tickCounter   = 0;
 int             g_testEntries   = 0;      // entries made (8a kill switch)
 ulong           g_testStripped[];         // tickets whose SL was stripped (8b)
 bool            g_testRestored[];         // ... and seen restored
+int             g_demoStep      = 0;      // demo probe step (InpTestDemoProbe)
+int             g_demoTicks     = 0;      // timer ticks since the last step
+#define DEMO_PROBE_FLAG "Mql5Bot\\State\\demo_probe_opened.flag"
 string          g_symbol        = _Symbol;
 ENUM_TIMEFRAMES g_tf            = _Period;
 
@@ -767,6 +773,9 @@ int OnInit()
    //--- trade manager: Sleep-free, spec-injected
    g_trade.Init(g_magic, InpDeviation, InpMaxRetries,
                 InpEntryMode == ENTRY_PENDING, InpPendingExpireBars, g_spec);
+   //--- 8c safety test (no-op unless an input is > 0)
+   if(InpTestLostResponses > 0 || InpTestUnsentTimeouts > 0)
+      g_trade.TestFaults(InpTestLostResponses, InpTestUnsentTimeouts);
 
    //--- telemetry
    g_tele.Init(InpTelemetry, InpWebhookUrl, 2000);
@@ -777,6 +786,14 @@ int OnInit()
 
    g_log.Info(StringFormat("initialised: strategy=%s risk=%.2f%% sl=%.2f ATR tp=%.2f ATR",
                            g_strategyId, InpRiskPercent, InpSlAtr, InpTpAtr));
+   //--- demo harness (no-op unless InpTestDemoProbe > 0)
+   if(InpTestDemoProbe > 0)
+      g_log.Info(StringFormat("TEST demo: START probe=%d magic=%I64d "
+                              "own_positions=%d registry=%d engine=%d "
+                              "margin_mode=%d", InpTestDemoProbe, g_magic,
+                              CountBotPositions(), g_store.Count(),
+                              (int)g_risk.State(),
+                              (int)AccountInfoInteger(ACCOUNT_MARGIN_MODE)));
    EventSetTimer(1);
    return INIT_SUCCEEDED;
   }
@@ -809,6 +826,9 @@ void OnTimer()
    //--- 8b safety test (no-op unless InpTestStripSlEntries > 0)
    if(InpTestStripSlEntries > 0)
       TestSlStripPump();
+   //--- demo harness (no-op unless InpTestDemoProbe > 0)
+   if(InpTestDemoProbe > 0)
+      TestDemoProbePump();
 
    //--- restart recovery (S2/S6): cancel orphan pendings once
    if(!g_orphanScanDone)
@@ -1002,6 +1022,10 @@ void OnNewBar()
    SyncRecords();
    ManageOpenPositions();
    ProtectManagedPositions();
+
+   //--- demo harness: the probe alone trades (no strategy entries/exits)
+   if(InpTestDemoProbe > 0)
+      return;
 
    //--- entry gates -------------------------------------------------
    if(!g_risk.AllowsNewTrades())
@@ -1278,3 +1302,161 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
      }
   }
 //+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//| Demo harness probe (InpTestDemoProbe > 0 only; docs/SAFETY_DEMO_ |
+//| PLAN.md). Observation lines are what the harness grades.         |
+//+------------------------------------------------------------------+
+string DemoPositions()
+  {
+   string out = "";
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong t = PositionGetTicket(i);
+      if(t == 0 || PositionGetString(POSITION_SYMBOL) != g_symbol)
+         continue;
+      long mg = PositionGetInteger(POSITION_MAGIC);
+      if(mg != g_magic && mg != g_magic + 1)
+         continue;
+      out += StringFormat("%s%I64u:%s:%.2f:%I64d", (out == "") ? "" : ",", t,
+                          PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY
+                          ? "buy" : "sell",
+                          PositionGetDouble(POSITION_VOLUME), mg);
+     }
+   return out;
+  }
+
+void DemoSnapshot(const string label)
+  {
+   SyncRecords();
+   g_log.Info(StringFormat("TEST demo: SNAPSHOT %s margin_mode=%d "
+                           "own_positions=%d registry=%d positions=[%s]",
+                           label, (int)AccountInfoInteger(ACCOUNT_MARGIN_MODE),
+                           CountBotPositions(), g_store.Count(),
+                           DemoPositions()));
+  }
+
+int DemoCloseAll()
+  {
+   int n = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong t = PositionGetTicket(i);
+      if(t == 0 || PositionGetString(POSITION_SYMBOL) != g_symbol)
+         continue;
+      long mg = PositionGetInteger(POSITION_MAGIC);
+      if(mg != g_magic && mg != g_magic + 1)
+         continue;
+      MqlTradeRequest req;
+      MqlTradeResult  res;
+      ZeroMemory(req);
+      ZeroMemory(res);
+      bool buy = PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY;
+      req.action    = TRADE_ACTION_DEAL;
+      req.symbol    = g_symbol;
+      req.magic     = mg;
+      req.position  = t;
+      req.volume    = PositionGetDouble(POSITION_VOLUME);
+      req.type      = buy ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
+      req.price     = buy ? SymbolInfoDouble(g_symbol, SYMBOL_BID)
+                          : SymbolInfoDouble(g_symbol, SYMBOL_ASK);
+      req.deviation = InpDeviation;
+      req.type_filling = ORDER_FILLING_IOC;
+      if(OrderSend(req, res) && IsSuccessRetcode(res.retcode))
+         n++;
+     }
+   return n;
+  }
+
+// a raw order with ANOTHER magic (g_magic + 1): the second "strategy" of
+// the hedging isolation check; never touches the EA's own registry
+bool DemoForeignOrder(const double lots)
+  {
+   MqlTradeRequest req;
+   MqlTradeResult  res;
+   ZeroMemory(req);
+   ZeroMemory(res);
+   req.action    = TRADE_ACTION_DEAL;
+   req.symbol    = g_symbol;
+   req.magic     = g_magic + 1;
+   req.volume    = lots;
+   req.type      = ORDER_TYPE_BUY;
+   req.price     = SymbolInfoDouble(g_symbol, SYMBOL_ASK);
+   req.deviation = InpDeviation;
+   req.comment   = "demo_foreign";
+   req.type_filling = ORDER_FILLING_IOC;
+   return OrderSend(req, res) && IsSuccessRetcode(res.retcode);
+  }
+
+void TestDemoProbePump()
+  {
+   g_demoTicks++;
+   double vmin = g_spec.volumeMin;
+   double dist = 500.0 * g_spec.point;      // SL/TP 500 points away
+   if(InpTestDemoProbe == 1)
+     {
+      //--- restart probe: ONE probe position per test (a file flag survives
+      //--- the kill), then heartbeats; any second own position after a
+      //--- restart is the EA's, i.e. a duplicate
+      if(!FileIsExist(DEMO_PROBE_FLAG) && CountBotPositions() == 0 &&
+         !g_trade.HasQueuedWork())
+        {
+         SOrderResult r = g_trade.OpenMarket(POSITION_TYPE_LONG, vmin, dist,
+                                             dist, "demo_probe");
+         if(r.done)
+           {
+            int h = FileOpen(DEMO_PROBE_FLAG, FILE_WRITE | FILE_TXT);
+            if(h != INVALID_HANDLE) { FileWrite(h, "opened"); FileClose(h); }
+            RegisterOwnEntryPositions();
+            g_log.Info("TEST demo: PROBE position opened");
+           }
+        }
+      if(g_demoTicks % 10 == 0)
+         DemoSnapshot("heartbeat");
+      return;
+     }
+   if(InpTestDemoProbe == 3)
+     {
+      //--- cleanup: close the probe positions, clear the flag, once
+      if(g_demoStep == 0)
+        {
+         int n = DemoCloseAll();
+         FileDelete(DEMO_PROBE_FLAG);
+         g_demoStep = 1;
+         g_log.Info(StringFormat("TEST demo: CLEANUP closed %d", n));
+         DemoSnapshot("after_cleanup");
+        }
+      return;
+     }
+   if(InpTestDemoProbe != 2 || g_demoTicks < 5)
+      return;
+   //--- account-mode probe: one step every 5 timer ticks
+   g_demoTicks = 0;
+   if(g_demoStep == 0)
+     {
+      SOrderResult a = g_trade.OpenMarket(POSITION_TYPE_LONG, vmin, dist, dist,
+                                          "demo_net_a");
+      DemoSnapshot(StringFormat("after_A buy %.2f done=%s", vmin,
+                                a.done ? "true" : "false"));
+     }
+   else if(g_demoStep == 1)
+     {
+      SOrderResult b = g_trade.OpenMarket(POSITION_TYPE_SHORT, 2.0 * vmin,
+                                          dist, dist, "demo_net_b");
+      DemoSnapshot(StringFormat("after_B sell %.2f done=%s", 2.0 * vmin,
+                                b.done ? "true" : "false"));
+     }
+   else if(g_demoStep == 2)
+     {
+      bool f = DemoForeignOrder(vmin);
+      DemoSnapshot(StringFormat("after_F foreign_buy %.2f magic=%I64d done=%s",
+                                vmin, g_magic + 1, f ? "true" : "false"));
+     }
+   else if(g_demoStep == 3)
+     {
+      int n = DemoCloseAll();
+      g_log.Info(StringFormat("TEST demo: CLEANUP closed %d", n));
+      DemoSnapshot("after_cleanup");
+     }
+   g_demoStep++;
+  }

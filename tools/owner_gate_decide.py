@@ -172,6 +172,9 @@ def main(argv: list[str] | None = None) -> int:
                         "symbolspec + measured spread come from it)")
     p.add_argument("--host-os", default="")
     p.add_argument("--host-timezone", default="")
+    p.add_argument("--demo-evidence", default="",
+                   help=("demo harness evidence dir (<dir>/<test>/ealog.txt "
+                         "+ run.json; docs/SAFETY_DEMO_PLAN.md)"))
 
     p = sub.add_parser("symbolspec-fresh",
                        help="stages 3/4: was this Mql5BotExportSymbolSpec "
@@ -384,7 +387,8 @@ def main(argv: list[str] | None = None) -> int:
                 symbolspec_custom=dict(
                     kv.split("=", 1) for kv in args.symbolspec_custom
                     if "=" in kv),
-                host={"os": args.host_os, "timezone": args.host_timezone})
+                host={"os": args.host_os, "timezone": args.host_timezone},
+                demo_evidence=args.demo_evidence or None)
             return _emit(rec)
 
         if args.cmd == "symbolspec-fresh":

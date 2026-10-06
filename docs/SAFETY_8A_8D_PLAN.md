@@ -52,17 +52,17 @@ recorded as `INCONCLUSIVE_*` / `NOT_*`. That never passes.
 | risk_veto (8a) | daily-loss halt on the fixture | **Strategy Tester** | `InpDailyLossPct=0.5` (production input; no test hook) | `ENTRIES_VETOED_FOR_THE_DAY`: after `DAILY LOSS LIMIT HIT`, no entry request that server day, while the baseline has one | 8 |
 | meta_reduce (8a) | Meta scale 0.5 with no allocation file | **Strategy Tester** | `InpBaseGateWeight=0.5` (production) + `InpTestSafetyLog=true` (test-only: logs risk-approved vs final lots) | `ALL_SIZES_LE_RISK_APPROVED`: every final ≤ approved, at least one reduced, and the sent volume = final | 8 |
 | sl_verify (8c) | a secured position loses its SL | **Strategy Tester** | `InpTestStripSlEntries=3` (test-only): `PositionModify(sl=0)` on the first 3 secured positions; reports from `POSITION_SL` when the EA's protection (ProtectManagedPositions → SlGuard) restores it | `SL_STRIPPED_AND_RESTORED`: every applied strip is restored (closed-first is not counted) | 8 |
-| lost_response (8c) | ambiguous order result (TIMEOUT / lost response) → adoption before retry | **demo** (or tester with a TradeManager.mqh injection, outside today's authorization) | needs a fault in `Include/Mql5Bot/TradeManager.mqh`; the tester always answers | journal: adoption/retry, attempt cap, backoff, no duplicate exposure | owner, on demo |
+| lost_response (8c) | ambiguous order result (TIMEOUT / lost response) → adoption before retry | **Strategy Tester** (TradeManager fault hook, authorized 2026-10-06; docs/SAFETY_DEMO_PLAN.md) | `InpTestUnsentTimeouts=1` + `InpTestLostResponses=1` | `LOST_RESPONSE_ADOPTED_NO_DUPLICATE` | 8 |
 | restart (8b) | restart the EA during a pending execution, an active retry, an open position, and an allocation poll | **demo** | none: a real EA/terminal restart; the tester cannot restart an EA | state reload line, unchanged magic, no duplicate exposure, orphan pendings cancelled/adopted | owner, on demo |
 | netting (8d) | gold leg on a NETTING account with opposite signals | **demo account** (netting) | none; the tester takes the account's margin mode, and gate_run35's account is hedging | journal: net flips, one position per symbol | owner, netting account |
 | hedging (8d) | independent positions, own magic/tickets | **demo** (hedging) | two EA instances with different magics; the tester runs one EA, and this EA holds one position at a time | independent tickets, no cross-contamination; or `blocked_owner_environment` | owner, on demo |
 
 **Tester-only (implemented):** kill_switch, risk_veto, meta_reduce,
-sl_verify.
+sl_verify, and lost_response (TradeManager fault hook, SAFETY-DEMO-1).
 
-**Demo-only (not implemented; stay MISSING):** lost_response, restart,
-netting, hedging. Stage 8 therefore keeps FAILING until those four exist,
-even if all four tester legs pass.
+**Demo (demo harness, docs/SAFETY_DEMO_PLAN.md):** restart, netting,
+hedging. Stage 8 keeps FAILING until those three exist, even if all five
+tester legs pass.
 
 ## c. Default-OFF guarantee
 

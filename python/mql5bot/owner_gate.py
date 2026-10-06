@@ -1917,7 +1917,14 @@ SAFETY_PINNED_EXPECTED = {
     "risk_veto": "ENTRIES_VETOED_FOR_THE_DAY",
     "meta_reduce": "ALL_SIZES_LE_RISK_APPROVED",
     "sl_verify": "SL_STRIPPED_AND_RESTORED",
+    "lost_response": "LOST_RESPONSE_ADOPTED_NO_DUPLICATE",
+    # demo harness tests (docs/SAFETY_DEMO_PLAN.md): re-graded from their
+    # bound EA log alone (no tester baseline)
+    "restart": "RESTART_RECOVERED_NO_DUPLICATE",
+    "netting": "NET_ONE_POSITION_PER_SYMBOL",
+    "hedging": "INDEPENDENT_POSITIONS_ISOLATED_BY_MAGIC",
 }
+SAFETY_DEMO_TESTS = ("restart", "netting", "hedging")
 _BASELINE_RE = re.compile(r"^safety/raw/baseline_(gold\d)_m1_ohlc_window\.txt$")
 
 
@@ -1930,6 +1937,17 @@ def _regrade_safety(root: Path, name: str, doc: dict
     from mql5bot import safety_legs as sl
 
     raw_ref = doc.get("raw_evidence") or {}
+    if name in SAFETY_DEMO_TESTS:
+        data, why = _bound_bytes(root, str(raw_ref.get("path") or ""))
+        if data is None:
+            return None, f"{name}: {why}"
+        if hashlib.sha256(data).hexdigest() != \
+                str(raw_ref.get("sha256")).lower():
+            return None, (f"{name}: {raw_ref.get('path')} bytes != the "
+                          "file's declared sha256")
+        regraded = sl.grade(name, data.decode("utf-8-sig", errors="replace"),
+                            "", "")
+        return regraded["observed_result"], ""
     base_ref = doc.get("baseline_evidence")
     if not isinstance(base_ref, dict):
         return None, f"{name}: no baseline_evidence binding to re-grade with"
