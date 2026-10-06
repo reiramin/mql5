@@ -1479,3 +1479,34 @@ Fixed, then ruff 0; full pytest 0 (2512 passed, 1 skipped; pwsh on PATH).
 - A gate run still FAILS stage 8 on the demo-only safety evidence
   (lost_response, restart, netting, hedging). The new verdict cannot be
   reached until those exist.
+
+## 2026-10-06 (4) — PR #32 merge; PR #33 Windows evidence paths; branch `feat/safety-demo`
+
+**PR #32** (approved) merged as 1deea69. Full pytest on master afterwards:
+exit 0 (2512 passed, 1 skipped).
+
+**PR #33** (fix/evidence-path-windows, pre-approved scope).
+- gate_run37's four passing safety legs were refused because
+  `_resolve_evidence` used a "/"-joined `startswith`.
+- `owner_gate.path_within` now uses `PurePath.is_relative_to` with `..`
+  collapsed; no other such check exists.
+- ruff 0; full pytest 0 (2524 passed, 1 skipped). Merged as f7d1879.
+- The first `git push` hung on SSH; I killed it and retried, and the
+  retry went through.
+
+**feat/safety-demo** (SAFETY-DEMO-1):
+- lost_response as a tester leg via the TradeManager fault hook;
+- a demo harness for restart / netting / hedging;
+- builder EX5 binding for demo evidence;
+- verifier re-grade.
+
+ruff 0; full pytest 0 (2559 passed, 1 skipped).
+
+**NOT done, and why:**
+- Never compiled.
+- The harness was never run on Windows/MT5; it ran only against a fake
+  terminal.
+- Hedging uses one EA + a second magic (not two EA instances): the `.chr`
+  profile format is undocumented.
+- Restart covers only the open-position cell of the matrix.
+- Not merged: awaiting owner review.
