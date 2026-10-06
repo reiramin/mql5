@@ -37,7 +37,7 @@ import re
 import subprocess
 import time
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePath
 
 # ---------------------------------------------------------------------------
 # artifact validity states (§7 — never collapsed into one boolean)
@@ -1066,6 +1066,27 @@ def verify_model_identity(leg: dict) -> dict:
     return {"state": VALID, "reasons": []}
 
 
+def path_within(path: PurePath, root: PurePath) -> bool:
+    """True when ``path`` is ``root`` or lies inside it. Separator-
+    independent (PurePath.is_relative_to): gate_run37 measured the former
+    ``str(path).startswith(str(root) + "/")`` test refusing EVERY Windows
+    path, whose resolved form uses ``\\``. Both arguments must already be
+    resolved; ``..`` parts are additionally collapsed lexically, so an
+    unresolved ``..\\`` escape is still refused. A sibling sharing a name
+    prefix (``root2``) is outside."""
+    def norm(p: PurePath) -> PurePath:
+        parts: list[str] = []
+        for part in p.parts:
+            if part == ".." and parts and parts[-1] != p.anchor:
+                parts.pop()
+            elif part not in (".", ""):
+                parts.append(part)
+        return type(p)(*parts) if parts else p
+
+    path, root = norm(path), norm(root)
+    return path == root or path.is_relative_to(root)
+
+
 def _resolve_evidence(root: Path, binding, what: str) -> tuple[str, str,
                                                              Path | None]:
     """Validate one file-bound evidence reference.
@@ -1088,7 +1109,7 @@ def _resolve_evidence(root: Path, binding, what: str) -> tuple[str, str,
                 None)
     path = (root / rel).resolve()
     root_res = root.resolve()
-    if not str(path).startswith(str(root_res) + "/") and path != root_res:
+    if not path_within(path, root_res):
         return (INVALID, (f"{what}: evidence path escapes the evidence "
                 "root"), None)
     if not path.is_file():
