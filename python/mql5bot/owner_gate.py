@@ -65,12 +65,21 @@ MT5_VALIDATED = "MT5_VALIDATED"
 # scoped golds' evidence verified, the excluded golds not examined at all. It
 # is deliberately NOT a positive verdict and certifies nothing.
 MT5_VALIDATED_PARTIAL_SCOPE = "MT5_VALIDATED_PARTIAL_SCOPE"
+# S8-CEILING-1 (owner decision 2026-10-06): every condition of MT5_VALIDATED
+# holds, but the real-tick coverage is a VALID REAL_TICK_COVERAGE_NONE record
+# (bar-only fixtures): validated on the bar models only, no real-tick claim.
+# MT5_VALIDATED itself stays FULL-coverage only. A scoped run maps it to the
+# _PARTIAL_SCOPE form, which is not positive.
+MT5_VALIDATED_BAR_MODELS = "MT5_VALIDATED_BAR_MODELS"
+MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE = \
+    "MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE"
+BAR_MODELS_REASON = "no real-tick claim; m1_ohlc + every_tick only"
 OUT_OF_SCOPE = "OUT_OF_SCOPE"
 EMPIRICAL_VALIDATED = "EMPIRICAL_VALIDATED"
 DEMO_VALIDATED = "DEMO_VALIDATED"
 VERIFIED = "VERIFIED"
-POSITIVE_VERDICTS = (MT5_VALIDATED, EMPIRICAL_VALIDATED, DEMO_VALIDATED,
-                     VERIFIED)
+POSITIVE_VERDICTS = (MT5_VALIDATED, MT5_VALIDATED_BAR_MODELS,
+                     EMPIRICAL_VALIDATED, DEMO_VALIDATED, VERIFIED)
 
 # ---------------------------------------------------------------------------
 # deterministic owner-evidence directory layout (§6)
@@ -2213,6 +2222,10 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict,
         verdict = NOT_VERIFIED_MISSING_MT5_EVIDENCE
         reasons.append(f"real-tick coverage record {cov_rep['state']}: "
                        f"{cov_rep['reasons']}")
+    elif cov_rep["coverage"] == REAL_TICK_COVERAGE_NONE:
+        # S8-CEILING-1: a VALID NONE record (state checked above) -- the
+        # bar models validated, nothing claimed about real ticks
+        verdict = MT5_VALIDATED_BAR_MODELS
     elif cov_rep["coverage"] != "REAL_TICK_COVERAGE_FULL":
         # PARTIAL keeps the limitation explicit; UNKNOWN never promotes
         verdict = NOT_VERIFIED_REAL_TICK_COVERAGE_UNKNOWN
@@ -2222,11 +2235,19 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict,
     if verdict == MT5_VALIDATED:
         reasons = [("all owner evidence verified against the frozen "
                    "record — gold parity holds on the owner terminal")]
+    elif verdict == MT5_VALIDATED_BAR_MODELS:
+        reasons = [("all owner evidence verified against the frozen "
+                    "record on the bar models — " + BAR_MODELS_REASON)]
     if partial:
         if verdict == MT5_VALIDATED:
             verdict = MT5_VALIDATED_PARTIAL_SCOPE
             reasons = [(f"scoped verification of {list(scope)} only: its "
                         "evidence verified against the frozen record")]
+        elif verdict == MT5_VALIDATED_BAR_MODELS:
+            verdict = MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE
+            reasons = [(f"scoped verification of {list(scope)} only: its "
+                        "evidence verified against the frozen record on "
+                        "the bar models — " + BAR_MODELS_REASON)]
         reasons.append(f"PARTIAL: excluded {[e['gold'] for e in excluded]} "
                        "were not examined — this verifies nothing about "
                        "them and certifies nothing")
@@ -2269,6 +2290,7 @@ def run_gate(evidence_dir: Path | str, frozen_inputs: dict,
 
 __all__ = [
     "ARTIFACT_STATES",
+    "BAR_MODELS_REASON",
     "DECISION_CHANGING_MISMATCH",
     "DEMO_VALIDATED",
     "EMPIRICAL_VALIDATED",
@@ -2285,6 +2307,8 @@ __all__ = [
     "MODELS",
     "MODEL_LABELS",
     "MT5_VALIDATED",
+    "MT5_VALIDATED_BAR_MODELS",
+    "MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE",
     "MT5_VALIDATED_PARTIAL_SCOPE",
     "NOT_APPLICABLE",
     "NOT_VERIFIED_ARTIFACT_MISMATCH",

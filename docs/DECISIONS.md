@@ -3872,3 +3872,40 @@ Outcomes:
 - no pinned reference → INVALID.
 
 gate_run35 replay: unchanged, gold2 VALID / MATCH.
+
+## S8-CEILING-1 — OWNER DECISION: MT5_VALIDATED_BAR_MODELS (2026-10-06)
+
+**Finding (gate_run36, HEAD 563229d).**
+- The gold2 reconciliation is VALID / MATCH.
+- Stage 8 fails only on safety evidence, the partial scope, and no real
+  ticks.
+- The gold fixtures are bar-only, so a VALID REAL_TICK_COVERAGE_NONE record
+  capped the verdict at NOT_VERIFIED_REAL_TICK_COVERAGE_UNKNOWN forever.
+
+**Decision (owner, 2026-10-06).**
+- **New verdict.** A distinct verdict `MT5_VALIDATED_BAR_MODELS`. It is
+  assigned ONLY when every other condition of MT5_VALIDATED holds AND the
+  real-tick coverage is a VALID `REAL_TICK_COVERAGE_NONE` record.
+- **Reason text.** Its reasons say "no real-tick claim; m1_ohlc +
+  every_tick only".
+- **Scoped runs.** A scoped run maps it to
+  `MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE`, which is not positive. A scoped
+  run is still refused at stages 9-10.
+- **Stages 9-10.** They may archive/certify MT5_VALIDATED_BAR_MODELS:
+  - the ps1 accepts it at stage 8;
+  - stage 9 records `scope: bar models`;
+  - stage 10 passes `--certificate-scope "bar models"` to
+    certify_strategy.py, and the certificate states "Certificate scope:
+    bar models — no real-tick claim; m1_ohlc + every_tick only".
+- **MT5_VALIDATED unchanged.** It stays FULL-coverage only. PARTIAL /
+  UNKNOWN coverage still gives NOT_VERIFIED_REAL_TICK_COVERAGE_UNKNOWN; an
+  INVALID / MISMATCHED NONE record never reaches the new verdict.
+- **No other rule changed.**
+
+**Implementation note.** `MT5_VALIDATED_BAR_MODELS` is in
+`POSITIVE_VERDICTS`, so the verifier tool exits 0 on it.
+`MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE` is not.
+
+Tests: `tests/test_verdict_bar_models.py`, one per ladder branch.
+
+Built, unit-tested, never run live.

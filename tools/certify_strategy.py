@@ -119,6 +119,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="per-gold real-tick coverage from stage 5 (repeat "
                          "per gold), e.g. 'gold2=NONE (bar-only fixture)'; "
                          "stated verbatim in the report")
+    ap.add_argument("--certificate-scope", default="full",
+                    choices=("full", "bar models"),
+                    help=("S8-CEILING-1: 'bar models' when stage 8 verified "
+                          "MT5_VALIDATED_BAR_MODELS (no real-tick claim; "
+                          "m1_ohlc + every_tick only); stated in the report"))
     args = ap.parse_args(argv)
     coverage: dict[str, str] = {}
     for pair in args.real_tick_coverage:
@@ -142,6 +147,7 @@ def main(argv: list[str] | None = None) -> int:
                                runner_note=note,
                                reconciliation_ok=reconciliation_ok)
     report["real_tick_coverage"] = coverage
+    report["certificate_scope"] = args.certificate_scope
     text = render_report(report)
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")

@@ -490,6 +490,14 @@ def render_report(report: dict) -> str:
         lines.append("Reasons:")
         lines += [f"- {r}" for r in v["reasons"]]
         lines.append("")
+    scope = report.get("certificate_scope")
+    if scope:
+        # S8-CEILING-1: a certificate built on MT5_VALIDATED_BAR_MODELS
+        # states its scope; it never reads as a real-tick claim
+        lines.append(f"Certificate scope: {scope}"
+                     + (" — no real-tick claim; m1_ohlc + every_tick only"
+                        if scope == "bar models" else ""))
+        lines.append("")
     coverage = report.get("real_tick_coverage") or {}
     if coverage:
         # stated per gold, verbatim from stage 5: "NONE (bar-only fixture)"
