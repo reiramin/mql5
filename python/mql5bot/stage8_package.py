@@ -1528,9 +1528,46 @@ def build_package(*, repo: Path | str, package: Path | str,
         if why:
             not_built[rel] = why
 
+    # --- safety/ (8a-8d, docs/SAFETY_8A_8D_PLAN.md) ------------------------
+    # Only from a safety tester leg THIS gate ran: its window is copied to
+    # safety/raw/ and graded by mql5bot.safety_legs against the same run's
+    # gold m1_ohlc window (also copied). A test the tester cannot run, or
+    # whose leg left no window, is never written: it stays MISSING.
+    from mql5bot import safety_legs as sl
+
+    base_gold = golds[0] if golds else None
+    base_win = (ev / f"tester_{base_gold}_{sl.BASELINE_MODEL}_window.txt"
+                if base_gold else None)
     for name in og.SAFETY_TESTS + ("netting", "hedging"):
-        not_built[og.LAYOUT.get(name, f"safety/{name}.json")] = (
-            "never built by the gate: 8a-8d have not run on MT5")
+        rel = og.LAYOUT.get(name, f"safety/{name}.json")
+        if name in sl.DEMO_ONLY:
+            not_built[rel] = f"demo-only, not a tester leg: {sl.DEMO_ONLY[name]}"
+            continue
+        win = ev / f"tester_{sl.leg_tag(name)}_window.txt"
+        if not win.is_file():
+            not_built[rel] = (f"no safety leg window {win.name} in the gate "
+                              "evidence: the tester leg did not run")
+            continue
+        if base_win is None or not base_win.is_file():
+            not_built[rel] = ("no baseline gold m1_ohlc window in the gate "
+                              "evidence: the safety leg cannot be graded")
+            continue
+        raw_rel = f"safety/raw/{name}_window.txt"
+        put_bytes(raw_rel, win.read_bytes(),
+                  f"gate safety tester leg window {win.name}")
+        base_rel = f"safety/raw/baseline_{base_gold}_{sl.BASELINE_MODEL}_window.txt"
+        if base_rel not in built:
+            put_bytes(base_rel, base_win.read_bytes(),
+                      f"gate stage-5 baseline window {base_win.name}")
+        doc = sl.grade(name, gs.read_text_bom_aware(win),
+                       gs.read_text_bom_aware(base_win),
+                       GOLD_FILES[base_gold]["tester_symbol"])
+        doc["raw_evidence"] = {"path": raw_rel, "sha256": built[raw_rel]}
+        doc["baseline_evidence"] = {"path": base_rel,
+                                    "sha256": built[base_rel]}
+        doc["source"] = ("graded by mql5bot.safety_legs from the MT5 "
+                         "Strategy Tester leg window of this gate run")
+        put_json(rel, doc, f"graded safety leg {win.name}")
 
     # --- record, then archive_manifest.json LAST (owner_evidence_bind) ----
     record = {"schema": "mql5bot.stage8_package_build/1", "golds": golds,

@@ -112,6 +112,15 @@ input int                     InpLogLevel    = 2;                    // 0=off 1=
 input bool                    InpTelemetry   = false;                // Enable HTTP telemetry
 input string                  InpWebhookUrl  = MQL5BOT_WEBENDPOINT;  // Webhook URL (add to allowed list)
 
+//--- SAFETY TESTS 8a-8d (owner authorization 2026-10-06, docs/SAFETY_8A_8D_
+//--- PLAN.md): Strategy-Tester-only fault injection / observation. Every
+//--- default is OFF, and at the defaults no code path below changes what
+//--- the EA does: each hook is skipped before it touches any state.
+input group "=== Safety tests (test-only, default OFF) ==="
+input int                     InpTestKillSwitchAfterEntries = 0;     // 8a kill switch: latch after N entries (0=off)
+input int                     InpTestStripSlEntries = 0;             // 8b SL verify: strip the SL of the first N entries (0=off)
+input bool                    InpTestSafetyLog = false;              // 8a meta reduce: log risk-approved vs final lots
+
 //+------------------------------------------------------------------+
 //| Globals                                                          |
 //+------------------------------------------------------------------+
@@ -149,6 +158,10 @@ ulong           g_managedTicket = 0;
 int             g_lastDayKey    = 0;
 bool            g_orphanScanDone = false;
 int             g_tickCounter   = 0;
+//--- safety-test state (used only when a test input is non-default)
+int             g_testEntries   = 0;      // entries made (8a kill switch)
+ulong           g_testStripped[];         // tickets whose SL was stripped (8b)
+bool            g_testRestored[];         // ... and seen restored
 string          g_symbol        = _Symbol;
 ENUM_TIMEFRAMES g_tf            = _Period;
 
@@ -793,6 +806,10 @@ void OnTimer()
    //--- retry queue (S3) — bounded work per tick
    g_trade.ProcessQueue(8);
 
+   //--- 8b safety test (no-op unless InpTestStripSlEntries > 0)
+   if(InpTestStripSlEntries > 0)
+      TestSlStripPump();
+
    //--- restart recovery (S2/S6): cancel orphan pendings once
    if(!g_orphanScanDone)
       CancelOrphanPendings();
@@ -1081,6 +1098,11 @@ void OnNewBar()
                  " - no trade");
       return;
      }
+   if(InpTestSafetyLog)
+      g_log.Info(StringFormat("TEST 8a meta: risk_approved=%.2f scaled=%.4f "
+                              "final=%.2f base_weight=%.4f",
+                              riskApproved, lots, metaLots,
+                              InpBaseGateWeight));
    lots = metaLots;
    double riskMoney = g_risk.RiskMoneyAt(g_spec, lots, fill, g_lastSignal.slPrice);
 
@@ -1130,6 +1152,79 @@ void OnNewBar()
                               g_lastSignal.tpPrice));
       g_tele.Trade(g_symbol, (desired > 0) ? "buy" : "sell", g_strategyId,
                    lots, fill, 0.0, "entry");
+      //--- 8a safety test (no-op unless InpTestKillSwitchAfterEntries > 0)
+      if(InpTestKillSwitchAfterEntries > 0)
+        {
+         g_testEntries++;
+         if(g_testEntries == InpTestKillSwitchAfterEntries)
+           {
+            g_risk.TripKillSwitch(REASON_MANUAL);
+            g_log.Warn(StringFormat("TEST 8a kill switch: LATCHED after entry %d "
+                                    "(state=%d reason=%d AllowsNewTrades=%s)",
+                                    g_testEntries, (int)g_risk.State(),
+                                    g_risk.StateReason(),
+                                    g_risk.AllowsNewTrades() ? "true" : "false"));
+           }
+        }
+     }
+  }
+
+//+------------------------------------------------------------------+
+//| 8b safety test (InpTestStripSlEntries > 0 only): strip the SL of  |
+//| the first N secured own positions, then report -- from the       |
+//| position's own POSITION_SL -- when the EA's SL protection has    |
+//| put a stop back. Fault injection + observation; never called at  |
+//| the default input.                                               |
+//+------------------------------------------------------------------+
+void TestSlStripPump()
+  {
+   int n = ArraySize(g_testStripped);
+   for(int k = 0; k < n; k++)
+     {
+      if(g_testRestored[k])
+         continue;
+      if(!PositionSelectByTicket(g_testStripped[k]))
+        {
+         g_testRestored[k] = true;
+         g_log.Warn(StringFormat("TEST 8b sl: #%I64u closed before an SL was "
+                                 "restored", g_testStripped[k]));
+         continue;
+        }
+      double sl = PositionGetDouble(POSITION_SL);
+      if(sl > 0.0)
+        {
+         g_testRestored[k] = true;
+         g_log.Info(StringFormat("TEST 8b sl: RESTORED #%I64u sl=%.5f",
+                                 g_testStripped[k], sl));
+        }
+     }
+   if(n >= InpTestStripSlEntries || g_slguard.ActiveCount() > 0)
+      return;
+   for(int i = 0; i < g_store.Count(); i++)
+     {
+      STicketRec rec = g_store.RecordAt(i);
+      if(rec.ticket == 0 || !PositionSelectByTicket(rec.ticket))
+         continue;
+      bool seen = false;
+      for(int k = 0; k < n; k++)
+         if(g_testStripped[k] == rec.ticket) { seen = true; break; }
+      if(seen)
+         continue;
+      double sl = PositionGetDouble(POSITION_SL);
+      double tp = PositionGetDouble(POSITION_TP);
+      if(sl <= 0.0)
+         continue;                       // only a secured position is stripped
+      bool done = g_trade.ModifySLTP(rec.ticket, 0.0, tp);
+      double after = PositionSelectByTicket(rec.ticket)
+                     ? PositionGetDouble(POSITION_SL) : -1.0;
+      ArrayResize(g_testStripped, n + 1);
+      ArrayResize(g_testRestored, n + 1);
+      g_testStripped[n] = rec.ticket;
+      g_testRestored[n] = false;
+      g_log.Warn(StringFormat("TEST 8b sl: STRIPPED #%I64u sl %.5f -> %.5f "
+                              "(modify %s)", rec.ticket, sl, after,
+                              done ? "done" : "not done"));
+      return;                            // one strip per pump
      }
   }
 

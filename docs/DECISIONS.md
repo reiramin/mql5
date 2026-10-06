@@ -3872,3 +3872,40 @@ Outcomes:
 - no pinned reference → INVALID.
 
 gate_run35 replay: unchanged, gold2 VALID / MATCH.
+
+## SAFETY-8A-8D-1 — OWNER AUTHORIZATION: test-only EA inputs for the tester-runnable safety legs (2026-10-06)
+
+**Authorization (owner, 2026-10-06).** `mql5/Experts/Mql5Bot/` may get
+test-only inputs, default OFF. At the defaults the gold legs must behave
+byte-identically.
+
+**Plan.** `docs/SAFETY_8A_8D_PLAN.md`.
+
+**Tester-only (implemented).**
+
+| test | inputs |
+|---|---|
+| kill_switch | `InpTestKillSwitchAfterEntries` |
+| risk_veto | `InpDailyLossPct=0.5` (production input) |
+| meta_reduce | `InpBaseGateWeight=0.5` + `InpTestSafetyLog` |
+| sl_verify | `InpTestStripSlEntries` |
+
+How each leg runs:
+- each runs as one extra tester leg in stage 8, before the package build;
+- `mql5bot.safety_legs` grades its window against the same run's gold
+  m1_ohlc window;
+- the builder writes `safety/<test>.json`, with the window bound as
+  `raw_evidence`.
+
+**Demo-only (not implemented, stay MISSING).** lost_response, restart,
+netting, hedging. The reasons are in the plan.
+
+**SAFETY-RESULT-1 (verifier).** A safety file needs `expected_result`, and
+is VALID only when `observed_result == expected_result`. Before this, any
+observed result, even a failure, was VALID.
+
+**Not verified.** No metaeditor on this host: the EA edit is pinned by
+source tests, and stage 1's strict compile is the proof. No MT5 run has
+produced any of these files.
+
+Built, unit-tested, never run live.

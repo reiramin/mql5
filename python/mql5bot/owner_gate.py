@@ -1878,7 +1878,7 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
 # 7. safety runtime evidence (§20/§21: raw evidence, never screenshots)
 # ---------------------------------------------------------------------------
 _SAFETY_FIELDS = ("action", "initial_state", "resulting_state",
-                  "observed_result", "raw_evidence")
+                  "observed_result", "expected_result", "raw_evidence")
 
 
 def verify_safety(root: Path | str) -> dict:
@@ -1926,6 +1926,18 @@ def verify_safety(root: Path | str) -> dict:
             out[name] = {"state": INVALID,
                          "reasons": [(f"{name} evidence is screenshot-"
                                      "only — raw artifacts required")]}
+            continue
+        # SAFETY-RESULT-1 (2026-10-06): a safety file is VALID only when
+        # what MT5 showed IS the required outcome. A failed or inconclusive
+        # test is recorded with its observation, never accepted as evidence
+        # (before, any observed_result -- even a failure -- was VALID).
+        if doc.get("observed_result") != doc.get("expected_result"):
+            out[name] = {"state": INVALID,
+                         "result": doc.get("observed_result"),
+                         "reasons": [(f"{name} observed "
+                                     f"{doc.get('observed_result')!r}, "
+                                     "required "
+                                     f"{doc.get('expected_result')!r}")]}
             continue
         out[name] = {"state": VALID,
                      "result": doc.get("observed_result"), "reasons": []}

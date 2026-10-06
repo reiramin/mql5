@@ -221,6 +221,7 @@ def build_package(root, *, diverge_gold2=None, diverge_status="DIVERGENT",
             "initial_state": "documented",
             "resulting_state": "documented",
             "observed_result": "pass per procedure",
+            "expected_result": "pass per procedure",
             "raw_evidence": {
                 "path": ev_rel,
                 "sha256": _hl.sha256(ev_text.encode()).hexdigest(),
