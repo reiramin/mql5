@@ -343,8 +343,16 @@ def test_reconciliation_pairs_by_time_never_by_position(run26):
     # #2 at the same minute -- NOT python entry 0 (2024-01-01, 1.4 lots),
     # which positional pairing compared and which MT5 never tested
     assert e0["pairing"] == s8p.PAIRED_BY_TIME
-    assert e0["fields"]["timestamp"] == {"python": "2024-01-02T08:01:00",
-                                         "mt5": "2024-01-02T08:01:00"}
+    # S8-TS-1: compared at fill-BAR level, raw MT5 seconds recorded
+    assert e0["fields"]["timestamp"] == {"python": "2024-01-02T08:01",
+                                         "mt5": "2024-01-02T08:01",
+                                         "basis": og.TS_BASIS_FILL_BAR}
+    assert e0["mt5_time_raw"] == "2024-01-02T08:01:00"
+    # S8-SLTP-1: sl/tp from MT5's own request line vs the python levels
+    assert e0["fields"]["sl"] == {"python": 1.16598, "mt5": 1.16598}
+    assert e0["fields"]["tp"] == {"python": 0.99075, "mt5": 0.99075}
+    assert "instant sell 0.01 EURUSD.G2 at 1.09589 sl: 1.16598" in \
+        e0["mt5_request_line"]
     assert e0["fields"]["volume"] == {"python": 0.01, "mt5": 0.01}
     # side and entry price are parsed from MT5's own journal deal line,
     # not left unmeasured: sell 0.01 at 1.09589 (= fixture open at 08:01)

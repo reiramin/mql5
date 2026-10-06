@@ -16,6 +16,15 @@
 #   (sell 0.01 at the fixture open 1.09589) and the 08:46 entry diverges
 #   (buy 0.28 at 1.09700 vs python 0.26 at fixture open 1.09725). SYNTHETIC
 #   test values in a measured format; never MT5 evidence.
+# * The order-request lines ("instant buy|sell VOL SYMBOL at PRICE sl: X
+#   tp: Y (bid / ask / bid)") are the format MEASURED in gate_run35
+#   (2026-10-06, tester_gold2_*_window.txt). The 08:01 line is quoted from
+#   gate_run35 verbatim (minus its log prefix). The 08:46 line is SYNTHETIC
+#   (no such MT5 deal exists): its sl/tp are the python levels for that
+#   entry under the manifest-spread fill model (S8-SLTP-1), so only the
+#   synthetic price/volume diverge there.
 Core 1	EURUSD.G2: start time changed to 2024.01.02 00:00 to provide data at beginning
+Core 1	instant sell 0.01 EURUSD.G2 at 1.09589 sl: 1.16598 tp: 0.99075 (1.09589 / 1.09590 / 1.09589)
 Core 1	deal #2 sell 0.01 EURUSD.G2 at 1.09589 done (based on order #2)
+Core 1	instant buy 0.28 EURUSD.G2 at 1.09700 sl: 1.09375 tp: 1.10253 (1.09699 / 1.09700 / 1.09699)
 Core 1	deal #4 buy 0.28 EURUSD.G2 at 1.09700 done (based on order #4)

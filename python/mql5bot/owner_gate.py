@@ -116,6 +116,143 @@ def log_trades_rel(gold: str, model: str) -> str:
     return f"log_trades/{gold}_{model}.json"
 
 
+def log_window_rel(gold: str, model: str) -> str:
+    """The package copy of a log-sourced leg's window capture: the bytes its
+    log trade list's ``window_sha256`` names (S8-SLTP-1 reads the entry
+    request lines' sl/tp from it)."""
+    return f"log_windows/{gold}_{model}.txt"
+
+
+# Event pairing states the gate builder writes (stage8_package) and the
+# verifier counts (S8-COUNT-1). Not divergence classifications.
+PAIRED_BY_TIME = "PAIRED_BY_TIME"
+MISSING_IN_MT5 = "MISSING_IN_MT5"
+EXTRA_IN_MT5 = "EXTRA_IN_MT5"
+# S8-TS-1: the python fill time has minute resolution (M1 bars), so a paired
+# event's timestamp is compared at fill-BAR level -- and only together with
+# an exact entry_price match on the same event.
+TS_BASIS_FILL_BAR = "fill_bar_minute (S8-TS-1)"
+# S8-TICKPATH-1: a tick-generating leg compares volume against the python
+# path only up to its first exit that differs from the m1_ohlc leg; after
+# it, against the frozen sizing rule on MT5's own pre-entry equity.
+TICK_PATH_DIVERGENCE = "TICK_PATH_DIVERGENCE"
+TICK_PATH_REFERENCE = "m1_ohlc"
+TICK_PATH_MODELS = ("every_tick", "real_ticks")
+VOLUME_BASIS_MT5_EQUITY = "mt5_equity_sizing (S8-TICKPATH-1)"
+
+
+def deal_time_iso(stamp) -> str | None:
+    """``2024.01.03 08:32:01`` -> ``2024-01-03T08:32:01`` (seconds kept;
+    ``:00`` when the stamp has none). None when unparsable."""
+    m = re.match(r"^(\d{4})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?$",
+                 str(stamp or "").strip())
+    if not m:
+        return None
+    y, mo, d, h, mi, sec = m.groups()
+    return f"{y}-{mo}-{d}T{h}:{mi}:{sec or '00'}"
+
+
+def log_entry_deals(deals: list[dict]) -> list[dict]:
+    """The ENTRY deals of a log trade list: those whose own MT5 request line
+    is not a close (``entry == "open"``, set by tester_log_grader from the
+    request line before the ``deal #N`` line). An exit triggered by SL/TP has
+    no request line (entry None) and is never counted as an entry."""
+    return [d for d in deals
+            if isinstance(d, dict) and d.get("entry") == "open"]
+
+
+def _deal_key(deal: dict) -> tuple:
+    return (deal.get("time"), deal.get("side"), deal.get("volume"),
+            deal.get("price"), deal.get("pnl"))
+
+
+def tick_path_divergence(ref_deals: list[dict], tick_deals: list[dict]
+                         ) -> tuple[dict | None, str]:
+    """S8-TICKPATH-1: the first EXIT deal where a tick-generating leg's
+    deal list differs from the m1_ohlc leg's (time or price), walking both
+    lists deal for deal. Returns (record, note).
+
+    The record is an OBSERVATION (classification TICK_PATH_DIVERGENCE), not
+    a python<->MT5 field: from that exit on, the two legs book different pnl
+    and their equity paths differ. None when the lists never differ, or
+    when the first difference is NOT an exit time/price difference (an
+    entry, side or volume difference first): the tick-path rule then does
+    not apply and the leg stays fully strict -- the note says why."""
+    for k, (ref, tick) in enumerate(zip(ref_deals, tick_deals)):
+        if _deal_key(ref) == _deal_key(tick):
+            continue
+        exit_deal = ref.get("entry") != "open" and tick.get("entry") != "open"
+        same_order = (ref.get("ticket") == tick.get("ticket")
+                      and ref.get("side") == tick.get("side")
+                      and ref.get("volume") == tick.get("volume"))
+        moved = (ref.get("time") != tick.get("time")
+                 or ref.get("price") != tick.get("price"))
+        if not (exit_deal and same_order and moved):
+            return None, (f"first deal difference at index {k} (ticket "
+                          f"{tick.get('ticket')}) is not an exit time/price "
+                          "difference: no tick-path divergence, the leg "
+                          "stays fully strict")
+
+        def side_of(d: dict) -> dict:
+            return {"ticket": d.get("ticket"), "time": d.get("time"),
+                    "price": d.get("price"), "pnl": d.get("pnl"),
+                    "side": d.get("side"), "volume": d.get("volume"),
+                    "lines": list(d.get("lines") or [])}
+        return ({"classification": TICK_PATH_DIVERGENCE, "observed": True,
+                 "reference_model": TICK_PATH_REFERENCE,
+                 "deal_index": k, "ticket": tick.get("ticket"),
+                 "reference_deal": side_of(ref), "tick_deal": side_of(tick),
+                 "note": ("first exit whose time/price differs from the "
+                          "m1_ohlc leg; every deal before it is identical "
+                          "(time, side, volume, price, pnl). Observed and "
+                          "named, never a python<->MT5 divergence by "
+                          "itself.")},
+                f"first differing exit at deal index {k}")
+    if len(ref_deals) != len(tick_deals):
+        return None, ("deal lists agree on their common prefix but differ "
+                      f"in length ({len(ref_deals)} vs {len(tick_deals)}): "
+                      "no exit divergence, the leg stays fully strict")
+    return None, "deal lists identical: no tick-path divergence"
+
+
+_ENTRY_REQUEST_RE = re.compile(
+    r"\b(?:market|instant)\s+(buy|sell)\s+(-?\d+(?:\.\d+)?)\s+(\S+)\s+at\s+"
+    r"(-?\d+(?:\.\d+)?)\s+sl:\s*(-?\d+(?:\.\d+)?)\s+tp:\s*(-?\d+(?:\.\d+)?)",
+    re.IGNORECASE)
+_ANY_REQUEST_RE = re.compile(r"\b(?:market|instant)\s+(buy|sell)\b",
+                             re.IGNORECASE)
+_DEAL_LINE_RE = re.compile(
+    r"\bdeal #(\d+)\s+(buy|sell)\s+(-?\d+(?:\.\d+)?)\s+(\S+)\s+at\s+",
+    re.IGNORECASE)
+
+
+def entry_request_levels(window_text: str, symbol: str) -> dict[int, dict]:
+    """S8-SLTP-1: ticket -> {sl, tp, request_line, deal_line} from MT5's own
+    ``instant buy|sell VOL SYMBOL at PRICE sl: X tp: Y`` request line, for
+    the ``deal #N`` line that directly follows it (same side, volume and
+    symbol). A deal with no such request (a close, an SL/TP trigger) has no
+    entry here; nothing is inferred."""
+    out: dict[int, dict] = {}
+    last: str | None = None
+    for raw in (window_text or "").splitlines():
+        line = raw.strip()
+        if _ANY_REQUEST_RE.search(line) and symbol in line:
+            last = line
+            continue
+        m = _DEAL_LINE_RE.search(line)
+        if not m or m.group(4) != symbol:
+            continue
+        req = _ENTRY_REQUEST_RE.search(last) if last else None
+        request_line, last = last, None
+        if req and req.group(3) == symbol and \
+                req.group(1).lower() == m.group(2).lower() and \
+                float(req.group(2)) == float(m.group(3)):
+            out.setdefault(int(m.group(1)), {
+                "sl": float(req.group(5)), "tp": float(req.group(6)),
+                "request_line": request_line, "deal_line": line})
+    return out
+
+
 # OWNER DECISION 2026-10-03 (DECISIONS.md, option 2): a bar-only gold's
 # real_ticks leg is NOT_APPLICABLE_BAR_ONLY_FIXTURE -- never launched, so it
 # has no raw or parsed report. The gate copies its own stage_5.json record into
@@ -635,8 +772,8 @@ def _bound_bytes(root: Path, rel: str) -> tuple[bytes | None, str]:
     return data, ""
 
 
-def _ini_currency(data: bytes) -> str | None:
-    """`Currency=` of an ini's [Tester] section (utf-8/utf-16, BOM-aware)."""
+def _ini_tester_value(data: bytes, key: str) -> str | None:
+    """`<key>=` of an ini's [Tester] section (utf-8/utf-16, BOM-aware)."""
     text = (data.decode("utf-16") if data[:2] in (b"\xff\xfe", b"\xfe\xff")
             else data.decode("utf-8-sig", errors="replace"))
     section = ""
@@ -644,9 +781,24 @@ def _ini_currency(data: bytes) -> str | None:
         line = line.strip()
         if line.startswith("[") and line.endswith("]"):
             section = line[1:-1].strip().lower()
-        elif section == "tester" and line.lower().startswith("currency="):
+        elif section == "tester" and \
+                line.lower().startswith(key.lower() + "="):
             return line.split("=", 1)[1].strip()
     return None
+
+
+def _ini_currency(data: bytes) -> str | None:
+    """`Currency=` of an ini's [Tester] section (utf-8/utf-16, BOM-aware)."""
+    return _ini_tester_value(data, "Currency")
+
+
+def ini_deposit(data: bytes) -> float | None:
+    """`Deposit=` of an ini's [Tester] section as a number, else None."""
+    raw = _ini_tester_value(data, "Deposit")
+    try:
+        return float(raw) if raw is not None else None
+    except ValueError:
+        return None
 
 
 def _custom_tick_value_class(root: Path, doc: dict, name, actual, expected,
@@ -1159,6 +1311,177 @@ def _verify_log_trades(root: Path, gold: str, log_models: set[str],
     return docs, problems
 
 
+_PYTHON_SIDE_PAIRINGS = (PAIRED_BY_TIME, MISSING_IN_MT5,
+                         "OUT_OF_TESTED_WINDOW", "FROZEN_ONLY_SCHEDULED_WEIGHT")
+
+
+def _log_leg_checks(root: Path, gold: str, log_docs: dict, events: list,
+                    tick_paths: dict, py_count: int
+                    ) -> tuple[dict, list[dict], list[str], dict]:
+    """The log-sourced legs' comparison rules, recomputed from the BOUND
+    evidence (log trade lists, window copies, tester ini copies). Returns
+    (derived entry-count event, events with S8-TS-1 applied, problems,
+    info); any problem makes the reconciliation INVALID.
+
+    * S8-COUNT-1 -- ``entry_count:<model>``: python = the model's
+      PAIRED_BY_TIME + MISSING_IN_MT5 events (expected entries INSIDE the
+      tested window), mt5 = the entry deals of the bound log list. PAIRED +
+      EXTRA_IN_MT5 must equal the MT5 entry deals. A model with no python-
+      side event at all while the frozen python trade count is > 0 is not
+      comparable (the zero-trade guard cannot be bypassed by omitting the
+      expected entries).
+    * S8-TS-1 -- a paired timestamp on the fill-bar basis holds only when
+      its mt5 minute is the floor of the recorded raw MT5 time, that raw
+      time is the bound deal's own, and the same event's entry_price
+      matches exactly; otherwise the timestamp field DIVERGES.
+    * S8-TICKPATH-1 -- the recorded tick-path divergence must equal the one
+      recomputed from the two bound deal lists; a volume compared on MT5's
+      own equity is allowed only on a tick-generating leg AFTER that deal,
+      with the pre-entry equity = tester ini Deposit + cumulative pnl of
+      the leg's earlier deals, recomputed here; after it, every paired
+      volume must use that basis; m1_ohlc never does.
+    * S8-SLTP-1 -- every paired event carries sl and tp, and their mt5
+      values are the ones MT5's own entry request line states (re-parsed
+      from the bound window copy whose bytes the log list names)."""
+    problems: list[str] = []
+    info: dict = {"entry_counts": {}, "tick_path": {}}
+    evs = [e for e in events if isinstance(e, dict)]
+    fields: dict = {}
+    adjusted: dict[int, dict] = {}
+    for model in sorted(log_docs):
+        doc = log_docs[model]
+        deals = [d for d in doc["deals"] if isinstance(d, dict)]
+        mine = [e for e in evs if e.get("model") == model]
+        paired = [e for e in mine if e.get("pairing") == PAIRED_BY_TIME]
+        missing = [e for e in mine if e.get("pairing") == MISSING_IN_MT5]
+        extra = [e for e in mine if e.get("pairing") == EXTRA_IN_MT5]
+        n_entries = len(log_entry_deals(deals))
+        info["entry_counts"][model] = {
+            "paired": len(paired), "missing_in_mt5": len(missing),
+            "extra_in_mt5": len(extra), "mt5_entry_deals": n_entries,
+            "mt5_deals": len(deals)}
+        fields[f"entry_count:{model}"] = {
+            "python": len(paired) + len(missing), "mt5": n_entries}
+        if len(paired) + len(extra) != n_entries:
+            problems.append(
+                f"{model}: S8-COUNT-1 PAIRED ({len(paired)}) + EXTRA_IN_MT5 "
+                f"({len(extra)}) != the bound log list's entry deals "
+                f"({n_entries})")
+        if py_count > 0 and not any(e.get("pairing") in _PYTHON_SIDE_PAIRINGS
+                                    for e in mine):
+            problems.append(
+                f"{model}: no python-side event at all while the frozen "
+                f"python trade count is {py_count}: the expected in-window "
+                "entries are not recorded, so entry_count cannot be compared")
+        index_of = {d.get("ticket"): k for k, d in enumerate(deals)}
+
+        # --- S8-TICKPATH-1 ------------------------------------------------
+        div_idx = None
+        if model in TICK_PATH_MODELS:
+            ref = log_docs.get(TICK_PATH_REFERENCE)
+            expect, note = (tick_path_divergence(ref["deals"], deals)
+                            if ref is not None else
+                            (None, f"no {TICK_PATH_REFERENCE} log leg"))
+            rec = (tick_paths.get(model) or {}).get("record")
+            key = ("deal_index", "ticket")
+            if tuple((expect or {}).get(k) for k in key) != \
+                    tuple((rec or {}).get(k) for k in key):
+                problems.append(
+                    f"{model}: recorded tick-path divergence "
+                    f"{tuple((rec or {}).get(k) for k in key)} != the one "
+                    "recomputed from the bound deal lists "
+                    f"{tuple((expect or {}).get(k) for k in key)}")
+            div_idx = expect["deal_index"] if expect else None
+            info["tick_path"][model] = {"record": expect, "note": note}
+        deposit = None
+        if any(((e.get("fields") or {}).get("volume") or {}).get("basis")
+               == VOLUME_BASIS_MT5_EQUITY for e in paired):
+            raw, why = _bound_bytes(root, tester_ini_rel(gold, model))
+            deposit = ini_deposit(raw) if raw is not None else None
+            if deposit is None:
+                problems.append(f"{model}: S8-TICKPATH-1 equity needs the "
+                                f"bound tester ini Deposit: {why or 'absent'}")
+        for e in paired:
+            k = index_of.get(e.get("mt5_ticket"))
+            vol = (e.get("fields") or {}).get("volume") or {}
+            on_equity = vol.get("basis") == VOLUME_BASIS_MT5_EQUITY
+            after = div_idx is not None and k is not None and k > div_idx
+            if on_equity != after:
+                problems.append(
+                    f"{model}: ticket {e.get('mt5_ticket')} volume basis "
+                    f"{vol.get('basis') or 'python path'!r} but the deal is "
+                    f"{'after' if after else 'not after'} the tick-path "
+                    "divergence")
+                continue
+            if on_equity and deposit is not None:
+                eq = round(deposit + sum(float(d.get("pnl") or 0.0)
+                                         for d in deals[:k]), 2)
+                flat = 2 * len(log_entry_deals(deals[:k])) == k
+                if e.get("mt5_pre_entry_equity") != eq or \
+                        e.get("book_flat_at_entry") is not flat:
+                    problems.append(
+                        f"{model}: ticket {e.get('mt5_ticket')} records "
+                        f"equity {e.get('mt5_pre_entry_equity')!r} / flat "
+                        f"{e.get('book_flat_at_entry')!r}; the bound deals "
+                        f"give {eq} / {flat}")
+
+        # --- S8-SLTP-1 ----------------------------------------------------
+        levels: dict | None = None
+        if paired:
+            raw, why = _bound_bytes(root, log_window_rel(gold, model))
+            if raw is None:
+                problems.append(f"{model}: S8-SLTP-1 needs the bound window "
+                                f"copy: {why}")
+            elif hashlib.sha256(raw).hexdigest() != doc.get("window_sha256"):
+                problems.append(f"{model}: window copy bytes != the log "
+                                "trade list's window_sha256")
+            else:
+                symbol = (doc.get("settings") or {}).get("symbol") or ""
+                levels = entry_request_levels(
+                    raw.decode("utf-8-sig", errors="replace"), symbol)
+        for e in paired:
+            f = e.get("fields") or {}
+            lv = (levels or {}).get(e.get("mt5_ticket"))
+            for name in ("sl", "tp"):
+                spec = f.get(name)
+                if not isinstance(spec, dict) or "mt5" not in spec:
+                    problems.append(f"{model}: ticket {e.get('mt5_ticket')} "
+                                    f"carries no {name} field (S8-SLTP-1)")
+                elif levels is not None and (lv is None
+                                             or spec["mt5"] != lv[name]):
+                    problems.append(
+                        f"{model}: ticket {e.get('mt5_ticket')} {name} mt5="
+                        f"{spec['mt5']!r} is not the request line's "
+                        f"{(lv or {}).get(name)!r}")
+
+        # --- S8-TS-1 ------------------------------------------------------
+        for e in paired:
+            f = e.get("fields") or {}
+            ts = f.get("timestamp")
+            if not isinstance(ts, dict) or ts.get("basis") != TS_BASIS_FILL_BAR:
+                continue
+            raw_time = e.get("mt5_time_raw")
+            k = index_of.get(e.get("mt5_ticket"))
+            why = []
+            if k is None or deal_time_iso(deals[k].get("time")) != raw_time:
+                why.append("raw MT5 time is not the bound deal's time")
+            if ts.get("mt5") != str(raw_time)[:16]:
+                why.append("mt5 minute is not the floor of the raw MT5 time")
+            ep = f.get("entry_price")
+            if not (isinstance(ep, dict) and ep.get("python") is not None
+                    and ep.get("python") == ep.get("mt5")
+                    and ep.get("status") != "DIVERGENT"):
+                why.append("no exact entry_price match on this event")
+            if why:
+                adjusted[id(e)] = {**e, "fields": {**f, "timestamp": {
+                    **ts, "status": "DIVERGENT",
+                    "s8_ts1_refused": why}}}
+    derived = {"index": -1, "symbol": None, "derived": True,
+               "source": TRADE_SOURCE_LOG, "fields": fields}
+    out = [adjusted.get(id(e), e) for e in events]
+    return derived, out, problems, info
+
+
 def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
                           model_identities: dict) -> dict:
     """Binding chain + field-by-field reconciliation for one gold.
@@ -1382,26 +1705,38 @@ def verify_reconciliation(root: Path | str, gold: str, frozen: dict,
     events = doc.get("events")
     derived: list[dict] = []
     if log_models:
-        # A log trade list with ZERO deals is an honest observation ("MT5
-        # made no trades"), not missing evidence. Put its trade count beside
-        # the frozen Python trade count as one more event, so the UNCHANGED
-        # comparison below decides: 0 vs 0 matches, 0 vs 56 diverges.
+        # S8-COUNT-1 (owner decision 2026-10-06): the frozen python trade
+        # count (all frozen trades, whole range) and len(deals) (entries +
+        # exits, tester window only) are different units and ranges. The
+        # derived event is entry_count:<model> -- expected in-window
+        # entries vs the bound log list's entry deals. A ZERO-deal list
+        # stays an honest observation: 0 MT5 entries against N > 0
+        # expected in-window entries diverges. The frozen count is kept
+        # (recorded, uncompared) for the python-side presence guard.
         py_count = fman.get("python_trade_count")
         if not isinstance(py_count, int):
             report["state"] = INVALID
             report["reasons"].append(
                 f"{gold}: no hash-verified Python trade count in the frozen "
-                "record, so log-sourced trade counts cannot be compared")
+                "record, so log-sourced entry counts cannot be guarded")
             return report
-        derived.append({
-            "index": -1, "symbol": None, "derived": True,
-            "source": TRADE_SOURCE_LOG,
-            "fields": {f"trade_count:{m}": {
-                "python": py_count, "mt5": len(log_docs[m]["deals"])}
-                for m in sorted(log_models)}})
+        if not isinstance(events, list):
+            report["state"] = INVALID
+            report["reasons"].append("reconciliation carries no events")
+            return report
+        count_event, events, problems, leg_info = _log_leg_checks(
+            root, gold, log_docs, events,
+            doc.get("tick_path_divergence") or {}, py_count)
         report["log_trade_counts"] = {
             m: len(log_docs[m]["deals"]) for m in sorted(log_models)}
+        report["entry_counts"] = leg_info["entry_counts"]
+        report["tick_path_divergence"] = leg_info["tick_path"]
         report["python_trade_count"] = py_count
+        if problems:
+            report["state"] = INVALID
+            report["reasons"].extend(problems)
+            return report
+        derived.append(count_event)
     if not isinstance(events, list) or (not events and report_models):
         # empty owner events are acceptable only when every model's trades
         # come from a log list (the derived counts then carry the comparison)
@@ -1586,6 +1921,8 @@ def verify_archive_manifest(root: Path | str, frozen: dict,
     required = [rel for key, rel in LAYOUT.items()
                 if key != "archive_manifest" and key not in replaced]
     required += [log_trades_rel(g, m) for g, m in sorted(log_legs)]
+    # S8-SLTP-1: the window copy the request-line sl/tp are read from
+    required += [log_window_rel(g, m) for g, m in sorted(log_legs)]
     if na_legs:
         required.append(GATE_STAGE5_REL)
     unbound = [rel for rel in required if rel not in arts]
