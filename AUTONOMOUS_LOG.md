@@ -1452,3 +1452,30 @@ ruff 0; full pytest 0 (2489 passed, 1 skipped; pwsh on PATH).
 - lost_response, restart, netting and hedging are demo-only and not
   implemented, so stage 8 keeps FAILING on them.
 - Not merged: awaiting owner review.
+
+## 2026-10-06 (3) — PR #31 fixes + merge; branch `feat/verdict-bar-models`
+
+**PR #31.** SAFETY-RESULT-1 amendment: the verifier pins the expected
+results and re-grades the bound windows itself. Tests cover a forged pass
+over NOT_TRIGGERED windows and a wrong expected_result. ruff 0; full
+pytest 0 (2493 passed, 1 skipped). Merged as b2dbbc6.
+
+**feat/verdict-bar-models** (S8-CEILING-1):
+- MT5_VALIDATED_BAR_MODELS for a VALID REAL_TICK_COVERAGE_NONE record,
+  with every other condition held;
+- the _PARTIAL_SCOPE form for scoped runs, not positive;
+- ps1 stages 8-10 accept it and label the scope "bar models";
+- certify_strategy gains --certificate-scope;
+- tests for every ladder branch.
+
+master was merged in after #31 (DECISIONS.md append conflict resolved as
+a union). The first full run failed (exit 1): PowerShell parsed
+`$s8Verdict:` as a scoped variable, and the script stopped parsing.
+Fixed, then ruff 0; full pytest 0 (2512 passed, 1 skipped; pwsh on PATH).
+
+**NOT done, and why:**
+- Never run live.
+- Not merged: awaiting owner review.
+- A gate run still FAILS stage 8 on the demo-only safety evidence
+  (lost_response, restart, netting, hedging). The new verdict cannot be
+  reached until those exist.
