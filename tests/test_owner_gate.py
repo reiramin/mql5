@@ -32,6 +32,45 @@ FROZEN = {
 }
 
 
+
+# synthetic safety-leg windows in the measured formats (see
+# tests/test_safety_legs.py): each re-grades to its pinned pass result
+_SP = "CJ\t0\t00:57:44.780\tCore 1\t"
+
+
+def _sreq(t: str, side: str, vol: float) -> str:
+    return (f"{_SP}{t}   instant {side} {vol} EURUSD.G2 at 1.09720 sl: "
+            "1.09658 tp: 1.09814 (1.09720 / 1.09720 / 1.09720)")
+
+
+def _sea(t: str, level: str, msg: str) -> str:
+    return f"{_SP}{t}   [{t}] [{level}] {msg}"
+
+
+SAFETY_BASELINE = "\n".join([
+    _sreq("2024.01.02 08:01:00", "sell", 0.01),
+    _sreq("2024.01.02 12:00:00", "buy", 0.30)]) + "\n"
+SAFETY_WINDOWS = {
+    "kill_switch": "\n".join([
+        _sreq("2024.01.02 08:01:00", "sell", 0.01),
+        _sea("2024.01.02 08:01:00", "WARN",
+             "TEST 8a kill switch: LATCHED after entry 1 (state=2 reason=1 "
+             "AllowsNewTrades=false)")]) + "\n",
+    "risk_veto": "\n".join([
+        _sreq("2024.01.02 08:01:00", "sell", 0.01),
+        _sea("2024.01.02 08:40:00", "ERROR", "DAILY LOSS LIMIT HIT")]) + "\n",
+    "meta_reduce": "\n".join([
+        _sea("2024.01.02 08:01:00", "INFO",
+             "TEST 8a meta: risk_approved=0.02 scaled=0.0100 final=0.01 "
+             "base_weight=0.5000"),
+        _sreq("2024.01.02 08:01:00", "sell", 0.01)]) + "\n",
+    "sl_verify": "\n".join([
+        _sea("2024.01.02 08:01:01", "WARN",
+             "TEST 8b sl: STRIPPED #2 sl 1.09658 -> 0.00000 (modify done)"),
+        _sea("2024.01.02 08:01:02", "INFO",
+             "TEST 8b sl: RESTORED #2 sl=1.09660")]) + "\n",
+}
+
 def _w(path, content):
     path.parent.mkdir(parents=True, exist_ok=True)
     if isinstance(content, (dict, list)):
@@ -208,9 +247,29 @@ def build_package(root, *, diverge_gold2=None, diverge_status="DIVERGENT",
     if "real_tick_coverage" not in skip:
         _w(root / "real_tick_coverage.json", cov)
 
-    # ---- safety evidence: one REAL artifact per test, bound by hash
+    # ---- safety evidence: one REAL artifact per test, bound by hash. The
+    # four tester-runnable tests carry windows in the measured formats that
+    # the verifier RE-GRADES (SAFETY_WINDOWS) against a bound baseline.
+    base_rel = "safety/raw/baseline_gold2_m1_ohlc_window.txt"
+    if "safety" not in skip:
+        _w(root / base_rel, SAFETY_BASELINE)
     for name in og.SAFETY_TESTS + ("netting", "hedging"):
         if name in skip or "safety" in skip:
+            continue
+        if name in og.SAFETY_PINNED_EXPECTED:
+            raw_rel = f"safety/raw/{name}_window.txt"
+            _w(root / raw_rel, SAFETY_WINDOWS[name])
+            _w(root / "safety" / f"{name}.json", {
+                "action": f"{name} tester leg",
+                "initial_state": "documented",
+                "resulting_state": "documented",
+                "observed_result": og.SAFETY_PINNED_EXPECTED[name],
+                "expected_result": og.SAFETY_PINNED_EXPECTED[name],
+                "raw_evidence": {"path": raw_rel, "sha256": _hl.sha256(
+                    SAFETY_WINDOWS[name].encode()).hexdigest()},
+                "baseline_evidence": {"path": base_rel, "sha256": _hl.sha256(
+                    SAFETY_BASELINE.encode()).hexdigest()},
+            })
             continue
         ev_rel = f"safety/evidence_{name}.log"
         ev_text = (f"{name} runtime exercise on DemoBroker Demo-Live\n"

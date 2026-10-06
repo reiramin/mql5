@@ -11,7 +11,6 @@ strings the new test-only EA hooks print; no MT5 run has printed them yet.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import subprocess
@@ -242,40 +241,6 @@ def test_tester_and_demo_sets_cover_the_eight_artifacts_once():
 
 
 # ---------------------------------------------------------------------------
-# verifier: observed must equal expected (SAFETY-RESULT-1)
-# ---------------------------------------------------------------------------
-
-def _safety_pkg(tmp_path, observed, expected="ZERO_NEW_ORDERS_WHILE_LATCHED"):
-    raw = tmp_path / "safety" / "raw" / "kill_switch_window.txt"
-    raw.parent.mkdir(parents=True)
-    raw.write_text("window\n")
-    (tmp_path / "safety" / "kill_switch.json").write_text(json.dumps({
-        "action": "a", "initial_state": "i", "resulting_state": "r",
-        "observed_result": observed, "expected_result": expected,
-        "raw_evidence": {"path": "safety/raw/kill_switch_window.txt",
-                         "sha256": hashlib.sha256(b"window\n").hexdigest()}}))
-    return og.verify_safety(tmp_path)["kill_switch"]
-
-
-def test_a_safety_file_is_valid_only_when_observed_is_expected(tmp_path):
-    assert _safety_pkg(tmp_path, "ZERO_NEW_ORDERS_WHILE_LATCHED")["state"] \
-        == og.VALID
-
-
-def test_a_failed_safety_test_is_never_valid(tmp_path):
-    rep = _safety_pkg(tmp_path, "NEW_ORDERS_AFTER_LATCH:2")
-    assert rep["state"] == og.INVALID
-    assert "observed 'NEW_ORDERS_AFTER_LATCH:2', required " \
-        "'ZERO_NEW_ORDERS_WHILE_LATCHED'" in rep["reasons"][0]
-
-
-def test_a_safety_file_without_expected_result_is_invalid(tmp_path):
-    rep = _safety_pkg(tmp_path, "pass", expected="")
-    assert rep["state"] == og.INVALID
-    assert "expected_result" in rep["reasons"][0]
-
-
-# ---------------------------------------------------------------------------
 # builder: safety/ only from this gate's safety leg windows
 # ---------------------------------------------------------------------------
 
@@ -373,3 +338,105 @@ def test_ps1_runs_the_tester_safety_legs_before_the_package_build():
     # demo-only tests are never launched
     for name in sl.DEMO_ONLY:
         assert f'"{name}"' not in s8.split("foreach ($stest in")[1][:120]
+
+
+# ---------------------------------------------------------------------------
+# verifier: pinned expected value + its own re-grade (owner review of #31)
+# ---------------------------------------------------------------------------
+
+def _rebind(pkg):
+    cp = subprocess.run([sys.executable,
+                         str(REPO / "tools" / "owner_evidence_bind.py"),
+                         "manifest", str(pkg), "--frozen",
+                         str(REPO / s8p.FROZEN_INPUTS_REL)],
+                        capture_output=True, text=True, check=True)
+    (pkg / og.LAYOUT["archive_manifest"]).write_text(cp.stdout,
+                                                     encoding="utf-8")
+
+
+def _edit(pkg, name, **changes):
+    path = pkg / f"safety/{name}.json"
+    doc = json.loads(path.read_text())
+    doc.update(changes)
+    path.write_text(json.dumps(doc))
+    _rebind(pkg)
+    return og.verify_safety(pkg)[name]
+
+
+def test_pinned_table_is_the_owner_table():
+    assert og.SAFETY_PINNED_EXPECTED == {
+        "kill_switch": "ZERO_NEW_ORDERS_WHILE_LATCHED",
+        "risk_veto": "ENTRIES_VETOED_FOR_THE_DAY",
+        "meta_reduce": "ALL_SIZES_LE_RISK_APPROVED",
+        "sl_verify": "SL_STRIPPED_AND_RESTORED"}
+    for name, spec in sl.TESTER_SAFETY_LEGS.items():
+        assert spec["expected_result"] == og.SAFETY_PINNED_EXPECTED[name]
+
+
+def test_forged_pass_over_windows_that_grade_not_triggered_is_invalid(
+        run26, tmp_path):  # noqa: F811
+    # the raw window shows no daily-loss halt: it grades NOT_TRIGGERED
+    w = _win(_req("2024.01.02 08:01:00", "sell", 0.01))
+    _, pkg = _rebuild(run26, tmp_path, {"risk_veto": w})
+    assert json.loads((pkg / "safety/risk_veto.json").read_text())[
+        "observed_result"] == "NOT_TRIGGERED"
+    rep = _edit(pkg, "risk_veto",
+                observed_result="ENTRIES_VETOED_FOR_THE_DAY",
+                expected_result="ENTRIES_VETOED_FOR_THE_DAY")
+    assert rep["state"] == og.INVALID
+    assert rep["result"] == "NOT_TRIGGERED"
+    assert "re-grades the bound windows as 'NOT_TRIGGERED'" in \
+        rep["reasons"][0]
+
+
+def test_a_wrong_expected_result_is_invalid(run26, tmp_path):  # noqa: F811
+    w = _win(_strip("2024.01.02 08:01:01", 2),
+             _restore("2024.01.02 08:01:02", 2))
+    _, pkg = _rebuild(run26, tmp_path, {"sl_verify": w})
+    assert og.verify_safety(pkg)["sl_verify"]["state"] == og.VALID
+    rep = _edit(pkg, "sl_verify", expected_result="SL_STRIPPED",
+                observed_result="SL_STRIPPED")
+    assert rep["state"] == og.INVALID
+    assert "is not the pinned 'SL_STRIPPED_AND_RESTORED'" in \
+        rep["reasons"][0]
+
+
+def test_a_failed_tester_safety_leg_is_never_valid(run26, tmp_path):  # noqa: F811
+    w = _win(_strip("2024.01.02 08:01:01", 2))  # never restored
+    _, pkg = _rebuild(run26, tmp_path, {"sl_verify": w})
+    rep = og.verify_safety(pkg)["sl_verify"]
+    assert rep["state"] == og.INVALID
+    assert "observed 'SL_NOT_RESTORED:1', required " \
+        "'SL_STRIPPED_AND_RESTORED'" in rep["reasons"][0]
+
+
+def test_a_regrade_needs_the_baseline_binding(run26, tmp_path):  # noqa: F811
+    w = _win(_strip("2024.01.02 08:01:01", 2),
+             _restore("2024.01.02 08:01:02", 2))
+    _, pkg = _rebuild(run26, tmp_path, {"sl_verify": w})
+    rep = _edit(pkg, "sl_verify", baseline_evidence=None)
+    assert rep["state"] == og.INVALID
+    assert "no baseline_evidence binding" in rep["reasons"][0]
+
+
+def test_a_regrade_needs_windows_bound_by_the_manifest(run26, tmp_path):  # noqa: F811
+    w = _win(_strip("2024.01.02 08:01:01", 2),
+             _restore("2024.01.02 08:01:02", 2))
+    _, pkg = _rebuild(run26, tmp_path, {"sl_verify": w})
+    man_path = pkg / og.LAYOUT["archive_manifest"]
+    man = json.loads(man_path.read_text())
+    del man["artifacts"]["safety/raw/baseline_gold2_m1_ohlc_window.txt"]
+    man_path.write_text(json.dumps(man))
+    rep = og.verify_safety(pkg)["sl_verify"]
+    assert rep["state"] == og.INVALID
+    assert "not bound in archive_manifest.json" in rep["reasons"][0]
+
+
+def test_a_non_baseline_path_is_refused(run26, tmp_path):  # noqa: F811
+    w = _win(_strip("2024.01.02 08:01:01", 2),
+             _restore("2024.01.02 08:01:02", 2))
+    _, pkg = _rebuild(run26, tmp_path, {"sl_verify": w})
+    doc = json.loads((pkg / "safety/sl_verify.json").read_text())
+    rep = _edit(pkg, "sl_verify", baseline_evidence=doc["raw_evidence"])
+    assert rep["state"] == og.INVALID
+    assert "not a gold m1_ohlc window" in rep["reasons"][0]

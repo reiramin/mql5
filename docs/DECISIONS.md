@@ -3909,3 +3909,20 @@ source tests, and stage 1's strict compile is the proof. No MT5 run has
 produced any of these files.
 
 Built, unit-tested, never run live.
+
+**SAFETY-RESULT-1 amendment (owner review of PR #31, 2026-10-06).**
+- **Pinned results.** The required outcome of each tester-runnable safety
+  test is pinned in the verifier (`owner_gate.SAFETY_PINNED_EXPECTED`):
+  - kill_switch → ZERO_NEW_ORDERS_WHILE_LATCHED;
+  - risk_veto → ENTRIES_VETOED_FOR_THE_DAY;
+  - meta_reduce → ALL_SIZES_LE_RISK_APPROVED;
+  - sl_verify → SL_STRIPPED_AND_RESTORED.
+
+  A file whose `expected_result` differs from the table is INVALID.
+- **Re-grade.** The verifier re-grades every such file itself, with
+  `mql5bot.safety_legs`, on the test window (`raw_evidence`) and the
+  baseline (`baseline_evidence`, a `safety/raw/baseline_<gold>_m1_ohlc_
+  window.txt`). Both must be bound by archive_manifest.json, with bytes
+  equal to the declared hashes.
+- **Pass rule.** It requires regraded == the file's `observed_result` ==
+  the pinned value. The builder's grade is never trusted.
