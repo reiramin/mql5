@@ -92,6 +92,17 @@ reproduced, run lots == recomputed lots): if any fails the frozen column
 is compared instead and the fallback is stated, never silent. The frozen
 artifacts and the anchor do not change.
 
+COUNT / TIMESTAMP / TICK PATH / SL-TP (S8-COUNT-1, S8-TS-1, S8-TICKPATH-1,
+S8-SLTP-1, owner decisions 2026-10-06, gate_run35): the verifier's derived
+count is entry_count (in-window expected entries vs MT5 entry deals); a
+paired timestamp is compared at fill-bar level with the raw MT5 seconds
+recorded (held only beside an exact entry price); a tick-generating leg's
+volume after its first exit that differs from the m1_ohlc leg is compared
+with the frozen sizing rule on MT5's own pre-entry equity (the python path
+recorded beside it); every paired event carries sl/tp from MT5's own entry
+request line, read from the leg's window copy packaged at
+log_windows/<gold>_<model>.txt (bytes == the log list's window_sha256).
+
 Built, unit-tested, never run live.
 """
 
@@ -162,10 +173,10 @@ _WINDOW_START_RE = re.compile(
 _PY_SIDE_TO_MT5 = {"long": "buy", "short": "sell"}
 # pairing states (event `pairing` key; NOT divergence classifications --
 # those stay the closed owner_gate.TAXONOMY, chosen by the field name)
-PAIRED_BY_TIME = "PAIRED_BY_TIME"
+PAIRED_BY_TIME = og.PAIRED_BY_TIME
 OUT_OF_TESTED_WINDOW = "OUT_OF_TESTED_WINDOW"
-MISSING_IN_MT5 = "MISSING_IN_MT5"
-EXTRA_IN_MT5 = "EXTRA_IN_MT5"
+MISSING_IN_MT5 = og.MISSING_IN_MT5
+EXTRA_IN_MT5 = og.EXTRA_IN_MT5
 # informational pairing state (S8-WEIGHT-1): a frozen scheduled-weight row
 # with no weight-in-force counterpart -- recorded, never a divergence
 FROZEN_ONLY_SCHEDULED_WEIGHT = "FROZEN_ONLY_SCHEDULED_WEIGHT"
@@ -606,7 +617,6 @@ def expected_set_window_run(repo: Path | str, gold: str,
                   price_basis)
     except Exception as exc:  # noqa: BLE001 -- any failure refuses the set
         return None, f"expected-set re-run failed: {type(exc).__name__}: {exc}"
-    step, vmin = float(spec.volume_step), float(spec.volume_min)
     step_s = TF_SECONDS[str(manifest.get("timeframe"))]
     bar = pd.Timedelta(seconds=step_s)
     # frozen approved rows by fill minute (original array index kept)
@@ -644,13 +654,9 @@ def expected_set_window_run(repo: Path | str, gold: str,
             # cross-check: the run's lots equal the frozen sizing rule on
             # the run's own signal-bar-close equity, meta-floored at weight
             basis = float(win.equity.loc[fill_ts - bar])
-            approved = round(float(size_position(
-                spec, mode=risk["mode"], equity=basis,
-                stop_distance=float(row["stop_distance"]),
-                value=float(risk["risk_percent"])).lots), 6)
-            final = math.floor(approved * weight / step + 1e-9) * step
-            recomputed = (round(final, 6)
-                          if vmin <= final <= approved + 1e-12 else 0.0)
+            recomputed = frozen_rule_lots(spec, risk, basis,
+                                          float(row["stop_distance"]),
+                                          weight)
             if recomputed != lots:
                 return None, (f"window run entered {lots} lots at {fill} "
                               f"but the frozen sizing rule gives "
@@ -704,6 +710,91 @@ def expected_set_window_run(repo: Path | str, gold: str,
             "price_basis 'mid'), frozen approvals reproduced, run lots == "
             "frozen sizing rule on the run's signal-bar-close equity")
     return {"rows": rows_out, "frozen_only": frozen_only}, note
+
+
+def frozen_rule_lots(spec, risk: dict, equity: float, stop_distance: float,
+                     weight: float = float(TESTER_WEIGHT_COLUMN)) -> float:
+    """The frozen sizing rule (owner_gate.frozen_rule_lots: one copy, shared
+    with the verifier)."""
+    return og.frozen_rule_lots(spec, risk, equity, stop_distance, weight)
+
+
+def python_risk_context(repo: Path | str, gold: str) -> tuple[dict | None,
+                                                               str]:
+    """What the python SL/TP (S8-SLTP-1) and the MT5-equity sizing
+    (S8-TICKPATH-1) need: the manifest broker_spec / risk / sl_atr / tp_atr,
+    the engine's own ATR(14) series on the frozen fixture, and the frozen
+    expected_execution stop_distance per fill minute (a guard). None with
+    the reason when any input is unreadable."""
+    repo = Path(repo)
+    files = GOLD_FILES.get(gold, {})
+    try:
+        import numpy as np
+        import pandas as pd
+
+        from mql5bot.indicators import atr as atr_indicator
+        from mql5bot.symbolspec import SymbolSpec
+
+        manifest = _load(repo / files["manifest"])
+        expected = _load(repo / files["expected"])
+        df = pd.read_csv(repo / files["fixture"], parse_dates=["time"])
+        a = np.asarray(atr_indicator(df["high"].values, df["low"].values,
+                                     df["close"].values, 14), dtype=float)
+        step = TF_SECONDS[str(manifest.get("timeframe"))]
+        frozen_stop: dict[str, float] = {}
+        for row in expected.get("entries") or []:
+            if (row.get("risk") or {}).get("rejected") or \
+                    not row.get("stop_distance"):
+                continue
+            fill = datetime.fromisoformat(str(row["signal_time"])) + \
+                timedelta(seconds=step)
+            frozen_stop[fill.isoformat()[:16]] = float(row["stop_distance"])
+        return {"spec": SymbolSpec(**manifest["broker_spec"]),
+                "risk": manifest["risk_config"],
+                "sl_atr": float(manifest["engine_config"]["sl_atr"]),
+                "tp_atr": float(manifest["engine_config"]["tp_atr"]),
+                "digits": int(manifest["broker_spec"]["digits"]),
+                "atr": a,
+                "bar_of": {t.isoformat()[:16]: i
+                           for i, t in enumerate(df["time"])},
+                "frozen_stop": frozen_stop}, "ok"
+    except Exception as exc:  # noqa: BLE001 -- any failure refuses the column
+        return None, f"python risk context unavailable: {type(exc).__name__}: {exc}"
+
+
+def python_stop_levels(ctx: dict | None, fill_minute: str, side: str,
+                       fill_price: float) -> dict:
+    """S8-SLTP-1 python SL/TP of one entry, the engine's own rule
+    (engine.fresh_levels): distance = enforce_min_stop(sl_atr|tp_atr x
+    ATR14[signal bar]), level = round_to_tick(fill -/+ distance), at
+    broker digits. ``fill_price`` is the named fill model's price. Guard:
+    the raw SL distance must equal the frozen expected_execution
+    stop_distance where a frozen row fills at that minute. Returns
+    {sl, tp, stop_distance} or {refused: reason}."""
+    from mql5bot.symbolspec import enforce_min_stop, round_to_tick
+
+    if ctx is None:
+        return {"refused": "no python risk context"}
+    bar = ctx["bar_of"].get(str(fill_minute)[:16])
+    if bar is None or bar < 1:
+        return {"refused": f"fill minute {fill_minute} is not a fixture bar "
+                           "with a signal bar before it"}
+    a = float(ctx["atr"][bar - 1])
+    if not math.isfinite(a) or a <= 0.0:
+        return {"refused": f"no valid ATR at the signal bar of {fill_minute}"}
+    sd = ctx["sl_atr"] * a
+    frozen = ctx["frozen_stop"].get(str(fill_minute)[:16])
+    if frozen is not None and round(sd, 10) != round(frozen, 10):
+        return {"refused": (f"ATR stop distance {sd!r} != the frozen "
+                            f"stop_distance {frozen!r} at {fill_minute}")}
+    s = 1 if side == "buy" else -1
+    spec, dg = ctx["spec"], ctx["digits"]
+    return {"sl": round(round_to_tick(
+                fill_price - s * enforce_min_stop(sd, spec), spec), dg),
+            "tp": round(round_to_tick(
+                fill_price + s * enforce_min_stop(ctx["tp_atr"] * a, spec),
+                spec), dg),
+            "stop_distance": sd}
 
 
 def tested_window_start(window_text: str,
@@ -782,7 +873,13 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                           window_end_source: str | None = None,
                           fixture_opens: dict[str, float] | None = None,
                           fill: dict | None = None,
-                          expected_sets: dict | None = None
+                          expected_sets: dict | None = None,
+                          log_deals: dict[str, list[dict]] | None = None,
+                          tick_paths: dict | None = None,
+                          deposits: dict | None = None,
+                          size_rule=None,
+                          risk_ctx: dict | None = None,
+                          request_levels: dict | None = None
                           ) -> tuple[list[dict], dict]:
     """Per-model events pairing python entries with MT5 entry deals BY TIME
     (same fill minute), never by list position. Returns (events, summary).
@@ -822,6 +919,22 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
       fields, never a divergence, with a measured ``reason``
       (before_window_start / scheduled_weight_only /
       at_or_after_window_end);
+    * S8-TS-1: the paired timestamp is compared at fill-BAR level (python
+      fill minute vs the MT5 time floored to the minute, basis
+      ``owner_gate.TS_BASIS_FILL_BAR``); the raw MT5 seconds are recorded
+      as ``mt5_time_raw``. The verifier holds it valid only beside an
+      exact entry_price match on the same event;
+    * S8-TICKPATH-1: on a tick-generating leg whose ``tick_paths[model]``
+      record names its first exit that differs from the m1_ohlc leg, a
+      paired entry AFTER that deal compares volume against ``size_rule``
+      (the frozen sizing rule) on MT5's own pre-entry equity (``deposits``
+      + cumulative pnl of the leg's earlier ``log_deals``, book flat) with
+      the python SL distance; the python-path volume stays beside it,
+      recorded, uncompared. Before it, and on m1_ohlc always, the python
+      path is compared;
+    * S8-SLTP-1: when ``request_levels`` is given, every paired event
+      carries ``sl``/``tp``: mt5 from MT5's own entry request line, python
+      from python_stop_levels on the named fill model price;
     * `trade_index` numbers a model's per-trade events in time order;
     * a final event compares per-model entry counts INSIDE the window (the
       out-of-window count is beside it, uncompared).
@@ -934,14 +1047,43 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                          "recorded uncompared, never a divergence"),
             }))
         per_trade: list[tuple[str, dict]] = []
+        deals_all = (log_deals or {}).get(model) or []
+        index_of = {d.get("ticket"): k for k, d in enumerate(deals_all)}
+        tp_rec = ((tick_paths or {}).get(model) or {}).get("record")
         for p, deal in pairs:
             facts = mt5_deal_line_facts(deal, symbol)
             mt5_time = _ea_time_iso(deal.get("time"))
             fields: dict = {
-                "timestamp": {"python": p["fill_time"], "mt5": mt5_time},
+                "timestamp": {"python": str(p["fill_time"])[:16],
+                              "mt5": mt5_time[:16] if mt5_time else None,
+                              "basis": og.TS_BASIS_FILL_BAR},
             }
             py_volume = p.get("compare_lots")
-            if py_volume is not None:
+            k = index_of.get(deal.get("ticket"))
+            after_tick_path = (tp_rec is not None and k is not None
+                               and k > tp_rec["deal_index"])
+            py_open = (fixture_opens or {}).get(str(p["fill_time"])[:16])
+            mt5_side = _PY_SIDE_TO_MT5.get(p["side"], "")
+            fill_price = (expected_fill(py_open, mt5_side, fill)[0]
+                          if py_open is not None and fill is not None
+                          else None)
+            stops = (python_stop_levels(risk_ctx, p["fill_time"], mt5_side,
+                                        fill_price)
+                     if fill_price is not None else
+                     {"refused": "no fill-model price for this entry"})
+            tick_facts: dict = {}
+            if after_tick_path:
+                tick_facts, why = _mt5_equity_sizing(
+                    deals_all, k, (deposits or {}).get(model), stops,
+                    size_rule)
+                spec_v = {"python": tick_facts.get("python_volume"),
+                          "mt5": deal.get("volume"),
+                          "basis": og.VOLUME_BASIS_MT5_EQUITY}
+                if why:
+                    spec_v.update({"status": "DIVERGENT",
+                                   "refused": why})
+                fields["volume"] = spec_v
+            elif py_volume is not None:
                 fields["volume"] = {"python": py_volume,
                                     "mt5": deal.get("volume")}
             else:
@@ -964,6 +1106,16 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                 fields["entry_price"] = spec
             else:
                 unmeasured.append("entry_price")
+            if request_levels is not None:
+                lv = (request_levels.get(model) or {}).get(deal.get("ticket"))
+                for name in ("sl", "tp"):
+                    spec_l: dict = {"mt5": lv[name] if lv else None}
+                    if "refused" in stops:
+                        spec_l.update({"python": None, "status": "DIVERGENT",
+                                       "refused": stops["refused"]})
+                    else:
+                        spec_l["python"] = stops[name]
+                    fields[name] = spec_l
             event = {
                 "model": model, "symbol": symbol,
                 "pairing": PAIRED_BY_TIME,
@@ -987,6 +1139,22 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
                 "mt5_ticket": deal.get("ticket"),
                 "fields": fields,
             }
+            event["mt5_time_raw"] = mt5_time
+            if after_tick_path:
+                event.update({
+                    "tick_path": og.TICK_PATH_DIVERGENCE,
+                    "python_volume_path": py_volume,
+                    "python_volume_path_note": (
+                        "python-path volume after the tick-path divergence: "
+                        "recorded, uncompared (S8-TICKPATH-1)"),
+                    **{key: tick_facts.get(key) for key in (
+                        "mt5_pre_entry_equity", "book_flat_at_entry",
+                        "mt5_deposit", "mt5_deposit_source",
+                        "python_stop_distance")}})
+            if request_levels is not None:
+                lv = (request_levels.get(model) or {}).get(deal.get("ticket"))
+                if lv:
+                    event["mt5_request_line"] = lv["request_line"]
             if p.get("window_run_fill") is not None:
                 # the engine run's own fill (mid +/- costs), labelled,
                 # NEVER the compared column (that is the named fill model)
@@ -1065,6 +1233,33 @@ def reconciliation_events(py: list[dict], mt5_by_model: dict[str, list[dict]],
 # ---------------------------------------------------------------------------
 # the builder
 # ---------------------------------------------------------------------------
+
+def _mt5_equity_sizing(deals: list[dict], k: int, deposit, stops: dict,
+                       size_rule) -> tuple[dict, str | None]:
+    """S8-TICKPATH-1: the frozen sizing rule on MT5's own pre-entry equity
+    for the entry at deal index ``k``: equity = deposit + cumulative pnl of
+    deals[:k]; the book must be flat (every earlier entry closed); the
+    stop distance is the python one. Returns (facts, refusal-or-None)."""
+    dep_value, dep_source = (deposit if isinstance(deposit, tuple)
+                             else (None, "no deposit"))
+    flat = 2 * len(og.log_entry_deals(deals[:k])) == k
+    facts: dict = {"mt5_deposit": dep_value, "mt5_deposit_source": dep_source,
+                   "book_flat_at_entry": flat,
+                   "python_stop_distance": stops.get("stop_distance")}
+    if dep_value is None:
+        return facts, f"no deposit: {dep_source}"
+    eq = round(float(dep_value) + sum(float(d.get("pnl") or 0.0)
+                                      for d in deals[:k]), 2)
+    facts["mt5_pre_entry_equity"] = eq
+    if not flat:
+        return facts, "book not flat at entry: an earlier entry is open"
+    if "refused" in stops:
+        return facts, f"no python SL distance: {stops['refused']}"
+    if size_rule is None:
+        return facts, "no sizing rule supplied"
+    facts["python_volume"] = size_rule(eq, float(stops["stop_distance"]))
+    return facts, None
+
 
 def _git_head(repo: Path) -> str | None:
     try:
@@ -1305,6 +1500,26 @@ def build_package(*, repo: Path | str, package: Path | str,
             "record): the gate builds a coverage record only for "
             "NOT_APPLICABLE legs; FULL/PARTIAL evidence is the owner's")
 
+    # --- log_windows/<gold>_<model>.txt (S8-SLTP-1) ----------------------
+    # byte copy of each log-sourced leg's window capture, ONLY when its
+    # bytes are the ones the log trade list names (window_sha256): the
+    # entry request lines' sl/tp are read from it, by builder and verifier
+    for gold, model in sorted(og.log_sourced_legs(pkg)):
+        if gold not in golds:
+            continue
+        rel = og.log_window_rel(gold, model)
+        win = ev / f"tester_{gold}_{model}_window.txt"
+        want = (_load(pkg / og.log_trades_rel(gold, model)) or {}).get(
+            "window_sha256")
+        if not win.is_file():
+            not_built[rel] = f"no window capture {win.name} in the gate evidence"
+        elif _sha(win) != want:
+            not_built[rel] = (f"{win.name} sha256 != the log trade list's "
+                              f"window_sha256 {want}")
+        else:
+            put_bytes(rel, win.read_bytes(),
+                      f"gate stage-5 leg window capture {win.name}")
+
     # --- reconciliation/<gold>.json ----------------------------------------
     for gold in golds:
         rel = og.LAYOUT[f"reconciliation_{gold}"]
@@ -1385,9 +1600,30 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
     notes: dict[str, str] = {"python": f"{files['expected']}: {py_note}"}
     log_hashes: dict[str, str] = {}
     window_starts: dict[str, tuple[str | None, str | None]] = {}
+    log_deals: dict[str, list[dict]] = {}
+    request_levels: dict[str, dict] = {}
+    deposits: dict[str, tuple] = {}
+    risk_ctx, risk_note = python_risk_context(repo, gold)
     for model in sorted(log_models):
         path = pkg / og.log_trades_rel(gold, model)
         doc = _load(path) or {}
+        log_deals[model] = [d for d in doc.get("deals") or []
+                            if isinstance(d, dict)]
+        wcopy = pkg / og.log_window_rel(gold, model)
+        request_levels[model] = (og.entry_request_levels(
+            gs.read_text_bom_aware(wcopy), files["tester_symbol"])
+            if wcopy.is_file() else {})
+        ini = pkg / og.tester_ini_rel(gold, model)
+        dep = og.ini_deposit(ini.read_bytes()) if ini.is_file() else None
+        eq0 = ((manifest.get("risk_config") or {}).get("equity_start"))
+        if dep is None:
+            deposits[model] = (None, f"no Deposit in {og.tester_ini_rel(gold, model)}")
+        elif eq0 is None or float(eq0) != dep:
+            deposits[model] = (None, (f"tester ini Deposit {dep} != manifest "
+                                      f"risk_config.equity_start {eq0}"))
+        else:
+            deposits[model] = (dep, (f"{og.tester_ini_rel(gold, model)} "
+                                     "Deposit (== manifest equity_start)"))
         log_hashes[model] = _sha(path)
         tester_models[model] = {"requested": LEG_MODELS[model],
                                 "log_reported": (doc.get("settings") or {}).get("model")}
@@ -1453,12 +1689,30 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
                 spread_points=float(fill["spread_points"]),
                 spread_source=fill.get("spread_source", "manifest"))
         expected_sets[model] = by_start[start]
+    # S8-TICKPATH-1: each tick-generating leg's first exit that differs
+    # from the m1_ohlc leg (observed, named; never a divergence by itself)
+    tick_paths: dict[str, dict] = {}
+    for model in sorted(set(log_deals) & set(og.TICK_PATH_MODELS)):
+        ref = log_deals.get(og.TICK_PATH_REFERENCE)
+        rec, note = (og.tick_path_divergence(ref, log_deals[model])
+                     if ref is not None else
+                     (None, (f"no {og.TICK_PATH_REFERENCE} log leg: the "
+                             "leg stays fully strict")))
+        tick_paths[model] = {"record": rec, "note": note}
+
+    def size_rule(equity: float, stop_distance: float) -> float:
+        return frozen_rule_lots(risk_ctx["spec"], risk_ctx["risk"], equity,
+                                stop_distance)
+
     events, pairing = reconciliation_events(
         py, mt5_by_model, files["tester_symbol"],
         window_starts=window_starts,
         window_end=window_end, window_end_source=window_end_source,
         fixture_opens=fixture_minute_opens(fixture), fill=fill,
-        expected_sets=expected_sets)
+        expected_sets=expected_sets, log_deals=log_deals,
+        tick_paths=tick_paths, deposits=deposits,
+        size_rule=size_rule if risk_ctx is not None else None,
+        risk_ctx=risk_ctx, request_levels=request_levels)
     limitations = []
     for model in sorted(mt5_by_model):
         sd, sd_note = expected_sets[model]
@@ -1503,6 +1757,22 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
                 f"fill at/after the tester window end {window_end} "
                 f"({window_end_source}) -- OUT_OF_TESTED_WINDOW, recorded "
                 "uncompared; never this comparison's divergence")
+    for model in sorted(tick_paths):
+        rec = tick_paths[model]["record"]
+        if rec is not None:
+            limitations.append(
+                f"{model}: {og.TICK_PATH_DIVERGENCE} at deal index "
+                f"{rec['deal_index']} (ticket {rec['ticket']}): "
+                f"{model} {rec['tick_deal']['time']} @"
+                f"{rec['tick_deal']['price']} pnl {rec['tick_deal']['pnl']} "
+                f"vs m1_ohlc {rec['reference_deal']['time']} @"
+                f"{rec['reference_deal']['price']} pnl "
+                f"{rec['reference_deal']['pnl']}; later entries compare "
+                "volume against the frozen sizing rule on MT5's own "
+                "pre-entry equity (S8-TICKPATH-1)")
+    if risk_ctx is None:
+        limitations.append(f"python SL/TP and MT5-equity sizing refused: "
+                           f"{risk_note}")
     doc = {
         "schema": "mql5bot.gate_reconciliation/1",
         "gold": gold,
@@ -1523,6 +1793,7 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
                     is not None else EXPECTED_SET_FROZEN + " (fallback)"),
             "note": expected_sets[m][1]} for m in sorted(expected_sets)},
         "limitations": limitations,
+        "tick_path_divergence": tick_paths,
         "note": ("Events pair python entries with MT5 entry deals BY TIME "
                  "(same fill minute, signal_time + 1 bar), never by list "
                  "position. Python trades before the measured MT5 window "

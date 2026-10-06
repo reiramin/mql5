@@ -124,17 +124,23 @@ def test_measured_field_equality_counts(run29_both):
         print(f"\ngate_run29 {model}: timestamp {ts}/37, side {side}/37, "
               f"entry_price {price}/37, volume equal {vol_eq}/37, "
               f"volume within one step {vol_step}/37")
-        # MEASURED, never predicted: these are the gate_run29 numbers
-        assert (ts, side, price, vol_eq, vol_step) == (36, 37, 18, 14, 20)
-        # the one timestamp gap is MT5's 08:32:01 entry deal, one second
-        # after the bar -- present in gate_run29's own reconciliation too
+        # MEASURED, never predicted: these are the gate_run29 numbers. The
+        # timestamp is 37/37 at fill-BAR level (S8-TS-1, 2026-10-06); at
+        # second resolution it was 36/37
+        assert (ts, side, price, vol_eq, vol_step) == (37, 37, 18, 14, 20)
+        # the one sub-minute fill is MT5's 08:32:01 entry deal: its raw
+        # seconds are recorded, and it is held equal at bar level only
+        # beside an exact entry_price match (a sell at the flat bar's open)
         (off,) = [e for e in paired
-                  if e["fields"]["timestamp"]["python"]
-                  != e["fields"]["timestamp"]["mt5"]]
+                  if e["mt5_time_raw"] != e["fields"]["timestamp"]["mt5"]
+                  + ":00"]
+        assert off["mt5_time_raw"] == "2024-01-03T08:32:01"
         assert off["fields"]["timestamp"] == {
-            "python": "2024-01-03T08:32:00", "mt5": "2024-01-03T08:32:01"}
-        # paired residuals stay divergences under the zero-tolerance rule
-        assert og._field_divergent(off["fields"]["timestamp"])
+            "python": "2024-01-03T08:32", "mt5": "2024-01-03T08:32",
+            "basis": og.TS_BASIS_FILL_BAR}
+        assert off["fields"]["entry_price"]["python"] == \
+            off["fields"]["entry_price"]["mt5"]
+        assert not og._field_divergent(off["fields"]["timestamp"])
 
 
 def test_every_event_records_the_expected_set_and_cross_reference(

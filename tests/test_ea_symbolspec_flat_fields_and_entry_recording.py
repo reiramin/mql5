@@ -233,7 +233,8 @@ def test_entry_price_37_of_37_equal_with_the_measured_spread(
         ts_eq = sum(1 for e in paired
                     if e["fields"]["timestamp"]["python"]
                     == e["fields"]["timestamp"]["mt5"])
-        assert (price_eq, side_eq, ts_eq) == (37, 37, 36), m
+        # timestamp 37/37 at fill-BAR level (S8-TS-1); 36/37 at seconds
+        assert (price_eq, side_eq, ts_eq) == (37, 37, 37), m
         buys = [e for e in paired if e["python_side_declared"] == "long"]
         assert len(buys) == 19
         for e in buys:

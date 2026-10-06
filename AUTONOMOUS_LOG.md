@@ -1392,3 +1392,37 @@ skipped.
 - The prediction (buys at bid+1, entry_price 37/37, volume improves) is
   UNPROVEN until gate_run35.
 - Not merged: the owner reviews first.
+
+## 2026-10-06 — branch `fix/s8-count-ts-tickpath` — gate_run35 stage-8 comparison rules
+
+**Commits:** d338289 (S8-COUNT-1, S8-TS-1, S8-TICKPATH-1, S8-SLTP-1:
+verifier + builder, tests, DECISIONS.md), then this log entry. The branch
+is based on master 2eb32cd. Python only: mql5/, artifacts/, evidence/,
+logs_owner/ and the manifests are untouched.
+
+**Exit codes (read):** ruff on python/ tests/ tools/ factory/ = 0. Full
+pytest (-rfEX) = 0 on the tree of d338289: 2456 passed, 1 skipped,
+counted from the progress output. The PowerShell-host test files were
+re-run with pwsh on PATH: exit 0, no skips.
+
+**Replay (offline, gate_run35.zip).** The package was rebuilt with this
+builder from the run's own evidence; the EX5 bytes equal the stage-1 log
+hash. Verifier `--golds gold2` gives:
+- gold2 reconciliation VALID / MATCH;
+- entry_count, timestamp, entry_price, volume, sl, tp: 37/37 on m1_ohlc
+  and on every_tick;
+- TICK_PATH_DIVERGENCE at every_tick deal index 33 (ticket #35);
+- verdict NOT_VERIFIED_ARTIFACT_MISMATCH (safety 8a-8d and
+  netting/hedging missing; PARTIAL scope).
+
+Stage 8 still FAILS. This was not a gate run.
+
+**NOT done, and why:**
+- Not merged: the owner reviews first.
+- Never run through the gate on MT5; the replay is offline on the
+  gate_run35 evidence.
+- Safety 8a-8d are untouched and stay MISSING.
+- The main checkout (/Users/interlink/Documents/code/MQL5/mql5bot) holds
+  someone else's uncommitted changes on feat/gate-scoped-gold2-run (from
+  2026-09-30). They were left untouched; this work was done in the
+  worktree ../mql5bot-s8tick.

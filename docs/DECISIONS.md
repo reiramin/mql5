@@ -3704,3 +3704,171 @@ Built, unit-tested, never run live.
 **Prediction, UNPROVEN until gate_run35 shows it:** buys fill at bid + 1,
 so entry_price 37/37, and volume equality improves. Stage 8 is still
 expected to FAIL on safety 8a-8d.
+
+## S8-COUNT-1 — OWNER DECISION: entry_count replaces the derived trade_count (2026-10-06)
+
+**Finding (gate_run35, HEAD 2eb32cd).** Stage 8 for gold2 failed first on
+the verifier's derived `trade_count:every_tick` event: python 56, mt5 74.
+These are different units and different ranges. 56 is the frozen python
+trade count: all frozen trades, over the whole fixture range. 74 is
+`len(deals)`: entries + exits, inside the tester window only.
+
+**Decision (owner, 2026-10-06).** The derived event is
+`entry_count:<model>`:
+- python = the model's expected entries inside the tested window, i.e.
+  its `PAIRED_BY_TIME` + `MISSING_IN_MT5` events;
+- mt5 = the entry deals of the bound log trade list (`entry == "open"`:
+  MT5's own request line before the `deal #N` line is not a close).
+
+**Consistency.** PAIRED + `EXTRA_IN_MT5` must equal the MT5 entry deals,
+else the reconciliation is INVALID.
+
+**Zero-trade guard kept.** 0 MT5 deals with N > 0 expected in-window
+entries still diverges (python N, mt5 0). A package that records NO
+python-side event for a log-sourced model while the frozen python trade
+count is > 0 is INVALID. Omitting the expected entries therefore cannot
+turn 0 deals into a MATCH. The frozen count stays recorded beside the
+comparison, uncompared.
+
+Tests: `tests/test_owner_gate_log_trades.py` (both zero-trade cases, exit
+deals not counted, EXTRA diverges, the consistency check).
+
+## S8-TS-1 — OWNER DECISION: timestamp compared at fill-bar level, only beside an exact entry price (2026-10-06)
+
+**Finding (gate_run35).** m1_ohlc and every_tick each had timestamp 36/37.
+The one miss was the 08:32 fill. The python fill time has minute
+resolution (M1 bars). The 08:32 bar of the frozen fixture is flat
+(O=H=L=C 1.09636), and both legs filled at 08:32:01 at exactly the open.
+
+**Decision (owner, 2026-10-06).**
+- A paired event's timestamp is compared at fill-BAR level. python = the
+  fill minute; mt5 = the MT5 time floored to the minute (field `basis`
+  `fill_bar_minute (S8-TS-1)`).
+- The raw MT5 seconds are recorded as `mt5_time_raw`.
+- It is valid only together with an exact `entry_price` match on the same
+  event. The verifier marks the timestamp DIVERGENT (with
+  `s8_ts1_refused`) when:
+  - the entry price is not an exact match;
+  - the mt5 minute is not the floor of `mt5_time_raw`; or
+  - `mt5_time_raw` is not the bound deal's own time.
+- A different minute still diverges.
+
+## S8-TICKPATH-1 — OWNER DECISION: tick-generating legs compare volume on MT5's own equity after their first differing exit (2026-10-06)
+
+**Finding (gate_run35).** every_tick volume matched 28/37. The every_tick
+leg's first exit that differs from the m1_ohlc leg is deal index 33
+(ticket #35, a TP):
+- every_tick: 08:30:05 @1.10011, pnl 151.36;
+- m1_ohlc: 08:30:40 @1.10007, pnl 137.28.
+
+Every deal before it is identical in time, side, volume, price and pnl.
+From there the two legs' equity differs, so the python path (sized on the
+python equity) no longer describes the every_tick account.
+
+**Decision (owner, 2026-10-06).** Applies to every_tick, and later
+real_ticks, only:
+- a. Find the first EXIT deal whose time or price differs from the
+  m1_ohlc leg's. Record it as `TICK_PATH_DIVERGENCE`: observed, named,
+  both deal lines kept (`tick_path_divergence` in the reconciliation;
+  a limitation line). It is never a python<->MT5 divergence by itself.
+  If the first difference is NOT such an exit (an entry, side or volume
+  differs first), there is no tick-path divergence and the leg stays
+  fully strict.
+- b. Before that deal, volume is compared exactly against the python
+  path, as before.
+- c. After it, volume is compared EXACTLY against the frozen sizing rule
+  (`frozen_rule_lots`: size_position on the broker_spec, floor to
+  volume_step, volume_min/volume_max caps, meta floor at weight 1.0)
+  applied to MT5's own pre-entry equity:
+  - equity = tester ini `Deposit` (must equal the manifest
+    `equity_start`) + cumulative pnl of the leg's earlier deals;
+  - the book must be flat at entry;
+  - the SL distance is the python one: sl_atr x ATR14 at the signal bar,
+    checked against the frozen `stop_distance`.
+  The python-path volume stays beside it, recorded, uncompared. Any
+  inexact result diverges. A refusal (no deposit, book not flat, no SL
+  distance) is DIVERGENT with the reason stated.
+- d. m1_ohlc stays fully strict: python-path volume on every pair.
+
+**Verifier checks.** The verifier recomputes the divergence from the two
+bound deal lists and the pre-entry equity from the bound deals + the
+bound tester ini. It requires the MT5-equity basis on exactly the entries
+after that deal, never on m1_ohlc. Any disagreement is INVALID.
+
+**Cap note.** The frozen rule's cap is broker_spec `volume_max` (100).
+The EA's `InpMaxLots=10` is not part of the frozen rule. No gate_run35
+entry reaches either cap.
+
+## S8-SLTP-1 — NEW STRICTNESS: entry sl/tp compared exactly against python (2026-10-06)
+
+**Rule.** Every paired event carries `sl` and `tp`:
+- mt5 = MT5's own request line
+  `instant buy|sell VOL SYMBOL at PRICE sl: X tp: Y`, for the
+  `deal #N` line that directly follows it (same side, volume, symbol);
+- python = the engine's own `fresh_levels` rule on the named fill-model
+  price: `round_to_tick(fill -/+ enforce_min_stop(sl_atr|tp_atr x
+  ATR14[signal bar]))` at broker digits.
+
+Exact comparison at digits, with no tolerance. A mismatch is a
+ROUNDING_MISMATCH divergence.
+
+**Where the request lines come from.** They are not in the log trade
+list's deal lines. The builder therefore packages each log leg's window
+capture at `log_windows/<gold>_<model>.txt`, only when its bytes hash to
+the list's `window_sha256`. The archive manifest must bind the copy.
+
+**Verifier checks.** The verifier re-parses the request lines from the
+bound copy and requires:
+- every paired event of a log-sourced leg carries both fields;
+- their mt5 values equal the request line's.
+
+Otherwise the reconciliation is INVALID.
+
+**Replay (offline, gate_run35.zip, this branch).** The owner_mt5_package
+was rebuilt with this builder from the run's own evidence (EX5 bytes ==
+the stage-1 compile log hash) and verified with `--golds gold2`. The
+results below are verifier output.
+
+Per model (paired 37, missing 0, extra 0; entry_count 37 vs 37 entry
+deals):
+
+| model | entry_count | timestamp | entry_price | volume | sl | tp |
+|---|---|---|---|---|---|---|
+| m1_ohlc | 37/37 | 37/37 | 37/37 | 37/37 | 37/37 | 37/37 |
+| every_tick | 37/37 | 37/37 | 37/37 | 37/37 | 37/37 | 37/37 |
+
+- every_tick volume: 17 entries on the python path; 20 after ticket #35
+  on MT5's own equity, all exact. On the python path, 9 of those 20 differ
+  (e.g. ticket #36: 2.26 vs 2.27).
+- gold2 reconciliation: VALID / MATCH, no first divergence.
+
+The overall verdict stays **NOT_VERIFIED_ARTIFACT_MISMATCH**:
+- safety evidence 8a-8d (kill_switch, risk_veto, meta_reduce, sl_verify,
+  lost_response, restart) and netting/hedging are MISSING;
+- the archive manifest does not bind them;
+- the run is PARTIAL (gold1 not examined);
+- the gold2 real_ticks leg is NOT_APPLICABLE (coverage NONE).
+
+Stage 8 still FAILS. Stages 6-10 have never run.
+
+Built, unit-tested, replayed offline on gate_run35 evidence; never run
+live through the gate.
+
+**S8-TICKPATH-1 amendment (owner review of PR #30, 2026-10-06).** The
+verifier no longer trusts the package's python value on the
+`mt5_equity_sizing` basis. It RECOMPUTES the expected lots with
+`owner_gate.frozen_rule_lots`, from:
+- the equity it recomputed from the bound deals;
+- the frozen `stop_distance` of the event's expected_execution row;
+- the manifest `broker_spec` / `risk_config`.
+
+Those inputs are bound by `verify_owner_mt5_gate.py` (`sizing_reference`)
+ONLY when the manifest and expected_execution bytes equal the frozen
+record's `manifest_sha256` / `expected_execution_sha256`.
+
+Outcomes:
+- package python value ≠ recomputed lots → INVALID;
+- recomputed lots ≠ MT5 lots → the field DIVERGES;
+- no pinned reference → INVALID.
+
+gate_run35 replay: unchanged, gold2 VALID / MATCH.
