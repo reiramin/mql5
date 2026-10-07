@@ -9,8 +9,6 @@ changes.
 import subprocess
 from pathlib import Path
 
-import pytest
-
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 
 # Canonical owner protocol (mission §5, 2026-09-07): ONE numbered
@@ -147,9 +145,6 @@ def test_mql5_execution_surface_is_exactly_five_builtin_engines():
     assert "input ENUM_MQL5BOT_STRATEGY InpStrategy" in ea
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "S8-GOLD1-REGEN: artifacts/gold regenerated; frozen_inputs.json "
-    "re-anchor pending (S8-REANCHOR-2 PR removes this mark)"))
 def test_gold_artifacts_unchanged_since_freeze_anchor():
     """The freeze invariant: the gold artifacts are UNCHANGED since the
     frozen source anchor (later commits never touch the golds). Kept

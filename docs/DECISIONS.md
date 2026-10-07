@@ -4227,3 +4227,58 @@ merges (S8-REANCHOR-2), by the S8-REANCHOR-1 procedure.
   refuses until the re-anchor pins the new fixture bytes.
 
 Built, unit-tested, never run live.
+
+## S8-REANCHOR-2 — OWNER AUTHORIZATION: re-anchor frozen_inputs.json to the gold1 regeneration (2026-10-07)
+
+**Authority.** CLAUDE.md owner-scoped exception 2 (Sal, 2026-10-07):
+`frozen_inputs.json` may be re-anchored ONCE for gold1, by the existing
+S8-REANCHOR procedure, with tool-produced hashes and a DECISIONS entry.
+This is that one re-anchor.
+
+**Anchor.** M = `6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7`, the merge of
+PR #36 (S8-GOLD1-REGEN).
+
+**Procedure (S8-REANCHOR-1's).**
+- Every value was computed from the committed bytes AT M: `git show
+  M:artifacts/gold/<file>`, hashed by `tools/owner_evidence_bind.py bind`.
+  None was typed.
+- The helper refused unless the manifest's `dataset_hash` equalled the
+  fixture bytes and `spec_hash` was unchanged.
+- It printed the old and new `gold_1` objects, quoted in the PR.
+
+**What changed.**
+- `source.commit`: 734bb8d… -> M.
+- `gold_1`:
+  - `fixture_sha256` / `dataset_hash_from_manifest`: 2b1730cb… ->
+    074530cd…;
+  - `manifest_sha256`;
+  - `expected_execution_sha256`;
+  - `config_hash` (was empty);
+  - `git_commit_recorded`: abea0f410c5a -> f29b7fa55bb9;
+  - a NEW `artifact_hash_chain` over dsl_trace.json,
+    expected_execution.json, gold_fixture.csv, manifest.json,
+    python_trace.json and reconciliation.json.
+- `stage0` and `frozen_file_pins` now pin all of them. The chain also
+  gives gold1 a hash-pinned `python_trade_count` (18).
+- A dated paragraph is appended to `source.note`.
+
+**What did not change.**
+- gold_2 (byte-identical object).
+- gold_1 `spec_hash`, fixture path, symbol, timeframe and status.
+- `certification_manifest.json`: NEVER modified, per CLAUDE.md. Its
+  `gold_1_dataset_hash` therefore still names the pre-regeneration
+  fixture. No code reads that field; recorded here as a known stale
+  value for the owner.
+
+**Tests.**
+- The five strict xfails from S8-GOLD1-REGEN are removed, and they pass.
+- `test_python_trade_count_comes_from_the_hash_pinned_reconciliation` now
+  pins gold1's count (18) instead of its absence.
+
+**Self-review.**
+- (a) No rule weakened: more pins, same relations.
+- (b) Gold legs unchanged: no artifact or EA byte changed.
+- (c) Every pinned value is re-computed by stage 0 and the verifier from
+  the bytes.
+
+Built, unit-tested, never run live.

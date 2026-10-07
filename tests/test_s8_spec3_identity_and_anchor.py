@@ -440,9 +440,6 @@ def test_verify_compile_accepts_only_through_the_relation(tmp_path,
         og.ANCHOR_RELATION_DESCENDANT
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "S8-GOLD1-REGEN: artifacts/gold regenerated; frozen_inputs.json "
-    "re-anchor pending (S8-REANCHOR-2 PR removes this mark)"))
 def test_stage0_and_the_relation_read_the_same_pin_list():
     frozen = json.loads((REPO / gs.FROZEN_REL).read_text())
     pins = og.frozen_file_pins(frozen)
