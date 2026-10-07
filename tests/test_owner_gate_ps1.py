@@ -53,6 +53,10 @@ def _stage_artifacts(repo: Path) -> None:
         "artifacts/gold/gold_fixture.csv",
         "artifacts/gold/manifest.json",
         "artifacts/gold/expected_execution.json",
+        # gold_1 artifact_hash_chain (S8-REANCHOR-2)
+        "artifacts/gold/dsl_trace.json",
+        "artifacts/gold/python_trace.json",
+        "artifacts/gold/reconciliation.json",
         "artifacts/gold_2/gold2_fixture.csv",
         "artifacts/gold_2/manifest.json",
         "artifacts/gold_2/expected_execution.json",
