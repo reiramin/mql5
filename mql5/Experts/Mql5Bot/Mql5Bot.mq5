@@ -168,6 +168,16 @@ bool            g_testRestored[];         // ... and seen restored
 int             g_demoStep      = 0;      // demo probe step (InpTestDemoProbe)
 int             g_demoTicks     = 0;      // timer ticks since the last step
 #define DEMO_PROBE_FLAG "Mql5Bot\\State\\demo_probe_opened.flag"
+//--- the EFFECTIVE test inputs (SAFETY-GATE-2): set once by
+//--- ResolveTestInputs(). The 8a-8c inputs count only in the Strategy
+//--- Tester, InpTestDemoProbe only on a logged-in DEMO account; anywhere
+//--- else a non-default value is logged REFUSED and acts as 0.
+int             g_tKillAfter    = 0;      // InpTestKillSwitchAfterEntries
+int             g_tStripSl      = 0;      // InpTestStripSlEntries
+bool            g_tSafetyLog    = false;  // InpTestSafetyLog
+int             g_tLostResp     = 0;      // InpTestLostResponses
+int             g_tUnsent       = 0;      // InpTestUnsentTimeouts
+int             g_tDemoProbe    = 0;      // InpTestDemoProbe
 string          g_symbol        = _Symbol;
 ENUM_TIMEFRAMES g_tf            = _Period;
 
@@ -588,6 +598,8 @@ int OnInit()
 
    //--- logger
    g_log.Init("Mql5Bot\\Logs\\", "mql5bot_" + g_symbol + "_" + TfToString(g_tf), InpLogLevel);
+   //--- test-only inputs: honoured only where they are allowed
+   ResolveTestInputs();
 
    //--- environment validation: broker facts queried, never assumed ----
    if(!BuildSymbolSpec(g_symbol, g_spec))
@@ -595,7 +607,7 @@ int OnInit()
       g_log.Error("symbol spec build failed: " + g_spec.reason);
       return INIT_FAILED;
      }
-   if(!MQL_TESTER && !MQL_OPTIMIZATION)
+   if(!MQLInfoInteger(MQL_TESTER) && !MQLInfoInteger(MQL_OPTIMIZATION))
      {
       if(!TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) ||
          !MQLInfoInteger(MQL_TRADE_ALLOWED) ||
@@ -774,8 +786,8 @@ int OnInit()
    g_trade.Init(g_magic, InpDeviation, InpMaxRetries,
                 InpEntryMode == ENTRY_PENDING, InpPendingExpireBars, g_spec);
    //--- 8c safety test (no-op unless an input is > 0)
-   if(InpTestLostResponses > 0 || InpTestUnsentTimeouts > 0)
-      g_trade.TestFaults(InpTestLostResponses, InpTestUnsentTimeouts);
+   if(g_tLostResp > 0 || g_tUnsent > 0)
+      g_trade.TestFaults(g_tLostResp, g_tUnsent);
 
    //--- telemetry
    g_tele.Init(InpTelemetry, InpWebhookUrl, 2000);
@@ -786,11 +798,11 @@ int OnInit()
 
    g_log.Info(StringFormat("initialised: strategy=%s risk=%.2f%% sl=%.2f ATR tp=%.2f ATR",
                            g_strategyId, InpRiskPercent, InpSlAtr, InpTpAtr));
-   //--- demo harness (no-op unless InpTestDemoProbe > 0)
-   if(InpTestDemoProbe > 0)
+   //--- demo harness (no-op unless InpTestDemoProbe > 0 on a DEMO account)
+   if(g_tDemoProbe > 0)
       g_log.Info(StringFormat("TEST demo: START probe=%d magic=%I64d "
                               "own_positions=%d registry=%d engine=%d "
-                              "margin_mode=%d", InpTestDemoProbe, g_magic,
+                              "margin_mode=%d", g_tDemoProbe, g_magic,
                               CountBotPositions(), g_store.Count(),
                               (int)g_risk.State(),
                               (int)AccountInfoInteger(ACCOUNT_MARGIN_MODE)));
@@ -824,10 +836,10 @@ void OnTimer()
    g_trade.ProcessQueue(8);
 
    //--- 8b safety test (no-op unless InpTestStripSlEntries > 0)
-   if(InpTestStripSlEntries > 0)
+   if(g_tStripSl > 0)
       TestSlStripPump();
    //--- demo harness (no-op unless InpTestDemoProbe > 0)
-   if(InpTestDemoProbe > 0)
+   if(g_tDemoProbe > 0)
       TestDemoProbePump();
 
    //--- restart recovery (S2/S6): cancel orphan pendings once
@@ -1024,7 +1036,7 @@ void OnNewBar()
    ProtectManagedPositions();
 
    //--- demo harness: the probe alone trades (no strategy entries/exits)
-   if(InpTestDemoProbe > 0)
+   if(g_tDemoProbe > 0)
       return;
 
    //--- entry gates -------------------------------------------------
@@ -1122,7 +1134,7 @@ void OnNewBar()
                  " - no trade");
       return;
      }
-   if(InpTestSafetyLog)
+   if(g_tSafetyLog)
       g_log.Info(StringFormat("TEST 8a meta: risk_approved=%.2f scaled=%.4f "
                               "final=%.2f base_weight=%.4f",
                               riskApproved, lots, metaLots,
@@ -1177,10 +1189,10 @@ void OnNewBar()
       g_tele.Trade(g_symbol, (desired > 0) ? "buy" : "sell", g_strategyId,
                    lots, fill, 0.0, "entry");
       //--- 8a safety test (no-op unless InpTestKillSwitchAfterEntries > 0)
-      if(InpTestKillSwitchAfterEntries > 0)
+      if(g_tKillAfter > 0)
         {
          g_testEntries++;
-         if(g_testEntries == InpTestKillSwitchAfterEntries)
+         if(g_testEntries == g_tKillAfter)
            {
             g_risk.TripKillSwitch(REASON_MANUAL);
             g_log.Warn(StringFormat("TEST 8a kill switch: LATCHED after entry %d "
@@ -1222,7 +1234,7 @@ void TestSlStripPump()
                                  g_testStripped[k], sl));
         }
      }
-   if(n >= InpTestStripSlEntries || g_slguard.ActiveCount() > 0)
+   if(n >= g_tStripSl || g_slguard.ActiveCount() > 0)
       return;
    for(int i = 0; i < g_store.Count(); i++)
      {
@@ -1393,7 +1405,15 @@ void TestDemoProbePump()
    g_demoTicks++;
    double vmin = g_spec.volumeMin;
    double dist = 500.0 * g_spec.point;      // SL/TP 500 points away
-   if(InpTestDemoProbe == 1)
+   if(!DemoAccountNow())
+     {
+      //--- fail closed: no longer a logged-in DEMO account
+      g_tDemoProbe = 0;
+      g_log.Warn("TEST demo: REFUSED - not a logged-in DEMO account "
+                 "(probe stopped, acting as 0)");
+      return;
+     }
+   if(g_tDemoProbe == 1)
      {
       //--- restart probe: ONE probe position per test (a file flag survives
       //--- the kill), then heartbeats; any second own position after a
@@ -1415,7 +1435,7 @@ void TestDemoProbePump()
          DemoSnapshot("heartbeat");
       return;
      }
-   if(InpTestDemoProbe == 3)
+   if(g_tDemoProbe == 3)
      {
       //--- cleanup: close the probe positions, clear the flag, once
       if(g_demoStep == 0)
@@ -1428,7 +1448,7 @@ void TestDemoProbePump()
         }
       return;
      }
-   if(InpTestDemoProbe != 2 || g_demoTicks < 5)
+   if(g_tDemoProbe != 2 || g_demoTicks < 5)
       return;
    //--- account-mode probe: one step every 5 timer ticks
    g_demoTicks = 0;
@@ -1460,3 +1480,52 @@ void TestDemoProbePump()
      }
    g_demoStep++;
   }
+
+//+------------------------------------------------------------------+
+//| Test-input gate (SAFETY-GATE-2, CLAUDE.md exception 1a). Every   |
+//| 8a-8c test input is honoured ONLY under MQLInfoInteger(          |
+//| MQL_TESTER); the demo probe ONLY on a logged-in DEMO account.    |
+//| Anywhere else a non-default value is logged REFUSED and acts as  |
+//| 0. At the defaults nothing is logged and every value is 0.       |
+//+------------------------------------------------------------------+
+bool DemoAccountNow()
+  {
+   // a terminal with no account reads trade mode 0 == DEMO, so a
+   // logged-in account (login > 0) is required as well
+   return AccountInfoInteger(ACCOUNT_LOGIN) > 0 &&
+          AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO;
+  }
+
+int TestInputGate(const string name, const int value, const bool allowed,
+                  const string where)
+  {
+   if(value == 0)
+      return 0;
+   if(allowed)
+      return value;
+   g_log.Warn(StringFormat("TEST input %s=%d REFUSED: honoured only %s "
+                           "(acting as 0)", name, value, where));
+   return 0;
+  }
+
+void ResolveTestInputs()
+  {
+   bool   tester   = MQLInfoInteger(MQL_TESTER) != 0;
+   bool   demo     = DemoAccountNow();
+   string inTester = "in the Strategy Tester";
+   g_tKillAfter = TestInputGate("InpTestKillSwitchAfterEntries",
+                                InpTestKillSwitchAfterEntries, tester,
+                                inTester);
+   g_tStripSl   = TestInputGate("InpTestStripSlEntries",
+                                InpTestStripSlEntries, tester, inTester);
+   g_tSafetyLog = TestInputGate("InpTestSafetyLog",
+                                InpTestSafetyLog ? 1 : 0, tester,
+                                inTester) != 0;
+   g_tLostResp  = TestInputGate("InpTestLostResponses",
+                                InpTestLostResponses, tester, inTester);
+   g_tUnsent    = TestInputGate("InpTestUnsentTimeouts",
+                                InpTestUnsentTimeouts, tester, inTester);
+   g_tDemoProbe = TestInputGate("InpTestDemoProbe", InpTestDemoProbe, demo,
+                                "on a logged-in DEMO account");
+  }
+//+------------------------------------------------------------------+

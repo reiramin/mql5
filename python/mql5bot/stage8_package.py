@@ -1616,6 +1616,19 @@ def _place_demo_safety(name: str, rel: str, demo_evidence, ident: dict,
     if not log.is_file() or not run.is_file():
         return f"no demo harness run at {d} (ealog.txt + run.json)"
     rec = _load(run)
+    restore_log = d / "restore_ealog.txt"
+    # SAFETY-DEMO-RESTORE-1: a run whose closing restore to the hedging
+    # account failed (or a record without one) is FAILED and never used
+    if not isinstance(rec, dict) or rec.get("status") != "COMPLETED":
+        got_status = rec.get("status") if isinstance(rec, dict) else None
+        return (f"demo run status {got_status!r} is not 'COMPLETED' "
+                "(a failed test step or a failed restore to the hedging "
+                "account)")
+    if not restore_log.is_file():
+        return f"no restore log at {restore_log} (restore_ealog.txt)"
+    chk = sl.check_restore(gs.read_text_bom_aware(restore_log))
+    if not chk["ok"]:
+        return f"demo run restore not proven by its EA log: {chk['reason']}"
     want = (ident.get("ex5_hashes") or {}).get("Mql5Bot.mq5")
     got = rec.get("ex5_sha256") if isinstance(rec, dict) else None
     if not want or not got or str(got).lower() != str(want).lower():
@@ -1625,9 +1638,14 @@ def _place_demo_safety(name: str, rel: str, demo_evidence, ident: dict,
     run_rel = f"safety/raw/{name}_run.json"
     put_bytes(raw_rel, log.read_bytes(), f"demo harness EA log {log}")
     put_bytes(run_rel, run.read_bytes(), f"demo harness record {run}")
+    restore_rel = f"safety/raw/{name}_restore_ealog.txt"
+    put_bytes(restore_rel, restore_log.read_bytes(),
+              f"demo harness restore EA log {restore_log}")
     doc = sl.grade(name, gs.read_text_bom_aware(log), "", "")
     doc["raw_evidence"] = {"path": raw_rel, "sha256": built[raw_rel]}
     doc["run_evidence"] = {"path": run_rel, "sha256": built[run_rel]}
+    doc["restore_evidence"] = {"path": restore_rel,
+                               "sha256": built[restore_rel]}
     doc["source"] = ("graded by mql5bot.safety_legs from the EA log of a "
                      "demo harness run (mql5bot.demo_harness) with this "
                      "gate's EX5")

@@ -16,9 +16,14 @@ For each run the harness:
   re-creates it on every start, so lines are buffered as they appear), and
   for ``restart`` KILLS the terminal process while the probe position is
   open, then relaunches it;
-* writes ``<out>\\<test>\\ealog.txt`` (the EA lines of this run) and
-  ``run.json`` (steps, UTC times, the EX5 sha256; never the login, password
-  or server).
+* ALWAYS ends by logging the terminal back in to the "hedging" account
+  (SAFETY-DEMO-RESTORE-1): one more start with the cleanup probe, whose
+  START line must report the hedging margin mode. If that restore fails,
+  the run is FAILED (``status``), whatever the test itself showed;
+* writes ``<out>\\<test>\\ealog.txt`` (the EA lines of the test),
+  ``restore_ealog.txt`` (the EA lines of the restore) and ``run.json``
+  (status, steps, UTC times, the EX5 sha256, the restore record with the
+  HASHED login and the margin mode; never the login, password or server).
 
 The stage-8 builder grades ealog.txt with mql5bot.safety_legs and the
 verifier re-grades it. Nothing here asserts a result.
@@ -40,6 +45,7 @@ from pathlib import Path
 
 from mql5bot import gate_selfcheck as gs
 from mql5bot import mt5tester as mt
+from mql5bot import safety_legs as sl
 from mql5bot.owner_gate import path_within
 
 SYMBOL = "EURUSD"
@@ -52,6 +58,17 @@ ACCOUNT_ROLE = {"restart": "hedging", "netting": "netting",
                 "hedging": "hedging"}
 ACCOUNTS_ENV = "MQL5BOT_DEMO_ACCOUNTS"
 TESTS = ("restart", "netting", "hedging")
+RESTORE_ROLE = "hedging"     # the terminal's account after every run
+LOGIN_HASH_PREFIX = "mql5bot-demo-login:"
+
+
+def login_sha256(login: str) -> str:
+    """The recorded form of a demo login: sha256 over a fixed prefix + the
+    login. It identifies which configured account was restored without
+    writing the login itself. NOT secret-grade: an MT5 login is a short
+    number, so the hash can be brute-forced; it is never a credential."""
+    return hashlib.sha256(
+        (LOGIN_HASH_PREFIX + str(login).strip()).encode("utf-8")).hexdigest()
 
 
 class HarnessError(RuntimeError):
@@ -200,6 +217,7 @@ class Harness:
         self.log = EaLogFollower(self.data)
         self.proc = None
         self._tmp: Path | None = None
+        self.restore_lines: list[str] = []
 
     # -- steps ---------------------------------------------------------
     def _step(self, what: str, **extra) -> None:
@@ -263,12 +281,12 @@ class Harness:
 
     # -- the tests ---------------------------------------------------------
     def run(self) -> dict:
-        account = load_account(self.accounts, ACCOUNT_ROLE[self.test],
-                               self.repo)
         self._step("start", test=self.test,
                    account_role=ACCOUNT_ROLE[self.test])
         error = None
         try:
+            account = load_account(self.accounts, ACCOUNT_ROLE[self.test],
+                                   self.repo)
             if self.test == "restart":
                 mark = self._start(account, PROBE["restart"])
                 self._wait("TEST demo: PROBE position opened", mark,
@@ -285,27 +303,67 @@ class Harness:
                 mark = self._start(account, PROBE["account"])
                 self._wait("TEST demo: CLEANUP closed", mark,
                            "account probe + cleanup")
-        except HarnessError as exc:
+        except (HarnessError, OSError) as exc:
             error = str(exc)
             self._step("error", reason=error)
         finally:
             self.log.poll()
             self._kill("terminal stopped")
             self._drop_ini()
-        return self._write(error)
+        test_lines = list(self.log.lines)
+        restore = self._restore()
+        if not restore["ok"]:
+            error = f"{error}; {restore['reason']}" if error \
+                else restore["reason"]
+        return self._write(error, test_lines, restore)
 
-    def _write(self, error: str | None) -> dict:
+    def _restore(self) -> dict:
+        """Log the terminal back in to the "hedging" account, ALWAYS (also
+        after a failed test). Started with the cleanup probe, so the EA's
+        START line reports the account's margin mode; the restore holds
+        only when mql5bot.safety_legs.check_restore accepts those lines."""
+        rec = {"account_role": RESTORE_ROLE, "login_sha256": None,
+               "margin_mode": None, "ok": False, "reason": ""}
+        mark = len(self.log.lines)
+        try:
+            account = load_account(self.accounts, RESTORE_ROLE, self.repo)
+            rec["login_sha256"] = login_sha256(account["login"])
+            self._step("restore: log back in to the hedging account")
+            self._start(account, PROBE["cleanup"])
+            self._wait("TEST demo: CLEANUP closed", mark, "restore cleanup")
+        except (HarnessError, OSError) as exc:
+            rec["reason"] = f"restore failed: {exc}"
+        finally:
+            self.log.poll()
+            self._kill("terminal stopped after restore")
+            self._drop_ini()
+        self.restore_lines = self.log.lines[mark:]
+        chk = sl.check_restore("\n".join(self.restore_lines))
+        rec["margin_mode"] = chk["margin_mode"]
+        if not rec["reason"] and not chk["ok"]:
+            rec["reason"] = f"restore failed: {chk['reason']}"
+        rec["ok"] = not rec["reason"]
+        self._step("restore", ok=rec["ok"])
+        return rec
+
+    def _write(self, error: str | None, test_lines: list[str],
+               restore: dict) -> dict:
         self.out.mkdir(parents=True, exist_ok=True)
         (self.out / "ealog.txt").write_text(
-            "\n".join(self.log.lines) + "\n", encoding="utf-8")
-        rec = {"schema": "mql5bot.demo_safety_run/1", "test": self.test,
+            "\n".join(test_lines) + "\n", encoding="utf-8")
+        (self.out / "restore_ealog.txt").write_text(
+            "\n".join(self.restore_lines) + "\n", encoding="utf-8")
+        rec = {"schema": "mql5bot.demo_safety_run/2", "test": self.test,
+               "status": "FAILED" if error else "COMPLETED",
                "account_role": ACCOUNT_ROLE[self.test],
                "symbol": SYMBOL, "period": PERIOD,
                "ex5_sha256": sha256_file(self.data / EA_REL),
                "steps": self.steps, "error": error,
-               "ea_log_lines": len(self.log.lines),
-               "note": ("no login, password or server is recorded; the EA "
-                        "log lines are the evidence, graded at stage 8")}
+               "ea_log_lines": len(test_lines),
+               "restore": restore,
+               "note": ("no login, password or server is recorded (the "
+                        "restore login is a prefixed sha256); the EA log "
+                        "lines are the evidence, graded at stage 8")}
         (self.out / "run.json").write_text(json.dumps(rec, indent=2),
                                            encoding="utf-8")
         return rec

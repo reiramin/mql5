@@ -86,6 +86,13 @@ SAFETY_DEMO_LOGS = {
               "positions=[7:buy:0.01:124,6:sell:0.02:123,5:buy:0.01:123]"),
         _demo("10:00:20", "CLEANUP closed 3")]) + "\n",
 }
+# the harness's closing restore to the hedging account (cleanup probe)
+SAFETY_DEMO_RESTORE_LOG = "\n".join([
+    _demo("10:05:00", "START probe=3 magic=123 own_positions=0 "
+          "registry=0 engine=0 margin_mode=2"),
+    _demo("10:05:01", "CLEANUP closed 0")]) + "\n"
+SAFETY_DEMO_RUN = '{"schema": "mql5bot.demo_safety_run/2", "status": ' \
+    '"COMPLETED"}\n'
 SAFETY_WINDOWS = {
     "kill_switch": "\n".join([
         _sreq("2024.01.02 08:01:00", "sell", 0.01),
@@ -308,6 +315,10 @@ def build_package(root, *, diverge_gold2=None, diverge_status="DIVERGENT",
         if name in og.SAFETY_DEMO_TESTS:
             raw_rel = f"safety/raw/{name}_ealog.txt"
             _w(root / raw_rel, SAFETY_DEMO_LOGS[name])
+            run_rel = f"safety/raw/{name}_run.json"
+            rst_rel = f"safety/raw/{name}_restore_ealog.txt"
+            _w(root / run_rel, SAFETY_DEMO_RUN)
+            _w(root / rst_rel, SAFETY_DEMO_RESTORE_LOG)
             _w(root / "safety" / f"{name}.json", {
                 "action": f"{name} demo harness run",
                 "initial_state": "documented",
@@ -316,6 +327,10 @@ def build_package(root, *, diverge_gold2=None, diverge_status="DIVERGENT",
                 "expected_result": og.SAFETY_PINNED_EXPECTED[name],
                 "raw_evidence": {"path": raw_rel, "sha256": _hl.sha256(
                     SAFETY_DEMO_LOGS[name].encode()).hexdigest()},
+                "run_evidence": {"path": run_rel, "sha256": _hl.sha256(
+                    SAFETY_DEMO_RUN.encode()).hexdigest()},
+                "restore_evidence": {"path": rst_rel, "sha256": _hl.sha256(
+                    SAFETY_DEMO_RESTORE_LOG.encode()).hexdigest()},
             })
             continue
         if name in og.SAFETY_PINNED_EXPECTED:

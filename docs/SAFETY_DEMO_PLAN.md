@@ -91,6 +91,26 @@ The next gate run picks them up (`-DemoEvidence`, default
   The file is UTF-16 and re-created on every EA start, so the harness
   buffers lines as they appear.
 
+**Closing restore (SAFETY-DEMO-RESTORE-1).** Every run, passed or failed,
+ends with one more start: the terminal logs back in to the `hedging`
+account with the cleanup probe (3). That START line must report
+`margin_mode=2` (hedging). The harness writes the restore lines to
+`restore_ealog.txt` (kept out of the graded `ealog.txt`) and records in
+`run.json`:
+- `restore.login_sha256`: sha256 of `mql5bot-demo-login:` + the login.
+  It identifies the account without writing it; a login is a short
+  number, so this hash is NOT secret-grade.
+- `restore.margin_mode`: re-derived from the restore log.
+- `status`: `FAILED` when any step or the restore failed, else
+  `COMPLETED`.
+
+The builder uses only a COMPLETED run with a restore log that shows
+hedging. The verifier re-reads both bound files (`run_evidence`,
+`restore_evidence`) and re-checks them; the record's own claim is never
+trusted. The terminal is killed after the restore (it is not left
+running), so whether MT5 persists that login as the default for its next
+start is untested.
+
 **restart** (hedging account):
 1. Probe 1 opens ONE position (buy volume_min, SL/TP 500 points). A file
    flag stops a second probe entry across the restart.

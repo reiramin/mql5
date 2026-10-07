@@ -20,7 +20,7 @@ from mql5bot import mt5tester as mt
 from mql5bot import owner_gate as og
 from mql5bot import safety_legs as sl
 from mql5bot import stage8_package as s8p
-from test_owner_gate import SAFETY_DEMO_LOGS, SAFETY_WINDOWS
+from test_owner_gate import SAFETY_DEMO_LOGS, SAFETY_DEMO_RESTORE_LOG, SAFETY_WINDOWS
 from test_stage8_package_from_gate import REPO, run26  # noqa: F401
 
 EA = (REPO / "mql5/Experts/Mql5Bot/Mql5Bot.mq5").read_text(
@@ -44,14 +44,116 @@ def test_new_ea_inputs_default_off_and_mirrored(name):
 
 
 def test_ea_hooks_are_guarded():
-    assert re.search(r"if\(InpTestLostResponses > 0 \|\| "
-                     r"InpTestUnsentTimeouts > 0\)\s*\n\s*"
-                     r"g_trade\.TestFaults\(", EA)
-    assert re.search(r"if\(InpTestDemoProbe > 0\)\s*\n\s*"
+    # the hooks read the EFFECTIVE (gated) values, never the raw inputs
+    assert re.search(r"if\(g_tLostResp > 0 \|\| g_tUnsent > 0\)\s*\n\s*"
+                     r"g_trade\.TestFaults\(g_tLostResp, g_tUnsent\);", EA)
+    assert re.search(r"if\(g_tDemoProbe > 0\)\s*\n\s*"
                      r"TestDemoProbePump\(\);", EA)
     # the probe replaces the strategy only while it runs
-    assert re.search(r"if\(InpTestDemoProbe > 0\)\s*\n\s*return;", EA)
+    assert re.search(r"if\(g_tDemoProbe > 0\)\s*\n\s*return;", EA)
     assert EA.count("TestDemoProbePump()") == 2
+
+
+# ---------------------------------------------------------------------------
+# SAFETY-GATE-2 (CLAUDE.md exception 1a): test inputs honoured only in the
+# Strategy Tester (8a-8c) / on a logged-in DEMO account (demo probe)
+# ---------------------------------------------------------------------------
+
+def _body(name: str) -> str:
+    i = EA.index(name)
+    return EA[i:EA.index("\n  }\n", i)]
+
+
+TESTER_INPUTS = ("InpTestKillSwitchAfterEntries", "InpTestStripSlEntries",
+                 "InpTestSafetyLog", "InpTestLostResponses",
+                 "InpTestUnsentTimeouts")
+
+
+def _code(text: str) -> str:
+    """The source with // comments removed."""
+    return "\n".join(ln.split("//", 1)[0] for ln in text.splitlines())
+
+
+def _no_strings(text: str) -> str:
+    return re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', text)
+
+
+def test_no_use_site_reads_a_raw_test_input():
+    code = _no_strings(_code(EA))
+    gate = _no_strings(_code(_body("void ResolveTestInputs()")))
+    for name in TESTER_INPUTS + ("InpTestDemoProbe",):
+        uses = len(re.findall(rf"\b{name}\b", code))
+        # the input declaration + its one read inside ResolveTestInputs
+        assert uses == 2, (name, uses)
+        assert re.search(rf"\b{name}\b", gate), name
+
+
+def test_tester_inputs_are_gated_on_mqlinfointeger_mql_tester():
+    gate = _body("void ResolveTestInputs()")
+    assert "bool   tester   = MQLInfoInteger(MQL_TESTER) != 0;" in gate
+    for glob, name in (("g_tKillAfter", "InpTestKillSwitchAfterEntries"),
+                       ("g_tStripSl", "InpTestStripSlEntries"),
+                       ("g_tLostResp", "InpTestLostResponses"),
+                       ("g_tUnsent", "InpTestUnsentTimeouts")):
+        assert re.search(rf"{glob}\s*=\s*TestInputGate\(\"{name}\",\s*"
+                         rf"{name}, tester,", gate), name
+    assert re.search(r"g_tSafetyLog = TestInputGate\(\"InpTestSafetyLog\","
+                     r"\s*InpTestSafetyLog \? 1 : 0, tester,", gate)
+
+
+def test_demo_probe_needs_a_logged_in_demo_account():
+    demo = _body("bool DemoAccountNow()")
+    assert "AccountInfoInteger(ACCOUNT_LOGIN) > 0 &&" in demo
+    assert ("AccountInfoInteger(ACCOUNT_TRADE_MODE) == "
+            "ACCOUNT_TRADE_MODE_DEMO") in demo
+    gate = _body("void ResolveTestInputs()")
+    assert "bool   demo     = DemoAccountNow();" in gate
+    assert re.search(r"g_tDemoProbe = TestInputGate\(\"InpTestDemoProbe\", "
+                     r"InpTestDemoProbe, demo,", gate)
+    # the pump re-checks the account and fails closed
+    pump = _body("void TestDemoProbePump()")
+    assert re.search(r"if\(!DemoAccountNow\(\)\)\s*\{\s*//[^\n]*\n\s*"
+                     r"g_tDemoProbe = 0;", pump)
+    assert pump.index("DemoAccountNow()") < pump.index("g_tDemoProbe == 1")
+
+
+def test_a_refused_input_is_logged_and_acts_as_zero():
+    fn = _body("int TestInputGate(")
+    assert re.search(r"if\(value == 0\)\s*\n\s*return 0;", fn)
+    assert re.search(r"if\(allowed\)\s*\n\s*return value;", fn)
+    assert "REFUSED: honoured only %s " in fn
+    assert "(acting as 0)" in fn
+    assert fn.rstrip().endswith("return 0;")
+    # nothing is logged at the default (0) value
+    assert fn.index("value == 0") < fn.index("g_log.Warn")
+
+
+def test_gate_runs_once_right_after_the_logger_and_before_the_hooks():
+    init = EA[EA.index("int OnInit()"):EA.index("EventSetTimer(1);")]
+    assert re.search(r"g_log\.Init\([^;]*;\s*\n\s*//[^\n]*\n\s*"
+                     r"ResolveTestInputs\(\);", init)
+    assert init.index("ResolveTestInputs();") < \
+        init.index("g_trade.TestFaults(")
+    # the call + the definition (comments aside)
+    assert _code(EA).count("ResolveTestInputs()") == 2
+    # effective values default to off
+    for decl in ("int             g_tKillAfter    = 0;",
+                 "int             g_tStripSl      = 0;",
+                 "bool            g_tSafetyLog    = false;",
+                 "int             g_tLostResp     = 0;",
+                 "int             g_tUnsent       = 0;",
+                 "int             g_tDemoProbe    = 0;"):
+        assert decl in EA
+
+
+def test_safety_gate_1_live_check_uses_mqlinfointeger():
+    # SAFETY-GATE-1: bare MQL_TESTER / MQL_OPTIMIZATION are enum constants
+    # (always non-zero); only MQLInfoInteger(...) reads the environment
+    code = _code(EA)
+    assert not re.search(r"(?<!\()\bMQL_(TESTER|OPTIMIZATION)\b(?!\))",
+                         code)
+    assert ("if(!MQLInfoInteger(MQL_TESTER) && "
+            "!MQLInfoInteger(MQL_OPTIMIZATION))") in code
 
 
 def test_trade_manager_hook_defaults_to_zero_and_keeps_the_send():
@@ -183,12 +285,15 @@ def test_hedging_registry_holding_the_foreign_magic_is_not_isolated():
 # builder + verifier: demo evidence bound to this gate's EX5
 # ---------------------------------------------------------------------------
 
-def _demo_dir(tmp_path, name, log, ex5):
+def _demo_dir(tmp_path, name, log, ex5, status="COMPLETED",
+              restore=SAFETY_DEMO_RESTORE_LOG):
     d = tmp_path / "demo" / name
     d.mkdir(parents=True)
     (d / "ealog.txt").write_text(log, encoding="utf-8")
-    (d / "run.json").write_text(json.dumps({"test": name,
+    (d / "run.json").write_text(json.dumps({"test": name, "status": status,
                                             "ex5_sha256": ex5}))
+    if restore is not None:
+        (d / "restore_ealog.txt").write_text(restore, encoding="utf-8")
     return tmp_path / "demo"
 
 
@@ -251,6 +356,92 @@ def test_forged_demo_pass_over_a_failing_log_is_invalid(
         rep["reasons"][0]
 
 
+# ---------------------------------------------------------------------------
+# SAFETY-DEMO-RESTORE-1: every run ends back on the hedging account
+# ---------------------------------------------------------------------------
+
+def test_check_restore():
+    assert sl.check_restore(SAFETY_DEMO_RESTORE_LOG) == {
+        "ok": True, "margin_mode": 2, "reason": ""}
+    net = SAFETY_DEMO_RESTORE_LOG.replace("margin_mode=2", "margin_mode=0")
+    assert sl.check_restore(net)["ok"] is False
+    assert sl.check_restore(net)["margin_mode"] == 0
+    # a test START (probe 2) on a hedging account is not a restore
+    assert sl.check_restore(SAFETY_DEMO_LOGS["hedging"])["ok"] is False
+    assert sl.check_restore("")["ok"] is False
+
+
+@pytest.mark.parametrize("status,restore,why", [
+    ("FAILED", SAFETY_DEMO_RESTORE_LOG, "is not 'COMPLETED'"),
+    (None, SAFETY_DEMO_RESTORE_LOG, "is not 'COMPLETED'"),
+    ("COMPLETED", None, "no restore log"),
+    ("COMPLETED", SAFETY_DEMO_RESTORE_LOG.replace("margin_mode=2",
+                                                  "margin_mode=0"),
+     "restore not proven"),
+])
+def test_builder_never_uses_a_run_without_a_proven_restore(
+        run26, tmp_path, status, restore, why):  # noqa: F811
+    demo = _demo_dir(tmp_path, "netting", SAFETY_DEMO_LOGS["netting"],
+                     _ex5(tmp_path), status=status, restore=restore)
+    rec, pkg = _rebuild(run26, tmp_path, demo)
+    assert not (pkg / "safety/netting.json").exists()
+    assert why in rec["not_built"]["safety/netting.json"]
+
+
+def _rebind(pkg):
+    cp = subprocess.run([sys.executable,
+                         str(REPO / "tools/owner_evidence_bind.py"),
+                         "manifest", str(pkg), "--frozen",
+                         str(REPO / s8p.FROZEN_INPUTS_REL)],
+                        capture_output=True, text=True, check=True)
+    (pkg / "archive_manifest.json").write_text(cp.stdout)
+
+
+def test_verifier_recomputes_the_restore_from_the_bound_bytes(
+        run26, tmp_path):  # noqa: F811
+    demo = _demo_dir(tmp_path, "netting", SAFETY_DEMO_LOGS["netting"],
+                     _ex5(tmp_path))
+    _, pkg = _rebuild(run26, tmp_path, demo)
+    doc = json.loads((pkg / "safety/netting.json").read_text())
+    assert doc["restore_evidence"]["path"] == \
+        "safety/raw/netting_restore_ealog.txt"
+    assert og.verify_safety(pkg)["netting"]["state"] == og.VALID
+    # swap in a restore log that shows the netting account, re-hash and
+    # re-bind it: the verifier re-reads the log and refuses
+    rst = pkg / doc["restore_evidence"]["path"]
+    rst.write_text(SAFETY_DEMO_RESTORE_LOG.replace("margin_mode=2",
+                                                   "margin_mode=0"))
+    doc["restore_evidence"]["sha256"] = s8p._sha(rst)
+    (pkg / "safety/netting.json").write_text(json.dumps(doc))
+    _rebind(pkg)
+    rep = og.verify_safety(pkg)["netting"]
+    assert rep["state"] == og.INVALID
+    assert "restore to the hedging account not shown" in rep["reasons"][0]
+
+
+def test_verifier_refuses_a_failed_run_record_and_a_missing_binding(
+        run26, tmp_path):  # noqa: F811
+    demo = _demo_dir(tmp_path, "netting", SAFETY_DEMO_LOGS["netting"],
+                     _ex5(tmp_path))
+    _, pkg = _rebuild(run26, tmp_path, demo)
+    path = pkg / "safety/netting.json"
+    doc = json.loads(path.read_text())
+    run = pkg / doc["run_evidence"]["path"]
+    run.write_text(json.dumps({"status": "FAILED"}))
+    doc["run_evidence"]["sha256"] = s8p._sha(run)
+    path.write_text(json.dumps(doc))
+    _rebind(pkg)
+    rep = og.verify_safety(pkg)["netting"]
+    assert rep["state"] == og.INVALID
+    assert "not COMPLETED" in rep["reasons"][0]
+    del doc["restore_evidence"]
+    path.write_text(json.dumps(doc))
+    _rebind(pkg)
+    rep = og.verify_safety(pkg)["netting"]
+    assert rep["state"] == og.INVALID
+    assert "no restore_evidence binding" in rep["reasons"][0]
+
+
 def test_decider_and_ps1_pass_the_demo_evidence():
     src = (REPO / "tools/owner_gate_decide.py").read_text("utf-8")
     assert "demo_evidence=args.demo_evidence or None" in src
@@ -310,6 +501,7 @@ class FakeTerminal:
     def __init__(self, data: Path):
         self.data, self.launches, self.ini_seen = data, [], []
         self.position_open = False
+        self.restore_margin_mode = 2     # what a cleanup START reports
         self.logdir = data / dh.LOG_DIR_REL
         self.logdir.mkdir(parents=True)
 
@@ -323,9 +515,10 @@ class FakeTerminal:
         n = len(self.launches)
         self.launches.append(probe)
         own = 1 if self.position_open else 0
+        mode = self.restore_margin_mode if probe == 3 else 2
         lines = [(f"[2026.10.07 10:0{n}:00] [INFO] TEST demo: START "
                   f"probe={probe} magic=123 own_positions={own} "
-                  f"registry={own} engine=0 margin_mode=2")]
+                  f"registry={own} engine=0 margin_mode={mode}")]
         if probe == 1 and not self.position_open:
             self.position_open = True
             lines.append(f"[2026.10.07 10:0{n}:05] [INFO] TEST demo: PROBE "
@@ -365,7 +558,7 @@ def test_restart_run_kills_relaunches_cleans_up_and_grades(tmp_path, accounts):
     h, fake = _harness(tmp_path, accounts, "restart")
     rec = h.run()
     assert rec["error"] is None, rec
-    assert fake.launches == [1, 1, 3]
+    assert fake.launches == [1, 1, 3, 3]          # ... + the restore
     assert any("KILLED" in s["step"] for s in rec["steps"])
     log = (tmp_path / "out/restart/ealog.txt").read_text()
     # lines of the first start survive the EA re-creating its log file
@@ -400,6 +593,62 @@ def test_netting_uses_the_netting_account(tmp_path, accounts):
     h, fake = _harness(tmp_path, accounts, "netting")
     h.run()
     assert "Login=2222" in fake.ini_seen[0]
+    # ... and the run ends logged back in to the hedging account
+    assert "Login=1111" in fake.ini_seen[-1]
+
+
+@pytest.mark.parametrize("test", dh.TESTS)
+def test_every_run_ends_restored_to_hedging(tmp_path, accounts, test):
+    h, fake = _harness(tmp_path, accounts, test)
+    rec = h.run()
+    assert fake.launches[-1] == 3
+    assert "Login=1111" in fake.ini_seen[-1]
+    r = rec["restore"]
+    assert r["ok"] is True and r["margin_mode"] == 2
+    assert r["account_role"] == "hedging"
+    assert r["login_sha256"] == dh.login_sha256("1111") != "1111"
+    out = tmp_path / "out" / test
+    assert json.loads((out / "run.json").read_text())["restore"] == r
+    assert sl.check_restore((out / "restore_ealog.txt").read_text())["ok"]
+    # the restore lines are kept out of the graded test log
+    assert "START probe=3" not in (out / "ealog.txt").read_text() \
+        or test == "restart"
+
+
+def test_restart_completes(tmp_path, accounts):
+    h, _ = _harness(tmp_path, accounts, "restart")
+    rec = h.run()
+    assert rec["status"] == "COMPLETED" and rec["error"] is None
+
+
+def test_a_failed_restore_fails_the_run(tmp_path, accounts):
+    h, fake = _harness(tmp_path, accounts, "restart")
+    fake.restore_margin_mode = 0           # the terminal lands on netting
+    rec = h.run()
+    assert rec["status"] == "FAILED"
+    assert rec["restore"]["ok"] is False
+    assert rec["restore"]["margin_mode"] == 0
+    assert "restore failed" in rec["error"]
+    assert json.loads((tmp_path / "out/restart/run.json").read_text())[
+        "status"] == "FAILED"
+
+
+def test_restore_is_attempted_even_when_the_test_fails(tmp_path, accounts):
+    h, fake = _harness(tmp_path, accounts, "netting")
+    rec = h.run()                    # the fake never prints CLEANUP for 2
+    assert rec["status"] == "FAILED" and "timeout" in rec["error"]
+    assert rec["restore"]["ok"] is True
+    assert "Login=1111" in fake.ini_seen[-1]
+
+
+def test_restore_without_a_hedging_entry_fails_the_run(tmp_path):
+    acc = tmp_path / "acc.json"
+    acc.write_text(json.dumps({"netting": ACC["netting"]}))
+    h, _ = _harness(tmp_path, acc, "netting")
+    rec = h.run()
+    assert rec["status"] == "FAILED"
+    assert "restore failed" in rec["error"]
+    assert "'hedging'" in rec["restore"]["reason"]
 
 
 def test_cli_refuses_without_accounts(tmp_path):

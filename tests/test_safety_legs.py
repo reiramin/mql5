@@ -67,11 +67,12 @@ def test_ea_test_inputs_exist_and_default_off(name, default):
 
 def test_every_test_hook_is_guarded_by_its_input():
     # each hook is entered only behind its non-default input
-    assert re.search(r"if\(InpTestStripSlEntries > 0\)\s*\n\s*"
+    # (the gated effective values; SAFETY-GATE-2 in test_safety_demo.py)
+    assert re.search(r"if\(g_tStripSl > 0\)\s*\n\s*"
                      r"TestSlStripPump\(\);", EA)
-    assert re.search(r"if\(InpTestKillSwitchAfterEntries > 0\)\s*\n\s*\{\s*"
+    assert re.search(r"if\(g_tKillAfter > 0\)\s*\n\s*\{\s*"
                      r"\n\s*g_testEntries\+\+;", EA)
-    assert re.search(r"if\(InpTestSafetyLog\)\s*\n\s*g_log\.Info\("
+    assert re.search(r"if\(g_tSafetyLog\)\s*\n\s*g_log\.Info\("
                      r"StringFormat\(\"TEST 8a meta:", EA)
     # TestSlStripPump is called from that one guarded site only
     assert EA.count("TestSlStripPump()") == 2  # the call + the definition
