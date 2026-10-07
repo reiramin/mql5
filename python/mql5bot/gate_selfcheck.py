@@ -1386,6 +1386,22 @@ def tester_leg_evidence(report_json_path: Path | str,
 # gate asked for -- otherwise the stage FAILs naming the file.
 # ---------------------------------------------------------------------------
 
+_FRACTION_RE = re.compile(r"(\.\d{6})\d+")
+
+
+def _fromiso_utc(value: str):
+    """datetime.fromisoformat for the gate's UTC stamps on every supported
+    Python. PowerShell's round-trip format ("o") writes 7 fractional
+    digits (100 ns ticks); Python 3.10 accepts at most 6, 3.11+ accepts
+    more and drops the excess. Digits past the 6th are dropped here so
+    3.10 reads the same instant 3.11+ does (a sub-microsecond difference;
+    every caller floors/ceils to whole seconds). Naive -> UTC."""
+    from datetime import datetime, timezone
+    t = datetime.fromisoformat(
+        _FRACTION_RE.sub(r"\1", str(value).replace("Z", "+00:00")))
+    return t if t.tzinfo is not None else t.replace(tzinfo=timezone.utc)
+
+
 def _export_time_utc(doc: dict) -> tuple[float | None, str | None, str]:
     """(epoch seconds, raw value, key) of the export's own time. The flat
     ISO ``timestamp`` (TimeGMT, "...Z") is preferred; the legacy
@@ -1395,10 +1411,7 @@ def _export_time_utc(doc: dict) -> tuple[float | None, str | None, str]:
     raw = doc.get("timestamp")
     if isinstance(raw, str) and raw:
         try:
-            t = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-            if t.tzinfo is None:
-                t = t.replace(tzinfo=timezone.utc)
-            return t.timestamp(), raw, "timestamp"
+            return _fromiso_utc(raw).timestamp(), raw, "timestamp"
         except ValueError:
             return None, raw, "timestamp"
     raw = doc.get("exported_at")
@@ -1457,10 +1470,7 @@ def symbolspec_export_freshness(path: Path | str, symbol: str,
         return out
 
     def _utc(v: str) -> float:
-        t = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
-        if t.tzinfo is None:
-            t = t.replace(tzinfo=timezone.utc)
-        return t.timestamp()
+        return _fromiso_utc(v).timestamp()
 
     start = math.floor(_utc(run_start_utc))
     now = math.ceil(_utc(now_utc) if now_utc else

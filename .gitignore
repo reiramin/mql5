@@ -45,3 +45,6 @@ mql5/**/*.ex5
 
 # Local agent/session config (never part of the repo)
 .claude/
+# demo harness credentials live OUTSIDE the repo (docs/SAFETY_DEMO_PLAN.md);
+# never commit an accounts file that lands here by mistake
+demo_accounts*.json

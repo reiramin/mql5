@@ -67,11 +67,12 @@ def test_ea_test_inputs_exist_and_default_off(name, default):
 
 def test_every_test_hook_is_guarded_by_its_input():
     # each hook is entered only behind its non-default input
-    assert re.search(r"if\(InpTestStripSlEntries > 0\)\s*\n\s*"
+    # (the gated effective values; SAFETY-GATE-2 in test_safety_demo.py)
+    assert re.search(r"if\(g_tStripSl > 0\)\s*\n\s*"
                      r"TestSlStripPump\(\);", EA)
-    assert re.search(r"if\(InpTestKillSwitchAfterEntries > 0\)\s*\n\s*\{\s*"
+    assert re.search(r"if\(g_tKillAfter > 0\)\s*\n\s*\{\s*"
                      r"\n\s*g_testEntries\+\+;", EA)
-    assert re.search(r"if\(InpTestSafetyLog\)\s*\n\s*g_log\.Info\("
+    assert re.search(r"if\(g_tSafetyLog\)\s*\n\s*g_log\.Info\("
                      r"StringFormat\(\"TEST 8a meta:", EA)
     # TestSlStripPump is called from that one guarded site only
     assert EA.count("TestSlStripPump()") == 2  # the call + the definition
@@ -233,8 +234,9 @@ def test_sl_verify_closed_before_restore_is_not_a_pass_alone():
 
 def test_tester_and_demo_sets_cover_the_eight_artifacts_once():
     tester, demo = set(sl.TESTER_SAFETY_LEGS), set(sl.DEMO_ONLY)
-    assert tester == {"kill_switch", "risk_veto", "meta_reduce", "sl_verify"}
-    assert demo == {"lost_response", "restart", "netting", "hedging"}
+    assert tester == {"kill_switch", "risk_veto", "meta_reduce", "sl_verify",
+                      "lost_response"}
+    assert demo == {"restart", "netting", "hedging"}
     assert tester | demo == set(og.SAFETY_TESTS) | {"netting", "hedging"}
     for spec in sl.TESTER_SAFETY_LEGS.values():
         assert set(spec["inputs"]) <= set(mt.EA_INPUT_DEFAULTS)
@@ -331,7 +333,8 @@ def test_ps1_runs_the_tester_safety_legs_before_the_package_build():
     s8 = _s8()
     assert s8.index('Invoke-Decide @("safety-leg-inputs"') < \
         s8.index('Invoke-Decide (@("build-stage8-package"')
-    assert '@("kill_switch", "risk_veto", "meta_reduce", "sl_verify")' in s8
+    assert ('@("kill_switch", "risk_veto", "meta_reduce", "sl_verify", '
+            '"lost_response")') in s8
     # the leg runs on the gold leg's own inputs PLUS the test inputs
     assert 'Invoke-Decide @("stage5-leg-inputs"' in s8
     assert "Save-TesterWindowLog $stag $sMarks $sStart" in s8
@@ -368,9 +371,15 @@ def test_pinned_table_is_the_owner_table():
         "kill_switch": "ZERO_NEW_ORDERS_WHILE_LATCHED",
         "risk_veto": "ENTRIES_VETOED_FOR_THE_DAY",
         "meta_reduce": "ALL_SIZES_LE_RISK_APPROVED",
-        "sl_verify": "SL_STRIPPED_AND_RESTORED"}
+        "sl_verify": "SL_STRIPPED_AND_RESTORED",
+        "lost_response": "LOST_RESPONSE_ADOPTED_NO_DUPLICATE",
+        "restart": "RESTART_RECOVERED_NO_DUPLICATE",
+        "netting": "NET_ONE_POSITION_PER_SYMBOL",
+        "hedging": "INDEPENDENT_POSITIONS_ISOLATED_BY_MAGIC"}
     for name, spec in sl.TESTER_SAFETY_LEGS.items():
         assert spec["expected_result"] == og.SAFETY_PINNED_EXPECTED[name]
+    for name, value in sl.DEMO_EXPECTED.items():
+        assert value == og.SAFETY_PINNED_EXPECTED[name]
 
 
 def test_forged_pass_over_windows_that_grade_not_triggered_is_invalid(

@@ -50,6 +50,49 @@ def _sea(t: str, level: str, msg: str) -> str:
 SAFETY_BASELINE = "\n".join([
     _sreq("2024.01.02 08:01:00", "sell", 0.01),
     _sreq("2024.01.02 12:00:00", "buy", 0.30)]) + "\n"
+def _demo(t: str, msg: str) -> str:
+    return f"[2026.10.07 {t}] [INFO] TEST demo: {msg}"
+
+
+# demo-harness EA logs (no tester prefix), re-graded to their pinned pass
+SAFETY_DEMO_LOGS = {
+    "restart": "\n".join([
+        _demo("10:00:00", "START probe=1 magic=123 own_positions=0 "
+              "registry=0 engine=0 margin_mode=2"),
+        _demo("10:00:05", "PROBE position opened"),
+        _demo("10:01:00", "START probe=1 magic=123 own_positions=1 "
+              "registry=1 engine=0 margin_mode=2"),
+        _demo("10:01:10", "SNAPSHOT heartbeat margin_mode=2 own_positions=1 "
+              "registry=1 positions=[5:buy:0.01:123]")]) + "\n",
+    "netting": "\n".join([
+        _demo("10:00:00", "START probe=2 magic=123 own_positions=0 "
+              "registry=0 engine=0 margin_mode=0"),
+        _demo("10:00:05", "SNAPSHOT after_A buy 0.01 done=true margin_mode=0 "
+              "own_positions=1 registry=1 positions=[5:buy:0.01:123]"),
+        _demo("10:00:10", "SNAPSHOT after_B sell 0.02 done=true "
+              "margin_mode=0 own_positions=1 registry=1 "
+              "positions=[5:sell:0.01:123]"),
+        _demo("10:00:20", "CLEANUP closed 1")]) + "\n",
+    "hedging": "\n".join([
+        _demo("10:00:00", "START probe=2 magic=123 own_positions=0 "
+              "registry=0 engine=0 margin_mode=2"),
+        _demo("10:00:05", "SNAPSHOT after_A buy 0.01 done=true margin_mode=2 "
+              "own_positions=1 registry=1 positions=[5:buy:0.01:123]"),
+        _demo("10:00:10", "SNAPSHOT after_B sell 0.02 done=true "
+              "margin_mode=2 own_positions=2 registry=2 "
+              "positions=[6:sell:0.02:123,5:buy:0.01:123]"),
+        _demo("10:00:15", "SNAPSHOT after_F foreign_buy 0.01 magic=124 "
+              "done=true margin_mode=2 own_positions=2 registry=2 "
+              "positions=[7:buy:0.01:124,6:sell:0.02:123,5:buy:0.01:123]"),
+        _demo("10:00:20", "CLEANUP closed 3")]) + "\n",
+}
+# the harness's closing restore to the hedging account (cleanup probe)
+SAFETY_DEMO_RESTORE_LOG = "\n".join([
+    _demo("10:05:00", "START probe=3 magic=123 own_positions=0 "
+          "registry=0 engine=0 margin_mode=2"),
+    _demo("10:05:01", "CLEANUP closed 0")]) + "\n"
+SAFETY_DEMO_RUN = '{"schema": "mql5bot.demo_safety_run/2", "status": ' \
+    '"COMPLETED"}\n'
 SAFETY_WINDOWS = {
     "kill_switch": "\n".join([
         _sreq("2024.01.02 08:01:00", "sell", 0.01),
@@ -64,6 +107,19 @@ SAFETY_WINDOWS = {
              "TEST 8a meta: risk_approved=0.02 scaled=0.0100 final=0.01 "
              "base_weight=0.5000"),
         _sreq("2024.01.02 08:01:00", "sell", 0.01)]) + "\n",
+    "lost_response": "\n".join([
+        (f"{_SP}2024.01.02 08:01:00   [mql5bot] TEST 8c lost_response: "
+         "SUPPRESSED send of c1 -> TIMEOUT (nothing sent)"),
+        (f"{_SP}2024.01.02 08:01:00   [mql5bot] EXEC|open_queued|EURUSD.G2|"
+         "TIMEOUT|0|0.00|1|c1"),
+        _sreq("2024.01.02 08:01:01", "sell", 0.01),
+        (f"{_SP}2024.01.02 08:01:01   [mql5bot] EXEC|open_retry|EURUSD.G2|"
+         "DONE|0|0.00|2|c1"),
+        _sreq("2024.01.02 08:46:00", "buy", 0.28),
+        (f"{_SP}2024.01.02 08:46:00   [mql5bot] TEST 8c lost_response: "
+         "DROPPED response of c2 (real DONE) -> TIMEOUT"),
+        (f"{_SP}2024.01.02 08:46:00   [mql5bot] EXEC|open_verified|"
+         "EURUSD.G2|DONE|0|0.00|3|c2")]) + "\n",
     "sl_verify": "\n".join([
         _sea("2024.01.02 08:01:01", "WARN",
              "TEST 8b sl: STRIPPED #2 sl 1.09658 -> 0.00000 (modify done)"),
@@ -255,6 +311,27 @@ def build_package(root, *, diverge_gold2=None, diverge_status="DIVERGENT",
         _w(root / base_rel, SAFETY_BASELINE)
     for name in og.SAFETY_TESTS + ("netting", "hedging"):
         if name in skip or "safety" in skip:
+            continue
+        if name in og.SAFETY_DEMO_TESTS:
+            raw_rel = f"safety/raw/{name}_ealog.txt"
+            _w(root / raw_rel, SAFETY_DEMO_LOGS[name])
+            run_rel = f"safety/raw/{name}_run.json"
+            rst_rel = f"safety/raw/{name}_restore_ealog.txt"
+            _w(root / run_rel, SAFETY_DEMO_RUN)
+            _w(root / rst_rel, SAFETY_DEMO_RESTORE_LOG)
+            _w(root / "safety" / f"{name}.json", {
+                "action": f"{name} demo harness run",
+                "initial_state": "documented",
+                "resulting_state": "documented",
+                "observed_result": og.SAFETY_PINNED_EXPECTED[name],
+                "expected_result": og.SAFETY_PINNED_EXPECTED[name],
+                "raw_evidence": {"path": raw_rel, "sha256": _hl.sha256(
+                    SAFETY_DEMO_LOGS[name].encode()).hexdigest()},
+                "run_evidence": {"path": run_rel, "sha256": _hl.sha256(
+                    SAFETY_DEMO_RUN.encode()).hexdigest()},
+                "restore_evidence": {"path": rst_rel, "sha256": _hl.sha256(
+                    SAFETY_DEMO_RESTORE_LOG.encode()).hexdigest()},
+            })
             continue
         if name in og.SAFETY_PINNED_EXPECTED:
             raw_rel = f"safety/raw/{name}_window.txt"

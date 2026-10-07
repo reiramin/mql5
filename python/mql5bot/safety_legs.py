@@ -1,17 +1,18 @@
 """mql5bot.safety_legs - stage-8 safety sub-checks 8a-8d that run in the MT5
 Strategy Tester (docs/SAFETY_8A_8D_PLAN.md).
 
-Four of the eight safety artifacts the verifier requires can be produced by a
+Five of the eight safety artifacts the verifier requires can be produced by a
 Strategy Tester leg on the gold2 fixture: kill_switch, risk_veto,
-meta_reduce, sl_verify. Each runs the gold leg's own inputs PLUS the inputs
+meta_reduce, sl_verify, and (TradeManager fault hook, owner authorization
+2026-10-06) lost_response. Each runs the gold leg's own inputs PLUS the inputs
 below (test-only EA inputs are default OFF; owner authorization
 2026-10-06), and its evidence is graded HERE, from that leg's own tester-log
 window only, against the gold m1_ohlc leg of the same run as the baseline
 ("the strategy would have entered here").
 
-The other four (lost_response, restart, netting, hedging) need a demo
-terminal or an account of a specific margin mode; nothing here produces
-them, and the package keeps them MISSING.
+The other three (restart, netting, hedging) need a demo terminal or an
+account of a specific margin mode: mql5bot.demo_harness runs them
+(docs/SAFETY_DEMO_PLAN.md) and their graders live here too.
 
 Grading never invents: every observation is a quoted window line. A test
 whose trigger never fired, or whose baseline shows nothing to block, is
@@ -55,6 +56,16 @@ TESTER_SAFETY_LEGS: dict[str, dict] = {
                    "file) + InpTestSafetyLog=true: every entry logs the "
                    "Risk-approved and the final lots"),
     },
+    "lost_response": {
+        # TradeManager.mqh fault hook (owner authorization 2026-10-06)
+        "inputs": {"InpTestLostResponses": 1, "InpTestUnsentTimeouts": 1},
+        "expected_result": "LOST_RESPONSE_ADOPTED_NO_DUPLICATE",
+        "action": ("InpTestUnsentTimeouts=1 + InpTestLostResponses=1: the "
+                   "first entry send is suppressed (TIMEOUT, nothing sent) "
+                   "and must be queued and retried once; the next FILLED "
+                   "entry's answer is dropped (TIMEOUT) and must be found in "
+                   "deal history (open_verified) with no re-send"),
+    },
     "sl_verify": {
         "inputs": {"InpTestStripSlEntries": 3},
         "expected_result": "SL_STRIPPED_AND_RESTORED",
@@ -65,23 +76,36 @@ TESTER_SAFETY_LEGS: dict[str, dict] = {
     },
 }
 
+# not tester legs: the demo harness (mql5bot.demo_harness,
+# docs/SAFETY_DEMO_PLAN.md) produces their evidence on demo accounts
 DEMO_ONLY: dict[str, str] = {
-    "lost_response": (
-        "needs an ambiguous order-send result (TRADE_RETCODE_TIMEOUT / a "
-        "lost response). The tester always answers; injecting one would "
-        "need a change in Include/Mql5Bot/TradeManager.mqh, outside the "
-        "authorized Experts/Mql5Bot/ scope"),
     "restart": (
-        "needs a real EA restart mid-run (terminal or EA reload) during a "
-        "pending execution, an active retry, an open position and an "
-        "allocation poll; the Strategy Tester cannot restart an EA"),
+        "needs a real EA/terminal restart while a position is open; the "
+        "Strategy Tester cannot restart an EA -- demo harness"),
     "netting": (
         "needs a NETTING account: the tester takes the account's margin "
-        "mode, and gate_run35's account is hedging"),
+        "mode, and gate_run35's account is hedging -- demo harness"),
     "hedging": (
-        "needs two independent positions with their own magics on a "
-        "HEDGING account; the tester runs one EA, and this EA holds one "
-        "position at a time"),
+        "needs independent positions with their own magics on a HEDGING "
+        "account under live execution -- demo harness"),
+}
+DEMO_EXPECTED = {
+    "restart": "RESTART_RECOVERED_NO_DUPLICATE",
+    "netting": "NET_ONE_POSITION_PER_SYMBOL",
+    "hedging": "INDEPENDENT_POSITIONS_ISOLATED_BY_MAGIC",
+}
+DEMO_ACTIONS = {
+    "restart": ("demo harness: EA with InpTestDemoProbe=1 opens one probe "
+                "position; the terminal process is KILLED while it is open "
+                "and relaunched; the EA must reload its state with the same "
+                "magic and never hold a second own position"),
+    "netting": ("demo harness on a NETTING account, InpTestDemoProbe=2: "
+                "buy vmin, then sell 2*vmin on the same symbol; the account "
+                "must hold ONE net position (sell vmin)"),
+    "hedging": ("demo harness on a HEDGING account, InpTestDemoProbe=2: buy "
+                "vmin, sell 2*vmin, then a buy with ANOTHER magic; the two "
+                "own positions stay independent tickets and the EA's "
+                "registry holds only its own magic"),
 }
 
 # 'YYYY.MM.DD HH:MM:SS' simulated time + MT5's own entry request line
@@ -282,8 +306,258 @@ def grade_sl_verify(window: str, baseline: str, symbol: str) -> dict:
                 lines, facts)
 
 
+# --- 8c lost_response (tester; TradeManager fault hook) -----------------
+_MQL_RE = re.compile(r"(\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2})\s+"
+                     r"\[mql5bot\] (.*)$")
+_SUPP_RE = re.compile(r"TEST 8c lost_response: SUPPRESSED send of (\S+) ")
+_DROP_RE = re.compile(r"TEST 8c lost_response: DROPPED response of (\S+) ")
+_EXEC_RE = re.compile(r"EXEC\|([^|]+)\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|"
+                      r"(.*)$")
+
+
+def _mql_lines(text: str) -> list[tuple[str, str, str]]:
+    out = []
+    for ln in _lines(text):
+        m = _MQL_RE.search(ln)
+        if m:
+            out.append((m.group(1), m.group(2), ln))
+    return out
+
+
+def grade_lost_response(window: str, baseline: str, symbol: str) -> dict:
+    del baseline
+    mql = _mql_lines(window)
+    reqs = entry_requests(window, symbol)
+    execs: dict[str, list[tuple[str, str]]] = {}
+    for t, msg, _ in mql:
+        m = _EXEC_RE.search(msg)
+        if m:
+            execs.setdefault(m.group(2).strip(), []).append((t, m.group(1)))
+    supp = [(t, _SUPP_RE.search(msg).group(1), ln) for t, msg, ln in mql
+            if _SUPP_RE.search(msg)]
+    drop = [(t, _DROP_RE.search(msg).group(1), ln) for t, msg, ln in mql
+            if _DROP_RE.search(msg)]
+    if not supp and not drop:
+        return _doc("lost_response", "NOT_TRIGGERED", "fault hook armed",
+                    "no SUPPRESSED / DROPPED line in the leg window", [], {})
+    bad: list[str] = []
+    lines = [ln for _, _, ln in supp + drop]
+    retried = adopted = 0
+    for t, comment, _ in supp:
+        ex = execs.get(comment, [])
+        queued = [x for x in ex if x[1] == "open_queued"]
+        retry = [x for x in ex if x[1] in ("open_retry",
+                                           "open_retry_verified")]
+        if not queued or not retry or any(x[1] == "open_retry_giveup"
+                                          for x in ex):
+            bad.append(f"RETRY_NOT_DONE:{comment}")
+            continue
+        sent = [r for r in reqs if t <= r["time"] <= retry[0][0]]
+        if len(sent) != 1:
+            bad.append(f"DUPLICATE_SEND:{comment}:{len(sent)}")
+            continue
+        retried += 1
+    for t, comment, _ in drop:
+        ex = execs.get(comment, [])
+        if not any(x[1] == "open_verified" for x in ex) or \
+                any(x[1] == "open_queued" for x in ex):
+            bad.append(f"NOT_ADOPTED:{comment}")
+            continue
+        sent = [r for r in reqs if r["time"] == t]
+        if len(sent) != 1:
+            bad.append(f"DUPLICATE_SEND:{comment}:{len(sent)}")
+            continue
+        adopted += 1
+    facts = {"suppressed": len(supp), "retried_once": retried,
+             "dropped": len(drop), "adopted_from_history": adopted,
+             "failures": bad}
+    if bad:
+        observed = bad[0]
+    elif not retried or not adopted:
+        observed = "INCONCLUSIVE_ONE_FAULT_KIND_MISSING"
+    else:
+        observed = "LOST_RESPONSE_ADOPTED_NO_DUPLICATE"
+    return _doc("lost_response", observed,
+                f"{len(supp)} send(s) suppressed, {len(drop)} answer(s) "
+                "dropped by the fault hook",
+                (f"{retried} suppressed send(s) queued and retried once; "
+                 f"{adopted} dropped answer(s) found in deal history with no "
+                 f"re-send; failures: {bad or 'none'}"), lines, facts)
+
+
+# --- demo harness graders (EA log of a demo run, no baseline) -----------
+_START_RE = re.compile(r"TEST demo: START probe=(\d+) magic=(-?\d+) "
+                       r"own_positions=(\d+) registry=(\d+) engine=(-?\d+) "
+                       r"margin_mode=(-?\d+)")
+_PROBE_RE = re.compile(r"TEST demo: PROBE position opened")
+_SNAP_RE = re.compile(r"TEST demo: SNAPSHOT (\S+)(.*?) margin_mode=(-?\d+) "
+                      r"own_positions=(\d+) registry=(\d+) positions=\[(.*)\]")
+MARGIN_NETTING = 0   # ACCOUNT_MARGIN_MODE_RETAIL_NETTING
+MARGIN_HEDGING = 2   # ACCOUNT_MARGIN_MODE_RETAIL_HEDGING
+
+
+def _demo_doc(name: str, observed: str, initial: str, resulting: str,
+              lines: list[str], facts: dict) -> dict:
+    return {"schema": SCHEMA, "test": name, "action": DEMO_ACTIONS[name],
+            "inputs": {"InpTestDemoProbe": 1 if name == "restart" else 2},
+            "initial_state": initial, "resulting_state": resulting,
+            "observed_result": observed,
+            "expected_result": DEMO_EXPECTED[name],
+            "passed": observed == DEMO_EXPECTED[name],
+            "quoted_lines": lines, "facts": facts}
+
+
+def _positions(text: str) -> list[dict]:
+    out = []
+    for item in [x for x in text.split(",") if x]:
+        t, side, vol, magic = item.split(":")
+        out.append({"ticket": t, "side": side, "volume": float(vol),
+                    "magic": int(magic)})
+    return out
+
+
+def _snapshots(log: str) -> list[dict]:
+    out = []
+    for t, m, ln in ea_lines(log, _SNAP_RE):
+        out.append({"time": t, "label": m.group(1), "detail": m.group(2),
+                    "margin_mode": int(m.group(3)),
+                    "own": int(m.group(4)), "registry": int(m.group(5)),
+                    "positions": _positions(m.group(6)), "line": ln})
+    return out
+
+
+def grade_restart(log: str, baseline: str = "", symbol: str = "") -> dict:
+    del baseline, symbol
+    starts = ea_lines(log, _START_RE)
+    probe = ea_lines(log, _PROBE_RE)
+    snaps = _snapshots(log)
+    lines = [ln for _, _, ln in starts] + [ln for _, _, ln in probe]
+    facts = {"starts": len(starts), "probe_opened": len(probe)}
+    if not probe:
+        return _demo_doc("restart", "PROBE_NOT_OPENED", "flat", "no probe "
+                         "position", lines, facts)
+    after = [s for s in starts if s[0] >= probe[0][0]]
+    if not after:
+        return _demo_doc("restart", "NO_RESTART", "probe position open",
+                         "no START after the probe opened", lines, facts)
+    _, first, _ = starts[0]
+    t1, again, _ = after[0]
+    later = [s for s in snaps if s["time"] >= t1 and
+             s["label"] == "heartbeat"]
+    dup = [s for s in later if s["own"] > 1]
+    facts.update({"magic_before": first.group(2), "magic_after":
+                  again.group(2), "own_at_restart": int(again.group(3)),
+                  "engine_at_restart": int(again.group(5)),
+                  "heartbeats_after_restart": len(later),
+                  "max_own_after_restart": max([s["own"] for s in later],
+                                               default=None)})
+    lines += [s["line"] for s in later[:3]] + [s["line"] for s in dup[:3]]
+    if again.group(2) != first.group(2):
+        observed = "MAGIC_CHANGED"
+    elif int(again.group(3)) != 1:
+        observed = "POSITION_LOST_AT_RESTART"
+    elif int(again.group(5)) != 0:
+        observed = "ENGINE_NOT_NORMAL_AFTER_RESTART"
+    elif not later:
+        observed = "INCONCLUSIVE_NO_HEARTBEAT_AFTER_RESTART"
+    elif dup:
+        observed = f"DUPLICATE_EXPOSURE:{len(dup)}"
+    elif later[0]["registry"] != 1:
+        observed = "REGISTRY_NOT_RECOVERED"
+    else:
+        observed = "RESTART_RECOVERED_NO_DUPLICATE"
+    return _demo_doc("restart", observed,
+                     f"probe position open (magic {first.group(2)}); "
+                     "terminal process killed",
+                     (f"relaunched: magic {again.group(2)}, own positions "
+                      f"{again.group(3)}, engine {again.group(5)}; "
+                      f"{len(later)} heartbeat(s), max own "
+                      f"{facts['max_own_after_restart']}"), lines, facts)
+
+
+def _account_grade(name: str, log: str, mode: int) -> dict:
+    snaps = {s["label"]: s for s in _snapshots(log)}
+    lines = [s["line"] for s in snaps.values()]
+    a, b = snaps.get("after_A"), snaps.get("after_B")
+    if a is None or b is None:
+        return _demo_doc(name, "NOT_RUN", "no probe snapshots",
+                         "after_A / after_B missing", lines, {})
+    facts = {"margin_mode": b["margin_mode"], "after_A": a["positions"],
+             "after_B": b["positions"]}
+    m = re.search(r"buy (\d+(?:\.\d+)?)", a["detail"])
+    vmin = float(m.group(1)) if m else None
+    magic = None
+    starts = ea_lines(log, _START_RE)
+    if starts:
+        magic = int(starts[-1][1].group(2))
+    own_b = [p for p in b["positions"] if p["magic"] == magic]
+    if b["margin_mode"] != mode:
+        return _demo_doc(name, f"WRONG_ACCOUNT_MODE:{b['margin_mode']}",
+                         f"account margin_mode {b['margin_mode']} (required "
+                         f"{mode})", f"after_B positions {b['positions']}",
+                         lines, facts)
+    if name == "netting":
+        ok = (len(a["positions"]) == 1 and len(own_b) == 1
+              and len(b["positions"]) == 1 and own_b[0]["side"] == "sell"
+              and vmin is not None and abs(own_b[0]["volume"] - vmin) < 1e-9)
+        observed = "NET_ONE_POSITION_PER_SYMBOL" if ok else \
+            f"NOT_NETTED:{len(b['positions'])}"
+        return _demo_doc(name, observed, f"netting account, buy {vmin}",
+                         f"after sell {2 * vmin if vmin else '?'}: "
+                         f"{b['positions']}", lines, facts)
+    f = snaps.get("after_F")
+    if f is None:
+        return _demo_doc(name, "NOT_RUN", "hedging probe started",
+                         "after_F missing", lines, facts)
+    facts["after_F"] = f["positions"]
+    foreign = [p for p in f["positions"] if magic is not None
+               and p["magic"] == magic + 1]
+    sides = sorted(p["side"] for p in own_b)
+    ok = (len(own_b) == 2 and sides == ["buy", "sell"]
+          and len({p["ticket"] for p in own_b}) == 2 and foreign
+          and f["own"] == 2 and f["registry"] == 2)
+    observed = "INDEPENDENT_POSITIONS_ISOLATED_BY_MAGIC" if ok else \
+        (f"NOT_INDEPENDENT:{len(own_b)}" if len(own_b) != 2 else
+         f"NOT_ISOLATED:own={f['own']},registry={f['registry']}")
+    return _demo_doc(name, observed, f"hedging account, magic {magic}",
+                     (f"own {own_b}; foreign {foreign}; registry "
+                      f"{f['registry']}"), lines, facts)
+
+
+def grade_netting(log: str, baseline: str = "", symbol: str = "") -> dict:
+    del baseline, symbol
+    return _account_grade("netting", log, MARGIN_NETTING)
+
+
+def grade_hedging(log: str, baseline: str = "", symbol: str = "") -> dict:
+    del baseline, symbol
+    return _account_grade("hedging", log, MARGIN_HEDGING)
+
+
 GRADERS = {"kill_switch": grade_kill_switch, "risk_veto": grade_risk_veto,
-           "meta_reduce": grade_meta_reduce, "sl_verify": grade_sl_verify}
+           "meta_reduce": grade_meta_reduce, "sl_verify": grade_sl_verify,
+           "lost_response": grade_lost_response,
+           "restart": grade_restart, "netting": grade_netting,
+           "hedging": grade_hedging}
+
+
+def check_restore(log: str) -> dict:
+    """SAFETY-DEMO-RESTORE-1: the EA log of the harness's closing step,
+    which logs the terminal back in to the "hedging" account with the
+    cleanup probe. The restore holds ONLY when the LAST cleanup START line
+    (probe=3) reports margin_mode == MARGIN_HEDGING. Anything else (no
+    such line, another mode) is a failed restore."""
+    starts = [m for _, m, _ in ea_lines(log, _START_RE)
+              if int(m.group(1)) == 3]
+    if not starts:
+        return {"ok": False, "margin_mode": None,
+                "reason": "no cleanup START line (probe=3) in the restore log"}
+    mode = int(starts[-1].group(6))
+    if mode != MARGIN_HEDGING:
+        return {"ok": False, "margin_mode": mode,
+                "reason": (f"restore account margin_mode {mode} is not "
+                           f"hedging ({MARGIN_HEDGING})")}
+    return {"ok": True, "margin_mode": mode, "reason": ""}
 
 
 def grade(name: str, window: str, baseline: str, symbol: str) -> dict:

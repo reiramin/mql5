@@ -3962,3 +3962,162 @@ Built, unit-tested, never run live.
 Tests: `tests/test_verdict_bar_models.py`, one per ladder branch.
 
 Built, unit-tested, never run live.
+
+## SAFETY-DEMO-1 — OWNER AUTHORIZATION: lost_response fault hook; demo harness for restart / netting / hedging (2026-10-06)
+
+**Authorization (Sal, 2026-10-06).** A test-only fault hook in
+`mql5/Include/Mql5Bot/TradeManager.mqh`, default OFF, so lost_response
+runs in the Strategy Tester. At the defaults the gold legs are unchanged.
+
+**lost_response (implemented).**
+- `CTradeManager::TestFaults`, armed only by `InpTestLostResponses` /
+  `InpTestUnsentTimeouts` > 0. At 0, the only change is a guarded branch
+  whose else-arm is the former line; retries never pass through it.
+- It is the fifth stage-8 safety leg, graded and re-graded like PR #31.
+- Pinned result: `LOST_RESPONSE_ADOPTED_NO_DUPLICATE`.
+
+**restart / netting / hedging (implemented, never run on MT5).**
+- **EA probe.** `InpTestDemoProbe` (default 0): 1 = restart probe,
+  2 = account-mode probe, 3 = cleanup. While it is on, the EA's strategy
+  entries and exits are skipped.
+- **Harness.** `mql5bot.demo_harness` + `tools/demo_safety_harness.py`
+  run the terminal from a TEMP `[StartUp]` ini, with credentials from a
+  LOCAL file outside the repo, and kill/relaunch the terminal for restart.
+- **Builder.** It accepts a run's `ealog.txt` + `run.json` ONLY when the
+  run's EX5 sha256 equals this gate's stage-1 compile hash.
+- **Verifier.** It re-grades the bound EA log.
+- **Pinned results.**
+  - restart → `RESTART_RECOVERED_NO_DUPLICATE`;
+  - netting → `NET_ONE_POSITION_PER_SYMBOL`;
+  - hedging → `INDEPENDENT_POSITIONS_ISOLATED_BY_MAGIC`.
+
+**Limitations (named).**
+- **Hedging.** It uses one EA plus a raw order with magic + 1, not two EA
+  instances: a `[StartUp]` ini attaches one chart, and the `.chr` profile
+  format is undocumented.
+- **Restart.** It covers only the open-position cell of the restart
+  matrix.
+
+**Plan.** `docs/SAFETY_DEMO_PLAN.md`, including the owner's manual steps
+and the market hours.
+
+## SAFETY-DEMO-RESTORE-1 — NEW STRICTNESS: every demo harness run ends back on the hedging account (2026-10-07)
+
+**Owner requirement (task 1b, 2026-10-07).** The demo harness always ends
+by logging the terminal back in to the "hedging" account. It records the
+hashed login and the margin mode in run.json. A failed restore makes the
+run FAILED.
+
+**What changed.**
+- **Harness.** `Harness.run()` always calls `_restore()`, also after a
+  failed step or a missing test account. The restore is a start with the
+  hedging account and the cleanup probe (3), so the EA's START line
+  reports `margin_mode`.
+  - `run.json` (schema `mql5bot.demo_safety_run/2`) adds `status`
+    (COMPLETED / FAILED) and `restore {account_role, login_sha256,
+    margin_mode, ok, reason}`.
+  - The restore EA lines go to `restore_ealog.txt`; `ealog.txt` keeps the
+    test lines only, so the graders see the same input as before.
+  - The CLI exits 1 unless `status == COMPLETED`.
+- **Builder** (`stage8_package._place_demo_safety`). It places a demo
+  safety file only when run.json says COMPLETED and
+  `safety_legs.check_restore` accepts restore_ealog.txt. It binds the
+  restore log as `restore_evidence`.
+- **Verifier** (`owner_gate._demo_run_problem`). For restart / netting /
+  hedging it requires `run_evidence` and `restore_evidence`, both bound by
+  the archive manifest with matching hashes. It re-reads them: the record
+  must say COMPLETED, and the restore log must show hedging
+  (`check_restore`, re-computed).
+
+**Self-review.**
+- (a) Weaker acceptance? No. A demo safety file needs everything it
+  needed before plus two bound, re-checked files.
+- (b) Gold legs at default inputs? Unchanged. No EA or tester-leg code
+  was touched.
+- (c) Re-computed by the verifier? Yes. The verifier reads the bound
+  bytes itself and never trusts `restore.ok` from the record.
+
+**Limits.** `login_sha256` is a prefixed sha256 of a short number, so it
+is not secret-grade. The EA log does not print the login, so the restore
+proves the account MODE (hedging) and that the harness used the
+configured hedging entry; it does not prove the login from the terminal
+side. Whether a killed terminal persists that login for its next start is
+untested.
+
+Tests: `tests/test_safety_demo.py` (check_restore; builder refusals;
+verifier re-computation over swapped bound bytes; harness restore on every
+test, failed restore, restore after a failed test, missing hedging
+entry).
+
+Built, unit-tested, never run live.
+
+## SAFETY-GATE-1 / SAFETY-GATE-2 — EA test inputs gated by MQLInfoInteger(MQL_TESTER) / a logged-in DEMO account; live permission check fixed (2026-10-07)
+
+**Authority.** CLAUDE.md "Owner-scoped exceptions (Sal, 2026-10-07)":
+- 1a covers the input gating;
+- 1b covers the SAFETY-GATE-1 fix.
+
+The only file changed under mql5/ is `mql5/Experts/Mql5Bot/Mql5Bot.mq5`.
+(The first attempt, before the exception existed, was refused and
+recorded as BLOCKED; that block is now cleared.)
+
+**SAFETY-GATE-2: the gate.**
+- **Effective values.** `ResolveTestInputs()` runs once in OnInit,
+  directly after `g_log.Init`. It sets the effective globals
+  `g_tKillAfter`, `g_tStripSl`, `g_tSafetyLog`, `g_tLostResp`,
+  `g_tUnsent` and `g_tDemoProbe`. Every hook reads those globals; no use
+  site reads an `InpTest*` input.
+  - The 8a-8c inputs (kill switch, SL strip, safety log, lost
+    responses, unsent timeouts) are honoured only when
+    `MQLInfoInteger(MQL_TESTER) != 0`.
+  - `InpTestDemoProbe` is honoured only when `ACCOUNT_LOGIN > 0` AND
+    `ACCOUNT_TRADE_MODE == ACCOUNT_TRADE_MODE_DEMO`. A terminal with no
+    account reads trade mode 0, which IS `ACCOUNT_TRADE_MODE_DEMO`, so
+    the login check is required.
+- **Refusal.** A refused non-zero input logs `TEST input <name>=<v>
+  REFUSED: honoured only <where> (acting as 0)` and becomes 0. A zero
+  input logs nothing.
+- **Fail closed.** `TestDemoProbePump()` re-checks the account on every
+  call. If the account no longer qualifies, it logs REFUSED and sets the
+  probe to 0.
+
+**SAFETY-GATE-1: the bug fix.**
+- **Bug.** OnInit had `if(!MQL_TESTER && !MQL_OPTIMIZATION)`. Those are
+  ENUM_MQL_INFO_INTEGER constants, which are non-zero, so the condition
+  was always false. The live TERMINAL_TRADE_ALLOWED / MQL_TRADE_ALLOWED /
+  ACCOUNT_TRADE_EXPERT check never ran.
+- **Fix.** It is now `if(!MQLInfoInteger(MQL_TESTER) &&
+  !MQLInfoInteger(MQL_OPTIMIZATION))`.
+- **Effect in the tester.** The block is skipped there, exactly as
+  before, so gold legs are unaffected.
+- **Effect outside the tester (live / demo).** The permission check now
+  runs. The demo harness's `[StartUp]` ini sets `AllowLiveTrading=1`; a
+  demo run whose terminal or account refuses EA trading now fails at
+  INIT, before START.
+
+**Self-review.**
+- (a) Weaker acceptance? No. No verifier or gate rule changed. The EA
+  only refuses more.
+- (b) Gold legs at default inputs? Identical. The gold legs run in the
+  tester with every test input at 0:
+  - `ResolveTestInputs` returns 0 / false for each input and logs
+    nothing;
+  - every hook sees the same value as before;
+  - the fixed `if` is skipped in the tester, as it always was.
+- (b, safety legs) The tester safety legs (8a-8c) run under
+  `MQL_TESTER`, so their inputs are honoured as before.
+- (c) Verifier re-computation? Not applicable: no new package check.
+
+**Proof.** Source tests in `tests/test_safety_demo.py`:
+- `test_no_use_site_reads_a_raw_test_input`;
+- `..._gated_on_mqlinfointeger_mql_tester`;
+- `test_demo_probe_needs_a_logged_in_demo_account`;
+- `test_a_refused_input_is_logged_and_acts_as_zero`;
+- `test_gate_runs_once_right_after_the_logger_and_before_the_hooks`;
+- `test_safety_gate_1_live_check_uses_mqlinfointeger`.
+
+The pins in `tests/test_safety_legs.py` are updated to the gated
+globals. The compile is proven only by the owner terminal's stage-1
+strict compile; there is no metaeditor here.
+
+Built, unit-tested, never run live.

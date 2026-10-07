@@ -48,7 +48,11 @@ param(
     # SCOPED RUN: only the named golds' legs run (default: all). A scoped run
     # is PARTIAL: it can never end certified; see Resolve-GateResult.
     # "-Golds gold2" or "-Golds gold1,gold2" (comma list also works via -File).
-    [string[]]$Golds = @("gold1", "gold2")
+    [string[]]$Golds = @("gold1", "gold2"),
+    # Demo-harness safety evidence (restart / netting / hedging;
+    # docs/SAFETY_DEMO_PLAN.md): <dir>\<test>\ealog.txt + run.json from
+    # tools\demo_safety_harness.py. Default: evidence\demo_safety when present.
+    [string]$DemoEvidence = ""
 )
 
 Set-StrictMode -Version 2.0
@@ -1356,7 +1360,7 @@ $sgk = @($Script:Scope)[0]
 if ($sgk) {
     $smeta = $goldMeta[$sgk]
     $sd = $derived[$sgk]
-    foreach ($stest in @("kill_switch", "risk_veto", "meta_reduce", "sl_verify")) {
+    foreach ($stest in @("kill_switch", "risk_veto", "meta_reduce", "sl_verify", "lost_response")) {
         $si = Invoke-Decide @("safety-leg-inputs", "--test", $stest)
         [void]$s8Art.Add((New-Artifact $si.raw))
         if (-not $si.ok) { [void]$safetyNotes.Add(("{0}: no leg inputs" -f $stest)); continue }
@@ -1426,6 +1430,9 @@ foreach ($sn in $safetyNotes) { [void]$placeNotes.Add(("safety leg {0}" -f $sn))
 # the package's symbolspec + measured spread come from this run's export
 # of each scoped gold's CUSTOM tester symbol (stage 4); the stage-3 broker
 # export stays the named fallback the builder records when none exists
+$demoArgs = @()
+$demoDir = if ($DemoEvidence) { $DemoEvidence } else { Join-Path $RepoRoot "evidence\demo_safety" }
+if (Test-Path -LiteralPath $demoDir) { $demoArgs = @("--demo-evidence", $demoDir) }
 $customSpecArgs = @()
 foreach ($cg in @($Script:CustomSpecs.Keys | Sort-Object)) {
     $customSpecArgs += @("--symbolspec-custom", ("{0}={1}" -f $cg, $Script:CustomSpecs[$cg]))
@@ -1434,7 +1441,7 @@ $pkgBuild = Invoke-Decide (@("build-stage8-package", "--package", $evidencePkg,
     "--gate-evidence", $Evidence, "--data-folder", $DataFolder,
     "--golds", (@($Script:Scope) -join ","), "--symbolspec", $SymbolSpecExport,
     "--host-os", [Environment]::OSVersion.VersionString,
-    "--host-timezone", [TimeZoneInfo]::Local.Id) + $customSpecArgs)
+    "--host-timezone", [TimeZoneInfo]::Local.Id) + $demoArgs + $customSpecArgs)
 [void]$s8Art.Add((New-Artifact $pkgBuild.raw))
 if ($pkgBuild.data -and (Get-DataProp $pkgBuild.data "not_built")) {
     $nb = Get-DataProp $pkgBuild.data "not_built"

@@ -128,6 +128,9 @@ EA_INPUT_DEFAULTS: dict[str, object] = {
     "InpTestKillSwitchAfterEntries": 0,
     "InpTestStripSlEntries": 0,
     "InpTestSafetyLog": False,
+    "InpTestLostResponses": 0,
+    "InpTestUnsentTimeouts": 0,
+    "InpTestDemoProbe": 0,
 }
 
 # ---------------------------------------------------------------------------

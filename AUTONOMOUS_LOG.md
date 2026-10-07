@@ -1479,3 +1479,67 @@ Fixed, then ruff 0; full pytest 0 (2512 passed, 1 skipped; pwsh on PATH).
 - A gate run still FAILS stage 8 on the demo-only safety evidence
   (lost_response, restart, netting, hedging). The new verdict cannot be
   reached until those exist.
+
+## 2026-10-06 (4) — PR #32 merge; PR #33 Windows evidence paths; branch `feat/safety-demo`
+
+**PR #32** (approved) merged as 1deea69. Full pytest on master afterwards:
+exit 0 (2512 passed, 1 skipped).
+
+**PR #33** (fix/evidence-path-windows, pre-approved scope).
+- gate_run37's four passing safety legs were refused because
+  `_resolve_evidence` used a "/"-joined `startswith`.
+- `owner_gate.path_within` now uses `PurePath.is_relative_to` with `..`
+  collapsed; no other such check exists.
+- ruff 0; full pytest 0 (2524 passed, 1 skipped). Merged as f7d1879.
+- The first `git push` hung on SSH; I killed it and retried, and the
+  retry went through.
+
+**feat/safety-demo** (SAFETY-DEMO-1):
+- lost_response as a tester leg via the TradeManager fault hook;
+- a demo harness for restart / netting / hedging;
+- builder EX5 binding for demo evidence;
+- verifier re-grade.
+
+ruff 0; full pytest 0 (2559 passed, 1 skipped).
+
+**NOT done, and why:**
+- Never compiled.
+- The harness was never run on Windows/MT5; it ran only against a fake
+  terminal.
+- Hedging uses one EA + a second magic (not two EA instances): the `.chr`
+  profile format is undocumented.
+- Restart covers only the open-position cell of the matrix.
+- Not merged: awaiting owner review.
+
+## 2026-10-07 — branch `claude/aegis-safety-fixes-20aen5` (on `feat/safety-demo`, PR #34)
+
+**Done (task 1b, SAFETY-DEMO-RESTORE-1).** Built, unit-tested, never run
+live.
+- The demo harness always ends by logging the terminal back in to the
+  "hedging" account (cleanup probe).
+- run.json records `status`, `restore.login_sha256` (prefixed sha256)
+  and `restore.margin_mode`.
+- A failed restore makes the run FAILED, and the CLI exits 1.
+- The builder refuses non-COMPLETED runs and binds `restore_ealog.txt`.
+- The verifier re-reads the bound run record and restore log itself.
+
+ruff on python/ tests/ tools/ factory/: exit 0. Full pytest: exit 0. The
+optional `optimize` extra (optuna, already declared in pyproject) was
+installed so its tests could run. pwsh is not on PATH on this host, so
+pwsh-dependent tests did not exercise the ps1.
+
+**NOT done, and why:**
+- **Task 1a (EA test-input gating):** BLOCKED. It needs an edit to
+  mql5/, which CLAUDE.md forbids, and the session's permission layer
+  refused the edit. The design is in docs/BLOCKED.md and DECISIONS
+  SAFETY-GATE-1.
+- **PR #34:** not merged. Task 1a is a required part of it.
+- **Tasks 2 and 4:** not started. No `gate-reports` branch exists on
+  origin, so there are no gate_run38+ reports, and this session cannot
+  start the Windows runner.
+- **Task 3:** not started. It comes after task 2 and also touches
+  CLAUDE.md-protected paths (artifacts/, frozen_inputs.json).
+- **Task 5:** not started.
+- **Pre-existing EA bug, not fixed:** `!MQL_TESTER` (an enum constant)
+  in OnInit means the live trade-permission check never runs. It is in
+  mql5/ (DECISIONS SAFETY-GATE-1).

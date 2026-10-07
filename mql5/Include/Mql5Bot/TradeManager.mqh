@@ -53,6 +53,11 @@ private:
    SSymbolSpec       m_spec;            // injected broker spec
    CRetryQueue       m_queue;
    MqlTradeResult    res_tmp;           // scratch result for pending placement
+   //--- SAFETY TEST 8c lost_response (owner authorization 2026-10-06):
+   //--- Strategy-Tester fault injection, both 0 by default. At 0 no code
+   //--- path below changes: OpenMarket sends and reads its answer as before.
+   int               m_testDropResponses;  // fills whose answer is "lost"
+   int               m_testSuppressSends;  // sends that never reach the server
 
    //--- execution statistics (SPEC §8.D) --------------------------------
    int               m_statTotal, m_statDone, m_statPartial, m_statRejects;
@@ -502,6 +507,22 @@ public:
      {
       ZeroMemory(res_tmp);
       StatsReset();
+      m_testDropResponses = 0;
+      m_testSuppressSends = 0;
+     }
+
+   // 8c safety test only (EA inputs InpTestLostResponses /
+   // InpTestUnsentTimeouts, default 0): the next `suppress` OpenMarket
+   // calls send NOTHING and report TRADE_RETCODE_TIMEOUT; after those, the
+   // next `drop` FILLED OpenMarket calls report TRADE_RETCODE_TIMEOUT
+   // instead of their real answer. Retries (ExecuteQueued) are never
+   // affected. Called only when an input is non-zero.
+   void              TestFaults(const int drop, const int suppress)
+     {
+      m_testDropResponses = MathMax(0, drop);
+      m_testSuppressSends = MathMax(0, suppress);
+      PrintFormat("[mql5bot] TEST 8c lost_response: ARMED drop=%d suppress=%d",
+                  m_testDropResponses, m_testSuppressSends);
      }
 
    void              Init(const ulong magic, const int deviation,
@@ -607,7 +628,29 @@ public:
       ZeroMemory(res);
       double slip = 0.0;
       int lat = 0;
-      uint rc = MarketChain(dir, lots, slDist, tpDist, comment, res, lat, slip);
+      uint rc;
+      if(m_testSuppressSends > 0)
+        {
+         // 8c fault: the request never reaches the server; the caller
+         // sees an ambiguous TIMEOUT (test-only, default off)
+         m_testSuppressSends--;
+         rc = TRADE_RETCODE_TIMEOUT;
+         PrintFormat("[mql5bot] TEST 8c lost_response: SUPPRESSED send of %s "
+                     "-> TIMEOUT (nothing sent)", comment);
+        }
+      else
+        {
+         rc = MarketChain(dir, lots, slDist, tpDist, comment, res, lat, slip);
+         if(m_testDropResponses > 0 && IsSuccessRetcode(rc))
+           {
+            // 8c fault: the order FILLED but its answer is lost
+            m_testDropResponses--;
+            PrintFormat("[mql5bot] TEST 8c lost_response: DROPPED response of "
+                        "%s (real %s) -> TIMEOUT", comment,
+                        RetcodeToString(rc));
+            rc = TRADE_RETCODE_TIMEOUT;
+           }
+        }
       out.retcode = rc;
       out.latencyMs = lat;
       out.slippagePoints = slip;
