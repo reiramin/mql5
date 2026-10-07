@@ -1543,3 +1543,28 @@ pwsh-dependent tests did not exercise the ps1.
 - **Pre-existing EA bug, not fixed:** `!MQL_TESTER` (an enum constant)
   in OnInit means the live trade-permission check never runs. It is in
   mql5/ (DECISIONS SAFETY-GATE-1).
+
+## 2026-10-07 (2) — PR #35 + PR #34 merged; branch `claude/aegis-safety-fixes-20aen5` restarted from master for task 3
+
+**Merged.**
+- PR #35, into `feat/safety-demo` as fd71c7e:
+  - 1a SAFETY-GATE-2 (EA test inputs gated on `MQLInfoInteger(MQL_TESTER)`
+    / a logged-in DEMO account);
+  - the SAFETY-GATE-1 fix;
+  - 1b SAFETY-DEMO-RESTORE-1;
+  - CI fixes: full-history checkout, and Python 3.10 7-digit
+    fractional-second parsing.
+- PR #34, into master as f29b7fa.
+- CI was green on 3.10, 3.11 and 3.12 for both PRs. ruff 0; full pytest 0.
+
+**Task 3, S8-GOLD1-REGEN (this branch).**
+- gold1 is regenerated on the gold2 path, and stage 8 is wired for it.
+- Five anchor/freeze tests are strict-xfailed until the S8-REANCHOR-2 PR.
+- Built, unit-tested, never run live.
+
+**NOT done, and why:**
+- **frozen_inputs.json re-anchor:** it needs this PR's merge commit (the
+  S8-REANCHOR-1 procedure). It comes next.
+- **Tasks 2 and 4:** there is still no `gate-reports` branch on origin,
+  so there are no gate runs to work from (docs/BLOCKED.md).
+- **Task 5:** not started.

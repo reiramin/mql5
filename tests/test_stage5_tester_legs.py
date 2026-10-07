@@ -151,7 +151,7 @@ def test_coverage_not_applicable_for_math_calculations_model():
 
 def test_fixture_date_range_reads_the_real_golds():
     d1 = mt.fixture_date_range(REPO / "artifacts/gold/gold_fixture.csv")
-    assert d1 == ("2024.01.01", "2024.01.05")
+    assert d1 == ("2024.01.01", "2024.02.09")
     d2 = mt.fixture_date_range(REPO / "artifacts/gold_2/gold2_fixture.csv")
     assert d2 == ("2024.01.01", "2024.01.04")
 
@@ -172,7 +172,7 @@ def test_derive_tester_inputs_from_real_gold1():
                                 REPO / "artifacts/gold/gold_fixture.csv")
     assert r["ok"], r["reasons"]
     assert r["timeframe"] == "H1"
-    assert r["date_from"] == "2024.01.01" and r["date_to"] == "2024.01.05"
+    assert r["date_from"] == "2024.01.01" and r["date_to"] == "2024.02.09"
 
 
 def test_derive_tester_inputs_from_real_gold2():
@@ -273,7 +273,7 @@ def test_cli_tester_inputs_ok_for_real_gold():
     assert cp.returncode == 0, cp.stderr
     payload = json.loads(cp.stdout)
     assert payload["ok"] and payload["timeframe"] == "H1"
-    assert payload["date_to"] == "2024.01.05"
+    assert payload["date_to"] == "2024.02.09"
 
 
 def test_cli_tester_inputs_fails_closed_naming_input(tmp_path: Path):

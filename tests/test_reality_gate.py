@@ -78,7 +78,7 @@ def test_gold_manifest_and_fixture_deterministic(tmp_path):
     for name in ("manifest.json", "gold_fixture.csv",
                  "python_trace.json", "dsl_trace.json",
                  "expected_execution.json", "reconciliation.json",
-                 "micro_both_touch.csv"):
+                 "micro_both_touch.csv", "provenance.json"):
         assert (a / name).read_bytes() == (b / name).read_bytes(), name
         assert (GOLD / name).read_bytes() == (a / name).read_bytes(), \
             f"{name} drifted from the frozen gold standard"
@@ -131,7 +131,7 @@ def test_future_mutation_never_changes_past_decisions(gold_df):
     """§59.4: mutating data strictly after t0 never changes the trace
     at or before t0 — on the gold fixture itself."""
     from mql5bot.strategies import STRATEGIES
-    t0 = 70
+    t0 = 640                  # inside the scenario week (S8-GOLD1-REGEN)
     mut = gold_df.copy()
     mut.iloc[t0 + 5:, 0:4] = mut.iloc[t0 + 5:, 0:4] * 1.03 + 0.001
     fn, defaults = STRATEGIES["ema_crossover"]
@@ -162,11 +162,13 @@ def test_both_touch_bar_resolves_stop_first():
 
 def test_indicator_parity_python_vs_mql5_ema_transcription(gold_df):
     """§8: EMA — Python reference vs a faithful transcription of the
-    MT5 iMA(MODE_EMA) recursion.  Classification: WARMUP (seed differs:
-    MT5 seeds ema[0]=price[0]; Python seeds ema[n-1]=SMA(n)).  After
-    warmup the difference must decay to numerical noise, never stay
-    structural.  ATR: both sides use Wilder with period 14 (identical
-    recursion, identical seed) — asserted equal on the trace."""
+    MT5 iMA(MODE_EMA) recursion.  The seeds differ in general (MT5 seeds
+    ema[0]=price[0]; Python seeds ema[n-1]=SMA(n); the transient is
+    studied in tests/test_ema_seed_parity.py).  On the regenerated gold1
+    fixture (S8-GOLD1-REGEN) the warmup is a constant dyadic close, so
+    both seeds are the same number and the two EMAs are bit-identical
+    from Python's first valid bar.  ATR: both sides use Wilder with
+    period 14 — asserted equal on the trace."""
     close = gold_df["close"].to_numpy()
     from mql5bot.indicators import atr as atr_py
     from mql5bot.indicators import ema as ema_py
@@ -180,13 +182,10 @@ def test_indicator_parity_python_vs_mql5_ema_transcription(gold_df):
         return out
     f_py, f_mt5 = ema_py(close, 10), ema_mt5(close, 10)
     s_py, s_mt5 = ema_py(close, 30), ema_mt5(close, 30)
-    tail = slice(60, len(close))          # well past both warmups
-    assert np.allclose(f_py[tail], f_mt5[tail], atol=1e-9)
-    assert np.allclose(s_py[tail], s_mt5[tail], atol=1e-9)
-    # the seed difference exists (classified, not hidden) ...
-    assert abs(f_py[9] - f_mt5[9]) > 1e-6
-    # ... and decays: by bar 60 it is below the noise floor
-    assert abs(f_py[60] - f_mt5[60]) < 1e-6
+    assert (f_py[9:] == f_mt5[9:]).all()
+    assert (s_py[29:] == s_mt5[29:]).all()
+    # the constant warmup really is constant and EMA-neutral
+    assert (close[:600] == 1.125).all()
     # ATR: the trace values equal the canonical Wilder ATR(14)
     py = _load("python_trace.json")
     atr_ref = atr_py(gold_df["high"].to_numpy(),
@@ -322,14 +321,19 @@ def test_meta_seam_only_reduces_and_drops():
     expected = _load("expected_execution.json")
     assert expected["sizing_mode"] == "risk_percent_equity"
     volume_min, step = 0.01, 0.01
-    for row in expected["trades"]:
-        approved = row["risk_approved_lots"]
+    rows = [r for r in expected["entries"]
+            if not (r.get("risk") or {}).get("rejected")]
+    assert rows
+    for row in rows:
+        approved = row["risk"]["approved_lots"]
         assert approved > 0
         for w, outcome in row["meta"].items():
             wf = float(w)
             raw = approved * min(max(wf, 0.0), 1.0)     # EA Clamp01
             final = math.floor(raw / step + 1e-9) * step
-            if final < volume_min or final > approved:
+            # 1e-12: the floor-to-step product's float dust (0.56 ->
+            # 0.56000000000000005), the gold2 builder's convention
+            if final < volume_min or final > approved + 1e-12:
                 assert outcome["action"] == "DROP"
                 assert outcome["final_lots"] == 0.0
             else:
@@ -337,9 +341,9 @@ def test_meta_seam_only_reduces_and_drops():
                 assert abs(outcome["final_lots"] - final) < 1e-9
                 assert outcome["final_lots"] <= approved
     # even weight 1.0 must never EXCEED the approval
-    for row in expected["trades"]:
+    for row in rows:
         assert row["meta"]["1.0"]["final_lots"] <= \
-            row["risk_approved_lots"] + 1e-9
+            row["risk"]["approved_lots"] + 1e-9
     # EA ordering pin: risk sizing → ScaleLots → floor → drop
     ea = (REPO / "mql5/Experts/Mql5Bot/Mql5Bot.mq5").read_text()
     i_risk = ea.index("g_risk.GetLots")

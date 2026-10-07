@@ -129,6 +129,8 @@ GOLD_FILES = {
     "gold1": {"manifest": "artifacts/gold/manifest.json",
               "fixture": "artifacts/gold/gold_fixture.csv",
               "expected": "artifacts/gold/expected_execution.json",
+              "trace": "artifacts/gold/python_trace.json",
+              "generator": "tools/build_gold_standard.py",
               "tester_symbol": og.GOLD_TESTER_SYMBOLS["gold1"]},
     "gold2": {"manifest": "artifacts/gold_2/manifest.json",
               "fixture": "artifacts/gold_2/gold2_fixture.csv",

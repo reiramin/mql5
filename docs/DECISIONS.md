@@ -4121,3 +4121,109 @@ globals. The compile is proven only by the owner terminal's stage-1
 strict compile; there is no metaeditor here.
 
 Built, unit-tested, never run live.
+
+## S8-GOLD1-REGEN — OWNER AUTHORIZATION: gold1 regenerated on the gold2 path (2026-10-07)
+
+**Authority.**
+- CLAUDE.md owner-scoped exception 2 (Sal, 2026-10-07) allows
+  `artifacts/gold/` (fixture + expected_execution) to be regenerated ONCE
+  for gold1.
+- Owner decision (Sal, 2026-10-07): `allow_short = true`, as for gold2.
+
+The re-anchor of `frozen_inputs.json` is a SEPARATE PR after this one
+merges (S8-REANCHOR-2), by the S8-REANCHOR-1 procedure.
+
+**Why.** The old gold1 could never run on MT5:
+- **Missing field.** Its manifest had no `engine_config`, so every gold1
+  leg failed before launch on `engine_config.allow_short`.
+- **Too short.** The 120-bar H1 fixture was shorter than MT5's pre-start
+  history reserve: "start time changed to 2024.01.06", 0 bars generated.
+- **Old engine path.** Its builder ran `backtest.run_backtest`, which
+  forces `allow_signal_exit=False`. Flips never closed a position there,
+  unlike the EA.
+- **Not wired.** Stage 8 had no generator or trace for it.
+
+**What changed.**
+- **`tools/build_gold_standard.py`, rewritten on the gold2 builder's
+  shape.**
+  - The engine is `PortfolioEngine` + `RunConfig(MODE_NETTING,
+    allow_short=True, allow_signal_exit=True, risk_percent_equity)`, with
+    SL 2.5 / TP 4.0 ATR(14).
+  - The flip rule is `FLIP_RULE_ENTER_NEXT_BAR`. Deferrals are read from
+    the engine's `flip_deferred` events.
+  - The manifest gains `engine_config`, `config_hash` and
+    `normalization_rules`. It records no `python_version`, so the committed
+    bytes rebuild identically on every CI Python. Verified by rebuilding
+    on 3.10 (numpy<2) and 3.13: byte-identical. The builder exposes `_config_hash()` and
+    `META_SCHEDULE` (a single weight, 1.0).
+  - `expected_execution.json` uses gold2's `entries` schema (`risk`,
+    `meta`, `sizing_basis`, `stop_distance`, `entry_kind`) plus
+    `flip_deferrals`. The builder also writes `provenance.json`.
+  - The frozen trace is built at the manifest cost (mid basis, slippage
+    1), as gold2's is. The BID basis and the fixed spread are applied
+    where gold2 applies them:
+    - the stage-8 window run (S8-COST-1);
+    - the importer's fixed spread from `cost_config.spread_points`.
+- **Fixture.** H1, Monday-Friday only, 720 bars, no RNG.
+  - **Warmup:** 25 weekdays (600 bars) with a CONSTANT close of 1.12500
+    and a fixed ±0.00025 wick.
+    - 1.125 is dyadic, so the SMA seed and `prev + alpha*(x - prev)` are
+      exact. EMA10 == EMA30 exactly, so desired is 0 and there is no
+      trade.
+    - The platform seed (price[0]) gives the same number, so the Python
+      and MQL5 EMAs are bit-identical.
+    - It covers MT5's history reserve and the EA's InpDslBars=500
+      readiness. The EA's 500-bar EMA window stays seeded inside the
+      constant region.
+  - **Scenario week (Mon 2024-02-05):**
+    - long entries with repeated TP hits and persistence re-entries;
+    - SL hits and a deferred flip to short;
+    - short TP and SL hits;
+    - the both-touch bars;
+    - a deferred flip to long, held to the end.
+    - Every signal falls Monday-Wednesday, so every fill is signal + 1
+      bar. That holds because there are no weekend gaps in the scenario.
+  - **Tail:** Friday 2024-02-09, excluded by MT5's exclusive ToDate.
+- **Micro fixture.** `micro_both_touch.csv` now has a steady +2e-5/bar
+  close, so the state stays long under `allow_signal_exit=True`. The
+  giant bar still exits `stop_loss`.
+- **Measured.** 18 trades (stop_loss, take_profit, signal_exit,
+  end_of_data), 18 entries, 2 flip deferrals. Python == DSL (signals and
+  trades). The recorded `git_commit` is f29b7fa55bb9 (master after PR #34).
+  The stage-8 window run (start 2024-01-08, end 2024-02-09)
+  reproduces all 18 entries, with 0 frozen-only rows.
+- **Wiring.**
+  - `stage8_package.GOLD_FILES["gold1"]` gains `trace` and `generator`.
+  - `owner_gate.frozen_file_pins` pins a `gold_1.artifact_hash_chain`
+    when the frozen record has one. That is stricter: more pinned files.
+    The re-anchor adds the chain, which also enables gold1's
+    `python_trade_count`.
+
+**Tests.**
+- Value pins are updated: tester dates 2024.01.01–2024.02.09; gold1 leg
+  inputs now derive (allow_short true); the meta seam reads the `entries`
+  schema.
+  - Its DROP comparison uses the builder's +1e-12 float-dust tolerance,
+    gold2's convention. Example: 0.56 floor-to-step = 0.56000000000000005.
+  - This is an artifact self-consistency test. No verifier rule changed.
+- **EMA seed study.** The seed-transient analysis
+  (`tests/test_ema_seed_parity.py`) now runs on the pre-regeneration
+  series. It is rebuilt byte-exactly from its recipe in
+  `tests/gold1_legacy_fixture.py`, and checked against the old frozen
+  `fixture_sha256` 2b1730cb…. A new test pins exact seed agreement on the
+  regenerated fixture.
+- **Strict xfails.** Five tests are strict-xfailed "re-anchor pending",
+  as in the gold2 precedent (PR #18 / `561f66f`). The S8-REANCHOR-2 PR
+  removes them.
+
+**Self-review.**
+- (a) Weaker acceptance? No verifier or gate rule changed. The
+  `frozen_file_pins` change adds pins.
+- (b) Gold legs at default inputs? gold2 is byte-identical. gold1 is a
+  new frozen expectation by owner authorization; its EA inputs are
+  derived, not chosen.
+- (c) Verifier re-computation? Unchanged. The window run re-checks
+  config_hash, the frozen-trace reproduction and the sizing, and it
+  refuses until the re-anchor pins the new fixture bytes.
+
+Built, unit-tested, never run live.
