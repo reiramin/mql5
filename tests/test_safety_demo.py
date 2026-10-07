@@ -44,14 +44,116 @@ def test_new_ea_inputs_default_off_and_mirrored(name):
 
 
 def test_ea_hooks_are_guarded():
-    assert re.search(r"if\(InpTestLostResponses > 0 \|\| "
-                     r"InpTestUnsentTimeouts > 0\)\s*\n\s*"
-                     r"g_trade\.TestFaults\(", EA)
-    assert re.search(r"if\(InpTestDemoProbe > 0\)\s*\n\s*"
+    # the hooks read the EFFECTIVE (gated) values, never the raw inputs
+    assert re.search(r"if\(g_tLostResp > 0 \|\| g_tUnsent > 0\)\s*\n\s*"
+                     r"g_trade\.TestFaults\(g_tLostResp, g_tUnsent\);", EA)
+    assert re.search(r"if\(g_tDemoProbe > 0\)\s*\n\s*"
                      r"TestDemoProbePump\(\);", EA)
     # the probe replaces the strategy only while it runs
-    assert re.search(r"if\(InpTestDemoProbe > 0\)\s*\n\s*return;", EA)
+    assert re.search(r"if\(g_tDemoProbe > 0\)\s*\n\s*return;", EA)
     assert EA.count("TestDemoProbePump()") == 2
+
+
+# ---------------------------------------------------------------------------
+# SAFETY-GATE-2 (CLAUDE.md exception 1a): test inputs honoured only in the
+# Strategy Tester (8a-8c) / on a logged-in DEMO account (demo probe)
+# ---------------------------------------------------------------------------
+
+def _body(name: str) -> str:
+    i = EA.index(name)
+    return EA[i:EA.index("\n  }\n", i)]
+
+
+TESTER_INPUTS = ("InpTestKillSwitchAfterEntries", "InpTestStripSlEntries",
+                 "InpTestSafetyLog", "InpTestLostResponses",
+                 "InpTestUnsentTimeouts")
+
+
+def _code(text: str) -> str:
+    """The source with // comments removed."""
+    return "\n".join(ln.split("//", 1)[0] for ln in text.splitlines())
+
+
+def _no_strings(text: str) -> str:
+    return re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', text)
+
+
+def test_no_use_site_reads_a_raw_test_input():
+    code = _no_strings(_code(EA))
+    gate = _no_strings(_code(_body("void ResolveTestInputs()")))
+    for name in TESTER_INPUTS + ("InpTestDemoProbe",):
+        uses = len(re.findall(rf"\b{name}\b", code))
+        # the input declaration + its one read inside ResolveTestInputs
+        assert uses == 2, (name, uses)
+        assert re.search(rf"\b{name}\b", gate), name
+
+
+def test_tester_inputs_are_gated_on_mqlinfointeger_mql_tester():
+    gate = _body("void ResolveTestInputs()")
+    assert "bool   tester   = MQLInfoInteger(MQL_TESTER) != 0;" in gate
+    for glob, name in (("g_tKillAfter", "InpTestKillSwitchAfterEntries"),
+                       ("g_tStripSl", "InpTestStripSlEntries"),
+                       ("g_tLostResp", "InpTestLostResponses"),
+                       ("g_tUnsent", "InpTestUnsentTimeouts")):
+        assert re.search(rf"{glob}\s*=\s*TestInputGate\(\"{name}\",\s*"
+                         rf"{name}, tester,", gate), name
+    assert re.search(r"g_tSafetyLog = TestInputGate\(\"InpTestSafetyLog\","
+                     r"\s*InpTestSafetyLog \? 1 : 0, tester,", gate)
+
+
+def test_demo_probe_needs_a_logged_in_demo_account():
+    demo = _body("bool DemoAccountNow()")
+    assert "AccountInfoInteger(ACCOUNT_LOGIN) > 0 &&" in demo
+    assert ("AccountInfoInteger(ACCOUNT_TRADE_MODE) == "
+            "ACCOUNT_TRADE_MODE_DEMO") in demo
+    gate = _body("void ResolveTestInputs()")
+    assert "bool   demo     = DemoAccountNow();" in gate
+    assert re.search(r"g_tDemoProbe = TestInputGate\(\"InpTestDemoProbe\", "
+                     r"InpTestDemoProbe, demo,", gate)
+    # the pump re-checks the account and fails closed
+    pump = _body("void TestDemoProbePump()")
+    assert re.search(r"if\(!DemoAccountNow\(\)\)\s*\{\s*//[^\n]*\n\s*"
+                     r"g_tDemoProbe = 0;", pump)
+    assert pump.index("DemoAccountNow()") < pump.index("g_tDemoProbe == 1")
+
+
+def test_a_refused_input_is_logged_and_acts_as_zero():
+    fn = _body("int TestInputGate(")
+    assert re.search(r"if\(value == 0\)\s*\n\s*return 0;", fn)
+    assert re.search(r"if\(allowed\)\s*\n\s*return value;", fn)
+    assert "REFUSED: honoured only %s " in fn
+    assert "(acting as 0)" in fn
+    assert fn.rstrip().endswith("return 0;")
+    # nothing is logged at the default (0) value
+    assert fn.index("value == 0") < fn.index("g_log.Warn")
+
+
+def test_gate_runs_once_right_after_the_logger_and_before_the_hooks():
+    init = EA[EA.index("int OnInit()"):EA.index("EventSetTimer(1);")]
+    assert re.search(r"g_log\.Init\([^;]*;\s*\n\s*//[^\n]*\n\s*"
+                     r"ResolveTestInputs\(\);", init)
+    assert init.index("ResolveTestInputs();") < \
+        init.index("g_trade.TestFaults(")
+    # the call + the definition (comments aside)
+    assert _code(EA).count("ResolveTestInputs()") == 2
+    # effective values default to off
+    for decl in ("int             g_tKillAfter    = 0;",
+                 "int             g_tStripSl      = 0;",
+                 "bool            g_tSafetyLog    = false;",
+                 "int             g_tLostResp     = 0;",
+                 "int             g_tUnsent       = 0;",
+                 "int             g_tDemoProbe    = 0;"):
+        assert decl in EA
+
+
+def test_safety_gate_1_live_check_uses_mqlinfointeger():
+    # SAFETY-GATE-1: bare MQL_TESTER / MQL_OPTIMIZATION are enum constants
+    # (always non-zero); only MQLInfoInteger(...) reads the environment
+    code = _code(EA)
+    assert not re.search(r"(?<!\()\bMQL_(TESTER|OPTIMIZATION)\b(?!\))",
+                         code)
+    assert ("if(!MQLInfoInteger(MQL_TESTER) && "
+            "!MQLInfoInteger(MQL_OPTIMIZATION))") in code
 
 
 def test_trade_manager_hook_defaults_to_zero_and_keeps_the_send():

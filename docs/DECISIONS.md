@@ -4051,25 +4051,73 @@ entry).
 
 Built, unit-tested, never run live.
 
-## SAFETY-GATE-1 — BLOCKED: EA test inputs gated by MQL_TESTER / DEMO (2026-10-07)
+## SAFETY-GATE-1 / SAFETY-GATE-2 — EA test inputs gated by MQLInfoInteger(MQL_TESTER) / a logged-in DEMO account; live permission check fixed (2026-10-07)
 
-**Owner requirement (task 1a, 2026-10-07).** Every 8a-8c test input is
-honoured only if `MQLInfoInteger(MQL_TESTER)`; `InpTestDemoProbe` only on
-`ACCOUNT_TRADE_MODE_DEMO`. Otherwise log REFUSED and act as 0.
+**Authority.** CLAUDE.md "Owner-scoped exceptions (Sal, 2026-10-07)":
+- 1a covers the input gating;
+- 1b covers the SAFETY-GATE-1 fix.
 
-**Decision: not implemented in this session.** The change lives in
-`mql5/Experts/Mql5Bot/Mql5Bot.mq5`. CLAUDE.md says "NEVER modify mql5/".
-The session's permission layer refused the edit on that rule. The owner
-must either make the edit or record an explicit, scoped exception to the
-CLAUDE.md rule. See docs/BLOCKED.md for the exact patch design.
+The only file changed under mql5/ is `mql5/Experts/Mql5Bot/Mql5Bot.mq5`.
+(The first attempt, before the exception existed, was refused and
+recorded as BLOCKED; that block is now cleared.)
 
-**Finding (pre-existing, not fixed).** `Mql5Bot.mq5` OnInit has
-`if(!MQL_TESTER && !MQL_OPTIMIZATION)`. `MQL_TESTER` is an
-ENUM_MQL_INFO_INTEGER constant, not a call, so it is non-zero. The
-condition is therefore always false: the live check of
-TERMINAL_TRADE_ALLOWED / MQL_TRADE_ALLOWED / ACCOUNT_TRADE_EXPERT never
-runs. The fix is `MQLInfoInteger(MQL_TESTER)` /
-`MQLInfoInteger(MQL_OPTIMIZATION)`. It is in mql5/, so it is blocked for
-the same reason. The new task-1a gate must use `MQLInfoInteger(...)` and
-must not copy this pattern.
+**SAFETY-GATE-2: the gate.**
+- **Effective values.** `ResolveTestInputs()` runs once in OnInit,
+  directly after `g_log.Init`. It sets the effective globals
+  `g_tKillAfter`, `g_tStripSl`, `g_tSafetyLog`, `g_tLostResp`,
+  `g_tUnsent` and `g_tDemoProbe`. Every hook reads those globals; no use
+  site reads an `InpTest*` input.
+  - The 8a-8c inputs (kill switch, SL strip, safety log, lost
+    responses, unsent timeouts) are honoured only when
+    `MQLInfoInteger(MQL_TESTER) != 0`.
+  - `InpTestDemoProbe` is honoured only when `ACCOUNT_LOGIN > 0` AND
+    `ACCOUNT_TRADE_MODE == ACCOUNT_TRADE_MODE_DEMO`. A terminal with no
+    account reads trade mode 0, which IS `ACCOUNT_TRADE_MODE_DEMO`, so
+    the login check is required.
+- **Refusal.** A refused non-zero input logs `TEST input <name>=<v>
+  REFUSED: honoured only <where> (acting as 0)` and becomes 0. A zero
+  input logs nothing.
+- **Fail closed.** `TestDemoProbePump()` re-checks the account on every
+  call. If the account no longer qualifies, it logs REFUSED and sets the
+  probe to 0.
 
+**SAFETY-GATE-1: the bug fix.**
+- **Bug.** OnInit had `if(!MQL_TESTER && !MQL_OPTIMIZATION)`. Those are
+  ENUM_MQL_INFO_INTEGER constants, which are non-zero, so the condition
+  was always false. The live TERMINAL_TRADE_ALLOWED / MQL_TRADE_ALLOWED /
+  ACCOUNT_TRADE_EXPERT check never ran.
+- **Fix.** It is now `if(!MQLInfoInteger(MQL_TESTER) &&
+  !MQLInfoInteger(MQL_OPTIMIZATION))`.
+- **Effect in the tester.** The block is skipped there, exactly as
+  before, so gold legs are unaffected.
+- **Effect outside the tester (live / demo).** The permission check now
+  runs. The demo harness's `[StartUp]` ini sets `AllowLiveTrading=1`; a
+  demo run whose terminal or account refuses EA trading now fails at
+  INIT, before START.
+
+**Self-review.**
+- (a) Weaker acceptance? No. No verifier or gate rule changed. The EA
+  only refuses more.
+- (b) Gold legs at default inputs? Identical. The gold legs run in the
+  tester with every test input at 0:
+  - `ResolveTestInputs` returns 0 / false for each input and logs
+    nothing;
+  - every hook sees the same value as before;
+  - the fixed `if` is skipped in the tester, as it always was.
+- (b, safety legs) The tester safety legs (8a-8c) run under
+  `MQL_TESTER`, so their inputs are honoured as before.
+- (c) Verifier re-computation? Not applicable: no new package check.
+
+**Proof.** Source tests in `tests/test_safety_demo.py`:
+- `test_no_use_site_reads_a_raw_test_input`;
+- `..._gated_on_mqlinfointeger_mql_tester`;
+- `test_demo_probe_needs_a_logged_in_demo_account`;
+- `test_a_refused_input_is_logged_and_acts_as_zero`;
+- `test_gate_runs_once_right_after_the_logger_and_before_the_hooks`;
+- `test_safety_gate_1_live_check_uses_mqlinfointeger`.
+
+The pins in `tests/test_safety_legs.py` are updated to the gated
+globals. The compile is proven only by the owner terminal's stage-1
+strict compile; there is no metaeditor here.
+
+Built, unit-tested, never run live.
