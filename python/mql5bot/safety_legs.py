@@ -541,6 +541,25 @@ GRADERS = {"kill_switch": grade_kill_switch, "risk_veto": grade_risk_veto,
            "hedging": grade_hedging}
 
 
+def check_restore(log: str) -> dict:
+    """SAFETY-DEMO-RESTORE-1: the EA log of the harness's closing step,
+    which logs the terminal back in to the "hedging" account with the
+    cleanup probe. The restore holds ONLY when the LAST cleanup START line
+    (probe=3) reports margin_mode == MARGIN_HEDGING. Anything else (no
+    such line, another mode) is a failed restore."""
+    starts = [m for _, m, _ in ea_lines(log, _START_RE)
+              if int(m.group(1)) == 3]
+    if not starts:
+        return {"ok": False, "margin_mode": None,
+                "reason": "no cleanup START line (probe=3) in the restore log"}
+    mode = int(starts[-1].group(6))
+    if mode != MARGIN_HEDGING:
+        return {"ok": False, "margin_mode": mode,
+                "reason": (f"restore account margin_mode {mode} is not "
+                           f"hedging ({MARGIN_HEDGING})")}
+    return {"ok": True, "margin_mode": mode, "reason": ""}
+
+
 def grade(name: str, window: str, baseline: str, symbol: str) -> dict:
     return GRADERS[name](window, baseline, symbol)
 

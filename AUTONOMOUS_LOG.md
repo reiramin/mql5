@@ -1510,3 +1510,36 @@ ruff 0; full pytest 0 (2559 passed, 1 skipped).
   profile format is undocumented.
 - Restart covers only the open-position cell of the matrix.
 - Not merged: awaiting owner review.
+
+## 2026-10-07 — branch `claude/aegis-safety-fixes-20aen5` (on `feat/safety-demo`, PR #34)
+
+**Done (task 1b, SAFETY-DEMO-RESTORE-1).** Built, unit-tested, never run
+live.
+- The demo harness always ends by logging the terminal back in to the
+  "hedging" account (cleanup probe).
+- run.json records `status`, `restore.login_sha256` (prefixed sha256)
+  and `restore.margin_mode`.
+- A failed restore makes the run FAILED, and the CLI exits 1.
+- The builder refuses non-COMPLETED runs and binds `restore_ealog.txt`.
+- The verifier re-reads the bound run record and restore log itself.
+
+ruff on python/ tests/ tools/ factory/: exit 0. Full pytest: exit 0. The
+optional `optimize` extra (optuna, already declared in pyproject) was
+installed so its tests could run. pwsh is not on PATH on this host, so
+pwsh-dependent tests did not exercise the ps1.
+
+**NOT done, and why:**
+- **Task 1a (EA test-input gating):** BLOCKED. It needs an edit to
+  mql5/, which CLAUDE.md forbids, and the session's permission layer
+  refused the edit. The design is in docs/BLOCKED.md and DECISIONS
+  SAFETY-GATE-1.
+- **PR #34:** not merged. Task 1a is a required part of it.
+- **Tasks 2 and 4:** not started. No `gate-reports` branch exists on
+  origin, so there are no gate_run38+ reports, and this session cannot
+  start the Windows runner.
+- **Task 3:** not started. It comes after task 2 and also touches
+  CLAUDE.md-protected paths (artifacts/, frozen_inputs.json).
+- **Task 5:** not started.
+- **Pre-existing EA bug, not fixed:** `!MQL_TESTER` (an enum constant)
+  in OnInit means the live trade-permission check never runs. It is in
+  mql5/ (DECISIONS SAFETY-GATE-1).

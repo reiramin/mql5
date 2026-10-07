@@ -11,8 +11,11 @@
 The demo credentials are read from the LOCAL accounts file (default
 %USERPROFILE%\\.mql5bot\\demo_accounts.json, or MQL5BOT_DEMO_ACCOUNTS); a
 file inside the repository is refused. Close the terminal before a run.
-Exit 0 when the run completed its steps (NOT a pass: the stage-8 builder
-grades the EA log), 1 on a refused/failed step, 2 on usage errors.
+Every run ends by logging the terminal back in to the "hedging" account;
+if that restore fails the run is FAILED.
+Exit 0 when the run COMPLETED its steps and the restore (NOT a pass: the
+stage-8 builder grades the EA log), 1 on a refused/failed step or a failed
+restore, 2 on usage errors.
 """
 
 from __future__ import annotations
@@ -49,8 +52,9 @@ def main(argv: list[str] | None = None) -> int:
     except dh.HarnessError as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 1
-    print(json.dumps({"ok": rec["error"] is None, **rec}, indent=2))
-    return 0 if rec["error"] is None else 1
+    ok = rec["status"] == "COMPLETED"
+    print(json.dumps({"ok": ok, **rec}, indent=2))
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

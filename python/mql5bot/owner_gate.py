@@ -1928,6 +1928,41 @@ SAFETY_DEMO_TESTS = ("restart", "netting", "hedging")
 _BASELINE_RE = re.compile(r"^safety/raw/baseline_(gold\d)_m1_ohlc_window\.txt$")
 
 
+def _demo_run_problem(root: Path, name: str, doc: dict) -> str:
+    """SAFETY-DEMO-RESTORE-1: a demo safety file must bind the harness
+    record (run_evidence) and the restore EA log (restore_evidence). The
+    verifier re-reads both: the record must say COMPLETED, and the restore
+    log must itself show the terminal back on the hedging account
+    (safety_legs.check_restore). The record's own restore claim is never
+    trusted. Returns the problem, or "" when both hold."""
+    from mql5bot import safety_legs as sl
+
+    texts = {}
+    for key in ("run_evidence", "restore_evidence"):
+        ref = doc.get(key)
+        if not isinstance(ref, dict):
+            return f"{name}: no {key} binding (demo harness record/restore)"
+        data, why = _bound_bytes(root, str(ref.get("path") or ""))
+        if data is None:
+            return f"{name}: {why}"
+        if hashlib.sha256(data).hexdigest() != str(ref.get("sha256")).lower():
+            return (f"{name}: {ref.get('path')} bytes != the file's "
+                    "declared sha256")
+        texts[key] = data.decode("utf-8-sig", errors="replace")
+    try:
+        rec = json.loads(texts["run_evidence"])
+    except ValueError:
+        rec = None
+    if not isinstance(rec, dict) or rec.get("status") != "COMPLETED":
+        return (f"{name}: the bound demo run record is not COMPLETED "
+                "(failed step or failed restore)")
+    chk = sl.check_restore(texts["restore_evidence"])
+    if not chk["ok"]:
+        return f"{name}: restore to the hedging account not shown: " \
+            f"{chk['reason']}"
+    return ""
+
+
 def _regrade_safety(root: Path, name: str, doc: dict
                     ) -> tuple[str | None, str]:
     """Re-grade a tester safety file from its BOUND windows (the test
@@ -1947,6 +1982,9 @@ def _regrade_safety(root: Path, name: str, doc: dict
                           "file's declared sha256")
         regraded = sl.grade(name, data.decode("utf-8-sig", errors="replace"),
                             "", "")
+        why = _demo_run_problem(root, name, doc)
+        if why:
+            return None, why
         return regraded["observed_result"], ""
     base_ref = doc.get("baseline_evidence")
     if not isinstance(base_ref, dict):

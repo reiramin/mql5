@@ -4000,3 +4000,76 @@ runs in the Strategy Tester. At the defaults the gold legs are unchanged.
 
 **Plan.** `docs/SAFETY_DEMO_PLAN.md`, including the owner's manual steps
 and the market hours.
+
+## SAFETY-DEMO-RESTORE-1 — NEW STRICTNESS: every demo harness run ends back on the hedging account (2026-10-07)
+
+**Owner requirement (task 1b, 2026-10-07).** The demo harness always ends
+by logging the terminal back in to the "hedging" account. It records the
+hashed login and the margin mode in run.json. A failed restore makes the
+run FAILED.
+
+**What changed.**
+- **Harness.** `Harness.run()` always calls `_restore()`, also after a
+  failed step or a missing test account. The restore is a start with the
+  hedging account and the cleanup probe (3), so the EA's START line
+  reports `margin_mode`.
+  - `run.json` (schema `mql5bot.demo_safety_run/2`) adds `status`
+    (COMPLETED / FAILED) and `restore {account_role, login_sha256,
+    margin_mode, ok, reason}`.
+  - The restore EA lines go to `restore_ealog.txt`; `ealog.txt` keeps the
+    test lines only, so the graders see the same input as before.
+  - The CLI exits 1 unless `status == COMPLETED`.
+- **Builder** (`stage8_package._place_demo_safety`). It places a demo
+  safety file only when run.json says COMPLETED and
+  `safety_legs.check_restore` accepts restore_ealog.txt. It binds the
+  restore log as `restore_evidence`.
+- **Verifier** (`owner_gate._demo_run_problem`). For restart / netting /
+  hedging it requires `run_evidence` and `restore_evidence`, both bound by
+  the archive manifest with matching hashes. It re-reads them: the record
+  must say COMPLETED, and the restore log must show hedging
+  (`check_restore`, re-computed).
+
+**Self-review.**
+- (a) Weaker acceptance? No. A demo safety file needs everything it
+  needed before plus two bound, re-checked files.
+- (b) Gold legs at default inputs? Unchanged. No EA or tester-leg code
+  was touched.
+- (c) Re-computed by the verifier? Yes. The verifier reads the bound
+  bytes itself and never trusts `restore.ok` from the record.
+
+**Limits.** `login_sha256` is a prefixed sha256 of a short number, so it
+is not secret-grade. The EA log does not print the login, so the restore
+proves the account MODE (hedging) and that the harness used the
+configured hedging entry; it does not prove the login from the terminal
+side. Whether a killed terminal persists that login for its next start is
+untested.
+
+Tests: `tests/test_safety_demo.py` (check_restore; builder refusals;
+verifier re-computation over swapped bound bytes; harness restore on every
+test, failed restore, restore after a failed test, missing hedging
+entry).
+
+Built, unit-tested, never run live.
+
+## SAFETY-GATE-1 — BLOCKED: EA test inputs gated by MQL_TESTER / DEMO (2026-10-07)
+
+**Owner requirement (task 1a, 2026-10-07).** Every 8a-8c test input is
+honoured only if `MQLInfoInteger(MQL_TESTER)`; `InpTestDemoProbe` only on
+`ACCOUNT_TRADE_MODE_DEMO`. Otherwise log REFUSED and act as 0.
+
+**Decision: not implemented in this session.** The change lives in
+`mql5/Experts/Mql5Bot/Mql5Bot.mq5`. CLAUDE.md says "NEVER modify mql5/".
+The session's permission layer refused the edit on that rule. The owner
+must either make the edit or record an explicit, scoped exception to the
+CLAUDE.md rule. See docs/BLOCKED.md for the exact patch design.
+
+**Finding (pre-existing, not fixed).** `Mql5Bot.mq5` OnInit has
+`if(!MQL_TESTER && !MQL_OPTIMIZATION)`. `MQL_TESTER` is an
+ENUM_MQL_INFO_INTEGER constant, not a call, so it is non-zero. The
+condition is therefore always false: the live check of
+TERMINAL_TRADE_ALLOWED / MQL_TRADE_ALLOWED / ACCOUNT_TRADE_EXPERT never
+runs. The fix is `MQLInfoInteger(MQL_TESTER)` /
+`MQLInfoInteger(MQL_OPTIMIZATION)`. It is in mql5/, so it is blocked for
+the same reason. The new task-1a gate must use `MQLInfoInteger(...)` and
+must not copy this pattern.
+
