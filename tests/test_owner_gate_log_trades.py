@@ -314,8 +314,9 @@ def test_python_trade_count_comes_from_the_hash_pinned_reconciliation():
     _tool()._bind_python_trade_counts(REPO, frozen)
     # gold2: the frozen record pins reconciliation.json; 56 is its contract
     assert frozen["gold_2"]["python_trade_count"] == 56
-    # gold1: no hash chain in the frozen record -> no count (fail-closed)
-    assert "python_trade_count" not in frozen["gold_1"]
+    # gold1 (S8-REANCHOR-2): the frozen record pins its reconciliation.json
+    # too; 18 is the regenerated gold1's trade count
+    assert frozen["gold_1"]["python_trade_count"] == 18
 
 
 def test_python_trade_count_absent_when_the_pinned_hash_disagrees():
