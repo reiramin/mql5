@@ -27,6 +27,7 @@ evidence: no terminal runs.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -176,8 +177,20 @@ def _leg_input_block() -> str:
     return SRC[s:SRC.index("\n", e)]
 
 
+def _gold1_without_engine_config(tmp_path: Path) -> Path:
+    """A gold1 manifest whose allow-short rule is underivable (the shape of
+    the pre-S8-GOLD1-REGEN manifest): the refusal path under test."""
+    doc = json.loads(GOLD1_MANIFEST.read_text(encoding="utf-8"))
+    doc.pop("engine_config")
+    path = tmp_path / "gold1_no_engine_config.json"
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    # the ps1 joins $RepoRoot with the manifest: pass it repo-relative
+    return Path(os.path.relpath(path, REPO))
+
+
 def _run_leg_inputs(tmp_path: Path, scope: list[str],
-                    block: str | None = None):
+                    block: str | None = None,
+                    gold1_manifest: str = "artifacts/gold/manifest.json"):
     pwsh = _pwsh()
     if not pwsh:
         pytest.skip("no PowerShell host on this machine")
@@ -198,7 +211,7 @@ $Evidence = '{evidence}'
 $DataFolder = ""
 $Script:Scope = @({scope_ps})
 $goldMeta = @{{
-    gold1 = @{{ symbol = "EURUSD.G1"; manifest = "artifacts/gold/manifest.json" }}
+    gold1 = @{{ symbol = "EURUSD.G1"; manifest = '{gold1_manifest}' }}
     gold2 = @{{ symbol = "EURUSD.G2"; manifest = "artifacts/gold_2/manifest.json" }}
 }}
 {_legs_block()}
@@ -223,7 +236,9 @@ foreach ($leg in $legs) {{
 
 
 def test_stage5_gold1_refusal_is_recorded_and_gold2_legs_still_run(tmp_path):
-    cp = _run_leg_inputs(tmp_path, ["gold1", "gold2"])
+    cp = _run_leg_inputs(tmp_path, ["gold1", "gold2"],
+                         gold1_manifest=str(_gold1_without_engine_config(
+                             tmp_path)))
     assert cp.returncode == 0, cp.stdout + cp.stderr
     out = json.loads(cp.stdout)
     # the stage stays FAILED: gold1's legs did not run
@@ -241,6 +256,18 @@ def test_stage5_gold1_refusal_is_recorded_and_gold2_legs_still_run(tmp_path):
                                          "real_ticks")]
 
 
+def test_stage5_real_gold1_and_gold2_legs_all_derive(tmp_path):
+    # S8-GOLD1-REGEN: the committed gold1 manifest pins engine_config
+    cp = _run_leg_inputs(tmp_path, ["gold1", "gold2"])
+    assert cp.returncode == 0, cp.stdout + cp.stderr
+    out = json.loads(cp.stdout)
+    assert out["legOk"] is True and out["reasons"] == []
+    models = ("m1_ohlc", "every_tick", "real_ticks")
+    assert out["launched"] == [f"gold1_{m}=ema_crossover_ref"
+                               for m in models] + \
+        [f"gold2_{m}=gold2_multifactor" for m in models]
+
+
 def test_stage5_scoped_to_gold2_derives_only_gold2_legs(tmp_path):
     cp = _run_leg_inputs(tmp_path, ["gold2"])
     assert cp.returncode == 0, cp.stdout + cp.stderr
@@ -255,7 +282,9 @@ def test_the_old_bare_read_reproduces_the_gate_run21_crash(tmp_path):
         '(Get-DataProp $li.data "bundle_evidence")',
         "$li.data.bundle_evidence")
     assert "$li.data.bundle_evidence" in old
-    cp = _run_leg_inputs(tmp_path, ["gold1", "gold2"], block=old)
+    cp = _run_leg_inputs(tmp_path, ["gold1", "gold2"], block=old,
+                         gold1_manifest=str(_gold1_without_engine_config(
+                             tmp_path)))
     assert cp.returncode != 0
     assert "bundle_evidence" in cp.stderr + cp.stdout
     assert "cannot be found on this object" in cp.stderr + cp.stdout
