@@ -582,6 +582,8 @@ def frozen_file_pins(frozen_inputs: dict) -> list[tuple[str, str, str]]:
         ("artifacts/gold_2/expected_execution.json",
          g2.get("expected_execution_sha256", ""), "gold_2 expected"),
     ]
+    pins += [(f"artifacts/gold/{fn}", want, f"gold_1 chain {fn}")
+             for fn, want in (g1.get("artifact_hash_chain") or {}).items()]
     pins += [(f"artifacts/gold_2/{fn}", want, f"gold_2 chain {fn}")
              for fn, want in (g2.get("artifact_hash_chain") or {}).items()]
     return [p for p in pins if p[1]]

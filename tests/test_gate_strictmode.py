@@ -70,14 +70,13 @@ def _leg_inputs(manifest: Path, symbol: str, leg: str, out: Path):
 # the decider output that crashed gate_run21
 # ---------------------------------------------------------------------------
 
-def test_gold1_leg_inputs_refuse_naming_allow_short_with_no_bundle_evidence(
-        tmp_path):
+def test_gold1_leg_inputs_derive_the_gold1_strategy(tmp_path):
+    # S8-GOLD1-REGEN: the regenerated manifest pins engine_config
     rc, out = _leg_inputs(GOLD1_MANIFEST, "EURUSD.G1", "gold1_m1_ohlc",
                           tmp_path)
-    assert rc == 1
-    assert out["ok"] is False
-    assert out["missing"] == "engine_config.allow_short"
-    assert "bundle_evidence" not in out
+    assert rc == 0 and out["ok"] is True
+    assert out["strategy_id"] == "ema_crossover_ref"
+    assert Path(out["bundle_evidence"]).is_file()
 
 
 def test_gold2_leg_inputs_derive_the_gold2_strategy(tmp_path):

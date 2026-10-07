@@ -17,7 +17,12 @@ Facts, all pinned below:
   replaces hand-picked "ratio" thresholds with a DERIVED invariant:
   residue(b2) == residue(b1) * (1-alpha)^(b2-b1) (to double precision),
   because the recursion is linear and the two seeds differ by a constant.
-* On the FROZEN gold fixture (AEGIS-GOLD-1): the desired-position
+* Fixture scope (S8-GOLD1-REGEN, 2026-10-07): the seed-transient study
+  below runs on the PRE-regeneration gold1 series (120 H1 bars, rebuilt
+  byte-exactly from its recipe in tests/gold1_legacy_fixture.py), whose
+  warmup is NOT constant. The regenerated artifacts/gold fixture has a
+  constant warmup, where both seeds agree EXACTLY (pinned at the end).
+* On the pre-regeneration gold fixture (AEGIS-GOLD-1): the desired-position
   decisions of ema_crossover_ref are IDENTICAL between the Python-seeded
   and platform-seeded models from bar slow-1 (=29) to the end of the
   fixture. Before bar 29 the Python model is NaN (no signal) while the
@@ -39,6 +44,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+from gold1_legacy_fixture import LEGACY_SHA256, legacy_gold1_csv
 from mql5bot.indicators import ema
 
 REPO = Path(__file__).resolve().parents[1]
@@ -61,8 +67,33 @@ def ema_platform_model(x: np.ndarray, n: int) -> np.ndarray:
 
 @pytest.fixture(scope="module")
 def gold_close() -> np.ndarray:
-    df = pd.read_csv(GOLD_FIXTURE, index_col=0, parse_dates=True)
+    """The pre-regeneration gold1 close series (non-constant warmup)."""
+    import io
+    df = pd.read_csv(io.StringIO(legacy_gold1_csv()), index_col=0,
+                     parse_dates=True)
     return df["close"].to_numpy()
+
+
+def test_legacy_series_is_the_formerly_frozen_fixture():
+    import hashlib
+    assert hashlib.sha256(legacy_gold1_csv().encode()).hexdigest() == \
+        LEGACY_SHA256
+
+
+def test_regenerated_gold1_seeds_agree_exactly():
+    """S8-GOLD1-REGEN: the regenerated fixture's warmup is a constant
+    dyadic close (1.125), so the Python SMA seed and the platform seed
+    (price[0]) are the SAME number and every later value is bit-identical:
+    the seed residue is exactly 0, and no decision can differ."""
+    df = pd.read_csv(GOLD_FIXTURE, index_col=0, parse_dates=True)
+    close = df["close"].to_numpy()
+    for n in (FAST, SLOW):
+        py, mt = ema(close, n), ema_platform_model(close, n)
+        assert (py[n - 1:] == mt[n - 1:]).all(), n
+    d_py = _desired(ema(close, FAST), ema(close, SLOW))
+    d_mt = _desired(ema_platform_model(close, FAST),
+                    ema_platform_model(close, SLOW))
+    assert (d_py[SLOW - 1:] == d_mt[SLOW - 1:]).all()
 
 
 # ---------------------------------------------------------------------------

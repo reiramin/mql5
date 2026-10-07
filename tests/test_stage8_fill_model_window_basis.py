@@ -279,6 +279,17 @@ def test_expected_set_is_refused_when_the_trace_is_not_reproduced(
     assert sd is None and "does not reproduce the frozen trace" in why
 
 
-def test_gold_without_a_wired_generator_is_refused():
+def test_gold_without_a_wired_generator_is_refused(monkeypatch):
+    # S8-GOLD1-REGEN wired gold1 too; a gold with no generator/trace is
+    # still refused
+    unwired = {k: v for k, v in s8p.GOLD_FILES["gold1"].items()
+               if k not in ("generator", "trace")}
+    monkeypatch.setitem(s8p.GOLD_FILES, "gold1", unwired)
     sd, why = s8p.expected_set_window_run(REPO, "gold1", START, END)
     assert sd is None and "no frozen generator" in why
+
+
+def test_gold1_is_wired_like_gold2():
+    g1 = s8p.GOLD_FILES["gold1"]
+    assert g1["trace"] == "artifacts/gold/python_trace.json"
+    assert g1["generator"] == "tools/build_gold_standard.py"

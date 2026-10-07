@@ -93,10 +93,23 @@ def test_gold2_bundle_is_the_committed_spec_retargeted_to_the_chart():
     assert hashlib.sha256(raw).hexdigest() == d["bundle_sha256"]
 
 
-def test_real_gold1_manifest_fails_before_launch_naming_allow_short():
-    # gold1's manifest pins no engine_config: its allow-short rule cannot
-    # be derived, and no EA default is substituted
+def test_real_gold1_manifest_derives_allow_short_true():
+    # S8-GOLD1-REGEN: the regenerated gold1 manifest pins engine_config
+    # (allow_short true, owner decision 2026-10-07)
     d = gli.derive_gold_leg_inputs(REPO, GOLD1_MANIFEST, "EURUSD.G1")
+    assert d["ok"] is True, d
+    assert d["inputs"]["InpAllowShort"] is True
+    assert d["sources"]["InpAllowShort"] == \
+        "manifest engine_config.allow_short"
+    assert d["strategy_id"] == "ema_crossover_ref"
+
+
+def test_a_manifest_without_engine_config_fails_naming_allow_short(
+        tmp_path):
+    # the refusal itself is unchanged: no EA default is substituted
+    d = gli.derive_gold_leg_inputs(
+        REPO, _manifest_copy(tmp_path, lambda m: m.pop("engine_config")),
+        "EURUSD.G2")
     assert d["ok"] is False
     assert d["missing"] == "engine_config.allow_short"
 
@@ -145,8 +158,9 @@ def test_ea_input_defaults_mirror_every_ea_input():
 # ---------------------------------------------------------------------------
 
 def test_cli_leg_inputs_fail_before_launch_naming_the_field(tmp_path):
-    cp = _decide("stage5-leg-inputs", "--manifest", str(GOLD1_MANIFEST),
-                 "--symbol", "EURUSD.G1", "--leg", "gold1_m1_ohlc",
+    bad = _manifest_copy(tmp_path, lambda m: m.pop("engine_config"))
+    cp = _decide("stage5-leg-inputs", "--manifest", str(bad),
+                 "--symbol", "EURUSD.G2", "--leg", "gold2_m1_ohlc",
                  "--out-dir", str(tmp_path))
     assert cp.returncode == 1
     out = json.loads(cp.stdout)

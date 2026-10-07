@@ -1,11 +1,8 @@
 {
-  "equity_start": 10000.0,
-  "manifest_hash": "4bb1420387eb3cd6245fcdcba1518c123f5d6a69b3abf6b89a7766b2cf0e278e",
-  "risk_percent": 1.0,
-  "sizing_mode": "risk_percent_equity",
-  "trades": [
+  "entries": [
     {
-      "entry_fill": 1.10012,
+      "atr_signal_bar": 0.0005785714,
+      "entry_kind": "signal_transition",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -17,26 +14,30 @@
         },
         "0.1": {
           "action": "SEND",
-          "final_lots": 0.07
+          "final_lots": 0.06
         },
         "0.5": {
           "action": "SEND",
-          "final_lots": 0.35
+          "final_lots": 0.34
         },
         "1.0": {
-          "action": "DROP",
-          "final_lots": 0.0
+          "action": "SEND",
+          "final_lots": 0.68
         }
       },
-      "risk_approved_lots": 0.7,
+      "risk": {
+        "approved_lots": 0.68,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "long",
-      "signal_time": "2024-01-02T06:00:00",
-      "sizer_lots": 0.7,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0014126638
+      "signal_time": "2024-02-05T00:00:00",
+      "sizing_basis": 10000.0,
+      "stop_distance": 0.0014464286
     },
     {
-      "entry_fill": 1.10222,
+      "atr_signal_bar": 0.0007192784,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -55,19 +56,23 @@
           "final_lots": 0.28
         },
         "1.0": {
-          "action": "DROP",
-          "final_lots": 0.0
+          "action": "SEND",
+          "final_lots": 0.56
         }
       },
-      "risk_approved_lots": 0.57,
+      "risk": {
+        "approved_lots": 0.56,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "long",
-      "signal_time": "2024-01-02T08:00:00",
-      "sizer_lots": 0.57,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0017525009
+      "signal_time": "2024-02-05T02:00:00",
+      "sizing_basis": 10157.08,
+      "stop_distance": 0.0017981961
     },
     {
-      "entry_fill": 1.10552,
+      "atr_signal_bar": 0.000894845,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -90,46 +95,19 @@
           "final_lots": 0.46
         }
       },
-      "risk_approved_lots": 0.46,
-      "side": "long",
-      "signal_time": "2024-01-02T11:00:00",
-      "sizer_lots": 0.45,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0022005264
-    },
-    {
-      "entry_fill": 1.10882,
-      "meta": {
-        "0.0": {
-          "action": "DROP",
-          "final_lots": 0.0
-        },
-        "0.01": {
-          "action": "DROP",
-          "final_lots": 0.0
-        },
-        "0.1": {
-          "action": "SEND",
-          "final_lots": 0.04
-        },
-        "0.5": {
-          "action": "SEND",
-          "final_lots": 0.2
-        },
-        "1.0": {
-          "action": "SEND",
-          "final_lots": 0.4
-        }
+      "risk": {
+        "approved_lots": 0.46,
+        "reason": "ok",
+        "rejected": false
       },
-      "risk_approved_lots": 0.4,
       "side": "long",
-      "signal_time": "2024-01-02T14:00:00",
-      "sizer_lots": 0.39,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0025592407
+      "signal_time": "2024-02-05T05:00:00",
+      "sizing_basis": 10318.36,
+      "stop_distance": 0.0022371125
     },
     {
-      "entry_fill": 1.11322,
+      "atr_signal_bar": 0.0010757411,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -145,22 +123,61 @@
         },
         "0.5": {
           "action": "SEND",
-          "final_lots": 0.18
+          "final_lots": 0.19
         },
         "1.0": {
           "action": "SEND",
-          "final_lots": 0.36
+          "final_lots": 0.38
         }
       },
-      "risk_approved_lots": 0.36,
+      "risk": {
+        "approved_lots": 0.38,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "long",
-      "signal_time": "2024-01-02T18:00:00",
-      "sizer_lots": 0.34,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0029288441
+      "signal_time": "2024-02-05T09:00:00",
+      "sizing_basis": 10483.04,
+      "stop_distance": 0.0026893526
     },
     {
-      "entry_fill": 1.11872,
+      "atr_signal_bar": 0.0012102312,
+      "entry_kind": "persistence_reentry",
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.01": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.03
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.17
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.35
+        }
+      },
+      "risk": {
+        "approved_lots": 0.35,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-02-05T13:00:00",
+      "sizing_basis": 10646.44,
+      "stop_distance": 0.0030255779
+    },
+    {
+      "atr_signal_bar": 0.0013309186,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -180,18 +197,22 @@
         },
         "1.0": {
           "action": "SEND",
-          "final_lots": 0.33
+          "final_lots": 0.32
         }
       },
-      "risk_approved_lots": 0.33,
+      "risk": {
+        "approved_lots": 0.32,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "long",
-      "signal_time": "2024-01-02T23:00:00",
-      "sizer_lots": 0.3,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0032605152
+      "signal_time": "2024-02-05T18:00:00",
+      "sizing_basis": 10815.84,
+      "stop_distance": 0.0033272965
     },
     {
-      "entry_fill": 1.12422,
+      "atr_signal_bar": 0.0014142365,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -214,15 +235,54 @@
           "final_lots": 0.31
         }
       },
-      "risk_approved_lots": 0.31,
+      "risk": {
+        "approved_lots": 0.31,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "long",
-      "signal_time": "2024-01-03T04:00:00",
-      "sizer_lots": 0.28,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0034894881
+      "signal_time": "2024-02-05T23:00:00",
+      "sizing_basis": 10986.08,
+      "stop_distance": 0.0035355914
     },
     {
-      "entry_fill": 1.11752,
+      "atr_signal_bar": 0.0017183978,
+      "entry_kind": "persistence_reentry",
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.01": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.02
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.12
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.25
+        }
+      },
+      "risk": {
+        "approved_lots": 0.25,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "long",
+      "signal_time": "2024-02-06T01:00:00",
+      "sizing_basis": 10876.03,
+      "stop_distance": 0.0042959946
+    },
+    {
+      "atr_signal_bar": 0.0019885123,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -245,15 +305,19 @@
           "final_lots": 0.21
         }
       },
-      "risk_approved_lots": 0.21,
+      "risk": {
+        "approved_lots": 0.21,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "long",
-      "signal_time": "2024-01-03T09:00:00",
-      "sizer_lots": 0.2,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0049906745
+      "signal_time": "2024-02-06T02:00:00",
+      "sizing_basis": 10768.28,
+      "stop_distance": 0.0049712807
     },
     {
-      "entry_fill": 1.11252,
+      "atr_signal_bar": 0.0022393328,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -276,15 +340,19 @@
           "final_lots": 0.19
         }
       },
-      "risk_approved_lots": 0.19,
+      "risk": {
+        "approved_lots": 0.19,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "long",
-      "signal_time": "2024-01-03T10:00:00",
-      "sizer_lots": 0.17,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0056163406
+      "signal_time": "2024-02-06T03:00:00",
+      "sizing_basis": 10663.7,
+      "stop_distance": 0.0055983321
     },
     {
-      "entry_fill": 1.10621,
+      "atr_signal_bar": 0.0024242207,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -307,15 +375,19 @@
           "final_lots": 0.17
         }
       },
-      "risk_approved_lots": 0.17,
+      "risk": {
+        "approved_lots": 0.17,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "long",
-      "signal_time": "2024-01-03T12:00:00",
-      "sizer_lots": 0.16,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0060760794
+      "signal_time": "2024-02-06T05:00:00",
+      "sizing_basis": 10557.11,
+      "stop_distance": 0.0060605516
     },
     {
-      "entry_fill": 1.09968,
+      "atr_signal_bar": 0.002299786,
+      "entry_kind": "flip_deferred_entry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -338,15 +410,19 @@
           "final_lots": 0.18
         }
       },
-      "risk_approved_lots": 0.18,
+      "risk": {
+        "approved_lots": 0.18,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "short",
-      "signal_time": "2024-01-03T17:00:00",
-      "sizer_lots": 0.17,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0055880646
+      "signal_time": "2024-02-06T08:00:00",
+      "sizing_basis": 10512.23,
+      "stop_distance": 0.005749465
     },
     {
-      "entry_fill": 1.09058,
+      "atr_signal_bar": 0.002097503,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -369,15 +445,54 @@
           "final_lots": 0.2
         }
       },
-      "risk_approved_lots": 0.2,
+      "risk": {
+        "approved_lots": 0.2,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "short",
-      "signal_time": "2024-01-04T00:00:00",
-      "sizer_lots": 0.19,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0051476821
+      "signal_time": "2024-02-06T15:00:00",
+      "sizing_basis": 10677.83,
+      "stop_distance": 0.0052437574
     },
     {
-      "entry_fill": 1.08408,
+      "atr_signal_bar": 0.0019770918,
+      "entry_kind": "persistence_reentry",
+      "meta": {
+        "0.0": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.01": {
+          "action": "DROP",
+          "final_lots": 0.0
+        },
+        "0.1": {
+          "action": "SEND",
+          "final_lots": 0.02
+        },
+        "0.5": {
+          "action": "SEND",
+          "final_lots": 0.1
+        },
+        "1.0": {
+          "action": "SEND",
+          "final_lots": 0.21
+        }
+      },
+      "risk": {
+        "approved_lots": 0.21,
+        "reason": "ok",
+        "rejected": false
+      },
+      "side": "short",
+      "signal_time": "2024-02-06T22:00:00",
+      "sizing_basis": 10845.63,
+      "stop_distance": 0.0049427296
+    },
+    {
+      "atr_signal_bar": 0.002835871,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -400,15 +515,19 @@
           "final_lots": 0.15
         }
       },
-      "risk_approved_lots": 0.15,
+      "risk": {
+        "approved_lots": 0.15,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "short",
-      "signal_time": "2024-01-04T06:00:00",
-      "sizer_lots": 0.14,
-      "sizer_reason": "ok",
-      "stop_distance": 0.007093768
+      "signal_time": "2024-02-06T23:00:00",
+      "sizing_basis": 10741.68,
+      "stop_distance": 0.0070896775
     },
     {
-      "entry_fill": 1.08408,
+      "atr_signal_bar": 0.0041333088,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -431,15 +550,19 @@
           "final_lots": 0.1
         }
       },
-      "risk_approved_lots": 0.1,
+      "risk": {
+        "approved_lots": 0.1,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "short",
-      "signal_time": "2024-01-04T07:00:00",
-      "sizer_lots": 0.09,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0103370703
+      "signal_time": "2024-02-07T00:00:00",
+      "sizing_basis": 10635.18,
+      "stop_distance": 0.0103332719
     },
     {
-      "entry_fill": 1.09528,
+      "atr_signal_bar": 0.0031344437,
+      "entry_kind": "persistence_reentry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -462,15 +585,19 @@
           "final_lots": 0.13
         }
       },
-      "risk_approved_lots": 0.13,
+      "risk": {
+        "approved_lots": 0.13,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "short",
-      "signal_time": "2024-01-04T15:00:00",
-      "sizer_lots": 0.12,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0078382089
+      "signal_time": "2024-02-07T08:00:00",
+      "sizing_basis": 10531.78,
+      "stop_distance": 0.0078361094
     },
     {
-      "entry_fill": 1.10371,
+      "atr_signal_bar": 0.0026913402,
+      "entry_kind": "flip_deferred_entry",
       "meta": {
         "0.0": {
           "action": "DROP",
@@ -493,12 +620,34 @@
           "final_lots": 0.15
         }
       },
-      "risk_approved_lots": 0.15,
+      "risk": {
+        "approved_lots": 0.15,
+        "reason": "ok",
+        "rejected": false
+      },
       "side": "long",
-      "signal_time": "2024-01-04T21:00:00",
-      "sizer_lots": 0.14,
-      "sizer_reason": "ok",
-      "stop_distance": 0.0067296963
+      "signal_time": "2024-02-07T14:00:00",
+      "sizing_basis": 10440.26,
+      "stop_distance": 0.0067283504
     }
-  ]
+  ],
+  "equity_start": 10000.0,
+  "flip_deferrals": [
+    {
+      "close_time": "2024-02-06T08:00:00",
+      "rule": "close opposite (signal_exit); enter next bar",
+      "side": "short",
+      "signal_time": "2024-02-06T07:00:00"
+    },
+    {
+      "close_time": "2024-02-07T14:00:00",
+      "rule": "close opposite (signal_exit); enter next bar",
+      "side": "long",
+      "signal_time": "2024-02-07T13:00:00"
+    }
+  ],
+  "manifest_hash": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3",
+  "risk_percent": 1.0,
+  "risk_vetoes": 0,
+  "sizing_mode": "risk_percent_equity"
 }

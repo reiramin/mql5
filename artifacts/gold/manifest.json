@@ -15,53 +15,61 @@
     "volume_min": 0.01,
     "volume_step": 0.01
   },
-  "code_version": "python/mql5bot@artifacts-gold-1",
+  "code_version": "python/mql5bot@artifacts-gold-1-regen",
+  "config_hash": "eec1edc534998b1c3ee358144af6f5229243a033ccffb0cdeeb5db5a62958ed5",
   "cost_config": {
     "commission_per_lot": 0.0,
     "slippage_points": 1.0,
     "spread_points": 1.0
   },
-  "dataset_hash": "2b1730cbb43e959291a115c53db8a0c8620ea80ccf00b2251bf01dd236ebd764",
-  "dataset_id": "gold-fixture-h1-2024",
+  "dataset_hash": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3",
+  "dataset_id": "gold-fixture-h1-2024-regen",
   "dsl_version": "1.0",
-  "git_commit": "abea0f410c5a",
+  "engine_config": {
+    "allow_short": true,
+    "allow_signal_exit": true,
+    "mode": "netting",
+    "sizing_mode": "risk_percent_equity",
+    "sl_atr": 2.5,
+    "tp_atr": 4.0
+  },
+  "git_commit": "f29b7fa55bb9",
   "gold_standard": "AEGIS-GOLD-1",
   "indicator_versions": {
     "ATR": "contract-v1 (indicators.atr, Wilder, period 14)",
     "EMA": "contract-v1 (indicators.ema, alpha=2/(n+1), SMA seed)"
   },
+  "normalization_rules": {
+    "csv_float_format": "%.10f",
+    "json": "indent=2, sort_keys=True, trailing newline",
+    "lots_rounding": "6 decimals; broker floor-to-step with the 1e-9 step-unit dust guard",
+    "price_rounding": "10 decimals in traces; 5-decimal broker grid in the fixture",
+    "time": "ISO-8601 naive stamps; Monday-Friday only"
+  },
+  "regeneration": "S8-GOLD1-REGEN (2026-10-07): regenerated on the gold2 path (PortfolioEngine, flip rule, engine_config); NOT byte-continuous with the 2024 120-bar fixture",
   "risk_config": {
     "equity_start": 10000.0,
     "mode": "risk_percent_equity",
     "risk_percent": 1.0
   },
   "scenario_map": {
-    "daily_loss_block": "tests/test_failsafe.py + EA S2",
-    "insufficient_capital": "sizer leg: equity floor scenarios (tests/test_reality_gate.py)",
     "invalid_signal": "desired==exposure no-op + warmup NaN guard",
-    "kill_switch_block": "EA seam pin (AllowsNewTrades first gate) + entry-chain test",
-    "long_signal": "uptrend segment",
-    "no_signal": "warmup bars 0-29 + hold segment",
-    "opposite_signal": "flip segment",
-    "partial_fill": "S1/S3 evidence: RetryQueue + SL guard; MT5 actuals PENDING_OWNER",
+    "long_signal": "uptrend segment (Mon 2024-02-05)",
+    "no_signal": "constant warmup (EMA10 == EMA30 exactly)",
+    "opposite_signal": "flip segment (flip_deferrals)",
     "position_exists": "state-mode hold bars",
-    "restart": "StateStore hot reload (S2/S6) source tests",
-    "retry": "RetryQueue exponential backoff (S3) source tests",
     "short_signal": "downtrend segment",
-    "simultaneous_edge": "huge-range bar 80 (stop-first rule)",
-    "sl_hit": "reversal spike segment",
-    "slippage": "slippage_points=1.0 on every fill",
-    "spread_increase": "variable-spread trace leg (spread_series spike, see tests)",
-    "stale_allocation": "Allocation.mqh IsStale pin + digest roundtrip test",
-    "tp_hit": "huge-range bar 79",
-    "volume_below_minimum": "meta 0.01/0.0 weights \u2192 DROP",
-    "zero_allocation": "weight 0.0 \u2192 DROP (meta seam test)"
+    "simultaneous_edge": "huge-range bars (stop-first rule) + micro_both_touch.csv",
+    "sl_hit": "vertical drop segment",
+    "slippage": "slippage_points=1.0 on every frozen fill",
+    "tp_hit": "uptrend segment (repeated TP + persistence re-entries)",
+    "volume_below_minimum": "meta 0.01/0.0 weights -> DROP"
   },
   "seed": 0,
   "signal_timing_contract": {
     "action_at": "next bar open (EA: first tick of new bar)",
     "both_touch_rule": "SL assumed hit first (conservative)",
-    "flip_rule": "close opposite; enter next bar",
+    "flip_rule": "close opposite (signal_exit); enter next bar",
     "order_type": "market",
     "signal_on": "closed bar (shift 1)"
   },

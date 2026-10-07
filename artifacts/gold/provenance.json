@@ -1,0 +1,28 @@
+{
+  "artifact_hashes": {
+    "dsl_trace.json": "07f3e9718dc7901bcf3d3e5118782da03791f97ca8cd03c08e7fde2813e11395",
+    "expected_execution.json": "c4ae60fa84fd5184a659f2304bd1455f5307e4c135e987d999803535cd7ad43c",
+    "gold_fixture.csv": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3",
+    "manifest.json": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3",
+    "micro_both_touch.csv": "adb8ca317adace1c07ec418411e6469a1e8214942d87df927e96a9ce0589428d",
+    "python_trace.json": "753c89094cc0743ce09e7d89d37f5e43629a437ca607a02243262b955fc01e29",
+    "reconciliation.json": "b187827ed12f2fffaa0b60fd1ec65bb923397cefc873460bec92541c65cde152"
+  },
+  "builder": "tools/build_gold_standard.py",
+  "config_hash": "eec1edc534998b1c3ee358144af6f5229243a033ccffb0cdeeb5db5a62958ed5",
+  "fixture_hash_sha256": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3",
+  "git_commit": "f29b7fa55bb9",
+  "manifest_hash": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3",
+  "params": {
+    "allow_short": true,
+    "allow_signal_exit": true,
+    "fast": 10,
+    "mode": "netting",
+    "sizing_mode": "risk_percent_equity",
+    "sl_atr": 2.5,
+    "slow": 30,
+    "tp_atr": 4.0
+  },
+  "spec_hash": "e0aac5b4d9ff64a5ab32aab6bb792b4ac674b0cc66f6bb068ed93ff075273df8",
+  "test_command": ".venv/bin/python -m pytest tests/test_reality_gate.py -q"
+}
