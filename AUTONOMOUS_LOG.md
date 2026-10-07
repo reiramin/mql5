@@ -1568,3 +1568,36 @@ pwsh-dependent tests did not exercise the ps1.
 - **Tasks 2 and 4:** there is still no `gate-reports` branch on origin,
   so there are no gate runs to work from (docs/BLOCKED.md).
 - **Task 5:** not started.
+
+## 2026-10-07 (3) — PR #36 (S8-GOLD1-REGEN) + PR #37 (S8-REANCHOR-2) merged
+
+**Merged.**
+- **PR #36** as 6299de3: gold1 regenerated on the gold2 path. CLAUDE.md
+  exception 2. Details:
+  - 720 H1 bars, Mon-Fri, constant 600-bar warmup;
+  - 18 trades, Python == DSL;
+  - byte-identical rebuild on Python 3.10 and 3.13;
+  - stage 8 is wired for gold1.
+
+  CI first failed on 2 pwsh tests that assumed gold1 refuses at leg
+  input. Fixed so the refusal path uses a manifest copy without
+  engine_config; a new test checks that the real gold1 + gold2 legs
+  derive.
+- **PR #37** as 46fcdd6: the one gold1 re-anchor of
+  `frozen_inputs.json`.
+  - Anchor 6299de3; every value from `owner_evidence_bind.py bind`.
+  - New gold_1 artifact_hash_chain; python_trade_count 18.
+  - The five strict xfails are removed.
+- CI green on 3.10, 3.11 and 3.12 for both PRs. ruff 0; full pytest 0
+  (pwsh on PATH: PowerShell 7.4.6 in the session scratchpad, outside the
+  repo).
+
+**NOT done, and why:**
+- **certification_manifest.json:** `gold_1_dataset_hash` still names the
+  pre-regeneration fixture. The file is NEVER modified per CLAUDE.md, and
+  no code reads that field. Owner decision (DECISIONS S8-REANCHOR-2).
+- **Tasks 2 and 4, and gold1 VALID/MATCH:** still no `gate-reports`
+  branch on origin (checked after the #37 merge). Nothing can be graded
+  without a Windows gate run (docs/BLOCKED.md).
+- **Task 5 (docs/SHOWCASE.md):** waits for the final verdict of task 4.
+  Writing it now would describe a verdict that does not exist.
