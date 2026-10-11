@@ -1,0 +1,29 @@
+{
+    "stage":  4,
+    "name":  "fixture_import",
+    "status":  "FAIL",
+    "reason":  "[scope: gold1; PARTIAL run -- certifies nothing] [json_refused] EURUSD.G1: importer REFUSED at stage \u0027symbol_state\u0027 (last_error=4305): cannot adopt the surviving custom symbol EURUSD.G1: 2 propert(y/ies) differ from the manifest spec (SYMBOL_SPREAD_FLOAT,SYMBOL_SPREAD) and must be re-applied, but properties cannot be changed on a selected symbol (5306) and the release failed: SymbolSelect(false) (last_error=4305; 4305 = ERR_MARKET_SELECT_ERROR, error adding or deleting a symbol in Market Watch; ChartClose is asynchronous). Operator remediation: close any chart on EURUSD.G1 in the terminal, then re-run the gate",
+    "scope":  [
+                  "gold1"
+              ],
+    "partial":  true,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261011-142952\\import_EURUSD.G1.set",
+                          "sha256":  "52cfb12343bf3291fead2ce9c0637f3c86cd102da0f38ffed916d800e6205061"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261011-142952\\import_EURUSD.G1_preset_decoded.txt",
+                          "sha256":  "376b832349876c4de58c3e8b9a55c0050560e2e852c818238fd7c43b498d28fc"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Files\\Mql5Bot\\gold_import_out\\EURUSD.G1.json",
+                          "sha256":  "5f554ec10ee04a1ffb84ae01b14e20644b2670d9df48c2a1e0c9c30739cea1e2"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261011-142952\\import_EURUSD.G1.json",
+                          "sha256":  "5f554ec10ee04a1ffb84ae01b14e20644b2670d9df48c2a1e0c9c30739cea1e2"
+                      }
+                  ],
+    "utc":  "2026-10-11T14:31:04.5515305Z"
+}

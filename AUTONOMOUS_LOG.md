@@ -1566,3 +1566,24 @@ Fixed, then ruff 0; full pytest 0 (2512 passed, 1 skipped; pwsh on PATH).
   (runner: report only; importer behaviour is an owner/dev decision).
 - Demo harness + gold2 gate of record (gate_run40): still scheduled for
   14:23 local, after the market opens.
+## 2026-10-11 (4) — runner: PRs #40/#41 on master 4b8cad0; pytest; gate_run43 (gold1) (branch gate-reports)
+
+- gate_run12 pulled to master 4b8cad0 (contains PR #40 WIN-NEWLINE-1 and
+  PR #41 IMPORT-CHART-1); tree clean.
+- Full pytest at 4b8cad0 (PYTHONUTF8=1): exit 0, no FAILED/ERROR lines.
+  Published as reports/windows_pytest/pytest_4b8cad0.txt (commit e4e094f);
+  failures.txt (3337bfa, 80 FAILED) kept. ruff still not installed.
+- gate_run43: tools\owner_gate.ps1 -Golds gold1 at 4b8cad0, MT5 not running
+  beforehand (evidence\owner_gate\20261011-142952). Stages 0-3 PASS, stage 4
+  fixture_import FAIL, same importer refusal as gate_run41/42 (symbol_state,
+  last_error=4305, SYMBOL_SPREAD_FLOAT/SYMBOL_SPREAD). The run's importer ini
+  does name Symbol=EURUSD / Period=H1. GATE_RESULT=partial_fixture_import,
+  gate exit 1. Stages 5 and 8 did not run.
+- Demo job rescheduled (session job, 14:23 local) to pull master first and
+  re-run the compile gate at the new HEAD before the harness.
+- Leak check (logins+passwords): 0 hits.
+
+**NOT done, and why:**
+- IMPORT-CHART-1 did not clear the gold1 stage-4 refusal; the cause is not
+  investigated in mql5/ (runner: report only).
+- Demo harness + gold2 gate of record (gate_run40): waiting for the market.
