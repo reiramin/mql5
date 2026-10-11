@@ -31,6 +31,13 @@ SPACE = {"fast": {"type": "int", "low": 6, "high": 14},
 
 @pytest.fixture
 def dev_df():
+    # every test that runs optuna takes this frame; optuna is the optional
+    # 'optimize' extra (pyproject [project.optional-dependencies]), so
+    # without it those tests skip -- test_optuna_import_never_imported_by_
+    # pipeline does not take dev_df and still runs
+    pytest.importorskip(
+        "optuna", reason="optuna is the optional 'optimize' extra "
+                         "(pip install -e .[optimize]); not installed here")
     return generate_ohlc(days=45, seed=5)
 
 

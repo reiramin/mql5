@@ -99,8 +99,11 @@ def test_provenance_label_and_continuity_disclaimer(artifacts):
 # ----------------------------------------------------- determinism §19
 def test_fixture_replay_is_deterministic_and_bound_to_artifact(
         bld, fixture_df, artifacts):
-    text_a = fixture_df.to_csv(float_format="%.10f")
-    text_b = bld.build_fixture().to_csv(float_format="%.10f")
+    # the builder's own serialization (lineterminator "\n", never
+    # os.linesep): the replay must hash like the committed bytes on any OS
+    text_a = fixture_df.to_csv(float_format="%.10f", lineterminator="\n")
+    text_b = bld.build_fixture().to_csv(float_format="%.10f",
+                                        lineterminator="\n")
     assert text_a == text_b                      # in-process replay
     assert _sha256(text_a.encode()) == artifacts["manifest"]["dataset_hash"]
 
@@ -378,7 +381,7 @@ def test_manifest_hash_chain_and_tamper_detection(bld, fixture_df,
     assert prov["fixture_hash_sha256"] == \
         artifacts["manifest"]["dataset_hash"]
     # stale/tampered fixture must be detectable (one flipped byte)
-    text = fixture_df.to_csv(float_format="%.10f")
+    text = fixture_df.to_csv(float_format="%.10f", lineterminator="\n")
     tampered = ("0" if text[100] != "0" else "1") + text[101:]
     assert _sha256(tampered.encode()) != \
         artifacts["manifest"]["dataset_hash"]

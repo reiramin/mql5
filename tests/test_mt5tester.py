@@ -6,6 +6,7 @@ The Windows launch boundary is only tested for its guard behaviour.
 """
 
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
@@ -302,10 +303,31 @@ def test_parse_report_html_case_and_whitespace_tolerance():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX-only: asserts run_backtest's non-Windows platform guard "
+           "(RuntimeError 'Windows-only'); on Windows that guard does not "
+           "exist and the call goes on to the terminal "
+           "(test_run_backtest_names_a_missing_terminal_on_windows)")
 def test_run_backtest_guard_off_windows():
     cfg = MT5TesterConfig()
     settings = RunSettings(terminal_dir="C:\\MT5", data_folder="C:\\MT5")
     with pytest.raises(RuntimeError, match="Windows-only"):
+        run_backtest(cfg, settings)
+
+
+@pytest.mark.skipif(sys.platform != "win32",
+                    reason="Windows-only: off Windows run_backtest stops at "
+                           "the platform guard before looking for a terminal")
+@pytest.mark.skipif(Path("C:\\MT5\\terminal64.exe").is_file(),
+                    reason="a real terminal is installed at C:\\MT5; this "
+                           "test needs that path to be absent (it must not "
+                           "launch MT5)")
+def test_run_backtest_names_a_missing_terminal_on_windows():
+    cfg = MT5TesterConfig()
+    settings = RunSettings(terminal_dir="C:\\MT5", data_folder="C:\\MT5")
+    with pytest.raises(FileNotFoundError,
+                       match=r"terminal64\.exe not found in C:\\MT5"):
         run_backtest(cfg, settings)
 
 

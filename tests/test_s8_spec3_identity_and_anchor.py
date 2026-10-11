@@ -66,20 +66,20 @@ def _ini(currency="USD"):
 def _pkg(tmp_path, export, record=None, inis=None, bind=True):
     root = tmp_path / "pkg"
     (root / "symbolspec").mkdir(parents=True)
-    (root / og.LAYOUT["symbolspec"]).write_text(json.dumps(export))
+    (root / og.LAYOUT["symbolspec"]).write_text(json.dumps(export), newline="")
     if record is not None:
         (root / og.symbolspec_import_rel("gold2")).write_text(
-            json.dumps(record))
+            json.dumps(record), newline="")
     for model, text in (inis or {}).items():
         p = root / og.tester_ini_rel("gold2", model)
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(text)
+        p.write_text(text, newline="")
     if bind:
         arts = {str(p.relative_to(root)).replace("\\", "/"):
                 hashlib.sha256(p.read_bytes()).hexdigest()
                 for p in sorted(root.rglob("*")) if p.is_file()}
         (root / og.LAYOUT["archive_manifest"]).write_text(
-            json.dumps({"artifacts": arts}))
+            json.dumps({"artifacts": arts}), newline="")
     return root
 
 
@@ -206,7 +206,7 @@ def test_negative_other_witness_failures(tmp_path, case):
     root = _witnessed(tmp_path, export, **kw)
     if case == "tampered":   # bytes changed after binding
         (root / og.symbolspec_import_rel("gold2")).write_text(
-            json.dumps(_import_record()) + " ")
+            json.dumps(_import_record()) + " ", newline="")
     rep = og.verify_symbolspec(root, FROZEN_SPEC, ["gold2"])
     assert rep["field_classes"]["tick_value_profit"] == \
         og.DECISION_CHANGING_MISMATCH
@@ -231,13 +231,13 @@ def test_package_carries_witnesses_terminal_build_and_fixed_spread(
     custom = dict(CUSTOM_EXPORT, spread_float=False,
                   custom_fixed_spread_points=1, terminal_build=5430)
     custom_file = tmp_path / "symbolspec_EURUSD.G2.json"
-    custom_file.write_text(json.dumps(custom), encoding="utf-8")
+    custom_file.write_text(json.dumps(custom), encoding="utf-8", newline="")
     _, pkg, ev = _build(tmp_path, BASE_EXPORT,
                         symbolspec_custom={"gold2": custom_file})
     # the gate evidence names (owner_gate.ps1 stage 4 / stage 5)
-    (ev / "import_EURUSD.G2.json").write_text(json.dumps(_import_record()))
+    (ev / "import_EURUSD.G2.json").write_text(json.dumps(_import_record()), newline="")
     for m in ("m1_ohlc", "every_tick"):
-        (ev / f"tester_gold2_{m}.ini").write_text(_ini())
+        (ev / f"tester_gold2_{m}.ini").write_text(_ini(), newline="")
     rec = s8p.build_package(repo=REPO, package=pkg, gate_evidence=ev,
                             data_folder=tmp_path / "data", golds=["gold2"],
                             symbolspec_export=tmp_path / "EURUSD.json",
@@ -292,6 +292,9 @@ def anchored(tmp_path):
     _git(repo, "config", "user.email", "t@example.invalid")
     _git(repo, "config", "user.name", "t")
     _git(repo, "config", "commit.gpgsign", "false")
+    # the gate requires core.autocrlf false (stage 0); a Windows global
+    # autocrlf=true would otherwise rewrite the committed bytes
+    _git(repo, "config", "core.autocrlf", "false")
     files = {"artifacts/gold/gold_fixture.csv": "a\n",
              "artifacts/gold/manifest.json": "{}\n",
              "artifacts/gold_2/gold2_fixture.csv": "b\n",
@@ -299,7 +302,7 @@ def anchored(tmp_path):
              "README": "x\n"}
     for rel, text in files.items():
         (repo / rel).parent.mkdir(parents=True, exist_ok=True)
-        (repo / rel).write_text(text)
+        (repo / rel).write_text(text, newline="")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", "anchor")
     anchor = _git(repo, "rev-parse", "HEAD")
@@ -313,7 +316,7 @@ def anchored(tmp_path):
                          "artifact_hash_chain": {
                              "reconciliation.json":
                                  sha("artifacts/gold_2/reconciliation.json")}}}
-    (repo / "README").write_text("y\n")
+    (repo / "README").write_text("y\n", newline="")
     _git(repo, "commit", "-qam", "descendant")
     return repo, anchor, _git(repo, "rev-parse", "HEAD"), frozen
 
@@ -339,7 +342,7 @@ def test_descendant_with_identical_frozen_bytes_is_accepted(anchored):
 
 def test_descendant_that_changed_a_frozen_file_is_refused(anchored):
     repo, anchor, _, frozen = anchored
-    (repo / "artifacts/gold_2/reconciliation.json").write_text("[1]\n")
+    (repo / "artifacts/gold_2/reconciliation.json").write_text("[1]\n", newline="")
     _git(repo, "commit", "-qam", "edit a frozen file")
     head = _git(repo, "rev-parse", "HEAD")
     rel = og.anchor_relation(repo, anchor, head, frozen)
@@ -353,11 +356,11 @@ def test_artifact_and_its_pin_changed_together_is_refused(anchored):
     not hold at the anchor."""
     repo, anchor, _, frozen = anchored
     rel = "artifacts/gold_2/reconciliation.json"
-    (repo / rel).write_text("[1]\n")
+    (repo / rel).write_text("[1]\n", newline="")
     new_pin = hashlib.sha256((repo / rel).read_bytes()).hexdigest()
     repinned = json.loads(json.dumps(frozen))
     repinned["gold_2"]["artifact_hash_chain"]["reconciliation.json"] = new_pin
-    (repo / "frozen_inputs.json").write_text(json.dumps(repinned))
+    (repo / "frozen_inputs.json").write_text(json.dumps(repinned), newline="")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", "edit a frozen file and re-pin it")
     head = _git(repo, "rev-parse", "HEAD")
@@ -386,10 +389,10 @@ def test_working_tree_bytes_are_not_what_is_judged(anchored):
     restored working-tree file cannot launder a committed change."""
     repo, anchor, _, frozen = anchored
     p = repo / "artifacts/gold/manifest.json"
-    p.write_text('{"x": 1}\n')
+    p.write_text('{"x": 1}\n', newline="")
     _git(repo, "commit", "-qam", "edit frozen manifest")
     head = _git(repo, "rev-parse", "HEAD")
-    p.write_text("{}\n")                       # restored, uncommitted
+    p.write_text("{}\n", newline="")                       # restored, uncommitted
     assert og.anchor_relation(repo, anchor, head, frozen)["relation"] is None
 
 
@@ -402,7 +405,7 @@ def test_older_diverged_unknown_and_short_commits_are_refused(anchored):
         "relation"] is None
     # diverged: a sibling of the descendant
     _git(repo, "checkout", "-qb", "side", anchor + "~0")
-    (repo / "README").write_text("z\n")
+    (repo / "README").write_text("z\n", newline="")
     _git(repo, "commit", "-qam", "sibling")
     sib = _git(repo, "rev-parse", "HEAD")
     assert og.anchor_relation(repo, head, sib, frozen)["relation"] is None
@@ -422,7 +425,7 @@ def test_verify_compile_accepts_only_through_the_relation(tmp_path,
     repo, anchor, head, frozen = anchored
     root = tmp_path / "pkg"
     (root / "compile").mkdir(parents=True)
-    (root / og.LAYOUT["compile_log"]).write_text("0 errors, 0 warnings\n")
+    (root / og.LAYOUT["compile_log"]).write_text("0 errors, 0 warnings\n", newline="")
     (root / og.LAYOUT["ex5"]).write_bytes(b"ex5")
     meta = {"SOURCE_COMMIT": head, "COMPILER_VERSION": "5", "TERMINAL_BUILD":
             5430, "EX5_SHA256": og.sha256_file(root / og.LAYOUT["ex5"]),
@@ -430,7 +433,7 @@ def test_verify_compile_accepts_only_through_the_relation(tmp_path,
             "COMPILER_LOG_SHA256": og.sha256_file(
                 root / og.LAYOUT["compile_log"]),
             "ERRORS": 0, "WARNINGS": 0}
-    (root / og.LAYOUT["compile_metadata"]).write_text(json.dumps(meta))
+    (root / og.LAYOUT["compile_metadata"]).write_text(json.dumps(meta), newline="")
     plain = og.verify_compile(root, anchor)
     assert plain["checks"]["source_commit"] == og.MISMATCHED
     rel = og.verify_compile(

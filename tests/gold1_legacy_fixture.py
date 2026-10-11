@@ -49,4 +49,7 @@ def legacy_gold1_fixture() -> pd.DataFrame:
 
 
 def legacy_gold1_csv() -> str:
-    return legacy_gold1_fixture().to_csv(float_format="%.10f")
+    # lineterminator "\n": the frozen bytes were written on POSIX, and
+    # pandas otherwise uses os.linesep ("\r\n" on Windows)
+    return legacy_gold1_fixture().to_csv(float_format="%.10f",
+                                         lineterminator="\n")

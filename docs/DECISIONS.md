@@ -4282,3 +4282,103 @@ PR #36 (S8-GOLD1-REGEN).
   the bytes.
 
 Built, unit-tested, never run live.
+
+## WIN-NEWLINE-1 — PLATFORM BUG FIX: hashed files written byte-exact on Windows; Windows-only test skips with reasons (2026-10-11)
+
+**Input.** `reports/windows_pytest/failures.txt` on `gate-reports`: 80
+failures at master `3337bfa`, from the Windows runner. This entry sorts
+every one of them into a cause. Each cause was reproduced on Linux first,
+then fixed.
+
+**Cause 1 — newline translation (64 failures).** On Windows:
+- a text-mode write (`write_text`, `open(..., "w")`) turns "\n" into
+  "\r\n";
+- `DataFrame.to_csv()` with no `lineterminator` uses `os.linesep`.
+
+So the bytes on disk are not the bytes that were hashed, and they are not
+the committed artifact bytes. Reproduced on Linux by
+`tests/windows_newlines.py`: `os.linesep = "\r\n"` and the pure-Python
+`_pyio` text layer (which reads `os.linesep`). With
+`MQL5BOT_EMULATE_WINDOWS_NEWLINES=1`, the same 64 failed here before the
+fix.
+
+Fixes:
+- **Production path (tools/):**
+  - `build_gold_standard.py` and `build_gold2_standard.py` write every
+    artifact with `_write_artifact` (`write_bytes` of the UTF-8 text).
+  - Their fixture CSV uses `to_csv(..., lineterminator="\n")`.
+  - `build_dsl_parity_golden.py` does the same for `ohlc.csv`.
+
+  On Windows, re-running these builders would otherwise write files whose
+  sha256 differs from `frozen_inputs.json`. On POSIX the output is
+  unchanged: the gold1 rebuild is byte-identical; the gold2 fixture is
+  byte-identical (its manifest differs only in the pre-existing
+  `python_version` field).
+- **Tests only:** `tests/test_owner_gate.py`, `test_gate_scope.py`,
+  `test_s8_count_ts_tickpath.py`, `test_stage8_package_from_gate.py` and
+  `test_s8_spec3_identity_and_anchor.py` now write their synthetic files
+  with `newline=""` or binary mode. `gold1_legacy_fixture.py` and
+  `test_gold2_standard.py` pass `lineterminator="\n"` to `to_csv`. Their
+  hashes are the hashes of the bytes the test meant to write.
+- **python/ audited.** `meta_layer` writes canonical JSON that has no
+  newlines. The stage8 builder and the verifier hash files from their
+  bytes on disk, so their results agree on any one machine. gate_run39
+  (Windows) has VALID results through that path. Nothing in python/ was
+  changed.
+
+**Cause 2 — git autocrlf (3 failures,
+`test_s8_spec3_identity_and_anchor`).** Git for Windows defaults to
+`core.autocrlf=true`, which rewrites the committed bytes of the
+throwaway repos. The fixture now sets `core.autocrlf false` in its own
+repo. Reproduced with a HOME whose `.gitconfig` sets `autocrlf = true`.
+
+**Cause 3 — optuna not installed (10).** optuna is the optional
+`optimize` extra. The `dev_df` fixture calls `pytest.importorskip("optuna",
+reason=...)`. `test_optuna_import_never_imported_by_pipeline` does not
+need optuna, so it still runs.
+
+**Cause 4 — POSIX-specific behaviour (2).**
+- `test_mt5tester::test_run_backtest_guard_off_windows` asserts the
+  non-Windows guard. It is now `skipif(win32)`, with that reason. The new
+  `test_run_backtest_names_a_missing_terminal_on_windows` covers the
+  Windows path. It is skipped where `C:\MT5\terminal64.exe` exists, with
+  that reason.
+- `test_stage5_tester_legs::test_run_with_defaults_passes_inputs_guard_then_platform_guard`
+  is handled the same way. Its Windows twin asserts that the inputs guard
+  passes and the run stops at "terminal64.exe not found".
+
+**Cause 5 — MAX_PATH (1).**
+`test_stage5_gold_strategy::test_old_and_sibling_agent_locations_are_both_staged`
+built a path of 268 characters under pytest's `tmp_path`, which is over
+Windows' 260 limit. The test now uses a short `mkdtemp` root. Its
+assertions are unchanged.
+
+**Regression test.** `tests/test_windows_newlines.py`:
+- proves that the emulation translates;
+- runs both gold builders' write path under CRLF and requires the frozen
+  `fixture_sha256`;
+- re-runs the 11 previously failing newline and autocrlf tests in a
+  subprocess, with the emulation and `autocrlf=true`.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No. No verifier or gate
+  code changed, and no assertion was removed or loosened. The skips only
+  cover a missing optional extra or behaviour that is POSIX-specific;
+  each POSIX-only skip has a Windows test beside it.
+- **(b) Do the gold legs change behaviour at default inputs?** No. Nothing
+  in mql5/ or artifacts/ changed. On POSIX the builder output is
+  byte-identical.
+- **(c) Are new checks re-computed by the verifier?** No new checks.
+
+**Python 3.10 detail (found by CI on this PR).** On 3.10, pathlib opens
+files through `_NormalAccessor.open`, which is bound to `io.open` when the
+class is created. Patching `io.open` alone left `Path.write_text`
+untranslated there. `test_the_emulation_really_translates` exists to catch
+exactly this, and it failed on 3.10.
+- `windows_newlines.patches()` and the sitecustomize now also patch the
+  accessor.
+- Reproduced on a local 3.10 (uv): it failed before the change and passes
+  after, together with the 11 re-run tests.
+
+**Not yet proven:** the suite on Windows itself. The merge commit asks
+the runner for it (`[runner: pytest]`).

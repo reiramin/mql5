@@ -544,6 +544,11 @@ def test_run_refuses_empty_tester_inputs_before_launch():
     assert "EMPTY [TesterInputs]" in cp.stderr
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX-only: the stop asserted here is the non-Windows platform "
+           "guard (exit 3, 'Windows-only'); on Windows the run goes on to the "
+           "terminal (test_run_with_defaults_passes_inputs_guard_on_windows)")
 def test_run_with_defaults_passes_inputs_guard_then_platform_guard():
     # With --defaults the inputs guard PASSES; on this non-Windows host the
     # only remaining stop is the platform guard (exit 3) — proving the empty-
@@ -555,4 +560,24 @@ def test_run_with_defaults_passes_inputs_guard_then_platform_guard():
                        "--report", "gold1_real_ticks", "--defaults")
     assert cp.returncode == 3
     assert "Windows-only" in cp.stderr
+    assert "EMPTY [TesterInputs]" not in cp.stderr
+
+
+@pytest.mark.skipif(sys.platform != "win32",
+                    reason="Windows-only: off Windows the platform guard "
+                           "stops the run first (the POSIX test above)")
+@pytest.mark.skipif(Path("C:\\MT5\\terminal64.exe").is_file(),
+                    reason="a real terminal is installed at C:\\MT5; this "
+                           "test needs that path to be absent (it must not "
+                           "launch MT5)")
+def test_run_with_defaults_passes_inputs_guard_on_windows():
+    # the same run on Windows: the inputs guard PASSES, and the only stop is
+    # the missing terminal (exit 2) -- not the empty-inputs refusal
+    cp = _run_backtest("run", "--terminal-dir", "C:\\MT5",
+                       "--data-folder", "C:\\MT5", "--symbol", "EURUSD.G1",
+                       "--timeframe", "H1", "--model", "4",
+                       "--from", "2024.01.01", "--to", "2024.01.05",
+                       "--report", "gold1_real_ticks", "--defaults")
+    assert cp.returncode == 2
+    assert "terminal64.exe not found" in cp.stderr
     assert "EMPTY [TesterInputs]" not in cp.stderr

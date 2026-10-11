@@ -24,8 +24,9 @@ No code change can produce that evidence.
 
 ## Waiting on reports
 
-- `reports/windows_pytest/failures.txt`: the Windows pytest run (the new
-  task before task 4).
+- A Windows pytest re-run after WIN-NEWLINE-1 (the merge commit asks for
+  it with `[runner: pytest]`). The 80 failures at `3337bfa` are fixed and
+  emulated on Linux; they are not yet proven on Windows itself.
 - A gold1 gate run at or after `46fcdd6` (task 3: gold1 VALID/MATCH).
 - Task 4 (FULL run, stages 9-10) comes after both golds and all 8 safety
   files are VALID.

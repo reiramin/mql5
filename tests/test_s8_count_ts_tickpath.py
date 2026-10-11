@@ -208,13 +208,13 @@ def tick(tmp_path):
     ex5.write_bytes(b"synthetic ex5 bytes for the tick-path test")
     log = OWNER_COMPILE_LOG.read_text(encoding="utf-8-sig").replace(
         REAL_EA_HASH, s8p._sha(ex5).upper())
-    (ev / "compile-20260917-201954.log").write_text(log, encoding="utf-8")
+    (ev / "compile-20260917-201954.log").write_text(log, encoding="utf-8", newline="")
     (ev / "stage_5.json").write_text(json.dumps(_stage5_record()),
-                                     encoding="ascii")
+                                     encoding="ascii", newline="")
     spec = tmp_path / "EURUSD.json"
     spec.write_text(json.dumps({"symbol": "EURUSD", "point": 1e-05,
                                 "server": "MetaQuotes-Demo"}),
-                    encoding="utf-8")
+                    encoding="utf-8", newline="")
     for model, req, line, deals in (
             ("m1_ohlc", 1, ("EURUSD.G2,M1 (MetaQuotes-Demo): 1 minutes "
                             "OHLC ticks generating"), M1_DEALS),
@@ -222,12 +222,12 @@ def tick(tmp_path):
                                "tick generating"), ET_DEALS)):
         win = _window(line, deals)
         (ev / f"tester_gold2_{model}_window.txt").write_text(win,
-                                                             encoding="utf-8")
+                                                             encoding="utf-8", newline="")
         # the intended tester config (Deposit) the gate copies, from the
         # same derivation the gate uses
         (ev / f"tester_gold2_{model}.ini").write_text(
             "[Tester]\nSymbol=EURUSD.G2\nDeposit=10000.00\nCurrency=USD\n",
-            encoding="utf-8")
+            encoding="utf-8", newline="")
         grade = tlg.grade_leg_from_log(window_text=win, symbol="EURUSD.G2",
                                        requested_model=req,
                                        leg=f"gold2_{model}",
@@ -235,7 +235,7 @@ def tick(tmp_path):
         assert grade["outcome"] == "PASS_FROM_LOG", grade["reason"]
         trades = ev / f"tester_gold2_{model}_log_trades.json"
         trades.write_text(json.dumps(tlg.log_trade_list(grade, win.encode())),
-                          encoding="utf-8")
+                          encoding="utf-8", newline="")
         assert tlg.place_log_trades(trades, pkg, "gold2", model, REPO)["ok"]
     rec = s8p.build_package(repo=REPO, package=pkg, gate_evidence=ev,
                             data_folder=data, golds=["gold2"],
@@ -268,7 +268,7 @@ def _ref() -> dict:
 
 def _verify(pkg, doc=None, ref="pinned") -> dict:
     if doc is not None:
-        (pkg / "reconciliation/gold2.json").write_text(json.dumps(doc))
+        (pkg / "reconciliation/gold2.json").write_text(json.dumps(doc), newline="")
     fman = {"python_trade_count": 56}
     if ref is not None:
         fman["sizing_reference"] = _ref() if ref == "pinned" else ref
@@ -524,7 +524,7 @@ def test_archive_manifest_must_bind_the_window_copies(tick):
     man_path = tick / "archive_manifest.json"
     man = json.loads(man_path.read_text())
     del man["artifacts"][og.log_window_rel("gold2", "m1_ohlc")]
-    man_path.write_text(json.dumps(man))
+    man_path.write_text(json.dumps(man), newline="")
     rep = og.verify_archive_manifest(tick, {}, ("gold2",))
     assert rep["state"] == og.INVALID
     assert "log_windows/gold2_m1_ohlc.txt" in " ".join(rep["reasons"])

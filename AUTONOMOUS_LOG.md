@@ -1636,3 +1636,33 @@ report, the gold1 report, and tasks 4-5.
 - **Windows pytest fixes:** `reports/windows_pytest/failures.txt` does not
   exist yet.
 - **Tasks 4 and 5:** they wait on the items above.
+
+## 2026-10-11 — WIN-NEWLINE-1: Windows pytest failures; branch `claude/aegis-safety-fixes-20aen5`
+
+**Merged first:** PR #39 (docs), after CI passed on 3.10, 3.11 and 3.12.
+
+**Input:** `reports/windows_pytest/failures.txt` (gate-reports): 80
+failures at `3337bfa`.
+
+**Done** (details in docs/DECISIONS.md WIN-NEWLINE-1):
+- **64 newline-translation failures.** The gold builders and the
+  dsl-parity golden builder write byte-exact output
+  (`write_bytes` / `lineterminator="\n"`). The tests' synthetic hashed
+  files are written with `newline=""` or in binary mode.
+- **3 autocrlf failures.** The s8_spec3 fixture repo pins
+  `core.autocrlf=false`.
+- **10 optuna failures.** `pytest.importorskip` with a reason.
+- **2 POSIX-guard failures.** Each test is skipped on win32 with a reason,
+  and has a Windows twin test.
+- **1 MAX_PATH failure.** The test uses a short temp root.
+- **Regression test** `tests/test_windows_newlines.py` forces
+  `os.linesep="\r\n"` (`_pyio`) and git `autocrlf=true`.
+
+**Checks:** full pytest (pwsh on PATH) exit 0; ruff exit 0.
+
+**NOT done, and why:**
+- **The suite on real Windows:** not run here. The merge commit asks the
+  runner for it (`[runner: pytest]`).
+- **The full suite under the CRLF emulation:** not run. Only the 11
+  listed tests and the builders were run under it.
+- **Next PR:** IMPORT-CHART-1, the gold1 stage-4 importer ini.
