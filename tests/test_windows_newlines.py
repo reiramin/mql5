@@ -13,10 +13,8 @@ run the affected paths under it.
 
 from __future__ import annotations
 
-import builtins
 import hashlib
 import importlib.util
-import io
 import os
 import subprocess
 import sys
@@ -33,11 +31,8 @@ TESTS = REPO / "tests"
 def crlf(monkeypatch):
     """Windows text-mode newline behaviour, in this process, undone after
     the test."""
-    import _pyio
-
-    monkeypatch.setattr(os, "linesep", "\r\n")
-    monkeypatch.setattr(builtins, "open", _pyio.open)
-    monkeypatch.setattr(io, "open", _pyio.open)
+    for target, name, value in wn.patches():
+        monkeypatch.setattr(target, name, value)
 
 
 def test_the_emulation_really_translates(crlf, tmp_path):

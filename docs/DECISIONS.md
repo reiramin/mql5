@@ -4370,5 +4370,15 @@ assertions are unchanged.
   byte-identical.
 - **(c) Are new checks re-computed by the verifier?** No new checks.
 
+**Python 3.10 detail (found by CI on this PR).** On 3.10, pathlib opens
+files through `_NormalAccessor.open`, which is bound to `io.open` when the
+class is created. Patching `io.open` alone left `Path.write_text`
+untranslated there. `test_the_emulation_really_translates` exists to catch
+exactly this, and it failed on 3.10.
+- `windows_newlines.patches()` and the sitecustomize now also patch the
+  accessor.
+- Reproduced on a local 3.10 (uv): it failed before the change and passes
+  after, together with the 11 re-run tests.
+
 **Not yet proven:** the suite on Windows itself. The merge commit asks
 the runner for it (`[runner: pytest]`).
