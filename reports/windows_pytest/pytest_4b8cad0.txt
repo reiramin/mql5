@@ -1,0 +1,6 @@
+# Windows runner full pytest run
+# Tree: master 4b8cad0 (C:\Users\ramin\Desktop\mql5\gate_run12), 2026-10-11, after PR #40 (WIN-NEWLINE-1) and PR #41 (IMPORT-CHART-1)
+# Command: PYTHONUTF8=1 python -m pytest -q --no-header -p no:cacheprovider -rf
+# Python 3.12 (Windows 10). pwsh not on PATH; optuna not installed; ruff not installed.
+# Exit code: 0. FAILED: 0 (no FAILED or ERROR lines in the output).
+# Previous run at 3337bfa: exit 1, 80 FAILED (failures.txt, kept).
