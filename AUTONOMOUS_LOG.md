@@ -1517,3 +1517,32 @@ Fixed, then ruff 0; full pytest 0 (2512 passed, 1 skipped; pwsh on PATH).
 **NOT done, and why:**
 - Demo harness not run for gate_run39: demo_accounts.json did not exist then.
 - Test failures not investigated or fixed (runner: report only).
+
+## 2026-10-11 (2) — runner: gate_run41 (gold1) + Windows pytest failure list (branch gate-reports)
+
+- Branch: gate-reports. Commits: af8ef12 (reports/gate_run41), then the
+  windows_pytest commit carrying this entry. No code changed.
+- gate_run41: tools\owner_gate.ps1 -Golds gold1 at master 3337bfa
+  (evidence\owner_gate\20261011-100947). Stages 0-3 PASS, stage 4
+  fixture_import FAIL: importer REFUSED at 'symbol_state' for EURUSD.G1
+  (last_error=4305; SYMBOL_SPREAD_FLOAT/SYMBOL_SPREAD differ from the
+  manifest and cannot be re-applied on a selected symbol). GATE_RESULT=
+  partial_fixture_import, gate exit 1. Stages 5 and 8 did not run.
+- Numbering: gate_run40 is reserved for the gold2 demo gate of record.
+- Earlier today: compile gate at 3337bfa (-Golds gold2, evidence
+  20261011-095641), stage 1 strict_compile PASS 0/0; stage 8 FAIL;
+  GATE_RESULT=partial_reconciliation. Kept as the compile step before the
+  demo harness, not published as a numbered run.
+- Full pytest at master 3337bfa: exit 1, 80 FAILED (was 79 at f7d1879).
+  Ids and first error lines in reports/windows_pytest/failures.txt.
+  ruff not installed; pwsh not on PATH; optuna not installed.
+- Leak check (both demo logins and passwords, values never printed) over
+  the new reports: 0 hits.
+
+**NOT done, and why:**
+- Demo harness (restart, netting, hedging) and the gold2 gate of record
+  (gate_run40): waiting for the EURUSD market to open (Monday 00:05 server
+  time); a one-shot job in this session is scheduled for 14:23 local.
+- gold1 stage 4 not remediated: the gate asks the operator to close any
+  chart on EURUSD.G1; terminal profiles were not touched.
+- Test failures not investigated or fixed (runner: report only).

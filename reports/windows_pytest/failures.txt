@@ -1,0 +1,167 @@
+# Windows runner full pytest run
+# Tree: master 3337bfa (C:\Users\ramin\Desktop\mql5\gate_run12), 2026-10-11
+# Command: PYTHONUTF8=1 python -m pytest -q --no-header -p no:cacheprovider -rf
+# Python 3.12 (Windows 10). pwsh not on PATH; optuna not installed; ruff not installed.
+# Exit code: 1. FAILED: 80. Format: test id, then its first 'E' line (truncated to 240 chars).
+# Not investigated or fixed (runner: report only).
+
+tests/test_ema_seed_parity.py::test_legacy_series_is_the_formerly_frozen_fixture
+    AssertionError: assert '1acc48e42248...b8328dabcb755' == '2b1730cbb43e...01dd236ebd764'
+tests/test_gate_scope.py::test_scoped_verify_of_a_gold2_only_package_is_partial_not_positive
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'MT5_VALIDATED_PARTIAL_SCOPE'
+tests/test_gate_scope.py::test_scoped_verify_is_partial_even_when_every_gold_is_present
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'MT5_VALIDATED_PARTIAL_SCOPE'
+tests/test_gate_scope.py::test_scope_never_hides_a_scoped_gold_failure
+    KeyError: 'result'
+tests/test_gate_scope.py::test_default_verify_is_unchanged
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'MT5_VALIDATED'
+tests/test_gate_scope.py::test_verify_cli_scoped_run_exits_nonzero_and_records_scope
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'MT5_VALIDATED_PARTIAL_SCOPE'
+tests/test_gold2_standard.py::test_fixture_replay_is_deterministic_and_bound_to_artifact
+    AssertionError: assert '250c6fc38c00...fba74b48b3f5c' == '59cd339f6ebd...b8c3e8bf3dd79'
+tests/test_mt5tester.py::test_run_backtest_guard_off_windows
+    FileNotFoundError: terminal64.exe not found in C:\MT5
+tests/test_optuna_hardening.py::test_identical_seed_identical_trial_order
+    ModuleNotFoundError: No module named 'optuna'
+tests/test_optuna_hardening.py::test_identical_data_identical_best_params
+    ModuleNotFoundError: No module named 'optuna'
+tests/test_optuna_hardening.py::test_pruned_trials_actually_pruned
+    ModuleNotFoundError: No module named 'optuna'
+tests/test_optuna_hardening.py::test_pruning_does_not_alter_correctness
+    ModuleNotFoundError: No module named 'optuna'
+tests/test_optuna_hardening.py::test_missing_hyperband_reported_not_substituted
+    ModuleNotFoundError: No module named 'optuna'
+tests/test_optuna_hardening.py::test_no_oos_metric_visible_to_objective
+    ModuleNotFoundError: No module named 'optuna'
+tests/test_optuna_hardening.py::test_oos_guard_refuses_certification_slice
+    ModuleNotFoundError: No module named 'optuna'
+tests/test_optuna_hardening.py::test_cache_hit_produces_equivalent_output
+    ModuleNotFoundError: No module named 'optuna'
+tests/test_optuna_hardening.py::test_optional_parallel_execution_runs
+    ModuleNotFoundError: No module named 'optuna'
+tests/test_optuna_hardening.py::test_objective_never_evaluates_oos_suffix_rows
+    ModuleNotFoundError: No module named 'optuna'
+tests/test_owner_gate.py::test_complete_valid_package_reaches_mt5_validated
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'MT5_VALIDATED'
+tests/test_owner_gate.py::test_model_identity_mismatch_fails_closed
+    assert False
+tests/test_owner_gate.py::test_compile_only_package_reports_missing
+    AssertionError: assert 'NOT_VERIFIED_ARTIFACT_MISMATCH' in ('NOT_VERIFIED_RECONCILIATION_MISSING', 'NOT_VERIFIED_MISSING_MT5_EVIDENCE')
+tests/test_owner_gate.py::test_unknown_coverage_constrains_the_verdict
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'NOT_VERIFIED...ERAGE_UNKNOWN'
+tests/test_owner_gate.py::test_partial_coverage_stays_limited
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'NOT_VERIFIED...ERAGE_UNKNOWN'
+tests/test_owner_gate.py::test_reconciliation_python_only_package_fails_closed
+    AssertionError: assert 'MISMATCHED' == 'INVALID'
+tests/test_owner_gate.py::test_reconciliation_null_mt5_side_fails_closed
+    AssertionError: assert 'MISMATCHED' == 'INVALID'
+tests/test_owner_gate.py::test_timezone_offset_same_instant_is_accepted
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'MT5_VALIDATED'
+tests/test_owner_gate.py::test_cli_exit_codes
+    AssertionError:
+tests/test_owner_gate.py::test_real_tick_A_valid_journal_matching_hash_accepted
+    AssertionError: assert 'MISMATCHED' == 'VALID'
+tests/test_owner_gate.py::test_real_tick_K_partial_constrained
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'NOT_VERIFIED...ERAGE_UNKNOWN'
+tests/test_owner_gate.py::test_real_tick_L_unknown_constrained
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'NOT_VERIFIED...ERAGE_UNKNOWN'
+tests/test_owner_gate.py::test_safety_valid_evidence_accepted[kill_switch]
+    AssertionError: assert 'MISMATCHED' == 'VALID'
+tests/test_owner_gate.py::test_safety_valid_evidence_accepted[risk_veto]
+    AssertionError: assert 'MISMATCHED' == 'VALID'
+tests/test_owner_gate.py::test_safety_valid_evidence_accepted[meta_reduce]
+    AssertionError: assert 'MISMATCHED' == 'VALID'
+tests/test_owner_gate.py::test_safety_valid_evidence_accepted[sl_verify]
+    AssertionError: assert 'MISMATCHED' == 'VALID'
+tests/test_owner_gate.py::test_safety_valid_evidence_accepted[lost_response]
+    AssertionError: assert 'MISMATCHED' == 'VALID'
+tests/test_owner_gate.py::test_safety_valid_evidence_accepted[restart]
+    AssertionError: assert 'MISMATCHED' == 'VALID'
+tests/test_owner_gate.py::test_safety_valid_evidence_accepted[netting]
+    AssertionError: assert 'MISMATCHED' == 'VALID'
+tests/test_owner_gate.py::test_safety_valid_evidence_accepted[hedging]
+    AssertionError: assert 'MISMATCHED' == 'VALID'
+tests/test_owner_gate.py::test_raw_report_altered_breaks_chain
+    AssertionError: assert 'raw report' in 'symbolspec_sha256 binding does not match the actual SymbolSpec bytes'
+tests/test_owner_gate_log_trades.py::test_all_legs_log_sourced_zero_deals_vs_zero_python_trades_matches
+    KeyError: 'result'
+tests/test_owner_gate_log_trades.py::test_zero_deals_vs_n_expected_in_window_entries_diverges
+    KeyError: 'result'
+tests/test_owner_gate_log_trades.py::test_zero_deals_with_no_python_side_record_is_invalid
+    AssertionError: assert 'MISMATCHED' == 'INVALID'
+tests/test_owner_gate_log_trades.py::test_entry_deals_not_all_deals_are_counted
+    KeyError: 'result'
+tests/test_owner_gate_log_trades.py::test_an_mt5_entry_deal_with_no_python_entry_diverges
+    KeyError: 'result'
+tests/test_owner_gate_log_trades.py::test_paired_plus_extra_must_equal_the_mt5_entry_deals
+    AssertionError: assert 'MISMATCHED' == 'INVALID'
+tests/test_owner_gate_log_trades.py::test_one_log_sourced_leg_beside_two_report_legs
+    KeyError: 'result'
+tests/test_owner_gate_log_trades.py::test_empty_events_are_still_rejected_while_any_leg_has_a_report
+    AssertionError: assert 'MISMATCHED' == 'INVALID'
+tests/test_owner_gate_log_trades.py::test_no_hash_verified_python_count_fails_closed
+    AssertionError: assert 'MISMATCHED' == 'INVALID'
+tests/test_owner_gate_log_trades.py::test_tampered_log_trade_list_fails
+    AssertionError: assert 'every_tick: log trade list bytes changed' in 'symbolspec_sha256 binding does not match the actual SymbolSpec bytes'
+tests/test_owner_gate_log_trades.py::test_a_list_that_is_not_pass_from_log_is_refused[from_log-False]
+    AssertionError: assert 'real_ticks: not a PASS_FROM_LOG log trade list' in 'symbolspec_sha256 binding does not match the actual SymbolSpec bytes'
+tests/test_owner_gate_log_trades.py::test_a_list_that_is_not_pass_from_log_is_refused[report_present-True]
+    AssertionError: assert 'real_ticks: not a PASS_FROM_LOG log trade list' in 'symbolspec_sha256 binding does not match the actual SymbolSpec bytes'
+tests/test_owner_gate_log_trades.py::test_a_list_that_is_not_pass_from_log_is_refused[evidence_class-BLOCKED_OWNER_ENVIRONMENT]
+    AssertionError: assert 'real_ticks: not a PASS_FROM_LOG log trade list' in 'symbolspec_sha256 binding does not match the actual SymbolSpec bytes'
+tests/test_owner_gate_log_trades.py::test_a_list_that_is_not_pass_from_log_is_refused[deals-None]
+    AssertionError: assert 'real_ticks: not a PASS_FROM_LOG log trade list' in 'symbolspec_sha256 binding does not match the actual SymbolSpec bytes'
+tests/test_owner_gate_log_trades.py::test_log_reported_model_must_equal_the_list
+    AssertionError: assert 'm1_ohlc: log_reported' in 'symbolspec_sha256 binding does not match the actual SymbolSpec bytes'
+tests/test_reality_gate.py::test_gold_manifest_and_fixture_deterministic
+    AssertionError: manifest.json drifted from the frozen gold standard
+tests/test_s8_count_ts_tickpath.py::test_window_copies_are_packaged_and_bound
+    FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\ramin\\AppData\\Local\\Temp\\pytest-of-ramin\\pytest-13\\test_window_copies_are_package0\\pkg\\log_windows\\gold2_m1_ohlc.txt'
+tests/test_s8_count_ts_tickpath.py::test_verifier_accepts_the_rules_and_still_diverges_on_m1
+    AssertionError: ['every_tick: S8-SLTP-1 needs the bound window copy: log_windows/gold2_every_tick.txt missing from the package', 'm1_ohlc: S8-SLTP-1 needs the bound window copy: log_windows/gold2_m1_ohlc.txt missing from the package']
+tests/test_s8_count_ts_tickpath.py::test_recomputed_lots_unequal_to_mt5_diverge
+    AssertionError: ['every_tick: S8-SLTP-1 needs the bound window copy: log_windows/gold2_every_tick.txt missing from the package', 'm1_ohlc: S8-SLTP-1 needs the bound window copy: log_windows/gold2_m1_ohlc.txt missing from the package']
+tests/test_s8_count_ts_tickpath.py::test_bar_level_timestamp_needs_an_exact_entry_price
+    AssertionError: assert ['every_tick:... the package'] == []
+tests/test_s8_count_ts_tickpath.py::test_bar_level_timestamp_holds_beside_an_exact_price
+    AssertionError: assert ['every_tick:... the package'] == []
+tests/test_s8_count_ts_tickpath.py::test_sl_tp_are_compared_on_every_paired_event
+    AssertionError: assert {'mt5': None,...hon': 1.16598} == {'python': 1....mt5': 1.16598}
+tests/test_s8_count_ts_tickpath.py::test_sl_mt5_value_must_be_the_request_lines
+    assert "every_tick: ticket 2 sl mt5=1.16597 is not the request line's 1.16598" in 'every_tick: S8-SLTP-1 needs the bound window copy: log_windows/gold2_every_tick.txt missing from the package m1_ohlc: S8-SLTP-1 needs the bound window copy: 
+tests/test_s8_count_ts_tickpath.py::test_a_python_tp_off_by_one_point_diverges
+    AssertionError: assert 'INVALID' == 'MISMATCHED'
+tests/test_s8_count_ts_tickpath.py::test_a_window_copy_that_is_not_the_lists_window_is_invalid
+    FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\ramin\\AppData\\Local\\Temp\\pytest-of-ramin\\pytest-13\\test_a_window_copy_that_is_not0\\pkg\\log_windows\\gold2_every_tick.txt'
+tests/test_s8_count_ts_tickpath.py::test_archive_manifest_must_bind_the_window_copies
+    KeyError: 'log_windows/gold2_m1_ohlc.txt'
+tests/test_s8_spec3_identity_and_anchor.py::test_descendant_with_identical_frozen_bytes_is_accepted
+    AssertionError: ['gold_1 fixture: artifacts/gold/gold_fixture.csv sha256 at the anchor d12946f0023514802b72409e5ee36235f4440842 != fro...d_2 fixture: artifacts/gold_2/gold2_fixture.csv sha256 at db6abfea1ed9dcff21828ba0365b5318b5e14332 != f
+tests/test_s8_spec3_identity_and_anchor.py::test_artifact_and_its_pin_changed_together_is_refused
+    AssertionError: assert 'acc07b62f23f...f2dcc760d6349' == 'a1e35b820619...b1503d5744638'
+tests/test_s8_spec3_identity_and_anchor.py::test_verify_compile_accepts_only_through_the_relation
+    AssertionError: assert 'MISMATCHED' == 'VALID'
+tests/test_stage5_gold_strategy.py::test_old_and_sibling_agent_locations_are_both_staged
+    AssertionError: assert 3 == 4
+tests/test_stage5_tester_legs.py::test_run_with_defaults_passes_inputs_guard_then_platform_guard
+    AssertionError: assert 2 == 3
+tests/test_stage8_package_from_gate.py::test_reconciliation_pairs_by_time_never_by_position
+    AssertionError: assert {'mt5': None,...hon': 1.16598} == {'python': 1....mt5': 1.16598}
+tests/test_stage8_package_from_gate.py::test_first_divergence_is_surfaced_on_a_fail
+    AssertionError: assert 'sl' == 'entry_price'
+tests/test_stage8_package_from_gate.py::test_cli_divergence_note_quotes_the_report
+    assert "field 'entry_price' python=1.09726 mt5=1.097" in "gold2 first divergence: field 'sl' python=1.16598 mt5=None at trade 0 (every_tick), time 2024-01-02T08:01:00 -> ROUND...mt5=None at trade 0 (every_tick), time 2024-01-02T08:01:00 -> 
+tests/test_verdict_bar_models.py::test_bar_only_complete_package_is_mt5_validated_bar_models
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'MT5_VALIDATED_BAR_MODELS'
+tests/test_verdict_bar_models.py::test_scoped_bar_only_run_is_partial_scope_and_not_positive
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'MT5_VALIDATE...PARTIAL_SCOPE'
+tests/test_verdict_bar_models.py::test_full_coverage_is_still_mt5_validated
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'MT5_VALIDATED'
+tests/test_verdict_bar_models.py::test_scoped_full_coverage_is_still_mt5_validated_partial_scope
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'MT5_VALIDATED_PARTIAL_SCOPE'
+tests/test_verdict_bar_models.py::test_partial_and_unknown_coverage_stay_capped[PARTIAL]
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'NOT_VERIFIED...ERAGE_UNKNOWN'
+tests/test_verdict_bar_models.py::test_partial_and_unknown_coverage_stay_capped[UNKNOWN]
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'NOT_VERIFIED...ERAGE_UNKNOWN'
+tests/test_verdict_bar_models.py::test_an_invalid_none_record_is_never_bar_models
+    AssertionError: assert 'NOT_VERIFIED...FACT_MISMATCH' == 'NOT_VERIFIED..._MT5_EVIDENCE'
