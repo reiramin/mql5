@@ -1,0 +1,35 @@
+{
+  "action": "InpTestKillSwitchAfterEntries=1: the EA calls TripKillSwitch(REASON_MANUAL) right after its first entry, then the fixture keeps feeding",
+  "baseline_evidence": {
+    "path": "safety/raw/baseline_gold2_m1_ohlc_window.txt",
+    "sha256": "52def70fb76659d18814b0551d0fc1744979a4b3b8c1a9f2fa810f4e2141be9a"
+  },
+  "expected_result": "ZERO_NEW_ORDERS_WHILE_LATCHED",
+  "facts": {
+    "allows_new_trades": "false",
+    "baseline_entries_after_latch": 36,
+    "entries_after_latch": 0,
+    "latched_after_entry": 1,
+    "latched_at": "2024.01.02 08:01:00"
+  },
+  "initial_state": "ENGINE_NORMAL; 1 entry made",
+  "inputs": {
+    "InpTestKillSwitchAfterEntries": 1
+  },
+  "observed_result": "ZERO_NEW_ORDERS_WHILE_LATCHED",
+  "passed": true,
+  "quoted_lines": [
+    "FH\t0\t07:57:40.927\tCore 1\t2024.01.02 08:01:00   [2024.01.02 08:01:00] [WARN] TEST 8a kill switch: LATCHED after entry 1 (state=2 reason=1 AllowsNewTrades=false)",
+    "CH\t0\t07:56:18.030\tCore 1\t2024.01.02 08:46:00   instant buy 0.28 EURUSD.G2 at 1.09726 sl: 1.09375 tp: 1.10253 (1.09725 / 1.09726 / 1.09725)",
+    "HK\t0\t07:56:18.030\tCore 1\t2024.01.02 09:13:00   instant sell 0.98 EURUSD.G2 at 1.09655 sl: 1.09756 tp: 1.09504 (1.09655 / 1.09656 / 1.09655)",
+    "EQ\t0\t07:56:18.030\tCore 1\t2024.01.02 09:42:00   instant buy 1.48 EURUSD.G2 at 1.09720 sl: 1.09653 tp: 1.09821 (1.09719 / 1.09720 / 1.09719)"
+  ],
+  "raw_evidence": {
+    "path": "safety/raw/kill_switch_window.txt",
+    "sha256": "6a450dbe6490ed4365255979c0fcc8bbbb2d5e98d0ba4a566f4c2b20f628aa6d"
+  },
+  "resulting_state": "ENGINE state=2 reason=1 AllowsNewTrades=false from 2024.01.02 08:01:00; 0 entry request(s) after it (baseline: 36)",
+  "schema": "mql5bot.safety_evidence/1",
+  "source": "graded by mql5bot.safety_legs from the MT5 Strategy Tester leg window of this gate run",
+  "test": "kill_switch"
+}

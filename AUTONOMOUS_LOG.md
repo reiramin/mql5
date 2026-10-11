@@ -1497,3 +1497,23 @@ Fixed, then ruff 0; full pytest 0 (2512 passed, 1 skipped; pwsh on PATH).
 - No harness run.json files in the report for the same reason.
 - origin/master 7629a00 (CLAUDE.md only) is not a merge commit, so not pulled/re-run.
 - Test failures not investigated or fixed (runner instructions: never fix).
+
+## 2026-10-11 — runner: gate_run39 report (branch gate-reports)
+
+- Branch: gate-reports. No code changed.
+- Ran (2026-10-07): tools\owner_gate.ps1 -Golds gold2 at master f29b7fa
+  (evidence\owner_gate\20261007-145454). Stages 0-4 PASS, stage 5
+  PASS_FROM_LOG, stage 8 reconciliation FAIL; GATE_RESULT=partial_reconciliation,
+  gate exit 1; reconciliation_verify.json verdict "NOT_VERIFIED_ARTIFACT_MISMATCH".
+- Published reports/gate_run39/ (force-added; reports/ is in .gitignore).
+- Owner confirmed the server name "MetaQuotes-Demo" is public and approved
+  publishing reports that contain it. Leak check (logins and passwords of
+  both demo accounts, values never printed) over reports/gate_run38,
+  reports/gate_run39 and this log: 0 hits in 32 files.
+- Pre-commit checks on this machine: ruff NOT run (not installed); pytest
+  exit 1 (79 FAILED lines, PYTHONUTF8=1). Committed on owner instruction;
+  report-only commit.
+
+**NOT done, and why:**
+- Demo harness not run for gate_run39: demo_accounts.json did not exist then.
+- Test failures not investigated or fixed (runner: report only).
