@@ -1,0 +1,26 @@
+﻿[owner-gate] evidence dir: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-220326
+[owner-gate] mql5bot resolved IN-REPO: C:\Users\ramin\Desktop\mql5\gate_run12\python\mql5bot\__init__.py (v1.0.0)
+[owner-gate] NOTE: HEAD 6894de2d4fefed25571af55503e5dedccda1d48a is newer than and descends from the frozen anchor 6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7; the frozen artifacts (verified separately) are what is certified, not the SHA
+[owner-gate] stage 0 self_protection: PASS -- HEAD relates to the frozen anchor (== or newer descendant), tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located, mql5bot IN-REPO (C:\Users\ramin\Desktop\mql5\gate_run12\python\mql5bot\__init__.py v1.0.0). NOTE: HEAD 6894de2d4fefed25571af55503e5dedccda1d48a is newer than and descends from the frozen anchor 6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7; the frozen artifacts (verified separately) are what is certified, not the SHA
+[owner-gate] stage 1 strict_compile: PASS -- 0 errors, 0 warnings; targets clean: DslParityRunner.mq5, Mql5Bot.mq5, Mql5BotDownloadData.mq5, Mql5BotExportSymbolSpec.mq5, Mql5BotImportFixture.mq5
+[owner-gate] stage 2 dsl_parity: PASS -- 14/14 fixtures EXACT + tampered refused
+[owner-gate] stage 3 broker_parity: FAIL -- in-scope PENDING rows (not verified, not a pass): [('EURUSD', 'sizer.behaviour'), ('EURUSD', 'tick_value_denomination')]; EURUSD denomination_probe: reason="NOT_SYNCED_AFTER_60s" attempts=10 waited_seconds=69.407 last_error=0
+
+[owner-gate] ===== SUMMARY (machine-readable) =====
+  stage 0  self_protection        PASS
+      b0b8435264f58a0110a91afdc911a29b127273361a18d38e71866a6669671d1b  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-220326\decide_8c9948febd034d7aa6afdd72e35b8b94.json
+      e3bdff4e5f4e59a417a8f8d3db85e365c4b5d80639d8e5faaad820a65eb8e837  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-220326\decide_20d343ab84034035a26393fd8d1d010e.json
+  stage 1  strict_compile         PASS
+      f2bb1df13d608588b8c7e9296cd1b8d3a22b1a3028ed81103a7b998b8b33cf97  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-220326\compile-20261011-220330.log
+  stage 2  dsl_parity             PASS
+      32a053bc4eedbee8e0c84d48026bca03f45eaf708b43141e6067d8c76bdc76bf  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-220326\dsl_compare_report.txt
+  stage 3  broker_parity          FAIL
+      d301badd1e8322068334de54c741e8cd96041f3f5ef5ae0f56b2f68056c8f2bb  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-220326\parity_report.json
+      9a211478b12778864db08adc535adec54a397e9286539d1f1aabce07ff1da54a  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-220326\export_symbolspec_EURUSD.set
+      d23c1c790469ad66e43ec78f84b49778ffb32ec1cbac0c61eb63d8b7703931b3  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-220326\export_symbolspec_EURUSD.ini
+      2fb2ebc665da289470a4bfd7db31d2817fc26e3b84c87cac958ed089a41875d5  C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\broker_exports\EURUSD.json
+      2fb2ebc665da289470a4bfd7db31d2817fc26e3b84c87cac958ed089a41875d5  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-220326\symbolspec_EURUSD.json
+      f0728f0dabcfe55b00cb9d6a73af9d4584e938bed9412d84467bd715064f5cdf  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-220326\decide_3abb35b0168643289e5cedc98b3433b9.json
+  first_blocking_stage: broker_parity
+  summary: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-220326\gate_summary.json  (028d6dd620d7fde116ae92f97bf7ca20067eb616f47f90bb89b71e3e1073d920)
+GATE_RESULT=partial_broker_parity
