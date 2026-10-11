@@ -1601,3 +1601,38 @@ pwsh-dependent tests did not exercise the ps1.
   without a Windows gate run (docs/BLOCKED.md).
 - **Task 5 (docs/SHOWCASE.md):** waits for the final verdict of task 4.
   Writing it now would describe a verdict that does not exist.
+
+## 2026-10-11 — gate_run38 / gate_run39 read (branch `gate-reports`); branch `claude/aegis-safety-fixes-20aen5`
+
+**Evidence read** (origin/gate-reports 0669a4f; facts quoted from the
+reports, nothing re-derived):
+- **gate_run38** (`f7d1879`, `-Golds gold2`). Stages 0-4 PASS; stage 5
+  PASS_FROM_LOG; stage 8 FAIL with NOT_VERIFIED_ARTIFACT_MISMATCH. The demo
+  harness did not exist at that SHA.
+- **gate_run39** (`f29b7fa`, which includes PR #34/#35, `-Golds gold2`):
+  - stage 1 strict_compile PASS, "0 errors, 0 warnings" over Mql5Bot.mq5
+    and the scripts. This is the first owner-terminal compile of
+    SAFETY-GATE-1/2 and the lost_response hook.
+  - gold2 reconciliation VALID / MATCH.
+  - safety VALID: kill_switch, risk_veto, meta_reduce, sl_verify,
+    lost_response (LOST_RESPONSE_ADOPTED_NO_DUPLICATE).
+  - safety MISSING: restart, netting, hedging. The demo harness was not
+    run because there is no demo_accounts.json on the runner.
+  - stage 8 FAIL with NOT_VERIFIED_ARTIFACT_MISMATCH, only because those
+    three files are missing.
+
+**What this means.**
+- **Task 2:** no verifier or builder defect is shown. The remaining three
+  files need the owner's demo setup (docs/BLOCKED.md); there is nothing to
+  fix in code from these reports.
+- **gold1:** not yet run on the regenerated fixture. The runner said a
+  gold1 report is coming.
+
+**Done here:** docs/BLOCKED.md rewritten. The gate-reports item is
+removed; the open items are the owner demo environment, the Windows pytest
+report, the gold1 report, and tasks 4-5.
+
+**NOT done, and why:**
+- **Windows pytest fixes:** `reports/windows_pytest/failures.txt` does not
+  exist yet.
+- **Tasks 4 and 5:** they wait on the items above.
