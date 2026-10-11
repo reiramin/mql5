@@ -1,0 +1,33 @@
+﻿[owner-gate] evidence dir: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947
+[owner-gate] mql5bot resolved IN-REPO: C:\Users\ramin\Desktop\mql5\gate_run12\python\mql5bot\__init__.py (v1.0.0)
+[owner-gate] NOTE: HEAD 3337bfaeedd558675a14ddfb62533bb7f904d68a is newer than and descends from the frozen anchor 6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7; the frozen artifacts (verified separately) are what is certified, not the SHA
+[owner-gate] stage 0 self_protection: PASS -- HEAD relates to the frozen anchor (== or newer descendant), tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located, mql5bot IN-REPO (C:\Users\ramin\Desktop\mql5\gate_run12\python\mql5bot\__init__.py v1.0.0). NOTE: HEAD 3337bfaeedd558675a14ddfb62533bb7f904d68a is newer than and descends from the frozen anchor 6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7; the frozen artifacts (verified separately) are what is certified, not the SHA
+[owner-gate] stage 1 strict_compile: PASS -- 0 errors, 0 warnings; targets clean: DslParityRunner.mq5, Mql5Bot.mq5, Mql5BotDownloadData.mq5, Mql5BotExportSymbolSpec.mq5, Mql5BotImportFixture.mq5
+[owner-gate] stage 2 dsl_parity: PASS -- 14/14 fixtures EXACT + tampered refused
+[owner-gate] stage 3 broker_parity: PASS -- 12 MATCH rows; crypto PENDING excluded: BTC:sizer.behaviour, BTC:tick_value_denomination; EURUSD export: gate-run Mql5BotExportSymbolSpec (this run) C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\symbolspec_EURUSD.json
+[owner-gate] import JSON sha256 before copy 5f554ec10ee04a1ffb84ae01b14e20644b2670d9df48c2a1e0c9c30739cea1e2 / after copy 5f554ec10ee04a1ffb84ae01b14e20644b2670d9df48c2a1e0c9c30739cea1e2
+[owner-gate] stage 4 fixture_import: FAIL -- [json_refused] EURUSD.G1: importer REFUSED at stage 'symbol_state' (last_error=4305): cannot adopt the surviving custom symbol EURUSD.G1: 2 propert(y/ies) differ from the manifest spec (SYMBOL_SPREAD_FLOAT,SYMBOL_SPREAD) and must be re-applied, but properties cannot be changed on a selected symbol (5306) and the release failed: SymbolSelect(false) (last_error=4305; 4305 = ERR_MARKET_SELECT_ERROR, error adding or deleting a symbol in Market Watch; ChartClose is asynchronous). Operator remediation: close any chart on EURUSD.G1 in the terminal, then re-run the gate
+
+[owner-gate] ===== SUMMARY (machine-readable) =====
+  stage 0  self_protection        PASS
+      de0a62e704994b451883f697aeb09fd7918fe88d34fa048adc6321550b4836c4  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\decide_bbe2780acb29478bacbbb2836d602bbe.json
+      e3bdff4e5f4e59a417a8f8d3db85e365c4b5d80639d8e5faaad820a65eb8e837  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\decide_f6c41f3d72de4169835cc215ed13d096.json
+  stage 1  strict_compile         PASS
+      6acc96e7d93ff5d6e37f2baa0ad7d8dd3fcb38977cb075fc7d4ba76f02c8daa1  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\compile-20261011-100953.log
+  stage 2  dsl_parity             PASS
+      32a053bc4eedbee8e0c84d48026bca03f45eaf708b43141e6067d8c76bdc76bf  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\dsl_compare_report.txt
+  stage 3  broker_parity          PASS
+      569a0dcf7fe85f549b3b84170a8eea6396939732b3effaa180a74f8a9144f07b  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\parity_report.json
+      9a211478b12778864db08adc535adec54a397e9286539d1f1aabce07ff1da54a  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\export_symbolspec_EURUSD.set
+      d23c1c790469ad66e43ec78f84b49778ffb32ec1cbac0c61eb63d8b7703931b3  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\export_symbolspec_EURUSD.ini
+      4701ae603940cdaa8b0a5a9ca925f140799b786b9af2749efab528104d502925  C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\broker_exports\EURUSD.json
+      4701ae603940cdaa8b0a5a9ca925f140799b786b9af2749efab528104d502925  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\symbolspec_EURUSD.json
+      7ec78049d06145b090027611763687f7effe863abfbf53d051dd0d82af712588  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\decide_0c9d447b24da48be9e110fc279ac9ec8.json
+  stage 4  fixture_import         FAIL
+      52cfb12343bf3291fead2ce9c0637f3c86cd102da0f38ffed916d800e6205061  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\import_EURUSD.G1.set
+      376b832349876c4de58c3e8b9a55c0050560e2e852c818238fd7c43b498d28fc  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\import_EURUSD.G1_preset_decoded.txt
+      5f554ec10ee04a1ffb84ae01b14e20644b2670d9df48c2a1e0c9c30739cea1e2  C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\gold_import_out\EURUSD.G1.json
+      5f554ec10ee04a1ffb84ae01b14e20644b2670d9df48c2a1e0c9c30739cea1e2  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\import_EURUSD.G1.json
+  first_blocking_stage: fixture_import
+  summary: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261011-100947\gate_summary.json  (8788f773ffca3a1fdfdf2989ba756c8fbc5b23ed56a9252032a72f5553c0d63b)
+GATE_RESULT=partial_fixture_import
