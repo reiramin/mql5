@@ -1546,3 +1546,23 @@ Fixed, then ruff 0; full pytest 0 (2512 passed, 1 skipped; pwsh on PATH).
 - gold1 stage 4 not remediated: the gate asks the operator to close any
   chart on EURUSD.G1; terminal profiles were not touched.
 - Test failures not investigated or fixed (runner: report only).
+## 2026-10-11 (3) — runner: gate_run42 (gold1 re-run) (branch gate-reports)
+
+- Branch: gate-reports. No code changed.
+- Owner hid EURUSD.G1 from Market Watch, closed its chart and closed MT5.
+  Re-ran tools\owner_gate.ps1 -Golds gold1 at master 3337bfa (evidence
+  \owner_gate\20261011-103909). Stages 0-3 PASS, stage 4 fixture_import
+  FAIL with the same importer refusal as gate_run41 (symbol_state,
+  last_error=4305, SYMBOL_SPREAD_FLOAT/SYMBOL_SPREAD). GATE_RESULT=
+  partial_fixture_import, gate exit 1. Stages 5 and 8 did not run.
+- Read-only check: no EURUSD.G1 reference in the terminal's config\ or
+  MQL5\Profiles\; the importer ini sets no Symbol=.
+- Leak check (logins+passwords): 0 hits in 10 files.
+- Pre-commit: ruff not installed; pytest exit 1 (80 FAILED at 3337bfa,
+  reports/windows_pytest/failures.txt). Committed on owner instruction.
+
+**NOT done, and why:**
+- The cause of the selected-symbol refusal was not investigated in mql5/
+  (runner: report only; importer behaviour is an owner/dev decision).
+- Demo harness + gold2 gate of record (gate_run40): still scheduled for
+  14:23 local, after the market opens.
