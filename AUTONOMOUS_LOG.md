@@ -1666,3 +1666,32 @@ failures at `3337bfa`.
 - **The full suite under the CRLF emulation:** not run. Only the 11
   listed tests and the builders were run under it.
 - **Next PR:** IMPORT-CHART-1, the gold1 stage-4 importer ini.
+
+## 2026-10-11 — IMPORT-CHART-1: gold1 stage-4 importer chart; branch `claude/aegis-safety-fixes-20aen5`
+
+**Input:** gate_run41 and gate_run42 (gate-reports, `-Golds gold1`).
+Stage 4 FAIL: the importer refused EURUSD.G1 at `symbol_state`
+(5306/4305, `SymbolSelect(false)` failed). `import_EURUSD.G1.ini` had no
+`Symbol=` line.
+
+**Done:**
+- `tools/owner_gate.ps1`: the importer ini always has `Symbol=EURUSD` and
+  `Period=H1`.
+- A pre-import refusal, `[import_chart_is_custom]`, if that symbol is ever
+  a gold's custom symbol.
+- The exporter ini is unchanged.
+- New test `tests/test_import_chart_symbol.py` (it runs the gate's own
+  launch line under pwsh). Against the old ps1, 4 of its 5 tests fail.
+- docs/DECISIONS.md IMPORT-CHART-1.
+
+**Checks:** full pytest (pwsh on PATH) and ruff, both exit 0, read before
+commit.
+
+**NOT done, and why:**
+- **Proof that this clears the refusal:** there is none. In gate_run42 the
+  refusal names `SymbolSelect(false)`, not "own chart displays
+  EURUSD.G1", so the script's own chart was not EURUSD.G1 in that run.
+- **The importer itself:** not touched. `mql5/Scripts` is outside
+  exception 1. If gold1 still refuses, the next step goes to the owner in
+  docs/BLOCKED.md.
+- **Next gold1 run:** the merge commit carries `[runner: gold1]`.

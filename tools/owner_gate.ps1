@@ -345,7 +345,7 @@ function Find-Exe([string]$name, [string]$explicit, [string]$envVar) {
 # the importer WHICH gold it is and EXACTLY where to write its JSON, instead of
 # relying on the script's compiled-in defaults. Returns launch status so the
 # caller can tell "never launched" from "ran but produced nothing".
-function Invoke-TerminalScript([string]$scriptRel, [string]$label, [string]$presetName = "", [string]$symbol = "") {
+function Invoke-TerminalScript([string]$scriptRel, [string]$label, [string]$presetName = "", [string]$symbol = "", [string]$period = "") {
     $iniPath = Join-Path $Evidence ($label + ".ini")
     $iniLines = @("[StartUp]", "Script=$scriptRel")
     # [StartUp] Symbol= opens the script's chart on THAT symbol (MT5
@@ -353,6 +353,7 @@ function Invoke-TerminalScript([string]$scriptRel, [string]$label, [string]$pres
     # Mql5BotExportSymbolSpec (it exports _Symbol) runs on it, not on
     # whatever chart the terminal last had open.
     if ($symbol) { $iniLines += "Symbol=$symbol" }
+    if ($period) { $iniLines += "Period=$period" }
     if ($presetName) { $iniLines += "ScriptParameters=$presetName" }
     $iniLines += "ShutdownTerminal=1"
     [IO.File]::WriteAllText($iniPath, ($iniLines -join "`r`n") + "`r`n", [Text.Encoding]::ASCII)
@@ -814,11 +815,24 @@ $goldImports = @(
     @{ gold = "gold1"; name = "EURUSD.G1"; fixture = "artifacts\gold\gold_fixture.csv";   manifest = "artifacts\gold\manifest.json" },
     @{ gold = "gold2"; name = "EURUSD.G2"; fixture = "artifacts\gold_2\gold2_fixture.csv"; manifest = "artifacts\gold_2\manifest.json" }
 )
+# IMPORT-CHART-1: every gold, captured BEFORE -Golds scoping (checked below)
+$allGoldImports = $goldImports
 # SCOPED RUN: only the scoped golds' fixtures are imported. This list is
 # $goldImports, NOT $golds: PowerShell names are case-insensitive, so $golds IS
 # the [string[]]$Golds parameter and its type constraint would turn each
 # hashtable into the string "System.Collections.Hashtable" (gate_run22).
 $goldImports = @($goldImports | Where-Object { $Script:Scope -contains $_.gold })
+# IMPORT-CHART-1 (gate_run41/42): the importer's [StartUp] ini names a
+# REAL broker symbol chart. Every custom symbol name (all golds, not only the
+# scoped ones) is checked here, before any import, so the importer can never
+# be hosted on the chart of a symbol it must deselect.
+$ImportChartSymbol = "EURUSD"
+$ImportChartPeriod = "H1"
+$customSymbolNames = @($allGoldImports | ForEach-Object { $_.name })
+if ($customSymbolNames -contains $ImportChartSymbol) {
+    Record-Stage 4 "fixture_import" "FAIL" ("[import_chart_is_custom] importer chart symbol {0} is a gold custom symbol" -f $ImportChartSymbol) @($stage4art) | Out-Null
+    Finish-Gate "fixture_import"
+}
 $filesImport = Join-Path $DataFolder "MQL5\Files\Mql5Bot\gold_import"
 $importOut = Join-Path $DataFolder "MQL5\Files\Mql5Bot\gold_import_out"
 $presetsDir = Join-Path $DataFolder "MQL5\Presets"
@@ -901,7 +915,13 @@ foreach ($g in $goldImports) {
     # EVERY exit path, including every early refusal.
     $man = Get-Content -LiteralPath (Join-Path $RepoRoot $g.manifest) -Raw | ConvertFrom-Json
     $resultJson = Join-Path $DataFolder ("MQL5\Files\" + $outRel)
-    $run = Invoke-TerminalScript "Mql5Bot\Mql5BotImportFixture" ("import_" + $g.name) $setName
+    # IMPORT-CHART-1 (gate_run41/42): an ini with no Symbol= runs the script
+    # on whatever chart the terminal restores -- after the custom-symbol
+    # export that can be a chart on this very custom symbol, and a symbol
+    # whose chart hosts the script cannot be deselected (SymbolSelect(false)
+    # -> 4305), so its properties cannot be re-applied (5306). The importer
+    # always runs on a real broker symbol chart, never on a custom one.
+    $run = Invoke-TerminalScript "Mql5Bot\Mql5BotImportFixture" ("import_" + $g.name) $setName $ImportChartSymbol $ImportChartPeriod
 
     # Three cases, DISTINCT messages (decided in committed Python, never the
     # .ps1): (1) terminal never launched, (2) terminal ran but no JSON, (3)
