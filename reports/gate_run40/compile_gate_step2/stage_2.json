@@ -1,0 +1,14 @@
+{
+    "stage":  2,
+    "name":  "dsl_parity",
+    "status":  "FAIL",
+    "reason":  "[scope: gold2; PARTIAL run -- certifies nothing] no compare_report.txt produced by run_dsl_parity.ps1",
+    "scope":  [
+                  "gold2"
+              ],
+    "partial":  true,
+    "artifacts":  [
+
+                  ],
+    "utc":  "2026-10-11T21:26:43.3641073Z"
+}

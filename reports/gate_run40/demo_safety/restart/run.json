@@ -1,0 +1,71 @@
+{
+  "schema": "mql5bot.demo_safety_run/2",
+  "test": "restart",
+  "status": "FAILED",
+  "account_role": "hedging",
+  "symbol": "EURUSD",
+  "period": "M1",
+  "ex5_sha256": "ae25df6e41f3fca8034be2bc766c0c2c6fd6a4401f6c28470d4065b9e509e2f4",
+  "steps": [
+    {
+      "utc": "2026-10-11T21:27:40+00:00",
+      "step": "start",
+      "test": "restart",
+      "account_role": "hedging"
+    },
+    {
+      "utc": "2026-10-11T21:27:40+00:00",
+      "step": "terminal_started",
+      "probe": 1
+    },
+    {
+      "utc": "2026-10-11T21:27:47+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-11T21:42:51+00:00",
+      "step": "error",
+      "reason": "timeout after 900s waiting for 'probe position opened' in the EA log"
+    },
+    {
+      "utc": "2026-10-11T21:42:51+00:00",
+      "step": "terminal stopped"
+    },
+    {
+      "utc": "2026-10-11T21:42:51+00:00",
+      "step": "restore: log back in to the hedging account"
+    },
+    {
+      "utc": "2026-10-11T21:42:51+00:00",
+      "step": "terminal_started",
+      "probe": 3
+    },
+    {
+      "utc": "2026-10-11T21:42:57+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-11T21:42:58+00:00",
+      "step": "seen: restore cleanup"
+    },
+    {
+      "utc": "2026-10-11T21:42:58+00:00",
+      "step": "terminal stopped after restore"
+    },
+    {
+      "utc": "2026-10-11T21:42:58+00:00",
+      "step": "restore",
+      "ok": false
+    }
+  ],
+  "error": "timeout after 900s waiting for 'probe position opened' in the EA log; restore failed: restore account margin_mode 0 is not hedging (2)",
+  "ea_log_lines": 93,
+  "restore": {
+    "account_role": "hedging",
+    "login_sha256": "5117b743fd7aeee3a58b8755cc08529ef05f762e14a75b073f2d9afbeb743479",
+    "margin_mode": 0,
+    "ok": false,
+    "reason": "restore failed: restore account margin_mode 0 is not hedging (2)"
+  },
+  "note": "no login, password or server is recorded (the restore login is a prefixed sha256); the EA log lines are the evidence, graded at stage 8"
+}

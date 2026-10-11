@@ -1,0 +1,8 @@
+[2026.10.12 00:59:19] [INFO] strategy id 'ema_crossover' -> magic 17514383
+[2026.10.12 00:59:19] [INFO] initialised: strategy=ema_crossover risk=1.00% sl=2.50 ATR tp=4.00 ATR
+[2026.10.12 00:59:19] [INFO] TEST demo: START probe=2 magic=17514383 own_positions=0 registry=0 engine=0 margin_mode=0
+[2026.10.12 00:59:23] [INFO] TEST demo: SNAPSHOT after_A buy 0.01 done=false margin_mode=0 own_positions=0 registry=0 positions=[]
+[2026.10.12 00:59:29] [INFO] TEST demo: SNAPSHOT after_B sell 0.02 done=false margin_mode=0 own_positions=0 registry=0 positions=[]
+[2026.10.12 00:59:34] [INFO] TEST demo: SNAPSHOT after_F foreign_buy 0.01 magic=17514384 done=false margin_mode=0 own_positions=0 registry=0 positions=[]
+[2026.10.12 00:59:39] [INFO] TEST demo: CLEANUP closed 0
+[2026.10.12 00:59:39] [INFO] TEST demo: SNAPSHOT after_cleanup margin_mode=0 own_positions=0 registry=0 positions=[]

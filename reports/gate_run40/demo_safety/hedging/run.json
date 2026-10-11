@@ -1,0 +1,70 @@
+{
+  "schema": "mql5bot.demo_safety_run/2",
+  "test": "hedging",
+  "status": "FAILED",
+  "account_role": "hedging",
+  "symbol": "EURUSD",
+  "period": "M1",
+  "ex5_sha256": "ae25df6e41f3fca8034be2bc766c0c2c6fd6a4401f6c28470d4065b9e509e2f4",
+  "steps": [
+    {
+      "utc": "2026-10-11T21:59:10+00:00",
+      "step": "start",
+      "test": "hedging",
+      "account_role": "hedging"
+    },
+    {
+      "utc": "2026-10-11T21:59:10+00:00",
+      "step": "terminal_started",
+      "probe": 2
+    },
+    {
+      "utc": "2026-10-11T21:59:17+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-11T21:59:37+00:00",
+      "step": "seen: account probe + cleanup"
+    },
+    {
+      "utc": "2026-10-11T21:59:37+00:00",
+      "step": "terminal stopped"
+    },
+    {
+      "utc": "2026-10-11T21:59:37+00:00",
+      "step": "restore: log back in to the hedging account"
+    },
+    {
+      "utc": "2026-10-11T21:59:37+00:00",
+      "step": "terminal_started",
+      "probe": 3
+    },
+    {
+      "utc": "2026-10-11T21:59:42+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-11T21:59:43+00:00",
+      "step": "seen: restore cleanup"
+    },
+    {
+      "utc": "2026-10-11T21:59:43+00:00",
+      "step": "terminal stopped after restore"
+    },
+    {
+      "utc": "2026-10-11T21:59:43+00:00",
+      "step": "restore",
+      "ok": false
+    }
+  ],
+  "error": "restore failed: restore account margin_mode 0 is not hedging (2)",
+  "ea_log_lines": 8,
+  "restore": {
+    "account_role": "hedging",
+    "login_sha256": "5117b743fd7aeee3a58b8755cc08529ef05f762e14a75b073f2d9afbeb743479",
+    "margin_mode": 0,
+    "ok": false,
+    "reason": "restore failed: restore account margin_mode 0 is not hedging (2)"
+  },
+  "note": "no login, password or server is recorded (the restore login is a prefixed sha256); the EA log lines are the evidence, graded at stage 8"
+}

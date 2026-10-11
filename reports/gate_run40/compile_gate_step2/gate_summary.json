@@ -1,0 +1,77 @@
+{
+    "gate":  "owner_mt5_certification",
+    "utc":  "2026-10-11T21:26:43.3641073Z",
+    "evidence_dir":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261011-211616",
+    "first_blocking":  "dsl_parity",
+    "gate_result":  "partial_dsl_parity",
+    "scope":  [
+                  "gold2"
+              ],
+    "partial":  true,
+    "certifiable":  false,
+    "excluded":  [
+                     {
+                         "gold":  "gold1",
+                         "reason":  "excluded by -Golds (scoped run): its legs were not run, and it is not compared, validated or certified by this run"
+                     }
+                 ],
+    "scope_error":  "",
+    "unscoped_result":  "dsl_parity",
+    "real_tick_coverage":  {
+
+                           },
+    "stages":  [
+                   {
+                       "stage":  0,
+                       "name":  "self_protection",
+                       "status":  "PASS",
+                       "reason":  "[scope: gold2; PARTIAL run -- certifies nothing] HEAD relates to the frozen anchor (== or newer descendant), tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located, mql5bot IN-REPO (C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\python\\mql5bot\\__init__.py v1.0.0). NOTE: HEAD 6894de2d4fefed25571af55503e5dedccda1d48a is newer than and descends from the frozen anchor 6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7; the frozen artifacts (verified separately) are what is certified, not the SHA",
+                       "scope":  [
+                                     "gold2"
+                                 ],
+                       "partial":  true,
+                       "artifacts":  [
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261011-211616\\decide_5eada7e7c17e4edd9588d4010b573fc2.json",
+                                             "sha256":  "b0b8435264f58a0110a91afdc911a29b127273361a18d38e71866a6669671d1b"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261011-211616\\decide_c91a1251e99a402ebf3844b9363700c1.json",
+                                             "sha256":  "e3bdff4e5f4e59a417a8f8d3db85e365c4b5d80639d8e5faaad820a65eb8e837"
+                                         }
+                                     ],
+                       "utc":  "2026-10-11T21:16:23.1052546Z"
+                   },
+                   {
+                       "stage":  1,
+                       "name":  "strict_compile",
+                       "status":  "PASS",
+                       "reason":  "[scope: gold2; PARTIAL run -- certifies nothing] 0 errors, 0 warnings; targets clean: DslParityRunner.mq5, Mql5Bot.mq5, Mql5BotDownloadData.mq5, Mql5BotExportSymbolSpec.mq5, Mql5BotImportFixture.mq5",
+                       "scope":  [
+                                     "gold2"
+                                 ],
+                       "partial":  true,
+                       "artifacts":  [
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261011-211616\\compile-20261011-211623.log",
+                                             "sha256":  "240f77f585738c6bd1f593bd7d5dcc8afeee9dc44f7dc3e68ab75c5fe2eea83f"
+                                         }
+                                     ],
+                       "utc":  "2026-10-11T21:16:42.5695887Z"
+                   },
+                   {
+                       "stage":  2,
+                       "name":  "dsl_parity",
+                       "status":  "FAIL",
+                       "reason":  "[scope: gold2; PARTIAL run -- certifies nothing] no compare_report.txt produced by run_dsl_parity.ps1",
+                       "scope":  [
+                                     "gold2"
+                                 ],
+                       "partial":  true,
+                       "artifacts":  [
+
+                                     ],
+                       "utc":  "2026-10-11T21:26:43.3641073Z"
+                   }
+               ]
+}

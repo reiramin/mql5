@@ -1,0 +1,3 @@
+[2024.08.23 23:58:59] [WARN] TEST input InpTestDemoProbe=2 REFUSED: honoured only on a logged-in DEMO account (acting as 0)
+[2024.08.23 23:58:59] [ERROR] symbol spec build failed: tick_value_loss <= 0
+[2024.08.23 23:58:59] [INFO] shutting down (reason 8)
