@@ -1479,3 +1479,21 @@ Fixed, then ruff 0; full pytest 0 (2512 passed, 1 skipped; pwsh on PATH).
 - A gate run still FAILS stage 8 on the demo-only safety evidence
   (lost_response, restart, netting, hedging). The new verdict cannot be
   reached until those exist.
+
+## 2026-10-07 — runner: gate_run38 report (branch gate-reports)
+
+- Branch: gate-reports (created from master f7d1879). No code changed.
+- Ran: tools\owner_gate.ps1 -Golds gold2 at f7d1879 (evidence\owner_gate\20261007-131148).
+  GATE_RESULT=partial_reconciliation, gate exit 1; stage 8 reconciliation FAIL;
+  reconciliation_verify.json verdict "NOT_VERIFIED_ARTIFACT_MISMATCH".
+- Published reports/gate_run38/ (force-added; reports/ is in .gitignore).
+- Pre-commit checks on this machine: ruff NOT run (ruff not installed:
+  "No module named ruff"); pytest exit 1 (79 FAILED lines; run with PYTHONUTF8=1,
+  without it collection errors on tests/test_api_ui.py UnicodeDecodeError).
+  Committed anyway on owner's repeated instruction to publish; report-only commit.
+
+**NOT done, and why:**
+- Demo harness not run: docs/SAFETY_DEMO_PLAN.md does not exist at f7d1879.
+- No harness run.json files in the report for the same reason.
+- origin/master 7629a00 (CLAUDE.md only) is not a merge commit, so not pulled/re-run.
+- Test failures not investigated or fixed (runner instructions: never fix).

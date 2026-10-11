@@ -1,0 +1,37 @@
+{
+  "action": "InpTestStripSlEntries=3: the EA removes the SL of its first 3 secured positions (PositionModify sl=0) and reports from POSITION_SL when the SL protection (ProtectManagedPositions -> SlGuard) put one back",
+  "baseline_evidence": {
+    "path": "safety/raw/baseline_gold2_m1_ohlc_window.txt",
+    "sha256": "1bae8636bdc2c26f64240e6dd783f88c9725ae4e69543f658565d8eaa5e5c61a"
+  },
+  "expected_result": "SL_STRIPPED_AND_RESTORED",
+  "facts": {
+    "closed_before_restore": [],
+    "never_restored": [],
+    "restored": 3,
+    "strip_not_applied": [],
+    "stripped": 3
+  },
+  "initial_state": "3 secured position(s) had their SL removed",
+  "inputs": {
+    "InpTestStripSlEntries": 3
+  },
+  "observed_result": "SL_STRIPPED_AND_RESTORED",
+  "passed": true,
+  "quoted_lines": [
+    "LK\t0\t06:17:57.313\tCore 1\t2024.01.02 08:01:01   [2024.01.02 08:01:00] [WARN] TEST 8b sl: STRIPPED #2 sl 1.16598 -> 0.00000 (modify done)",
+    "GE\t0\t06:17:57.313\tCore 1\t2024.01.02 08:01:02   [2024.01.02 08:01:00] [INFO] TEST 8b sl: RESTORED #2 sl=1.16598",
+    "KK\t0\t06:17:57.313\tCore 1\t2024.01.02 08:46:01   [2024.01.02 08:46:00] [WARN] TEST 8b sl: STRIPPED #4 sl 1.09375 -> 0.00000 (modify done)",
+    "NE\t0\t06:17:57.313\tCore 1\t2024.01.02 08:46:02   [2024.01.02 08:46:00] [INFO] TEST 8b sl: RESTORED #4 sl=1.09375",
+    "LH\t0\t06:17:57.313\tCore 1\t2024.01.02 09:13:01   [2024.01.02 09:13:00] [WARN] TEST 8b sl: STRIPPED #6 sl 1.09756 -> 0.00000 (modify done)",
+    "IG\t0\t06:17:57.313\tCore 1\t2024.01.02 09:13:02   [2024.01.02 09:13:00] [INFO] TEST 8b sl: RESTORED #6 sl=1.09756"
+  ],
+  "raw_evidence": {
+    "path": "safety/raw/sl_verify_window.txt",
+    "sha256": "df3c3913fdc7a63c14b7148557fbeb70f47dc01fc9cbf3daef4002e5e4d2c5d9"
+  },
+  "resulting_state": "3 SL(s) put back by the EA's protection, 0 never, 0 closed first, 0 strip(s) not applied",
+  "schema": "mql5bot.safety_evidence/1",
+  "source": "graded by mql5bot.safety_legs from the MT5 Strategy Tester leg window of this gate run",
+  "test": "sl_verify"
+}

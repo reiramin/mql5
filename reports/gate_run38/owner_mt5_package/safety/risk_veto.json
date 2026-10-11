@@ -1,0 +1,34 @@
+{
+  "action": "InpDailyLossPct=0.5: the Risk Engine's daily-loss limit; after the halt line no entry may be sent for the rest of that server day",
+  "baseline_evidence": {
+    "path": "safety/raw/baseline_gold2_m1_ohlc_window.txt",
+    "sha256": "1bae8636bdc2c26f64240e6dd783f88c9725ae4e69543f658565d8eaa5e5c61a"
+  },
+  "expected_result": "ENTRIES_VETOED_FOR_THE_DAY",
+  "facts": {
+    "baseline_entries_after_halt_same_day": 13,
+    "day": "2024.01.02",
+    "entries_after_halt_same_day": 0,
+    "halted_at": "2024.01.02 09:40:40"
+  },
+  "initial_state": "ENGINE_NORMAL",
+  "inputs": {
+    "InpDailyLossPct": 0.5
+  },
+  "observed_result": "ENTRIES_VETOED_FOR_THE_DAY",
+  "passed": true,
+  "quoted_lines": [
+    "GJ\t0\t06:16:41.695\tCore 1\t2024.01.02 09:40:40   [2024.01.02 09:40:40] [ERROR] DAILY LOSS LIMIT HIT ? trading paused for today (persisted)",
+    "OH\t0\t06:14:28.526\tCore 1\t2024.01.02 09:42:00   instant buy 1.48 EURUSD.G2 at 1.09720 sl: 1.09653 tp: 1.09821 (1.09719 / 1.09720 / 1.09719)",
+    "HK\t0\t06:14:28.526\tCore 1\t2024.01.02 10:13:00   instant sell 1.59 EURUSD.G2 at 1.09655 sl: 1.09717 tp: 1.09563 (1.09655 / 1.09656 / 1.09655)",
+    "QF\t0\t06:14:28.526\tCore 1\t2024.01.02 10:42:00   instant buy 1.58 EURUSD.G2 at 1.09720 sl: 1.09658 tp: 1.09814 (1.09719 / 1.09720 / 1.09719)"
+  ],
+  "raw_evidence": {
+    "path": "safety/raw/risk_veto_window.txt",
+    "sha256": "d95e7e91138f901a547f0552155ae5436c8f8223062acbcc1378473b434eb671"
+  },
+  "resulting_state": "ENGINE_NO_NEW_TRADES (REASON_DAILY_LOSS) from 2024.01.02 09:40:40; 0 entry request(s) later that day (baseline: 13)",
+  "schema": "mql5bot.safety_evidence/1",
+  "source": "graded by mql5bot.safety_legs from the MT5 Strategy Tester leg window of this gate run",
+  "test": "risk_veto"
+}
