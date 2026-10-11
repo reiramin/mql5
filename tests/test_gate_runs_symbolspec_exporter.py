@@ -240,10 +240,10 @@ def test_exporter_ini_for_the_broker_and_the_custom_symbol(tmp_path):
         f'"export_symbolspec_{sym}" "mql5bot_export_symbolspec_{sym}.set" '
         f'"{sym}" | Out-Null'
         for sym in ("EURUSD", "EURUSD.G2")]
-    # the importer launch passes no symbol: its ini is unchanged
+    # the importer launch names the broker chart (IMPORT-CHART-1)
     calls.append('Invoke-TerminalScript "Mql5Bot\\Mql5BotImportFixture" '
                  '"import_EURUSD.G2" "mql5bot_import_EURUSD.G2.set" '
-                 '| Out-Null')
+                 '"EURUSD" "H1" | Out-Null')
     cp = _run(tmp_path, "\n".join(calls), mode="nothing")
     assert cp.returncode == 0, cp.stdout + cp.stderr
     ev = tmp_path / "ev"
@@ -257,6 +257,7 @@ def test_exporter_ini_for_the_broker_and_the_custom_symbol(tmp_path):
             "ShutdownTerminal=1\r\n").encode("ascii"), ini
     imp = (ev / "import_EURUSD.G2.ini").read_bytes()
     assert imp == (b"[StartUp]\r\nScript=Mql5Bot\\Mql5BotImportFixture\r\n"
+                   b"Symbol=EURUSD\r\nPeriod=H1\r\n"
                    b"ScriptParameters=mql5bot_import_EURUSD.G2.set\r\n"
                    b"ShutdownTerminal=1\r\n")
 

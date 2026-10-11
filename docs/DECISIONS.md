@@ -4382,3 +4382,68 @@ exactly this, and it failed on 3.10.
 
 **Not yet proven:** the suite on Windows itself. The merge commit asks
 the runner for it (`[runner: pytest]`).
+
+## IMPORT-CHART-1 — the importer's [StartUp] ini names a real broker chart (EURUSD H1) (2026-10-11)
+
+**Input.** gate_run41 and gate_run42 (`gate-reports`, `-Golds gold1`,
+master `3337bfa`). Stage 4 FAIL: the importer REFUSED EURUSD.G1 at stage
+`symbol_state`, last_error 4305. Two properties (SYMBOL_SPREAD_FLOAT,
+SYMBOL_SPREAD) differ from the manifest and must be re-applied, but a
+selected symbol cannot be changed (5306), and `SymbolSelect(false)`
+failed. `import_EURUSD.G1.ini` had no `Symbol=` line, so MT5 ran the
+script on whatever chart it opened at startup.
+
+**Change (tools/ only).**
+- `owner_gate.ps1`: `Invoke-TerminalScript` takes an optional `$period`
+  and writes `Period=` after `Symbol=`.
+- The one importer launch passes `$ImportChartSymbol = "EURUSD"` and
+  `$ImportChartPeriod = "H1"`. EURUSD is the real broker symbol that the
+  gate already exports and parity-checks in stage 3.
+- Before any import, stage 4 FAILs with `[import_chart_is_custom]` if that
+  symbol is any gold's custom symbol. The list it checks covers every gold,
+  taken before `-Golds` scoping. The capture (`$allGoldImports =
+  $goldImports`) does no property access, so the gate_run22 shadowing
+  harness (`test_gate_param_shadowing`) still fails the old `$golds`
+  spelling for its original reason.
+- The custom-symbol exporter ini is unchanged: it still has
+  `Symbol=<custom>` and no `Period=`.
+
+**Tests.**
+- `tests/test_import_chart_symbol.py` EXECUTES the gate's own importer
+  launch line under pwsh for EURUSD.G1 and EURUSD.G2. The ini it writes
+  must be byte-exact and must contain exactly one `Symbol=`, which is not
+  a custom symbol.
+- It also pins the constants, the guard and its position, and that there
+  is exactly one importer launch.
+- Against the previous ps1, 4 of its 5 tests fail.
+- The importer expectation in
+  `test_gate_runs_symbolspec_exporter.py::test_exporter_ini_for_the_broker_and_the_custom_symbol`
+  now includes `Symbol=EURUSD` and `Period=H1`. The exporter expectations
+  are unchanged.
+
+**What the evidence does NOT show (recorded so nobody over-reads this
+fix).** `ReleaseFromMarketWatch` in `Mql5BotImportFixture.mq5` checks the
+script's own chart FIRST. If that chart showed EURUSD.G1, the refusal
+would say "own chart displays EURUSD.G1". gate_run42's refusal names
+`SymbolSelect(false)` instead, after the other-chart close and poll. So
+in that run the script's own chart was NOT on EURUSD.G1, and this change
+may not clear the refusal.
+
+Also not known:
+- what changed the surviving symbol's spread properties: gold1's manifest
+  `spread_points` is 1.0 both before and after S8-GOLD1-REGEN;
+- what kept it selected.
+
+If gold1 still refuses after this change, the next step is the owner's.
+The importer is in mql5/Scripts and outside CLAUDE.md exception 1, so it
+is not changed here. The step goes in docs/BLOCKED.md.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No. One more refusal
+  (`[import_chart_is_custom]`) is added; nothing is relaxed.
+- **(b) Do the gold legs change behaviour at default inputs?** No. Nothing
+  in mql5/ or artifacts/ changed; only the chart the importer is launched
+  on.
+- **(c) Are new checks re-computed by the verifier?** The stage-4 outcome
+  is still decided from the importer's own JSON by `owner_gate_decide.py`.
+  The new guard is a pre-launch refusal in the gate.
