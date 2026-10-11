@@ -111,16 +111,16 @@ def _build(tmp_path, spec_payload: dict, symbolspec_custom=None):
     fake = s8p._sha(ex5).upper()
     log = OWNER_COMPILE_LOG.read_text(encoding="utf-8-sig").replace(
         REAL_EA_HASH, fake)
-    (ev / "compile-20260917-201954.log").write_text(log, encoding="utf-8")
+    (ev / "compile-20260917-201954.log").write_text(log, encoding="utf-8", newline="")
     (ev / "stage_5.json").write_text(json.dumps(_stage5_record()),
-                                     encoding="ascii")
+                                     encoding="ascii", newline="")
     spec = tmp_path / "EURUSD.json"
-    spec.write_text(json.dumps(spec_payload), encoding="utf-8")
+    spec.write_text(json.dumps(spec_payload), encoding="utf-8", newline="")
     for model, req, line in (
             ("m1_ohlc", 1, "EURUSD.G2,M1 (MetaQuotes-Demo): 1 minutes OHLC ticks generating"),
             ("every_tick", 0, "EURUSD.G2,M1 (MetaQuotes-Demo): every tick generating")):
         win = _window(line)
-        (ev / f"tester_gold2_{model}_window.txt").write_text(win, encoding="utf-8")
+        (ev / f"tester_gold2_{model}_window.txt").write_text(win, encoding="utf-8", newline="")
         grade = tlg.grade_leg_from_log(window_text=win, symbol="EURUSD.G2",
                                        requested_model=req,
                                        leg=f"gold2_{model}",
@@ -128,7 +128,7 @@ def _build(tmp_path, spec_payload: dict, symbolspec_custom=None):
         assert grade["outcome"] == "PASS_FROM_LOG", grade["reason"]
         trades = ev / f"tester_gold2_{model}_log_trades.json"
         trades.write_text(json.dumps(tlg.log_trade_list(grade, win.encode())),
-                          encoding="utf-8")
+                          encoding="utf-8", newline="")
         placed = tlg.place_log_trades(trades, pkg, "gold2", model, REPO)
         assert placed["ok"], placed["reasons"]
     rec = s8p.build_package(repo=REPO, package=pkg, gate_evidence=ev,
@@ -597,7 +597,7 @@ def test_rebuild_replaces_only_what_the_gate_built(run26, tmp_path):
     _, pkg, ev = run26
     owner_file = pkg / "safety" / "owner_note.txt"
     owner_file.parent.mkdir()
-    owner_file.write_text("owner", encoding="utf-8")
+    owner_file.write_text("owner", encoding="utf-8", newline="")
     rec = s8p.build_package(repo=REPO, package=pkg, gate_evidence=ev,
                             data_folder=None, golds=["gold2"],
                             symbolspec_export=None)
@@ -710,7 +710,7 @@ def test_full_coverage_beside_a_not_applicable_leg_is_a_mismatch(run26, tmp_path
     cov.write_text(json.dumps({"coverage": "REAL_TICK_COVERAGE_UNKNOWN",
                                "requested_model": "x", "actual_model_from_report": "x",
                                "requested_interval": "a", "actual_interval": "a",
-                               "broker": "b", "symbol": "EURUSD"}))
+                               "broker": "b", "symbol": "EURUSD"}), newline="")
     rep = og.run_gate(pkg, {"source": {"commit": "x"}}, ["gold2"])
     assert rep["real_tick_coverage"]["state"] == og.MISMATCHED
     assert rep["verdict"] == og.NOT_VERIFIED_ARTIFACT_MISMATCH
@@ -721,7 +721,7 @@ def test_none_coverage_claiming_an_actual_model_is_invalid(run26):
     cov_path = pkg / "real_tick_coverage.json"
     cov = json.loads(cov_path.read_text())
     cov["actual_model_from_report"] = "Every tick based on real ticks"
-    cov_path.write_text(json.dumps(cov))
+    cov_path.write_text(json.dumps(cov), newline="")
     assert og.verify_real_tick_coverage(pkg)["state"] == og.INVALID
 
 
@@ -737,7 +737,7 @@ def test_none_coverage_without_the_stage5_record_is_a_mismatch(run26):
 def test_a_report_for_a_not_applicable_leg_is_invalid(run26):
     _, pkg, _ = run26
     (pkg / "gold2").mkdir()
-    (pkg / "gold2" / "real_ticks.htm").write_text("<html/>")
+    (pkg / "gold2" / "real_ticks.htm").write_text("<html/>", newline="")
     scan = og.scan_package(pkg)
     assert scan["raw_gold2_real_ticks"]["state"] == og.INVALID
 
@@ -748,7 +748,7 @@ def test_tester_models_cannot_claim_not_applicable_without_the_record(run26):
     recon = json.loads(recon_path.read_text())
     recon["bindings"]["tester_models"]["every_tick"] = {
         "not_applicable": True, "outcome": og.STAGE5_NOT_APPLICABLE}
-    recon_path.write_text(json.dumps(recon))
+    recon_path.write_text(json.dumps(recon), newline="")
     frozen = {"source_commit": recon["bindings"]["source_commit"],
               "gold2": {}}
     rep = og.verify_reconciliation(pkg, "gold2", frozen, {})

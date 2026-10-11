@@ -131,7 +131,9 @@ def _w(path, content):
     path.parent.mkdir(parents=True, exist_ok=True)
     if isinstance(content, (dict, list)):
         content = json.dumps(content, indent=2)
-    path.write_text(content, encoding="utf-8")
+    # the exact bytes the fixture hashes (str.encode()): a text-mode write
+    # turns "\n" into "\r\n" on Windows and every binding mismatches
+    path.write_bytes(content.encode("utf-8"))
 
 
 def _build_manifest(root):
@@ -171,9 +173,9 @@ def build_package(root, *, diverge_gold2=None, diverge_status="DIVERGENT",
         ex5.write_bytes(ex5_bytes)
         if log_stale:
             log.write_text("STALE LOG FROM AN ATTEMPT LONG AGO\n",
-                           encoding="utf-8")
+                           encoding="utf-8", newline="")
         else:
-            log.write_text(_fresh_log, encoding="utf-8")
+            log.write_text(_fresh_log, encoding="utf-8", newline="")
         import hashlib
         from datetime import datetime, timezone
         _w(root / "compile" / "compile_metadata.json", {
@@ -428,7 +430,7 @@ def test_reconciliation_binding_mismatch_fails_closed(tmp_path):
     root = build_package(tmp_path)
     doc = json.loads((root / "reconciliation" / "gold2.json").read_text())
     doc["bindings"]["fixture_sha256"] = "99" * 32  # wrong fixture identity
-    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc))
+    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc), newline="")
     report = gate(root)
     assert report["gold"]["gold2"]["state"] == og.MISMATCHED
     assert report["verdict"] == og.NOT_VERIFIED_ARTIFACT_MISMATCH
@@ -438,7 +440,7 @@ def test_symbolspec_missing_field_fails_closed(tmp_path):
     root = build_package(tmp_path)
     doc = json.loads((root / "symbolspec" / "symbolspec.json").read_text())
     del doc["volume_step"]
-    (root / "symbolspec" / "symbolspec.json").write_text(json.dumps(doc))
+    (root / "symbolspec" / "symbolspec.json").write_text(json.dumps(doc), newline="")
     report = gate(root)
     assert report["symbolspec"]["state"] == og.INVALID
     assert report["verdict"] == og.NOT_VERIFIED_ARTIFACT_MISMATCH
@@ -448,7 +450,7 @@ def test_symbolspec_decision_changing_mismatch_stops(tmp_path):
     root = build_package(tmp_path)
     doc = json.loads((root / "symbolspec" / "symbolspec.json").read_text())
     doc["point"] = 1e-04  # decision-changing vs frozen 1e-05
-    (root / "symbolspec" / "symbolspec.json").write_text(json.dumps(doc))
+    (root / "symbolspec" / "symbolspec.json").write_text(json.dumps(doc), newline="")
     report = gate(root)
     assert report["symbolspec"]["state"] == og.MISMATCHED
     assert any("DECISION_CHANGING_MISMATCH" in r
@@ -519,7 +521,7 @@ def test_full_coverage_without_evidence_is_rejected(tmp_path):
     root = build_package(tmp_path)
     doc = json.loads((root / "real_tick_coverage.json").read_text())
     doc["real_tick_availability_evidence"] = ""  # claim FULL, no proof
-    (root / "real_tick_coverage.json").write_text(json.dumps(doc))
+    (root / "real_tick_coverage.json").write_text(json.dumps(doc), newline="")
     report = gate(root)
     assert report["real_tick_coverage"]["state"] == og.INVALID
     assert report["verdict"] != og.MT5_VALIDATED
@@ -548,7 +550,7 @@ def test_first_divergence_earliest_event_wins(tmp_path):
                                             "status": "DIVERGENT"}
     doc["events"][2]["fields"]["volume"] = {"python": 0.1, "mt5": 0.2,
                                             "status": "DIVERGENT"}
-    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc))
+    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc), newline="")
     div = og.run_gate(root, FROZEN)["gold"]["gold2"]["first_divergence"]
     assert div["event_index"] == 2
     assert div["classification"] == og.SIZING_MISMATCH
@@ -582,7 +584,7 @@ def test_tester_models_binding_is_required_and_must_cover_all_models(tmp_path):
     root = build_package(tmp_path)
     doc = json.loads((root / "reconciliation" / "gold2.json").read_text())
     del doc["bindings"]["tester_models"]
-    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc))
+    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc), newline="")
     _rebuild_manifest(root)
     report = gate(root)
     assert report["gold"]["gold2"]["state"] in (og.INVALID, og.MISMATCHED)
@@ -596,7 +598,7 @@ def test_expected_execution_binding_must_match_frozen_truth(tmp_path):
     root = build_package(tmp_path)
     doc = json.loads((root / "reconciliation" / "gold2.json").read_text())
     doc["bindings"]["expected_execution_sha256"] = "00" * 32
-    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc))
+    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc), newline="")
     _rebuild_manifest(root)
     report = gate(root)
     assert report["gold"]["gold2"]["state"] == og.MISMATCHED
@@ -614,7 +616,7 @@ def test_reconciliation_python_only_package_fails_closed(tmp_path):
     for event in doc["events"]:
         for spec in event["fields"].values():
             spec.pop("mt5", None)  # python-only: MT5 side never captured
-    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc))
+    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc), newline="")
     _rebuild_manifest(root)
     report = gate(root)
     assert report["gold"]["gold2"]["state"] == og.INVALID
@@ -628,7 +630,7 @@ def test_reconciliation_null_mt5_side_fails_closed(tmp_path):
     doc = json.loads((root / "reconciliation" / "gold2.json").read_text())
     doc["events"][4]["fields"]["signal"] = {"python": 1, "mt5": None,
                                             "status": "MATCH"}
-    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc))
+    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc), newline="")
     _rebuild_manifest(root)
     report = gate(root)
     assert report["gold"]["gold2"]["state"] == og.INVALID
@@ -799,7 +801,7 @@ def test_future_compile_timestamp_is_impossible(tmp_path):
     doc = json.loads(meta.read_text())
     doc["COMPILE_TIMESTAMP"] = (datetime.now(timezone.utc)
                                 + timedelta(days=10)).isoformat()
-    meta.write_text(json.dumps(doc))
+    meta.write_text(json.dumps(doc), newline="")
     report = gate(root)
     assert report["compile"]["checks"]["freshness"] == og.INVALID
     assert report["verdict"] not in og.POSITIVE_VERDICTS
@@ -813,7 +815,7 @@ def test_timezone_offset_same_instant_is_accepted(tmp_path):
     utc_now = datetime.now(timezone.utc)
     tehran = timezone(timedelta(hours=3, minutes=30))
     doc["COMPILE_TIMESTAMP"] = utc_now.astimezone(tehran).isoformat()
-    meta.write_text(json.dumps(doc))
+    meta.write_text(json.dumps(doc), newline="")
     # metadata bytes changed, so re-bind the archive manifest to keep the
     # (otherwise valid) package internally consistent
     _w(root / "archive_manifest.json", _build_manifest(root))
@@ -879,7 +881,7 @@ def _mutate_cov(root, **kw):
     path = root / og.LAYOUT["real_tick_coverage"]
     doc = json.loads(path.read_text())
     doc.update(kw)
-    path.write_text(json.dumps(doc))
+    path.write_text(json.dumps(doc), newline="")
     return root
 
 
@@ -919,7 +921,7 @@ def test_mode_selection_alone_never_full(tmp_path):
     doc = json.loads(path.read_text())
     doc["real_tick_availability_evidence"] = ""
     doc["coverage"] = "REAL_TICK_COVERAGE_FULL"
-    path.write_text(json.dumps(doc))
+    path.write_text(json.dumps(doc), newline="")
     assert gate(root)["verdict"] != og.MT5_VALIDATED
 
 
@@ -961,7 +963,7 @@ def test_owner_declared_class_cannot_override_machine(tmp_path):
         "python": 1.05, "mt5": 1.06, "status": "DIVERGENT",
         "class": "SIGNAL_MISMATCH",  # owner tries to steer the class
     }
-    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc))
+    (root / "reconciliation" / "gold2.json").write_text(json.dumps(doc), newline="")
     div = og.run_gate(root, FROZEN)["gold"]["gold2"]["first_divergence"]
     assert div["classification"] == og.ROUNDING_MISMATCH
 
@@ -998,7 +1000,7 @@ def _cli(*args):
 def test_cli_exit_codes(tmp_path):
     ok = build_package(tmp_path / "ok")
     frozen_file = tmp_path / "frozen.json"
-    frozen_file.write_text(json.dumps(FROZEN))
+    frozen_file.write_text(json.dumps(FROZEN), newline="")
     r = _cli(str(ok), "--frozen", str(frozen_file),
              "--out", str(tmp_path / "rep.json"))
     assert r.returncode == 0, r.stderr
@@ -1051,7 +1053,7 @@ def test_real_tick_B_filename_right_bytes_changed(tmp_path):
     doc = _cov_doc(root)
     ev = dict(doc["real_tick_availability_evidence"])
     j = root / ev["path"]
-    j.write_text(j.read_text() + "\nextra line not in hash\n")
+    j.write_text(j.read_text() + "\nextra line not in hash\n", newline="")
     report = gate(root)
     assert report["real_tick_coverage"]["state"] == og.MISMATCHED
     assert report["verdict"] not in og.POSITIVE_VERDICTS
@@ -1064,7 +1066,7 @@ def test_real_tick_C_hash_right_different_file(tmp_path):
     # decoy file with DIFFERENT content, but the binding keeps the hash
     # of the real journal — hash of the bound path must not match
     (root / "decoy_journal.log").write_text(
-        "EURUSD 2026-03-01 .. 2026-03-04 some other run\n")
+        "EURUSD 2026-03-01 .. 2026-03-04 some other run\n", newline="")
     _set_cov(root, real_tick_availability_evidence=_bind(
         "decoy_journal.log", ev["sha256"]))
     rep = gate(root)["real_tick_coverage"]
@@ -1074,7 +1076,7 @@ def test_real_tick_C_hash_right_different_file(tmp_path):
 def test_real_tick_D_path_escapes_evidence_root(tmp_path):
     root = build_package(tmp_path)
     outside = root.parent / "outside.log"
-    outside.write_text("EURUSD 2026-01-01 .. 2026-01-04\n")
+    outside.write_text("EURUSD 2026-01-01 .. 2026-01-04\n", newline="")
     import hashlib as _h
     _set_cov(root, real_tick_availability_evidence=_bind(
         "../outside.log", _h.sha256(outside.read_bytes()).hexdigest()))
@@ -1099,7 +1101,7 @@ def test_real_tick_F_journal_from_other_symbol(tmp_path):
     j = root / ev["path"]
     # a REAL journal from another symbol, honestly re-hashed: the hash
     # layer passes, the symbol cross-check must catch it
-    j.write_text(j.read_text().replace("EURUSD", "GBPUSD"))
+    j.write_text(j.read_text().replace("EURUSD", "GBPUSD"), newline="")
     _set_cov(root, real_tick_availability_evidence=_bind(
         ev["path"], _h.sha256(j.read_bytes()).hexdigest()))
     rep = gate(root)["real_tick_coverage"]
@@ -1113,7 +1115,7 @@ def test_real_tick_G_journal_from_other_interval(tmp_path):
     ev = dict(doc["real_tick_availability_evidence"])
     j = root / ev["path"]
     # a REAL journal covering another interval, honestly re-hashed
-    j.write_text(j.read_text().replace("2026-01-04", "2026-02-28"))
+    j.write_text(j.read_text().replace("2026-01-04", "2026-02-28"), newline="")
     _set_cov(root, real_tick_availability_evidence=_bind(
         ev["path"], _h.sha256(j.read_bytes()).hexdigest()))
     rep = gate(root)["real_tick_coverage"]
@@ -1185,7 +1187,7 @@ def test_safety_altered_evidence_rejected(tmp_path_factory, name):
     root = tmp_path_factory.mktemp("salt")
     build_package(root)
     ev = _safety_doc(root, name)["raw_evidence"]
-    (root / ev["path"]).write_text("tampered evidence content\n")
+    (root / ev["path"]).write_text("tampered evidence content\n", newline="")
     report = gate(root)
     assert report["safety"][name]["state"] == og.MISMATCHED
     assert report["verdict"] not in og.POSITIVE_VERDICTS
@@ -1240,7 +1242,7 @@ def test_safety_wrong_hash_rejected(tmp_path):
 def test_safety_path_escape_rejected(tmp_path):
     root = build_package(tmp_path)
     outside = root.parent / "escape.log"
-    outside.write_text("x")
+    outside.write_text("x", newline="")
     import hashlib as _h
     _set_safety(root, "sl_verify", raw_evidence={
         "path": "../escape.log",
@@ -1254,7 +1256,7 @@ def test_safety_wrong_environment_rejected(tmp_path):
     root = build_package(tmp_path)
     ev = _safety_doc(root, "lost_response")["raw_evidence"]
     p = root / ev["path"]
-    p.write_text("lost_response exercise on OtherBroker Other-Server\n")
+    p.write_text("lost_response exercise on OtherBroker Other-Server\n", newline="")
     import hashlib as _h
     _set_safety(root, "lost_response", raw_evidence={
         "path": ev["path"],

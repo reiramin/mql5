@@ -106,7 +106,7 @@ def test_unknown_or_empty_scope_is_refused(tmp_path):
 
 def _verify_cli(pkg: Path, *extra: str) -> subprocess.CompletedProcess:
     frozen = pkg.parent / "frozen.json"
-    frozen.write_text(json.dumps(FROZEN), encoding="utf-8")
+    frozen.write_text(json.dumps(FROZEN), encoding="utf-8", newline="")
     return subprocess.run([sys.executable, str(VERIFY), str(pkg), "--frozen",
                            str(frozen), "--repo", str(REPO), *extra],
                           capture_output=True, text=True, check=False)
@@ -221,7 +221,7 @@ def test_resolve_gate_result_never_lets_a_partial_run_certify(
         _fn(PS1.read_text(encoding="utf-8"), "Resolve-GateResult")
         + f"\n$Script:Partial = ${str(partial).lower()}\n"
         + f"$Script:CurStageName = '{stage}'\n"
-        + f"Write-Output (Resolve-GateResult '{asked}')\n", encoding="utf-8")
+        + f"Write-Output (Resolve-GateResult '{asked}')\n", encoding="utf-8", newline="")
     cp = subprocess.run([pwsh, "-NoProfile", "-File", str(script)],
                         capture_output=True, text=True, check=False)
     assert cp.stdout.strip() == expected, cp.stderr
@@ -325,7 +325,7 @@ Record-Stage 8 "reconciliation" "PASS" "synthetic" @() | Out-Null
 {_coverage_note_lines()}
 {_refusal_block()}
 Write-Output "REACHED_STAGE_9"
-""", encoding="utf-8")
+""", encoding="utf-8", newline="")
     cp = subprocess.run([pwsh, "-NoProfile", "-File", str(script)],
                         capture_output=True, text=True, check=False)
     if not partial:

@@ -192,7 +192,7 @@ def main() -> int:
         df = make_ohlc(seed, bars)
         bundle = build_bundle(spec)
         trace = parity_trace(spec, df)
-        csv = df.to_csv()
+        csv = df.to_csv(lineterminator="\n")   # never os.linesep
         h_b = _write(OUT / name / "bundle.json",
                      json.dumps(bundle, indent=2, sort_keys=True))
         h_o = _write(OUT / name / "ohlc.csv", csv)

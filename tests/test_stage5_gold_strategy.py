@@ -243,15 +243,31 @@ def test_bundle_is_staged_into_the_sibling_tester_agent_sandbox(tmp_path):
     assert len(st["staged"]) == 3
 
 
-def test_old_and_sibling_agent_locations_are_both_staged(tmp_path):
-    df, agent = _windows_layout(tmp_path)
+@pytest.fixture()
+def short_tmp():
+    """A temp root directly under the system temp dir. The old-location
+    agent path below is ~268 characters under pytest's tmp_path on the
+    Windows runner (C:\\Users\\<u>\\AppData\\Local\\Temp\\pytest-of-<u>\\
+    pytest-N\\<test name>\\...), past MAX_PATH (260): the copy fails for
+    the test's path length, not for the staging rule under test. Real data
+    folders are far shorter."""
+    import shutil
+    import tempfile
+
+    root = Path(tempfile.mkdtemp(prefix="s5"))
+    yield root
+    shutil.rmtree(root, ignore_errors=True)
+
+
+def test_old_and_sibling_agent_locations_are_both_staged(short_tmp):
+    df, agent = _windows_layout(short_tmp)
     old_agent = df / "Tester" / "HASH" / "Agent-127.0.0.1-3001"
     (old_agent / "logs").mkdir(parents=True)
     d = _gold2()
     st = gli.stage_bundle(gli.bundle_bytes(d["bundle"]), d["bundle_rel"], df)
     assert st["ok"] is True
     assert set(st["agent_sandboxes"]) == {str(agent), str(old_agent)}
-    assert len(st["staged"]) == 4
+    assert len(st["staged"]) == 4, st
 
 
 def test_zero_agent_sandboxes_no_longer_refuses_when_common_is_staged(

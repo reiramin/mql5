@@ -213,6 +213,13 @@ def _sha_bytes(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
 
+def _write_artifact(path: Path, text: str) -> None:
+    """Write an artifact as the exact UTF-8 bytes of ``text``. A text-mode
+    write turns "\n" into os.linesep ("\r\n" on Windows) and every hash
+    the frozen record pins would change (reports/windows_pytest)."""
+    path.write_bytes(text.encode("utf-8"))
+
+
 def _git_commit() -> str:
     import subprocess
     try:
@@ -327,7 +334,7 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
 
     df = build_fixture()
-    csv_text = df.to_csv(float_format="%.10f")
+    csv_text = df.to_csv(float_format="%.10f", lineterminator="\n")
     micro = build_both_touch_micro()
 
     spec = parse_file(GOLD_SPEC)
@@ -419,9 +426,9 @@ def main() -> int:
         df, ref_sig, res_ref)
 
     # --- manifest + hashes ----------------------------------------------
-    (out / "gold_fixture.csv").write_text(csv_text)
-    (out / "micro_both_touch.csv").write_text(
-        micro.to_csv(float_format="%.10f"))
+    _write_artifact(out / "gold_fixture.csv", csv_text)
+    _write_artifact(out / "micro_both_touch.csv",
+        micro.to_csv(float_format="%.10f", lineterminator="\n"))
     dataset_hash = _sha_bytes(csv_text.encode())
     engine_config = {"mode": MODE_NETTING, "allow_short": True,
                      "allow_signal_exit": True,
@@ -489,20 +496,20 @@ def main() -> int:
                              "1e-9 step-unit dust guard",
             "time": "ISO-8601 naive stamps; Monday-Friday only"},
     }
-    (out / "manifest.json").write_text(
+    _write_artifact(out / "manifest.json",
         json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     manifest_hash = _sha_bytes((out / "manifest.json").read_bytes())
 
-    (out / "python_trace.json").write_text(
+    _write_artifact(out / "python_trace.json",
         json.dumps({"manifest_hash": manifest_hash,
                     "signal_timing": manifest["signal_timing_contract"],
                     "scenario_both_touch": micro_record,
                     **py_trace}, indent=2, sort_keys=True) + "\n")
-    (out / "dsl_trace.json").write_text(
+    _write_artifact(out / "dsl_trace.json",
         json.dumps({"manifest_hash": manifest_hash,
                     "signal_parity_vs_python": sig_equal,
                     **dsl_trace}, indent=2, sort_keys=True) + "\n")
-    (out / "expected_execution.json").write_text(
+    _write_artifact(out / "expected_execution.json",
         json.dumps({"manifest_hash": manifest_hash,
                     "sizing_mode": "risk_percent_equity",
                     "risk_percent": RISK_PERCENT,
@@ -531,7 +538,7 @@ def main() -> int:
                    for t, d in zip(py_trace["trades"],
                                    dsl_trace["trades"])],
     }
-    (out / "reconciliation.json").write_text(
+    _write_artifact(out / "reconciliation.json",
         json.dumps(recon, indent=2, sort_keys=True) + "\n")
 
     provenance = {
@@ -550,7 +557,7 @@ def main() -> int:
                          "dsl_trace.json", "expected_execution.json",
                          "reconciliation.json")},
     }
-    (out / "provenance.json").write_text(
+    _write_artifact(out / "provenance.json",
         json.dumps(provenance, indent=2, sort_keys=True) + "\n")
 
     print(json.dumps({
