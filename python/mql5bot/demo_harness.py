@@ -59,6 +59,11 @@ ACCOUNT_ROLE = {"restart": "hedging", "netting": "netting",
 ACCOUNTS_ENV = "MQL5BOT_DEMO_ACCOUNTS"
 TESTS = ("restart", "netting", "hedging")
 RESTORE_ROLE = "hedging"     # the terminal's account after every run
+# the EA's own refusal when it initialised before the terminal finished
+# logging in (gate_run40 netting: stale server time, probe acted as 0,
+# then "symbol spec build failed" and the EA shut down)
+EA_NOT_LOGGED_IN = "REFUSED: honoured only on a logged-in DEMO account"
+START_LAUNCHES = 2           # one relaunch for a start before the login
 LOGIN_HASH_PREFIX = "mql5bot-demo-login:"
 
 
@@ -241,15 +246,49 @@ class Harness:
             self._tmp = None
 
     def _start(self, account: dict, probe: int) -> int:
-        ini = self._write_ini(account, probe)
-        mark = len(self.log.lines)
-        self.proc = self.launch([str(self.terminal), f"/config:{ini}"])
-        self._step("terminal_started", probe=probe)
-        try:
-            self._wait("TEST demo: START", mark, "EA START")
-        finally:
-            self._drop_ini()                    # credentials off the disk
+        """Launch the terminal and wait for the EA's START line. When the
+        EA initialised before the login completed (EA_NOT_LOGGED_IN: it
+        refused the probe and shut down, so nothing was traded) the
+        terminal is stopped and launched once more."""
+        for launch_no in range(1, START_LAUNCHES + 1):
+            ini = self._write_ini(account, probe)
+            mark = len(self.log.lines)
+            self.proc = self.launch([str(self.terminal), f"/config:{ini}"])
+            self._step("terminal_started", probe=probe)
+            try:
+                started = self._wait_start(mark)
+            finally:
+                self._drop_ini()                # credentials off the disk
+            if started:
+                break
+            self._kill("terminal stopped: the EA started before the login "
+                       "completed")
+            if launch_no == START_LAUNCHES:
+                raise HarnessError(
+                    f"the EA refused the demo probe on {START_LAUNCHES} "
+                    "launches: not a logged-in DEMO account when it "
+                    f"initialised ({EA_NOT_LOGGED_IN!r})")
+            self.sleep(10)
         return mark
+
+    def _wait_start(self, after: int) -> bool:
+        """True on the START line; False on the EA's not-logged-in
+        refusal; HarnessError on timeout."""
+        waited = 0
+        while True:
+            self.log.poll()
+            if self.log.has("TEST demo: START", after):
+                self._step("seen: EA START")
+                return True
+            if self.log.has(EA_NOT_LOGGED_IN, after):
+                self._step("seen: EA refused the probe before the login "
+                           "completed")
+                return False
+            if waited >= self.timeout_s:
+                raise HarnessError(f"timeout after {waited}s waiting for "
+                                   "'EA START' in the EA log")
+            self.sleep(1)
+            waited += 1
 
     def _wait(self, needle: str, after: int, what: str) -> None:
         waited = 0

@@ -1724,3 +1724,33 @@ Both had CI green on 3.10/3.11/3.12 and full local pytest exit 0.
   BLOCKED.md asks for the terminal's own message if the delete is refused.
 - **Tasks 2 (restart/netting/hedging), 4 and 5:** still wait on owner
   actions (BLOCKED.md).
+
+## 2026-10-12 — gate_run40 (gold2 + demo) and gate_run44 (gold1) read; branch `claude/aegis-safety-fixes-20aen5`
+
+**Evidence read** (gate-reports `aeaaf7c`):
+- **gate_run40 (`6894de2`, gold2, gate of record):** stage 3 FAIL with
+  `EURUSD denomination_probe NOT_SYNCED_AFTER_60s`.
+- **Demo runs:** restart, netting and hedging all FAILED. The "hedging"
+  login is a netting account; the restart run hit INVALID_FILL; the
+  netting run's EA started before the login.
+- **gate_run44 (`6894de2`, gold1):** run after the owner deleted EURUSD.G1;
+  the same stage 3 FAIL, so the import never ran.
+
+**Done here:**
+- `demo_harness`: one relaunch when the EA refuses the probe before the
+  login; a named failure on a second refusal. Two new tests and a more
+  faithful FakeTerminal.
+- DECISIONS DEMO-HARNESS-RELAUNCH-1.
+- BLOCKED.md rewritten: gold1 not re-measured; a stage-3 re-run in market
+  hours; three demo items (the accounts file, the FILL-MASK EA bug for the
+  owner, the harness fix).
+
+**Checks:** ruff exit 0; full pytest (pwsh on PATH) exit 0 before commit.
+
+**NOT done, and why:**
+- **FILL-MASK fix:** not made. `SymbolSpec.mqh` is outside exception 1,
+  and the fix changes what the gold legs send. Proposed patch in
+  BLOCKED.md.
+- **Stage 3:** no code change; nothing shows a defect, and the PENDING
+  rule stays.
+- **Harness relaunch:** built, unit-tested, never run live.

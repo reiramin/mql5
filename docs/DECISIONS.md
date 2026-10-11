@@ -4473,3 +4473,75 @@ step:
 3.12, Windows 10; pwsh and optuna were not installed, so those tests
 skipped). The WIN-NEWLINE-1 fixes are proven on Windows. The pwsh-backed
 tests were not exercised there.
+
+## DEMO-HARNESS-RELAUNCH-1 — one relaunch when the EA starts before the demo login; FILL-MASK finding recorded, not fixed (2026-10-12)
+
+**Input.** gate_run40 (`gate-reports`, `6894de2`): the owner's first demo
+harness runs. All three FAILED.
+
+**Fix (python/ only): the netting run.**
+- The EA's log starts at server time `2024.08.23` with
+  `InpTestDemoProbe=2 REFUSED: honoured only on a logged-in DEMO account`.
+- Then `symbol spec build failed: tick_value_loss <= 0` and
+  `shutting down (reason 8)`.
+
+So the EA initialised before the terminal finished logging in to the
+netting account, and the harness waited 900 s for an `EA START` that
+could not come.
+
+`Harness._start` now does this:
+- it watches for that refusal (`EA_NOT_LOGGED_IN`) as well as the START
+  line;
+- on the refusal it stops the terminal and launches once more
+  (`START_LAUNCHES = 2`);
+- a second refusal fails the run with a named error, not a timeout.
+
+The EA had shut down without trading, so a relaunch cannot duplicate an
+order. The EA's gate is untouched: the probe still acts only on a
+logged-in DEMO account. Nothing the graders, builder or verifier accept
+changes.
+
+Tests (`tests/test_safety_demo.py`):
+- `FakeTerminal` now reports each login's real margin mode (hedging 2,
+  netting 0); it used to report 2 for every start.
+- It can play the before-login start.
+- New: `test_a_start_before_the_login_is_relaunched_once` (the restart run
+  then completes and grades RESTART_RECOVERED_NO_DUPLICATE) and
+  `test_a_start_refused_twice_fails_naming_the_refusal`.
+- On the previous harness both new tests fail with
+  `timeout ... waiting for 'EA START'`, which is the gate_run40 failure.
+- Status: built, unit-tested, never run live.
+
+**Considered and dropped: refusing a role whose START line shows the
+wrong margin mode.** The EA begins its probe right after START, so
+killing the terminal there can leave probe positions open. For the
+netting role, the hedging restore would not clean those up. The existing
+restore check already names the wrong mode ("restore account margin_mode
+0 is not hedging (2)").
+
+**Recorded, not fixed: FILL-MASK.**
+- `SpecIsFillingAllowed` (mql5/Include/Mql5Bot/SymbolSpec.mqh) tests an
+  `ENUM_ORDER_TYPE_FILLING` index (FOK 0, IOC 1, RETURN 2) against the
+  `SYMBOL_FILLING_MODE` flag mask (FOK 1, IOC 2).
+- gate_run44's live export records EURUSD `filling_mode_mask` 1 (FOK
+  only). On it the EA therefore sends IOC and gets INVALID_FILL, and
+  nothing is left to fall back to. That is gate_run40's restart run
+  (`open_rejected|INVALID_FILL`, journal `[Unsupported filling mode]`).
+- `SymbolSpec.mqh` is outside exception 1, and the fix changes what the
+  gold legs send, so it is in docs/BLOCKED.md for the owner, with a
+  proposed patch.
+
+**Not concluded: stage 3.** gate_run40 and gate_run44 FAILed stage 3 on
+`EURUSD denomination_probe NOT_SYNCED_AFTER_60s` (PENDING rows), and
+gate_run43 passed the same stage earlier that day. No code defect is
+shown. The PENDING rule is unchanged, and BLOCKED.md asks for a
+market-hours re-run on the usual account.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No. A relaunch after an EA
+  that refused and shut down; the graded evidence and all checks are
+  unchanged.
+- **(b) Do the gold legs change behaviour at default inputs?** No. mql5/
+  is untouched.
+- **(c) Are new checks re-computed by the verifier?** No new checks;
+  restore and demo grading are unchanged.

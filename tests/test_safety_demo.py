@@ -502,6 +502,11 @@ class FakeTerminal:
         self.data, self.launches, self.ini_seen = data, [], []
         self.position_open = False
         self.restore_margin_mode = 2     # what a cleanup START reports
+        # each login's account margin mode (ACC: 1111 hedging, 2222 netting)
+        self.mode_by_login = {"1111": 2, "2222": 0}
+        # launches that play gate_run40's netting start: the EA initialised
+        # before the login completed, refused the probe and shut down
+        self.early = 0
         self.logdir = data / dh.LOG_DIR_REL
         self.logdir.mkdir(parents=True)
 
@@ -514,8 +519,21 @@ class FakeTerminal:
             self.data / dh.PRESET_DIR_REL / preset).read_text()).group(1))
         n = len(self.launches)
         self.launches.append(probe)
+        if self.early:
+            self.early -= 1
+            (self.logdir / "mql5bot_EURUSD_M1_2024.08.23.log").write_bytes((
+                f"[2024.08.23 23:58:5{n}] [WARN] TEST input "
+                f"InpTestDemoProbe={probe} REFUSED: honoured only on a "
+                "logged-in DEMO account (acting as 0)\n"
+                f"[2024.08.23 23:58:5{n}] [ERROR] symbol spec build failed: "
+                "tick_value_loss <= 0\n"
+                f"[2024.08.23 23:58:5{n}] [INFO] shutting down (reason 8)\n"
+            ).encode("utf-16"))
+            return self
+        login = re.search(r"Login=(\S+)", text).group(1)
         own = 1 if self.position_open else 0
-        mode = self.restore_margin_mode if probe == 3 else 2
+        mode = self.restore_margin_mode if probe == 3 \
+            else self.mode_by_login[login]
         lines = [(f"[2026.10.07 10:0{n}:00] [INFO] TEST demo: START "
                   f"probe={probe} magic=123 own_positions={own} "
                   f"registry={own} engine=0 margin_mode={mode}")]
@@ -613,6 +631,34 @@ def test_every_run_ends_restored_to_hedging(tmp_path, accounts, test):
     # the restore lines are kept out of the graded test log
     assert "START probe=3" not in (out / "ealog.txt").read_text() \
         or test == "restart"
+
+
+def test_a_start_before_the_login_is_relaunched_once(tmp_path, accounts):
+    # gate_run40 netting: the EA initialised before the login completed
+    h, fake = _harness(tmp_path, accounts, "restart")
+    fake.early = 1
+    rec = h.run()
+    assert rec["error"] is None and rec["status"] == "COMPLETED", rec
+    assert fake.launches == [1, 1, 1, 3, 3]       # one relaunch, then as before
+    steps = [s["step"] for s in rec["steps"]]
+    assert "seen: EA refused the probe before the login completed" in steps
+    assert "terminal stopped: the EA started before the login completed" \
+        in steps
+    log = (tmp_path / "out/restart/ealog.txt").read_text()
+    assert sl.grade("restart", log, "", "")["observed_result"] == \
+        "RESTART_RECOVERED_NO_DUPLICATE"
+
+
+def test_a_start_refused_twice_fails_naming_the_refusal(tmp_path, accounts):
+    h, fake = _harness(tmp_path, accounts, "netting")
+    fake.early = 2
+    rec = h.run()
+    assert rec["status"] == "FAILED"
+    assert "refused the demo probe on 2 launches" in rec["error"]
+    assert dh.EA_NOT_LOGGED_IN in rec["error"]
+    assert "timeout" not in rec["error"]          # named, not a 900 s wait
+    assert fake.launches == [2, 2, 3]             # ... + the restore
+    assert rec["restore"]["ok"] is True
 
 
 def test_restart_completes(tmp_path, accounts):
