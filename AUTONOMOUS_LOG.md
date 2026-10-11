@@ -1695,3 +1695,32 @@ commit.
   exception 1. If gold1 still refuses, the next step goes to the owner in
   docs/BLOCKED.md.
 - **Next gold1 run:** the merge commit carries `[runner: gold1]`.
+
+## 2026-10-11 — gate_run43 + windows_pytest at 4b8cad0 read; branch `claude/aegis-safety-fixes-20aen5`
+
+**Merged earlier today:**
+- PR #40 (WIN-NEWLINE-1), merge commit carries `[runner: pytest]`;
+- PR #41 (IMPORT-CHART-1), merge commit carries `[runner: gold1]`.
+
+Both had CI green on 3.10/3.11/3.12 and full local pytest exit 0.
+
+**Evidence read** (gate-reports a239c69):
+- **windows_pytest at `4b8cad0`:** exit 0, 0 FAILED (was 80 at
+  `3337bfa`). The Windows task is done; pwsh and optuna tests skipped on
+  that runner.
+- **gate_run43 (gold1):** stage 4 FAIL, the same EURUSD.G1 refusal
+  (5306/4305), with the IMPORT-CHART-1 ini lines present.
+
+**Done here** (docs only):
+- docs/BLOCKED.md: the windows_pytest item is removed. A gold1 owner step
+  is added: delete the stale EURUSD.G1 custom symbol in MT5, then re-run
+  gold1.
+- docs/DECISIONS.md: "IMPORT-CHART-1 outcome".
+
+**NOT done, and why:**
+- **The importer:** not changed. `mql5/Scripts` is outside exception 1,
+  and the owner said not to touch mql5/ if gold1 still refused.
+- **Root cause of the selection hold and the spread drift:** unknown.
+  BLOCKED.md asks for the terminal's own message if the delete is refused.
+- **Tasks 2 (restart/netting/hedging), 4 and 5:** still wait on owner
+  actions (BLOCKED.md).
