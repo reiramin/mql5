@@ -4447,3 +4447,29 @@ is not changed here. The step goes in docs/BLOCKED.md.
 - **(c) Are new checks re-computed by the verifier?** The stage-4 outcome
   is still decided from the importer's own JSON by `owner_gate_decide.py`.
   The new guard is a pre-launch refusal in the gate.
+
+## IMPORT-CHART-1 outcome — gate_run43 still refuses EURUSD.G1; owner step in BLOCKED.md (2026-10-11)
+
+**gate_run43** (`gate-reports`, master `4b8cad0`, `-Golds gold1`):
+- `import_EURUSD.G1.ini` carries `Symbol=EURUSD` / `Period=H1`;
+- stage 4 still FAILs with the same refusal: `symbol_state`,
+  SYMBOL_SPREAD_FLOAT / SYMBOL_SPREAD differ, 5306, `SymbolSelect(false)`
+  last_error 4305.
+
+This is what IMPORT-CHART-1 predicted from gate_run42's failed call. The
+change stays because it makes the importer's chart deterministic, and it
+is harmless. It did not clear the refusal.
+
+Per the owner's instruction, `mql5/` is not touched: the importer is
+outside exception 1. docs/BLOCKED.md gives the owner the terminal-side
+step:
+- delete the stale EURUSD.G1 custom symbol, so the importer takes its
+  `created_fresh` path (created unselected, properties set before
+  selection);
+- the step also names what to report if MT5 refuses the delete.
+
+**windows_pytest at `4b8cad0`** (`gate-reports`,
+`reports/windows_pytest/pytest_4b8cad0.txt`): exit 0, 0 FAILED (Python
+3.12, Windows 10; pwsh and optuna were not installed, so those tests
+skipped). The WIN-NEWLINE-1 fixes are proven on Windows. The pwsh-backed
+tests were not exercised there.
