@@ -1,0 +1,33 @@
+[owner-gate] evidence dir: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846
+[owner-gate] mql5bot resolved IN-REPO: C:\Users\ramin\Desktop\mql5\gate_run12\python\mql5bot\__init__.py (v1.0.0)
+[owner-gate] NOTE: HEAD add80bf8905a1a1b01620dc4ec867632c15f6ffd is newer than and descends from the frozen anchor 6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7; the frozen artifacts (verified separately) are what is certified, not the SHA
+[owner-gate] stage 0 self_protection: PASS -- HEAD relates to the frozen anchor (== or newer descendant), tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located, mql5bot IN-REPO (C:\Users\ramin\Desktop\mql5\gate_run12\python\mql5bot\__init__.py v1.0.0). NOTE: HEAD add80bf8905a1a1b01620dc4ec867632c15f6ffd is newer than and descends from the frozen anchor 6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7; the frozen artifacts (verified separately) are what is certified, not the SHA
+[owner-gate] stage 1 strict_compile: PASS -- 0 errors, 0 warnings; targets clean: DslParityRunner.mq5, Mql5Bot.mq5, Mql5BotDownloadData.mq5, Mql5BotExportSymbolSpec.mq5, Mql5BotImportFixture.mq5
+[owner-gate] stage 2 dsl_parity: PASS -- 14/14 fixtures EXACT + tampered refused
+[owner-gate] stage 3 broker_parity: PASS -- 12 MATCH rows; crypto PENDING excluded: BTC:sizer.behaviour, BTC:tick_value_denomination; EURUSD export: gate-run Mql5BotExportSymbolSpec (this run) C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\symbolspec_EURUSD.json
+[owner-gate] import JSON sha256 before copy fc7c4d116d278cc08b4278facf3627e38bdeac6bb4a5dac6487f0b9c5786086a / after copy fc7c4d116d278cc08b4278facf3627e38bdeac6bb4a5dac6487f0b9c5786086a
+[owner-gate] stage 4 fixture_import: FAIL -- [json_refused] EURUSD.G2: importer REFUSED at stage 'symbol_state' (last_error=0): adopt-in-place: CustomRatesDelete left 5760 bar(s) on EURUSD.G2; a prior fixture's bars must never survive into this dataset
+
+[owner-gate] ===== SUMMARY (machine-readable) =====
+  stage 0  self_protection        PASS
+      89a2d93be8cd22e031f83d9a54f17f5bf64036e6557e21ada85ca734454b8630  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\decide_03da089b3ebb4e32bd1f166505f686fa.json
+      e3bdff4e5f4e59a417a8f8d3db85e365c4b5d80639d8e5faaad820a65eb8e837  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\decide_4df81387dfe34940b4687d9fd94b64f9.json
+  stage 1  strict_compile         PASS
+      2403ec1636774ab38f5beb4871ac7169399c337694d885b43ec5030335e3ffc7  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\compile-20261012-101855.log
+  stage 2  dsl_parity             PASS
+      32a053bc4eedbee8e0c84d48026bca03f45eaf708b43141e6067d8c76bdc76bf  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\dsl_compare_report.txt
+  stage 3  broker_parity          PASS
+      1bb6e95aabf81476c18f859bb123399973d6a94e968674bcae84dda832badebb  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\parity_report.json
+      9a211478b12778864db08adc535adec54a397e9286539d1f1aabce07ff1da54a  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\export_symbolspec_EURUSD.set
+      d23c1c790469ad66e43ec78f84b49778ffb32ec1cbac0c61eb63d8b7703931b3  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\export_symbolspec_EURUSD.ini
+      13243acfac2213e32afd8a7dc719a7c969252c0ddba71b8447b8afdc6162e619  C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\broker_exports\EURUSD.json
+      13243acfac2213e32afd8a7dc719a7c969252c0ddba71b8447b8afdc6162e619  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\symbolspec_EURUSD.json
+      e5f57367f015d306f03468771941fdc935fe841a67e685a80384ee9263fd5952  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\decide_201db266465a47e586b4ce9d8c819178.json
+  stage 4  fixture_import         FAIL
+      d87b62bf78b2c69342c02db326285fc806a386266495a8861b427f5cf01fccf2  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\import_EURUSD.G2.set
+      99bf72aba9ec29130e0e7922ac4ea7a2d1f22ba033830c552aabe2c4727cda41  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\import_EURUSD.G2_preset_decoded.txt
+      fc7c4d116d278cc08b4278facf3627e38bdeac6bb4a5dac6487f0b9c5786086a  C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\gold_import_out\EURUSD.G2.json
+      fc7c4d116d278cc08b4278facf3627e38bdeac6bb4a5dac6487f0b9c5786086a  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\import_EURUSD.G2.json
+  first_blocking_stage: fixture_import
+  summary: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261012-101846\gate_summary.json  (46aa51a60444e0fef03fe15b60b2008010e8b255c19f1e04314aa1ee0bee60a1)
+GATE_RESULT=partial_fixture_import

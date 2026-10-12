@@ -1,0 +1,29 @@
+{
+    "stage":  4,
+    "name":  "fixture_import",
+    "status":  "FAIL",
+    "reason":  "[scope: gold2; PARTIAL run -- certifies nothing] [json_refused] EURUSD.G2: importer REFUSED at stage \u0027symbol_state\u0027 (last_error=0): adopt-in-place: CustomRatesDelete left 5760 bar(s) on EURUSD.G2; a prior fixture\u0027s bars must never survive into this dataset",
+    "scope":  [
+                  "gold2"
+              ],
+    "partial":  true,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-101846\\import_EURUSD.G2.set",
+                          "sha256":  "d87b62bf78b2c69342c02db326285fc806a386266495a8861b427f5cf01fccf2"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-101846\\import_EURUSD.G2_preset_decoded.txt",
+                          "sha256":  "99bf72aba9ec29130e0e7922ac4ea7a2d1f22ba033830c552aabe2c4727cda41"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Files\\Mql5Bot\\gold_import_out\\EURUSD.G2.json",
+                          "sha256":  "fc7c4d116d278cc08b4278facf3627e38bdeac6bb4a5dac6487f0b9c5786086a"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-101846\\import_EURUSD.G2.json",
+                          "sha256":  "fc7c4d116d278cc08b4278facf3627e38bdeac6bb4a5dac6487f0b9c5786086a"
+                      }
+                  ],
+    "utc":  "2026-10-12T10:19:56.4512715Z"
+}
