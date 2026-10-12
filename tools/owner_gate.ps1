@@ -52,7 +52,15 @@ param(
     # Demo-harness safety evidence (restart / netting / hedging;
     # docs/SAFETY_DEMO_PLAN.md): <dir>\<test>\ealog.txt + run.json from
     # tools\demo_safety_harness.py. Default: evidence\demo_safety when present.
-    [string]$DemoEvidence = ""
+    [string]$DemoEvidence = "",
+    # DEMO-IN-GATE-1: run the demo harness (restart, netting, hedging) INSIDE
+    # this gate, as stage 7, with THIS run's stage-1 EX5, and grade it at
+    # stage 8. A demo run bound to another compile's EX5 is rejected
+    # (gate_run47), so evidence from a separate session can never bind.
+    [switch]$DemoSafety,
+    # the LOCAL demo accounts file (default: MQL5BOT_DEMO_ACCOUNTS or
+    # %USERPROFILE%\.mql5bot\demo_accounts.json); never inside the repo
+    [string]$DemoAccounts = ""
 )
 
 Set-StrictMode -Version 2.0
@@ -608,6 +616,38 @@ function Save-TesterWindowLog([string]$name, $marks, [datetime]$since) {
     return (New-Artifact $out)
 }
 
+# DEMO-IN-GATE-1: the demo harness inside the gate (stage 7). Runs
+# restart, netting, hedging into THIS run's evidence dir with THIS run's
+# stage-1 EX5 (the harness hashes MQL5\Experts\Mql5Bot\Mql5Bot.ex5, the file
+# stage 1 just compiled), then asks the committed decider whether every run
+# left the terminal logged in to the hedging account AND connected without
+# credentials (DEMO-LOGIN-PERSIST-1). The tests themselves are graded at
+# stage 8 by the unchanged builder/verifier; nothing here grades them.
+$Script:DemoHarnessScript = Join-Path $PSScriptRoot "demo_safety_harness.py"
+function Invoke-DemoInGate([string]$outDir, [string[]]$accArgs) {
+    $arts = New-Object System.Collections.ArrayList
+    $ran = @()
+    foreach ($t in @("restart", "netting", "hedging")) {
+        $hOut = Join-Path $Evidence ("demo_harness_" + $t + ".json")
+        $hArgs = @($Script:DemoHarnessScript, "run", "--test", $t,
+                   "--terminal", $TerminalPath, "--data-folder", $DataFolder,
+                   "--out", $outDir) + @($accArgs)
+        $hp = Start-Process -FilePath $Python -ArgumentList (Get-ProcArgs $hArgs) `
+            -RedirectStandardOutput $hOut -RedirectStandardError "$hOut.err" `
+            -Wait -PassThru -NoNewWindow
+        $ran += ("{0}=exit {1}" -f $t, $hp.ExitCode)
+        Write-Host ("[owner-gate] demo harness {0}: exit {1}" -f $t, $hp.ExitCode)
+        if (Test-Path -LiteralPath $hOut) { [void]$arts.Add((New-Artifact $hOut)) }
+        $runJson = Join-Path (Join-Path $outDir $t) "run.json"
+        if (Test-Path -LiteralPath $runJson) { [void]$arts.Add((New-Artifact $runJson)) }
+    }
+    $oc = Invoke-Decide @("demo-in-gate-outcome", "--dir", $outDir)
+    [void]$arts.Add((New-Artifact $oc.raw))
+    $reasons = @()
+    if ($oc.data -and (Get-DataProp $oc.data "reasons")) { $reasons = @(Get-DataProp $oc.data "reasons") }
+    return [pscustomobject]@{ ok = $oc.ok; reasons = $reasons; ran = $ran; artifacts = $arts }
+}
+
 # create the append-only evidence root now (deferred from startup): every
 # decision from here on records into it. It is .gitignore'd, so it does not
 # dirty the tree the stage-0 clean-tree check inspects.
@@ -679,6 +719,22 @@ if (-not $DataFolder -and $env:MQL5BOT_DATA_FOLDER) { $DataFolder = $env:MQL5BOT
 if (-not $DataFolder -or -not (Test-Path -LiteralPath (Join-Path $DataFolder "MQL5"))) {
     Record-Stage 0 "self_protection" "FAIL" "SELF_PROTECT_DATA_FOLDER: MT5 data folder unknown or has no MQL5\ (pass -DataFolder or set MQL5BOT_DATA_FOLDER)" @() | Out-Null
     Finish-Gate "self_protection"
+}
+# DEMO-IN-GATE-1 preflight: refuse BEFORE an hour of stages when the demo
+# harness cannot run (accounts file / market closed) -- a named FAIL
+$demoAccArgs = @()
+if ($DemoAccounts) { $demoAccArgs = @("--accounts", $DemoAccounts) }
+if ($DemoSafety) {
+    if ($DemoEvidence) {
+        Record-Stage 0 "self_protection" "FAIL" "[demo_args_conflict] -DemoSafety runs the demo harness inside this gate; -DemoEvidence names runs from elsewhere (bound to another compile's EX5): pass one, not both" @() | Out-Null
+        Finish-Gate "self_protection"
+    }
+    $dpf = Invoke-Decide (@("demo-preflight") + $demoAccArgs)
+    if (-not $dpf.ok) {
+        $why = if ($dpf.data -and (Get-DataProp $dpf.data "reasons")) { ((Get-DataProp $dpf.data "reasons") -join "; ") } else { "demo preflight could not run" }
+        Record-Stage 0 "self_protection" "FAIL" ("-DemoSafety refused: " + $why) @((New-Artifact $dpf.raw)) | Out-Null
+        Finish-Gate "self_protection"
+    }
 }
 $spPass = "HEAD relates to the frozen anchor (== or newer descendant), tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located"
 # STAGE 5 R4: name the code the gate is grading, in the verdict itself.
@@ -1355,6 +1411,33 @@ if ($legFromLog -gt 0) {
 #            evidence CONSUMER. A volume/risk divergence is EXPECTED for
 #            the 4257f1e sizing fix: classify + record, never patch.
 # =====================================================================
+# =====================================================================
+# STAGE 7 -- demo safety (DEMO-IN-GATE-1; only with -DemoSafety)
+# =====================================================================
+# restart / netting / hedging on the demo accounts, with THIS run's stage-1
+# EX5, graded at stage 8. Without -DemoSafety the gate has no stage 7.
+$demoInGateDir = ""
+if ($DemoSafety) {
+    Enter-Stage 7 "demo_safety"
+    $s7Art = New-Object System.Collections.ArrayList
+    # the market may have closed during stages 1-5: re-check, named FAIL
+    $dpf7 = Invoke-Decide (@("demo-preflight") + $demoAccArgs)
+    [void]$s7Art.Add((New-Artifact $dpf7.raw))
+    if (-not $dpf7.ok) {
+        $why = if ($dpf7.data -and (Get-DataProp $dpf7.data "reasons")) { ((Get-DataProp $dpf7.data "reasons") -join "; ") } else { "demo preflight could not run" }
+        Record-Stage 7 "demo_safety" "FAIL" ("demo harness NOT run: " + $why) @($s7Art) | Out-Null
+        Finish-Gate "demo_safety"
+    }
+    $demoInGateDir = Join-Path $Evidence "demo_safety"
+    $dig = Invoke-DemoInGate $demoInGateDir $demoAccArgs
+    foreach ($a in $dig.artifacts) { [void]$s7Art.Add($a) }
+    if (-not $dig.ok) {
+        Record-Stage 7 "demo_safety" "FAIL" ("[demo_terminal_not_restored] the terminal is NOT left logged in to the hedging account and connected without credentials -- every later gate launch would fail stage 3: " + (@($dig.reasons) -join "; ") + " (harness: " + ($dig.ran -join ", ") + ")") @($s7Art) | Out-Null
+        Finish-Gate "demo_safety"
+    }
+    Record-Stage 7 "demo_safety" "PASS" ("demo harness ran restart, netting, hedging with THIS run's stage-1 EX5 into " + $demoInGateDir + " (harness: " + ($dig.ran -join ", ") + "); every restore left the terminal on the hedging account, connected without credentials. NOT a safety grade: the runs are graded at stage 8") @($s7Art) | Out-Null
+}
+
 Enter-Stage 8 "reconciliation"
 # STAGE 5 R9: the default package lives under the gitignored evidence\ tree.
 # The former default (artifacts\owner_mt5_gate\evidence) is inside a frozen,
@@ -1451,7 +1534,7 @@ foreach ($sn in $safetyNotes) { [void]$placeNotes.Add(("safety leg {0}" -f $sn))
 # of each scoped gold's CUSTOM tester symbol (stage 4); the stage-3 broker
 # export stays the named fallback the builder records when none exists
 $demoArgs = @()
-$demoDir = if ($DemoEvidence) { $DemoEvidence } else { Join-Path $RepoRoot "evidence\demo_safety" }
+$demoDir = if ($demoInGateDir) { $demoInGateDir } elseif ($DemoEvidence) { $DemoEvidence } else { Join-Path $RepoRoot "evidence\demo_safety" }
 if (Test-Path -LiteralPath $demoDir) { $demoArgs = @("--demo-evidence", $demoDir) }
 $customSpecArgs = @()
 foreach ($cg in @($Script:CustomSpecs.Keys | Sort-Object)) {

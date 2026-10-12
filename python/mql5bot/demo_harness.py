@@ -20,6 +20,13 @@ For each run the harness:
   (SAFETY-DEMO-RESTORE-1): one more start with the cleanup probe, whose
   START line must report the hedging margin mode. If that restore fails,
   the run is FAILED (``status``), whatever the test itself showed;
+* then (DEMO-LOGIN-PERSIST-1) logs in to the hedging account once more with
+  ``KeepPrivate=1`` and a script that shuts the terminal down by itself, so
+  the terminal keeps the password in ITS OWN encrypted store and writes its
+  state on a clean exit; and VERIFIES it with a credential-less launch
+  shaped exactly like the gate's stage-3 export (no ``[Common]``): the run
+  FAILs unless that launch reports a connected terminal on the hedging
+  account;
 * writes ``<out>\\<test>\\ealog.txt`` (the EA lines of the test),
   ``restore_ealog.txt`` (the EA lines of the restore) and ``run.json``
   (status, steps, UTC times, the EX5 sha256, the restore record with the
@@ -64,6 +71,13 @@ RESTORE_ROLE = "hedging"     # the terminal's account after every run
 # then "symbol spec build failed" and the EA shut down)
 EA_NOT_LOGGED_IN = "REFUSED: honoured only on a logged-in DEMO account"
 START_LAUNCHES = 2           # one relaunch for a start before the login
+# DEMO-LOGIN-PERSIST-1: the credential-less connection check after the
+# restore runs the gate's own exporter (stage 3, owner_gate.ps1
+# Invoke-SymbolSpecExport) into a separate folder, never the gate's
+EXPORT_SCRIPT = r"Mql5Bot\Mql5BotExportSymbolSpec"
+CHECK_DIR_REL = Path("MQL5") / "Files" / "Mql5Bot" / "demo_connect_check"
+CHECK_PRESET = "mql5bot_demo_connect_check.set"
+NOT_CONNECTED = "terminal not connected"   # the exporter's sync_unmet text
 LOGIN_HASH_PREFIX = "mql5bot-demo-login:"
 
 
@@ -119,15 +133,24 @@ def preset_text(probe: int) -> str:
                          header="mql5bot demo harness preset (no secrets)")
 
 
+def common_login(account: dict) -> list[str]:
+    """The [Common] login lines. KeepPrivate=1 makes the terminal keep the
+    password in its own encrypted account store, so a later launch WITHOUT
+    credentials (every gate launch) still connects (DEMO-LOGIN-PERSIST-1:
+    gate_run40/44/46 stage 3 "terminal not connected" after the harness)."""
+    return ["[Common]",
+            f"Login={account['login']}",
+            f"Password={account['password']}",
+            f"Server={account['server']}",
+            "KeepPrivate=1"]
+
+
 def startup_ini(account: dict, preset_name: str, symbol: str = SYMBOL,
                 period: str = PERIOD) -> str:
     """The terminal's [StartUp] config: log in to the demo account, allow
     algo trading, attach the EA with the preset to one chart."""
     return "\r\n".join([
-        "[Common]",
-        f"Login={account['login']}",
-        f"Password={account['password']}",
-        f"Server={account['server']}",
+        *common_login(account),
         "[Experts]",
         "AllowLiveTrading=1",
         "AllowDllImport=0",
@@ -141,6 +164,112 @@ def startup_ini(account: dict, preset_name: str, symbol: str = SYMBOL,
         f"Period={period}",
         "",
     ])
+
+
+def export_ini(account: dict | None, symbol: str = SYMBOL) -> str:
+    """Run the gate's exporter script on ``symbol`` and shut the terminal
+    down when it ends (a clean exit). With ``account`` it logs in first
+    (the persist step); without, it is the gate's own credential-less
+    stage-3 launch shape (owner_gate.ps1 Invoke-TerminalScript)."""
+    lines = common_login(account) if account is not None else []
+    return "\r\n".join([
+        *lines,
+        "[StartUp]",
+        f"Script={EXPORT_SCRIPT}",
+        f"Symbol={symbol}",
+        f"ScriptParameters={CHECK_PRESET}",
+        "ShutdownTerminal=1",
+        "",
+    ])
+
+
+def check_preset_text() -> str:
+    return "\r\n".join([r"InpExportDir=Mql5Bot\demo_connect_check" + "\\",
+                         "InpDenomProbeTicks=100", ""])
+
+
+# --- DEMO-IN-GATE-1: owner_gate.ps1 -DemoSafety ----------------------------
+# The gate runs the harness itself, with THIS run's stage-1 EX5 (a demo run
+# bound to another compile's EX5 is rejected at stage 8, gate_run47). These
+# are the gate's decisions about it (tools/owner_gate_decide.py).
+
+def fx_market_closed(now: datetime) -> str | None:
+    """None while the FX market is open, else the reason it is closed.
+    The weekly close (Friday ~21:00/22:00 UTC) and re-open (Sunday
+    ~21:00/22:00 UTC) and the daily rollover (~23:55-00:05 server time,
+    UTC+2/+3) move with daylight saving, so every edge is widened: closed
+    Friday 20:00 - Sunday 22:15 UTC, and 20:45 - 22:15 UTC every day, so a
+    demo session never straddles one (docs/SAFETY_DEMO_PLAN.md "Market
+    hours")."""
+    now = now.astimezone(timezone.utc)
+    wd, hm = now.weekday(), now.hour * 60 + now.minute   # Monday 0 .. Sunday 6
+    stamp = f"{now:%a %Y-%m-%d %H:%M} UTC"
+    if wd == 5 or (wd == 4 and hm >= 20 * 60) or (wd == 6 and hm < 22 * 60 + 15):
+        return (f"FX market closed at {stamp} (weekly close: Fri 20:00 - "
+                "Sun 22:15 UTC)")
+    if 20 * 60 + 45 <= hm < 22 * 60 + 15:
+        return (f"FX daily rollover at {stamp} (orders refused around "
+                "server midnight: 20:45 - 22:15 UTC)")
+    return None
+
+
+def demo_preflight(accounts: Path | str, repo: Path | str,
+                   now: datetime) -> dict:
+    """May the gate run the demo harness now? Refuses (named, never a
+    pass) when the accounts file lacks a complete hedging or netting entry,
+    or the market is closed. Never reads out a credential."""
+    reasons: list[str] = []
+    for role in ("hedging", "netting"):
+        try:
+            load_account(accounts, role, repo)
+        except HarnessError as exc:
+            why = f"[demo_accounts_missing] {exc}"
+            if why not in reasons:
+                reasons.append(why)
+        except (OSError, ValueError) as exc:
+            reasons.append(f"[demo_accounts_missing] accounts file "
+                           f"unreadable: {type(exc).__name__}")
+            break
+    closed = fx_market_closed(now)
+    if closed:
+        reasons.append(f"[market_closed] {closed}")
+    return {"ok": not reasons, "reasons": reasons,
+            "accounts": str(accounts), "now": now.isoformat()}
+
+
+def demo_in_gate_outcome(out_dir: Path | str) -> dict:
+    """After the gate's harness runs: is the terminal left logged in to the
+    hedging account, its password kept, a credential-less launch connected?
+    Every run's restore (with its connection check, DEMO-LOGIN-PERSIST-1)
+    must hold; otherwise the gate FAILs loudly. The tests themselves are
+    graded at stage 8, never here."""
+    tests: dict = {}
+    reasons: list[str] = []
+    for t in TESTS:
+        run = Path(out_dir) / t / "run.json"
+        if not run.is_file():
+            reasons.append(f"[demo_run_missing] {t}: no {run}")
+            continue
+        try:
+            rec = json.loads(run.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            reasons.append(f"[demo_run_missing] {t}: {run} unreadable: "
+                           f"{type(exc).__name__}")
+            continue
+        restore = rec.get("restore") if isinstance(rec, dict) else None
+        restore = restore if isinstance(restore, dict) else {}
+        cc = restore.get("connect_check")
+        tests[t] = {"status": rec.get("status"),
+                    "error": rec.get("error"),
+                    "restore_ok": restore.get("ok"),
+                    "connect_check": cc}
+        if restore.get("ok") is not True or not isinstance(cc, dict) \
+                or cc.get("sync_unmet") == NOT_CONNECTED:
+            reasons.append(
+                f"[demo_restore_not_connected] {t}: "
+                f"{restore.get('reason') or 'no connection check recorded'}")
+    return {"ok": not reasons, "reasons": reasons, "tests": tests,
+            "out_dir": str(out_dir)}
 
 
 class EaLogFollower:
@@ -381,9 +510,100 @@ class Harness:
         rec["margin_mode"] = chk["margin_mode"]
         if not rec["reason"] and not chk["ok"]:
             rec["reason"] = f"restore failed: {chk['reason']}"
+        if not rec["reason"]:
+            # DEMO-LOGIN-PERSIST-1: the restore above ends in a hard kill;
+            # log in once more with KeepPrivate=1 and let the terminal exit
+            # by itself, then prove a credential-less launch connects
+            try:
+                self._step("restore: persist the hedging login "
+                           "(KeepPrivate=1, terminal exits by itself)")
+                self._script_run(account, "persist hedging login")
+                rec["connect_check"] = self._verify_connection()
+            except (HarnessError, OSError) as exc:
+                rec["reason"] = f"restore failed: {exc}"
+            finally:
+                self._drop_check_export()
         rec["ok"] = not rec["reason"]
         self._step("restore", ok=rec["ok"])
         return rec
+
+    # -- DEMO-LOGIN-PERSIST-1 ------------------------------------------------
+    def _check_export(self) -> Path:
+        return self.data / CHECK_DIR_REL / f"{SYMBOL}.json"
+
+    def _drop_check_export(self) -> None:
+        """The export carries the account login: never left behind."""
+        try:
+            self._check_export().unlink()
+        except FileNotFoundError:
+            pass
+
+    def _script_run(self, account: dict | None, what: str) -> None:
+        """Launch the gate's exporter script (logging in first when
+        ``account`` is given) and wait for the terminal to EXIT BY ITSELF
+        (ShutdownTerminal=1) -- never a kill."""
+        pdir = self.data / PRESET_DIR_REL
+        pdir.mkdir(parents=True, exist_ok=True)
+        (pdir / CHECK_PRESET).write_text(check_preset_text(),
+                                         encoding="utf-16")
+        self._tmp = Path(tempfile.mkdtemp(prefix="mql5bot_demo_"))
+        if path_within(self._tmp.resolve(), self.repo.resolve()):
+            raise HarnessError("temp dir is inside the repository")
+        ini = self._tmp / "startup.ini"
+        if account is None:
+            # byte-for-byte the gate's own launch shape (ASCII ini)
+            ini.write_text(export_ini(None), encoding="ascii")
+        else:
+            ini.write_text(export_ini(account), encoding="utf-16")
+        self.proc = self.launch([str(self.terminal), f"/config:{ini}"])
+        self._step("terminal_started", script=what)
+        try:
+            self.proc.wait(timeout=self.timeout_s)
+        except subprocess.TimeoutExpired as exc:
+            self._kill(f"terminal KILLED: {what} did not exit")
+            raise HarnessError(
+                f"{what}: the terminal did not exit by itself within "
+                f"{self.timeout_s}s (ShutdownTerminal=1)") from exc
+        finally:
+            self._drop_ini()                    # credentials off the disk
+        self.proc = None
+        self._step(f"terminal exited by itself: {what}")
+
+    def _verify_connection(self) -> dict:
+        """A launch WITHOUT credentials -- the way every gate launch starts
+        the terminal -- must connect, on the hedging account. Read from the
+        exporter's own fields; the export (it holds the login) is deleted."""
+        out = self._check_export()
+        self._drop_check_export()
+        self._script_run(None, "credential-less connection check")
+        if not out.is_file():
+            raise HarnessError(
+                "connection check: the credential-less launch wrote no "
+                f"export ({CHECK_DIR_REL.as_posix()}/{SYMBOL}.json)")
+        doc = json.loads(out.read_text(encoding="utf-8"))
+        self._drop_check_export()
+        sym = doc.get("symbol") if isinstance(doc.get("symbol"), dict) else {}
+        probe = sym.get("denomination_probe")
+        probe = probe if isinstance(probe, dict) else {}
+        chk = {"sync_unmet": probe.get("sync_unmet"),
+               "synced": probe.get("synced"),
+               "margin_mode": doc.get("account_margin_mode")}
+        if "sync_unmet" not in probe:
+            raise HarnessError("connection check: the export has no "
+                               "denomination_probe.sync_unmet")
+        if chk["sync_unmet"] == NOT_CONNECTED:
+            raise HarnessError(
+                "connection check: a credential-less launch is NOT "
+                f"connected (sync_unmet={NOT_CONNECTED!r}); the gate's "
+                "launches would fail stage 3 the same way")
+        if chk["margin_mode"] != sl.MARGIN_HEDGING:
+            raise HarnessError(
+                "connection check: the credential-less launch is on "
+                f"margin_mode {chk['margin_mode']} (required hedging "
+                f"{sl.MARGIN_HEDGING})")
+        self._step("connection check: credential-less launch connected",
+                   margin_mode=chk["margin_mode"])
+        return chk
 
     def _write(self, error: str | None, test_lines: list[str],
                restore: dict) -> dict:
