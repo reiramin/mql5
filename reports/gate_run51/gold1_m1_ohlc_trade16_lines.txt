@@ -1,0 +1,15 @@
+--- /tester_gold1_m1_ohlc_window.txt lines 318-331 (local time UTC-7) ---
+JD	0	03:33:38.739	Core 1	2024.02.07 08:00:40   deal #33 buy 0.1 EURUSD.G1 at 1.11943 done (based on order #33)
+PJ	0	03:33:38.739	Core 1	2024.02.07 08:00:40   deal performed [#33 buy 0.1 EURUSD.G1 at 1.11943]
+IF	0	03:33:38.739	Core 1	2024.02.07 08:00:40   order performed buy 0.1 at 1.11943 [#33 buy 0.1 EURUSD.G1 at 1.11943]
+IN	0	03:33:38.739	Core 1	2024.02.07 08:00:40   [2024.02.07 08:00:40] [INFO] DEAL #33 EURUSD.G1 vol=0.10 price=1.11943 pnl=-103.30
+NI	0	03:33:38.739	Core 1	2024.02.07 09:00:00   instant sell 0.14 EURUSD.G1 at 1.12030 sl: 1.12814 tp: 1.10776 (1.12030 / 1.12031 / 1.12030)
+CG	0	03:33:38.739	Core 1	2024.02.07 09:00:00   deal #34 sell 0.14 EURUSD.G1 at 1.12030 done (based on order #34)
+DJ	0	03:33:38.739	Core 1	2024.02.07 09:00:00   deal performed [#34 sell 0.14 EURUSD.G1 at 1.12030]
+OS	0	03:33:38.739	Core 1	2024.02.07 09:00:00   order performed sell 0.14 at 1.12030 [#34 sell 0.14 EURUSD.G1 at 1.12030]
+JL	0	03:33:38.739	Core 1	2024.02.07 09:00:00   [mql5bot] EXEC|open|EURUSD.G1|DONE|0|0.00|18|mql5bot-ema_crossover_ref-18
+DQ	0	03:33:38.739	Core 1	2024.02.07 09:00:00   [2024.02.07 09:00:00] [INFO] registered own entry position #34
+HN	0	03:33:38.739	Core 1	2024.02.07 09:00:00   [2024.02.07 09:00:00] [INFO] ENTRY SELL 0.14 lots risk=109.76 (1.00%) sl=1.12814 tp=1.10776
+PQ	0	03:33:38.739	Core 1	2024.02.07 09:00:00   [2024.02.07 09:00:00] [INFO] DEAL #34 EURUSD.G1 vol=0.14 price=1.12030 pnl=0.00
+LQ	0	03:33:38.739	Core 1	2024.02.07 14:00:00   [2024.02.07 14:00:00] [INFO] signal flipped ? closing opposite position
+IQ	0	03:33:38.739	Core 1	2024.02.07 14:00:00   instant buy 0.14 EURUSD.G1 at 1.12731, close #34 (1.12730 / 1.12731 / 1.12730)
