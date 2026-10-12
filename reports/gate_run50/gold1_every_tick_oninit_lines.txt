@@ -1,0 +1,107 @@
+# gate_run50 gold1_every_tick: tester window lines from leg start up to the OnInit stop line
+# source: evidence\owner_gate\20261012-102222\tester_gold1_every_tick_window.txt
+# redaction: accounts-file logins/passwords -> <REDACTED>; any other standalone 6+ digit number -> <ACCOUNT>
+
+GM	0	03:24:42.866	Tester	Cloud servers switched off
+QN	0	03:24:46.322	Tester	"Mql5Bot\Mql5Bot.ex5" X64
+RG	0	03:24:46.701	Tester	EURUSD.G1: history data begins from 2024.01.01 00:00
+LI	0	03:24:46.701	Tester	EURUSD.G1: history data begins from 2024.01.01 00:00
+MO	0	03:24:46.707	Core 1	agent process started on 127.0.0.1:3000
+LH	0	03:24:46.707	Core 1	connecting to 127.0.0.1:3000
+CM	0	03:24:47.745	Core 1	connected
+LL	0	03:24:47.754	Core 1	authorized (agent build 6256)
+GG	0	03:24:47.761	Tester	EURUSD.G1,H1 (MetaQuotes-Demo): testing of Experts\Mql5Bot\Mql5Bot.ex5 from 2024.01.01 00:00 to 2024.02.09 00:00
+RD	0	03:24:47.798	Core 1	common synchronization completed
+FO	2	03:24:47.813	Tester	quality of analyzed history is 0% (720 minute bars, tick volume errors 0, spread errors 0)
+LR	0	03:24:47.832	Core 1	MetaTester 5 started on 127.0.0.1:3000
+LH	0	03:24:47.832	Core 1	cloud network mode is off
+MS	0	03:24:47.832	Core 1	initialization finished
+RJ	0	03:24:47.832	Core 1	login (build 6256)
+IF	0	03:24:47.832	Core 1	9148 bytes of account info loaded
+GQ	0	03:24:47.832	Core 1	1478 bytes of tester parameters loaded
+EE	0	03:24:47.832	Core 1	33988 bytes of input parameters loaded
+MP	0	03:24:47.832	Core 1	47736 bytes of symbols list loaded (12309 symbols)
+HI	0	03:24:47.832	Core 1	expert file added: Experts\Mql5Bot\Mql5Bot.ex5. <ACCOUNT> bytes loaded
+GI	0	03:24:47.832	Core 1	5841 Mb available, 72 blocks set for ticks generating
+IP	0	03:24:47.832	Core 1	initial deposit 10000.00 USD, leverage 1:100
+RI	0	03:24:47.832	Core 1	successfully initialized
+PP	0	03:24:47.832	Core 1	268 Kb of total initialization data received
+QF	0	03:24:47.832	Core 1	Intel Core i9-9980HK  @ 2.40GHz, 10239 MB
+CR	0	03:24:47.832	Core 1	EURUSD.G1: symbol to be synchronized
+JF	0	03:24:47.832	Core 1	EURUSD.G1: symbol synchronized, 3720 bytes of symbol info received
+DI	0	03:24:47.832	Core 1	EURUSD.G1: load 33 bytes of history data to synchronize in 0:00:00.001
+GN	0	03:24:47.832	Core 1	EURUSD.G1: history synchronized from 2024.01.01 to 2024.02.09
+OL	3	03:24:47.832	Core 1	EURUSD.G1: start time changed to 2024.01.06 00:00 to provide data at beginning
+QH	0	03:24:47.832	Core 1	EURUSD.G1,H1: history cache allocated for 703 bars and contains 120 bars from 2024.01.01 00:00 to 2024.01.05 23:00
+DH	0	03:24:47.832	Core 1	EURUSD.G1,H1: history begins from 2024.01.01 00:00
+OF	0	03:24:47.832	Core 1	EURUSD.G1,H1 (MetaQuotes-Demo): every tick generating
+RL	0	03:24:47.832	Core 1	EURUSD.G1,H1: testing of Experts\Mql5Bot\Mql5Bot.ex5 from 2024.01.01 00:00 to 2024.02.09 00:00 started with inputs:
+GN	0	03:24:47.832	Core 1	  === Strategy ====
+RG	0	03:24:47.832	Core 1	  InpStrategy=0
+QN	0	03:24:47.832	Core 1	  InpDslBundleFile=Mql5Bot\gold_bundles\ema_crossover_ref_v1_EURUSD.G1.bundle.json
+QD	0	03:24:47.832	Core 1	  InpDslBars=500
+CP	0	03:24:47.832	Core 1	  InpFastEma=10
+DK	0	03:24:47.832	Core 1	  InpSlowEma=30
+KF	0	03:24:47.832	Core 1	  InpRsiPeriod=14
+JP	0	03:24:47.832	Core 1	  InpRsiOversold=30.0
+GK	0	03:24:47.832	Core 1	  InpRsiOverbought=70.0
+FJ	0	03:24:47.832	Core 1	  InpDonchianPeriod=20
+FO	0	03:24:47.832	Core 1	  InpBollingerPeriod=20
+FD	0	03:24:47.832	Core 1	  InpBollingerDev=2.0
+ML	0	03:24:47.832	Core 1	  InpMacdFast=12
+CR	0	03:24:47.832	Core 1	  InpMacdSlow=26
+EK	0	03:24:47.832	Core 1	  InpMacdSignal=9
+JQ	0	03:24:47.832	Core 1	  InpSlAtr=2.5
+DN	0	03:24:47.832	Core 1	  InpTpAtr=4.0
+NH	0	03:24:47.832	Core 1	  === Risk & money management ====
+IM	0	03:24:47.832	Core 1	  InpSizingMode=1
+NI	0	03:24:47.832	Core 1	  InpRiskPercent=1.0
+JD	0	03:24:47.832	Core 1	  InpFixedLots=0.01
+RS	0	03:24:47.832	Core 1	  InpFixedMoney=100.0
+PD	0	03:24:47.832	Core 1	  InpKellyWinRate=0.55
+EQ	0	03:24:47.832	Core 1	  InpKellyPayoff=1.5
+LM	0	03:24:47.832	Core 1	  InpMaxLots=10.0
+IH	0	03:24:47.832	Core 1	  InpAllocationFile=in/allocation.json
+PQ	0	03:24:47.832	Core 1	  InpBaseGateWeight=1.0
+JF	0	03:24:47.832	Core 1	  InpDailyLossPct=0.0
+NM	0	03:24:47.832	Core 1	  InpMaxDrawdownPct=0.0
+OM	0	03:24:47.832	Core 1	  InpMaxSpreadPoints=0.0
+KD	0	03:24:47.832	Core 1	  InpMaxBars=0
+GO	0	03:24:47.832	Core 1	  === Exits ====
+PP	0	03:24:47.832	Core 1	  InpTrailAtr=0.0
+CJ	0	03:24:47.832	Core 1	  InpBreakevenAtr=0.0
+MR	0	03:24:47.832	Core 1	  InpBreakevenOffset=0.0
+QG	0	03:24:47.832	Core 1	  InpPartialAtr=0.0
+EG	0	03:24:47.832	Core 1	  InpPartialFraction=0.5
+FP	0	03:24:47.832	Core 1	  === Execution ====
+FJ	0	03:24:47.832	Core 1	  InpEntryMode=0
+IP	0	03:24:47.832	Core 1	  InpPendingOffsetPoints=10
+QM	0	03:24:47.832	Core 1	  InpPendingExpireBars=6
+OG	0	03:24:47.832	Core 1	  InpDeviation=30
+PL	0	03:24:47.832	Core 1	  InpMaxRetries=3
+DE	0	03:24:47.832	Core 1	  InpAllowShort=true
+EF	0	03:24:47.832	Core 1	  InpMagic=<ACCOUNT>
+IR	0	03:24:47.832	Core 1	  === Identity & state ====
+FD	0	03:24:47.832	Core 1	  InpUseMagicRegistry=true
+GL	0	03:24:47.832	Core 1	  InpResetKillSwitch=false
+RG	0	03:24:47.832	Core 1	  === Session filter ====
+QD	0	03:24:47.832	Core 1	  InpUseSession=false
+KP	0	03:24:47.832	Core 1	  InpSessionStartHour=8
+IH	0	03:24:47.832	Core 1	  InpSessionStartMin=0
+FO	0	03:24:47.832	Core 1	  InpSessionEndHour=17
+PL	0	03:24:47.832	Core 1	  InpSessionEndMin=0
+DG	0	03:24:47.832	Core 1	  InpSessionDays=62
+PS	0	03:24:47.832	Core 1	  === Logging & telemetry ====
+EE	0	03:24:47.832	Core 1	  InpLogLevel=2
+GI	0	03:24:47.832	Core 1	  InpTelemetry=false
+FM	0	03:24:47.832	Core 1	  InpWebhookUrl=https://httpbin.org/post
+EI	0	03:24:47.832	Core 1	  === Safety tests (test-only, default OFF) ====
+CR	0	03:24:47.832	Core 1	  InpTestKillSwitchAfterEntries=0
+RH	0	03:24:47.832	Core 1	  InpTestStripSlEntries=0
+FS	0	03:24:47.832	Core 1	  InpTestSafetyLog=false
+GI	0	03:24:47.832	Core 1	  InpTestLostResponses=0
+HN	0	03:24:47.832	Core 1	  InpTestUnsentTimeouts=0
+NK	0	03:24:47.832	Core 1	  InpTestDemoProbe=0
+QD	0	03:24:47.832	Core 1	2024.01.06 00:00:00   [mql5bot] DSL series build failed: 
+RH	0	03:24:47.832	Core 1	2024.01.06 00:00:00   [2024.01.06 00:00:00] [INFO] shutting down (reason 8)
+QM	2	03:24:47.832	Core 1	tester stopped because OnInit returns non-zero code 1
