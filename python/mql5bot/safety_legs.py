@@ -426,24 +426,55 @@ def _snapshots(log: str) -> list[dict]:
     return out
 
 
+def _positioned(log: str, pattern: re.Pattern) -> list[tuple[int, re.Match,
+                                                               str]]:
+    """(line position, match, line) for EA lines matching ``pattern``. The
+    demo ealog.txt is the harness's tail of the append-only Experts log, so
+    the POSITION is the true order. The EA's own stamp is not: it is
+    TimeCurrent(), stale at OnInit after a relaunch (gate_run54: the
+    relaunch START was stamped 16:06:55, before the probe's 16:07:21,
+    while the harness saw them at 13:08:05 and 13:07:20 UTC)."""
+    out = []
+    for pos, ln in enumerate(_lines(log)):
+        m = _EA_LINE_RE.search(ln)
+        if not m:
+            continue
+        hit = pattern.search(m.group(3))
+        if hit:
+            out.append((pos, hit, ln))
+    return out
+
+
 def grade_restart(log: str, baseline: str = "", symbol: str = "") -> dict:
+    """RESTART-ORDER-1: events are ordered by their position in the log,
+    never by the EA's stamp. The restart START is the first probe=1 START
+    after the probe opened; its heartbeats are the ones before the next
+    START."""
     del baseline, symbol
-    starts = ea_lines(log, _START_RE)
-    probe = ea_lines(log, _PROBE_RE)
+    starts = _positioned(log, _START_RE)
+    probe = _positioned(log, _PROBE_RE)
     snaps = _snapshots(log)
+    snap_pos = {p for p, _, _ in _positioned(log, _SNAP_RE)}
     lines = [ln for _, _, ln in starts] + [ln for _, _, ln in probe]
-    facts = {"starts": len(starts), "probe_opened": len(probe)}
+    facts = {"starts": len(starts), "probe_opened": len(probe),
+             "order": "log position (RESTART-ORDER-1)"}
     if not probe:
         return _demo_doc("restart", "PROBE_NOT_OPENED", "flat", "no probe "
                          "position", lines, facts)
-    after = [s for s in starts if s[0] >= probe[0][0]]
+    after = [s for s in starts if s[0] > probe[0][0]
+             and int(s[1].group(1)) == 1]
     if not after:
         return _demo_doc("restart", "NO_RESTART", "probe position open",
-                         "no START after the probe opened", lines, facts)
+                         "no probe=1 START after the probe opened", lines,
+                         facts)
     _, first, _ = starts[0]
-    t1, again, _ = after[0]
-    later = [s for s in snaps if s["time"] >= t1 and
-             s["label"] == "heartbeat"]
+    p1, again, _ = after[0]
+    nxt = min([s[0] for s in starts if s[0] > p1], default=None)
+    # snapshots in log order, paired with their positions
+    ordered = sorted(snap_pos)
+    later = [s for pos, s in zip(ordered, snaps)
+             if pos > p1 and (nxt is None or pos < nxt)
+             and s["label"] == "heartbeat"]
     dup = [s for s in later if s["own"] > 1]
     facts.update({"magic_before": first.group(2), "magic_after":
                   again.group(2), "own_at_restart": int(again.group(3)),

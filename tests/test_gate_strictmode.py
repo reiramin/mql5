@@ -104,7 +104,10 @@ def test_ps1_has_no_bare_property_read_of_decider_output():
 
 def test_get_data_prop_checks_membership_before_reading():
     fn = _fn("Get-DataProp")
-    assert "PSObject.Properties.Name) -contains $name" in fn
+    # EMPTY-OBJ-1: names read one by one (`.Properties.Name` throws on {})
+    assert ("@($obj.PSObject.Properties | ForEach-Object { $_.Name }) "
+            "-contains $name") in fn
+    assert "PSObject.Properties.Name" not in fn
     assert "DECIDER_OUTPUT_MISSING" in fn
 
 

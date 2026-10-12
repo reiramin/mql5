@@ -225,11 +225,20 @@ function Invoke-Decide([string[]]$deciderArgs) {
 # object) is $null. -Required is for fields the success path cannot do
 # without: absent -> a NAMED throw (the trap records it), never a silent $null
 # passed on to a tester run.
+# EMPTY-OBJ-1 (gate_run54 stage 8): under StrictMode 2.0, `.PSObject.
+# Properties.Name` on an object with NO properties (JSON {}) throws "The
+# property 'Name' cannot be found". Property names are read one by one
+# (Get-DataProp does the same inline, so it stays self-contained).
+function Get-PropNames($obj) {
+    if ($null -eq $obj) { return @() }
+    return @($obj.PSObject.Properties | ForEach-Object { $_.Name })
+}
+
 function Get-DataProp($obj, [string]$name, [switch]$Required) {
     $has = $false
     if ($null -ne $obj) {
         if ($obj -is [System.Collections.IDictionary]) { $has = $obj.Contains($name) }
-        else { $has = (@($obj.PSObject.Properties.Name) -contains $name) }
+        else { $has = (@($obj.PSObject.Properties | ForEach-Object { $_.Name }) -contains $name) }
     }
     if (-not $has) {
         if ($Required) { throw ("DECIDER_OUTPUT_MISSING: required property '{0}' absent" -f $name) }
@@ -1553,9 +1562,9 @@ $pkgBuild = Invoke-Decide (@("build-stage8-package", "--package", $evidencePkg,
     "--host-os", [Environment]::OSVersion.VersionString,
     "--host-timezone", [TimeZoneInfo]::Local.Id) + $demoArgs + $customSpecArgs)
 [void]$s8Art.Add((New-Artifact $pkgBuild.raw))
-if ($pkgBuild.data -and (Get-DataProp $pkgBuild.data "not_built")) {
-    $nb = Get-DataProp $pkgBuild.data "not_built"
-    [void]$placeNotes.Add(("package built by the gate; NOT built: {0}" -f ((@($nb.PSObject.Properties.Name) | Sort-Object) -join ", ")))
+$nbNames = @(Get-PropNames (Get-DataProp $pkgBuild.data "not_built"))
+if ($nbNames.Count -gt 0) {
+    [void]$placeNotes.Add(("package built by the gate; NOT built: {0}" -f ((@($nbNames) | Sort-Object) -join ", ")))
 }
 $verifyOut = Join-Path $Evidence "reconciliation_verify.json"
 $vp = Start-Process -FilePath $Python `
