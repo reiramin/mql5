@@ -35,6 +35,7 @@ struct SSymbolSpec
    double            stopsLevelPoints;     // SYMBOL_TRADE_STOPS_LEVEL (in points)
    double            freezeLevelPoints;    // SYMBOL_TRADE_FREEZE_LEVEL (in points)
    long              fillingMode;          // SYMBOL_FILLING_MODE bitmask
+   long              executionMode;        // SYMBOL_TRADE_EXEMODE (FILL-MODE-1)
    long              orderMode;            // SYMBOL_ORDER_MODE bitmask
    long              tradeMode;            // SYMBOL_TRADE_MODE
    long              expirationMode;       // SYMBOL_EXPIRATION_MODE bitmask
@@ -59,6 +60,7 @@ struct SSymbolSpec
       stopsLevelPoints = 0.0;
       freezeLevelPoints= 0.0;
       fillingMode      = 0;
+      executionMode    = 0;
       orderMode        = 0;
       tradeMode        = 0;
       expirationMode   = 0;
@@ -88,6 +90,7 @@ bool BuildSymbolSpec(const string symbol, SSymbolSpec &out)
    out.stopsLevelPoints  = (double)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL);
    out.freezeLevelPoints = (double)SymbolInfoInteger(symbol, SYMBOL_TRADE_FREEZE_LEVEL);
    out.fillingMode       = SymbolInfoInteger(symbol, SYMBOL_FILLING_MODE);
+   out.executionMode     = SymbolInfoInteger(symbol, SYMBOL_TRADE_EXEMODE);
    out.orderMode         = SymbolInfoInteger(symbol, SYMBOL_ORDER_MODE);
    out.tradeMode         = SymbolInfoInteger(symbol, SYMBOL_TRADE_MODE);
    out.expirationMode    = SymbolInfoInteger(symbol, SYMBOL_EXPIRATION_MODE);
@@ -195,10 +198,23 @@ double SpecLossPerLot(const double stopDistance, const SSymbolSpec &spec)
    return (double)SpecTicksOf(stopDistance, spec) * spec.tickValueLoss;
   }
 
-// Is this filling mode allowed by the symbol mask (SPEC §8.D)?
+// Is this filling mode allowed for the symbol (SPEC §8.D; FILL-MODE-1)?
+// ENUM_ORDER_TYPE_FILLING is an index (FOK 0, IOC 1, RETURN 2), while
+// SYMBOL_FILLING_MODE is a flag mask (SYMBOL_FILLING_FOK 1, SYMBOL_FILLING_IOC
+// 2): each order mode is tested against ITS flag, never the index as a bit.
+// RETURN has no flag; the MQL5 reference enables it in every execution mode
+// except Market execution (SYMBOL_TRADE_EXECUTION_MARKET).
+// Kept one `if` + one `return` per line: tests/test_fill_mode.py executes
+// these three functions from this source.
 bool SpecIsFillingAllowed(const SSymbolSpec &spec, const ENUM_ORDER_TYPE_FILLING filling)
   {
-   return (spec.fillingMode & (long)filling) != 0;
+   if(filling == ORDER_FILLING_FOK)
+      return (spec.fillingMode & SYMBOL_FILLING_FOK) != 0;
+   if(filling == ORDER_FILLING_IOC)
+      return (spec.fillingMode & SYMBOL_FILLING_IOC) != 0;
+   if(filling == ORDER_FILLING_RETURN)
+      return spec.executionMode != (long)SYMBOL_TRADE_EXECUTION_MARKET;
+   return false;
   }
 
 // Is this order type allowed by the symbol's order-mode mask?
@@ -221,15 +237,52 @@ ENUM_ORDER_TYPE_FILLING SpecPreferredFilling(const SSymbolSpec &spec)
   }
 
 // Next allowed filling after `current` (used for the single INVALID_FILL
-// re-send). Returns -1 when no further mode is allowed.
+// re-send), strictly later in the FOK -> IOC -> RETURN order. Returns -1
+// when no further mode is allowed.
 ENUM_ORDER_TYPE_FILLING SpecNextFilling(const SSymbolSpec &spec,
                                         const ENUM_ORDER_TYPE_FILLING current)
   {
    if(current == ORDER_FILLING_FOK && SpecIsFillingAllowed(spec, ORDER_FILLING_IOC))
       return ORDER_FILLING_IOC;
-   if(SpecIsFillingAllowed(spec, ORDER_FILLING_RETURN))
+   if(current != ORDER_FILLING_RETURN && SpecIsFillingAllowed(spec, ORDER_FILLING_RETURN))
       return ORDER_FILLING_RETURN;
    return (ENUM_ORDER_TYPE_FILLING)-1;
+  }
+
+string SpecFillingName(const ENUM_ORDER_TYPE_FILLING filling)
+  {
+   if(filling == ORDER_FILLING_FOK)
+      return "FOK";
+   if(filling == ORDER_FILLING_IOC)
+      return "IOC";
+   if(filling == ORDER_FILLING_RETURN)
+      return "RETURN";
+   return "NONE";
+  }
+
+// symbols whose chosen filling mode has been logged (once per symbol)
+string g_specFillingLogged[];
+
+// THE filling mode for every live market deal (TradeManager opens and
+// closes, the demo probe orders): the first mode the broker allows, FOK when
+// it allows none (the pre-FILL-MODE-1 fallback). Logged once per symbol.
+ENUM_ORDER_TYPE_FILLING SpecChooseFilling(const SSymbolSpec &spec)
+  {
+   ENUM_ORDER_TYPE_FILLING filling = SpecPreferredFilling(spec);
+   bool none = (filling == (ENUM_ORDER_TYPE_FILLING)-1);
+   if(none)
+      filling = ORDER_FILLING_FOK;
+   int n = ArraySize(g_specFillingLogged);
+   for(int i = 0; i < n; i++)
+      if(g_specFillingLogged[i] == spec.name)
+         return filling;
+   ArrayResize(g_specFillingLogged, n + 1);
+   g_specFillingLogged[n] = spec.name;
+   PrintFormat("[mql5bot] FILLING|%s|%s|filling_mode_mask=%I64d|exemode=%I64d%s",
+               spec.name, SpecFillingName(filling), spec.fillingMode,
+               spec.executionMode,
+               none ? "|none allowed: FOK fallback" : "");
+   return filling;
   }
 
 #endif // MQL5BOT_SYMBOLSPEC_MQH

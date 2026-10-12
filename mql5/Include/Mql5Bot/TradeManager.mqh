@@ -198,9 +198,8 @@ private:
                                                  : fill - SpecRoundToTick(td, m_spec))
                   : 0.0;
 
-      ENUM_ORDER_TYPE_FILLING filling = SpecPreferredFilling(m_spec);
-      if(filling == (ENUM_ORDER_TYPE_FILLING)-1)
-         filling = ORDER_FILLING_FOK;
+      // FILL-MODE-1: the first mode the broker allows (SymbolSpec.mqh)
+      ENUM_ORDER_TYPE_FILLING filling = SpecChooseFilling(m_spec);
 
       int sent = 0;
       for(int i = 0; i < 3; i++)
@@ -304,9 +303,8 @@ private:
       double price = (dir == POSITION_TYPE_LONG) ? Bid(symbol) : Ask(symbol);
       if(price <= 0.0)
          return TRADE_RETCODE_PRICE_OFF;   // no quotes right now: real MQL5 code 10021
-      ENUM_ORDER_TYPE_FILLING filling = SpecPreferredFilling(m_spec);
-      if(filling == (ENUM_ORDER_TYPE_FILLING)-1)
-         filling = ORDER_FILLING_FOK;
+      // FILL-MODE-1: the first mode the broker allows (SymbolSpec.mqh)
+      ENUM_ORDER_TYPE_FILLING filling = SpecChooseFilling(m_spec);
       uint rc = SendDealOnce((dir == POSITION_TYPE_LONG) ? ORDER_TYPE_SELL
                                                          : ORDER_TYPE_BUY,
                              symbol, dir, vol, price, 0.0, 0.0, comment, ticket,
