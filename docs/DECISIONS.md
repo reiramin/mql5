@@ -4672,3 +4672,162 @@ stricter, not weaker): `tests/test_broker_symbol_parity.py` and
   quotes two more export fields.
 - **(b) Do the gold legs change behaviour at default inputs?** No.
 - **(c) Are new checks re-computed by the verifier?** No new checks.
+
+## DEMO-LOGIN-PERSIST-1 — the demo harness leaves the terminal logged in, password kept, and proves it (2026-10-12)
+
+**Input.** gate_run46 (`gate-reports`, `fdd7b58`). The pattern now covers
+three runs:
+- every gate run AFTER a demo-harness session FAILs stage 3 with
+  `sync_unmet="terminal not connected"` (gate_run40, 44, 46; gate_run46 is
+  the first with STAGE3-SYNC-QUOTE-1's field);
+- the gate run BEFORE it passes stage 3 (gate_run46's own compile gate,
+  run before the demo session).
+
+The gate launches the terminal without credentials, so it needs the
+terminal's saved login.
+
+**Causes in the harness (python/mql5bot/demo_harness.py).**
+1. The `[Common]` login lines carried no `KeepPrivate`, the MT5 startup
+   config key for keeping the password between sessions. A login made
+   through the config was therefore not kept for the next start.
+2. The closing restore ended with a hard `proc.kill()`: the terminal never
+   had a clean exit in which to write its state.
+
+This is the most likely explanation, not a proven one. The verify step
+below is what proves it on the terminal.
+
+**Change.**
+- Every login ini carries `KeepPrivate=1` (`common_login()`). The password
+  goes into the terminal's own encrypted store; nothing is written to the
+  repo, the evidence or run.json.
+- The restore adds two steps:
+  - **persist:** a hedging login that runs the gate's exporter with
+    `ShutdownTerminal=1`, and waits for the terminal to exit BY ITSELF. A
+    terminal that does not exit FAILs the run (and is then killed);
+  - **verify:** a credential-less launch, byte-shaped like the gate's
+    stage-3 export (no `[Common]`, ASCII ini). It must give `sync_unmet` ≠
+    `terminal not connected` and `account_margin_mode` 2, else the run is
+    FAILED. Its output goes to `MQL5\Files\Mql5Bot\demo_connect_check\`
+    (never the gate's `broker_exports`) and is deleted after reading (it
+    holds the login).
+- `run.json` `restore.connect_check` records `sync_unmet`, `synced` and
+  `margin_mode`.
+
+The builder already uses only COMPLETED runs, so a run that fails the
+check is never evidence.
+
+**Tests (tests/test_safety_demo.py).** The FakeTerminal now models the
+login store: a login keeps the password only with `KeepPrivate=1`; a
+credential-less launch connects only to the current account with a kept
+password; the exporter writes its JSON. New tests:
+- the check launch is the gate's credential-less shape;
+- every run ends persisted and proven connected;
+- a dropped password (the gate_run40/44/46 pattern) FAILs the run;
+- a check landing on a netting account FAILs it;
+- a terminal that does not exit by itself FAILs it;
+- a check that writes nothing FAILs it.
+
+On the previous harness, 9 of the 64 tests in the file fail.
+
+Status: built, unit-tested, never run live. Proof is the next
+`[runner: demo]` session: the gate run after it must pass stage 3.
+
+**Also recorded (gate_run46): FILL-MODE-1 gold legs proven unchanged.**
+gate_run46's compile gate (`-Golds gold2`, `fdd7b58`, evidence
+`20261012-081942`) reconciled gold2 with `result=MATCH`: every_tick and
+m1_ohlc each `paired=37`, `mt5_entry_deals=37`, `missing_in_mt5=0`,
+`extra_in_mt5=0`, no divergence, as before FILL-MODE-1. The same
+session's demo runs (restart, netting, hedging) all COMPLETED, every probe
+order `done=true`, restore margin_mode 2. They are not graded yet.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No. A run must now also
+  pass the connection check to be COMPLETED.
+- **(b) Do the gold legs change behaviour at default inputs?** No; mql5/
+  is untouched.
+- **(c) Are new checks re-computed by the verifier?** The connection check
+  is a harness precondition: it decides COMPLETED vs FAILED, and only
+  COMPLETED runs are used. It is not evidence for a safety grade.
+
+## DEMO-IN-GATE-1 — the gate runs the demo harness itself, with its own stage-1 EX5 (2026-10-12)
+
+**Input.**
+- **gate_run47** (`fdd7b58`, gold2):
+  - stage 3 PASSED after the owner re-saved the hedging login, which
+    confirms DEMO-LOGIN-PERSIST-1's cause;
+  - gold2 MATCH 37/37; 5/8 safety VALID;
+  - all three gate_run46 demo runs rejected by the builder: "demo run EX5
+    sha256 '4f03256d…' != this gate's stage-1 compile hash 'd9a5609c…':
+    evidence of another binary", at the SAME HEAD.
+
+  MetaEditor output differs per compile, and every gate run compiles. The
+  binding rule is correct and is **not** loosened.
+- **gate_run48** (`fdd7b58`, gold1): see the gold1 note below.
+
+**Change (tools/ + python/; no acceptance rule changes).**
+- `owner_gate.ps1 -DemoSafety [-DemoAccounts <file>]`:
+  - **stage 0** refuses, by name, when the demo cannot run:
+    `[demo_accounts_missing]` (no complete hedging/netting entry),
+    `[market_closed]`, or `[demo_args_conflict]` (`-DemoEvidence` also
+    passed). The decision is `demo-preflight`
+    (`demo_harness.demo_preflight` / `fx_market_closed`).
+  - **New stage 7 `demo_safety`**, between stages 5 and 8, only with the
+    switch:
+    - re-checks the market;
+    - `Invoke-DemoInGate` runs `demo_safety_harness.py run` for restart,
+      netting and hedging into `<evidence>\demo_safety`, against this
+      run's terminal and data folder, i.e. against the EX5 stage 1 just
+      compiled;
+    - then the decider `demo-in-gate-outcome`: every run's restore must
+      hold, with a connection check that is not `terminal not connected`;
+    - otherwise a loud FAIL, `[demo_terminal_not_restored]`.
+
+    The stage's PASS says "NOT a safety grade".
+  - **Stage 8** grades that folder first (then `-DemoEvidence`, then
+    `evidence\demo_safety`), with the unchanged builder and verifier,
+    including the EX5 binding.
+- The restore fix is DEMO-LOGIN-PERSIST-1 (same PR): `KeepPrivate=1`, a
+  clean persist exit, and a credential-less, gate-shaped connection check.
+- The market window is widened at every edge so a session never straddles
+  a refusal: Friday 20:00 – Sunday 22:15 UTC, and the daily rollover
+  20:45 – 22:15 UTC.
+
+**Tests.**
+- `tests/test_demo_in_gate.py` (32):
+  - the market window edges;
+  - the preflight (missing file, incomplete role, closed market, the repo
+    path refused, no credential in its output);
+  - the outcome (connected, a failed test graded later, not connected, no
+    check recorded, a missing run);
+  - the decider CLI;
+  - the `.ps1` layout (switch, stage-0 preflight before the PASS, stage 7
+    between 5 and 8 behind the switch, stage 8's folder order);
+  - `Invoke-DemoInGate` executed under pwsh with a stand-in harness: three
+    runs into this run's folder with this run's terminal, data folder and
+    accounts, a not-connected restore FAILing, no credential in the gate
+    evidence.
+
+  On the previous code, all 28 tests that existed before the market-window
+  widening fail.
+- `tests/test_safety_demo.py` (DEMO-LOGIN-PERSIST-1, see above).
+
+Status: built, unit-tested, never run live.
+
+**gold1 (gate_run48, recorded, not fixed here).**
+- The import now passes: `symbol_state` `created_fresh`, round-trip ==
+  manifest `074530cd…`. The owner's deletion of EURUSD.G1 worked.
+- Stage 5 FAILs: both gold1 legs "EA OnInit returned non-zero …
+  strategy_loaded (expected DSL strategy 'ema_crossover_ref'; the EA logged
+  None)".
+
+That is a separate gold1 bring-up issue. It is listed in docs/BLOCKED.md
+and needs its own investigation.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No. The EX5 binding, the
+  builder and the verifier are unchanged; stage 7 only adds refusals.
+- **(b) Do the gold legs change behaviour at default inputs?** No; mql5/
+  is untouched.
+- **(c) Are new checks re-computed by the verifier?** Stage 7 decides
+  whether the terminal was restored; the safety grades are still built and
+  re-verified at stage 8 from the bound EA logs.

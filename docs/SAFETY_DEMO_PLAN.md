@@ -81,7 +81,8 @@ The next gate run picks them up (`-DemoEvidence`, default
 - **Login.** Reads Login / Password / Server from the LOCAL accounts file:
   `%USERPROFILE%\.mql5bot\demo_accounts.json`, or the path in
   `MQL5BOT_DEMO_ACCOUNTS`. A file inside the repo is refused.
-- **Startup config.** Writes a `[StartUp]` ini (`[Common]` login,
+- **Startup config.** Writes a `[StartUp]` ini (`[Common]` login with
+  `KeepPrivate=1`,
   `[Experts] AllowLiveTrading=1`, `Expert=Mql5Bot\Mql5Bot`,
   `Symbol=EURUSD`, `Period=M1`) to a fresh TEMP directory outside the repo.
   It deletes the ini as soon as the EA prints `TEST demo: START`, and
@@ -107,9 +108,25 @@ account with the cleanup probe (3). That START line must report
 The builder uses only a COMPLETED run with a restore log that shows
 hedging. The verifier re-reads both bound files (`run_evidence`,
 `restore_evidence`) and re-checks them; the record's own claim is never
-trusted. The terminal is killed after the restore (it is not left
-running), so whether MT5 persists that login as the default for its next
-start is untested.
+trusted.
+
+**Persist and verify (DEMO-LOGIN-PERSIST-1).** The restore above ends in a
+hard kill. gate_run40/44/46 then FAILed stage 3 with `sync_unmet="terminal
+not connected"`: the gate launches the terminal WITHOUT credentials, and
+the password was not kept. So every run then does two more steps:
+1. **Persist.** One more hedging login, with `KeepPrivate=1` (the terminal
+   keeps the password in its own encrypted store, never a repo file), that
+   runs the gate's exporter with `ShutdownTerminal=1`. The terminal exits
+   by itself; it is never killed.
+2. **Verify.** A credential-less launch shaped exactly like the gate's
+   stage-3 export (no `[Common]`). It must report `sync_unmet` other than
+   `terminal not connected`, and `account_margin_mode` 2. Otherwise the
+   run is `FAILED`.
+
+The check writes to `MQL5\Files\Mql5Bot\demo_connect_check\`, never the
+gate's `broker_exports`. That export holds the account login, so it is
+deleted after reading. `run.json` keeps only `restore.connect_check`
+(`sync_unmet`, `synced`, `margin_mode`).
 
 **restart** (hedging account):
 1. Probe 1 opens ONE position (buy volume_min, SL/TP 500 points). A file
@@ -155,6 +172,47 @@ exposure. It does NOT cover:
   poll;
 - the strategy's own re-entry logic after a restart.
 
+## Inside the gate: `owner_gate.ps1 -DemoSafety` (DEMO-IN-GATE-1)
+
+gate_run47 rejected all three gate_run46 demo runs. Their EX5 sha256 was
+`4f03256d…`, while the gate's own stage-1 EX5 was `d9a5609c…`, at the SAME
+HEAD: MetaEditor output differs per compile. A demo run is bound to the
+binary it ran, and that rule stays. So the runs must come from the same
+gate run as the stage-1 compile:
+
+    tools\owner_gate.ps1 -DataFolder "<data folder>" -Golds gold2 -DemoSafety
+        [-DemoAccounts <local accounts file>]
+
+1. **Stage 0 preflight** (`owner_gate_decide.py demo-preflight`). It is a
+   named FAIL, never a pass, when:
+   - the accounts file lacks a complete `hedging` or `netting` entry
+     (`[demo_accounts_missing]`);
+   - the market is closed (`[market_closed]`): Friday 20:00 – Sunday
+     22:15 UTC, and the daily rollover 20:45 – 22:15 UTC;
+   - `-DemoEvidence` is also passed (`[demo_args_conflict]`): that
+     evidence was bound to another compile.
+2. **Stages 1–5** run as usual. Stage 1 compiles the EX5 the harness will
+   run.
+3. **Stage 7 `demo_safety`**:
+   - re-checks the market (named FAIL);
+   - runs the harness for restart, netting and hedging into
+     `<this run's evidence>\demo_safety`, using `MQL5\Experts\Mql5Bot\Mql5Bot.ex5`
+     (the file stage 1 compiled);
+   - asks `demo-in-gate-outcome` whether every run's restore left the
+     terminal on the hedging account, password kept, connected without
+     credentials (DEMO-LOGIN-PERSIST-1).
+
+   If not, it FAILs loudly (`[demo_terminal_not_restored]`): every later
+   gate launch would fail stage 3. A PASS here is not a safety grade.
+4. **Stage 8** grades this run's demo folder with the unchanged builder
+   and verifier, including the EX5 binding.
+
+Without `-DemoSafety` nothing changes: there is no stage 7, and stage 8
+reads `-DemoEvidence` or `evidence\demo_safety` as before.
+
+Built, unit-tested (a pwsh execution of `Invoke-DemoInGate` with a
+stand-in harness), never run live.
+
 ## What the owner must do by hand
 
 1. **Netting account.** Create a NETTING demo account (MT5: File → Open an
@@ -169,8 +227,9 @@ exposure. It does NOT cover:
         "netting": {"login": "...", "password": "...", "server": "MetaQuotes-Demo"}}
 
    Never commit it or paste it into chat.
-4. **Compile.** Compile the EA through the gate (stage 1), so the demo
-   runs use the EX5 the gate binds.
+4. **Compile.** Run the demo through the gate (`-DemoSafety`), so the
+   runs use the EX5 that gate run compiled. A separate harness session is
+   bound to another compile's EX5 and is rejected at stage 8 (gate_run47).
 5. **Close terminals.** Close every running terminal of that data folder
    before a harness run (a second launch would hand the config to the
    running instance).

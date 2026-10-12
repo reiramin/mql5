@@ -178,7 +178,9 @@ powershell -ExecutionPolicy Bypass -File tools\owner_gate.ps1 -DataFolder <MT5 d
 tester legs run (stage 5). The default is all golds. Stage 8 verifies only
 the scoped golds (`verify_owner_mt5_gate.py --golds`). Stages 9 (archive
 manifest) and 10 (certify) are **refused**: each is recorded `REFUSED` with
-`[refused_scoped_run]` and neither tool runs. The gate has no stages 6 and 7.
+`[refused_scoped_run]` and neither tool runs. The gate has no stage 6.
+Stage 7 (`demo_safety`) exists only with `-DemoSafety`
+(DEMO-IN-GATE-1; docs/SAFETY_DEMO_PLAN.md).
 
 **A partial run is evidence about the scoped golds only, and it certifies
 nothing.**

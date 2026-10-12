@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _bootstrap  # pins this repo's python/ ahead of any installed mql5bot
+from mql5bot import demo_harness as dh
 from mql5bot import gate_selfcheck as gs
 from mql5bot import gold_leg_inputs as gli
 from mql5bot import stage8_package as s8p
@@ -224,6 +225,24 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--log-excerpt", default="",
                    help="path to a saved terminal-log excerpt, if any")
 
+    p = sub.add_parser("demo-preflight",
+                       help="-DemoSafety (DEMO-IN-GATE-1): may the gate run "
+                            "the demo harness now? FAIL names a missing / "
+                            "incomplete accounts file or a closed market")
+    p.add_argument("--accounts", default="",
+                   help="the LOCAL accounts file (default: "
+                        "MQL5BOT_DEMO_ACCOUNTS or "
+                        "%%USERPROFILE%%\\.mql5bot\\demo_accounts.json)")
+    p.add_argument("--now", default="", help="override 'now' (tests)")
+
+    p = sub.add_parser("demo-in-gate-outcome",
+                       help="-DemoSafety: after the harness runs, is the "
+                            "terminal left logged in to the hedging "
+                            "account and connected without credentials? "
+                            "(the tests are graded at stage 8)")
+    p.add_argument("--dir", required=True,
+                   help="this run's demo evidence dir (<dir>/<test>/run.json)")
+
     args = ap.parse_args(argv)
     repo = Path(args.repo).resolve()
 
@@ -390,6 +409,16 @@ def main(argv: list[str] | None = None) -> int:
                 host={"os": args.host_os, "timezone": args.host_timezone},
                 demo_evidence=args.demo_evidence or None)
             return _emit(rec)
+
+        if args.cmd == "demo-preflight":
+            from datetime import datetime, timezone
+            now = (datetime.fromisoformat(args.now.replace("Z", "+00:00"))
+                   if args.now else datetime.now(timezone.utc))
+            return _emit(dh.demo_preflight(
+                args.accounts or dh.default_accounts_path(), repo, now))
+
+        if args.cmd == "demo-in-gate-outcome":
+            return _emit(dh.demo_in_gate_outcome(args.dir))
 
         if args.cmd == "symbolspec-fresh":
             return _emit(gs.symbolspec_export_freshness(

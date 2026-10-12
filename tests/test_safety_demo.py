@@ -484,7 +484,7 @@ def test_accounts_need_a_complete_role(tmp_path):
 def test_startup_ini_and_preset():
     ini = dh.startup_ini(ACC["hedging"], "p.set")
     for line in ("[Common]", "Login=1111", "Server=Demo-Server",
-                 "AllowLiveTrading=1", "[StartUp]",
+                 "KeepPrivate=1", "AllowLiveTrading=1", "[StartUp]",
                  r"Expert=Mql5Bot\Mql5Bot", "ExpertParameters=p.set",
                  "Symbol=EURUSD", "Period=M1"):
         assert line in ini
@@ -507,12 +507,59 @@ class FakeTerminal:
         # launches that play gate_run40's netting start: the EA initialised
         # before the login completed, refused the probe and shut down
         self.early = 0
+        # the terminal's own login store (DEMO-LOGIN-PERSIST-1): a login
+        # ini keeps the password only with KeepPrivate=1; a credential-less
+        # launch connects only to the current account with a kept password
+        self.current_login = None
+        self.kept: dict[str, bool] = {}
+        self.honour_keep_private = True
+        self.script_inis: list[str] = []      # exporter launches
+        self.script_writes_export = True
+        self.script_hangs = False
         self.logdir = data / dh.LOG_DIR_REL
         self.logdir.mkdir(parents=True)
 
+    def _login(self, text: str) -> None:
+        m = re.search(r"Login=(\S+)", text)
+        if m:
+            self.current_login = m.group(1)
+            self.kept[self.current_login] = self.honour_keep_private and \
+                "KeepPrivate=1" in text
+
+    def _script(self, text: str):
+        self.script_inis.append(text)
+        self._login(text)
+        if self.script_hangs:
+            return _Hung()
+        if not self.script_writes_export:
+            return self
+        preset = re.search(r"ScriptParameters=(\S+)", text).group(1)
+        pre = (self.data / dh.PRESET_DIR_REL / preset).read_text(
+            encoding="utf-16")
+        rel = re.search(r"InpExportDir=(\S+)", pre).group(1)
+        out = self.data / "MQL5" / "Files" / Path(*rel.split("\\")) / \
+            "EURUSD.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        connected = "[Common]" in text or \
+            self.kept.get(self.current_login, False)
+        out.write_text(json.dumps({
+            "account_login": int(self.current_login or 0),
+            "account_margin_mode": self.mode_by_login.get(
+                self.current_login, -1),
+            "symbol": {"name": "EURUSD", "denomination_probe": {
+                "synced": connected,
+                "sync_unmet": "" if connected
+                else "terminal not connected"}}}), encoding="utf-8")
+        return self
+
     def __call__(self, argv):
         ini = Path(argv[1].split(":", 1)[1])
-        text = ini.read_text(encoding="utf-16")
+        raw = ini.read_bytes()
+        text = raw.decode("utf-16") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") \
+            else raw.decode("ascii")
+        if "Script=" in text:
+            return self._script(text)
+        self._login(text)
         self.ini_seen.append(text)
         preset = re.search(r"ExpertParameters=(\S+)", text).group(1)
         probe = int(re.search(r"InpTestDemoProbe=(\d)", (
@@ -557,6 +604,18 @@ class FakeTerminal:
         pass
 
     def wait(self, timeout=None):
+        return 0
+
+
+class _Hung:
+    """A terminal that never exits by itself."""
+
+    def kill(self):
+        pass
+
+    def wait(self, timeout=None):
+        if timeout is not None and timeout < 60:
+            raise subprocess.TimeoutExpired("terminal64.exe", timeout)
         return 0
 
 
@@ -659,6 +718,97 @@ def test_a_start_refused_twice_fails_naming_the_refusal(tmp_path, accounts):
     assert "timeout" not in rec["error"]          # named, not a 900 s wait
     assert fake.launches == [2, 2, 3]             # ... + the restore
     assert rec["restore"]["ok"] is True
+
+
+# --- DEMO-LOGIN-PERSIST-1 ---------------------------------------------------
+GATE_PS1 = (REPO / "tools" / "owner_gate.ps1").read_text(encoding="utf-8")
+
+
+def _keys(ini: str) -> list[str]:
+    return [x.split("=", 1)[0] for x in ini.split("\r\n") if "=" in x]
+
+
+def test_the_check_launch_is_the_gates_own_credential_less_shape():
+    ini = dh.export_ini(None)
+    assert "[Common]" not in ini and "Login=" not in ini \
+        and "Password=" not in ini
+    # the gate's Invoke-TerminalScript writes [StartUp], Script=, Symbol=,
+    # ScriptParameters=, ShutdownTerminal=1 -- in that order
+    assert ini.split("\r\n")[0] == "[StartUp]"
+    assert _keys(ini) == ["Script", "Symbol", "ScriptParameters",
+                          "ShutdownTerminal"]
+    assert 'Invoke-TerminalScript "Mql5Bot\\Mql5BotExportSymbolSpec"' \
+        in GATE_PS1
+    assert f"Script={dh.EXPORT_SCRIPT}" in ini and "Symbol=EURUSD" in ini
+    assert "ShutdownTerminal=1" in ini
+    # ... into its own folder, never the gate's broker_exports
+    assert "broker_exports" not in dh.check_preset_text()
+    # the persist launch logs in with the password kept, then exits itself
+    persist = dh.export_ini(ACC["hedging"])
+    assert "KeepPrivate=1" in persist and "ShutdownTerminal=1" in persist
+
+
+@pytest.mark.parametrize("test", dh.TESTS)
+def test_every_run_ends_persisted_and_proven_connected(tmp_path, accounts,
+                                                      test):
+    h, fake = _harness(tmp_path, accounts, test)
+    rec = h.run()
+    # (the fake never prints CLEANUP for the account probe, so netting /
+    # hedging fail their TEST; the restore is judged on its own)
+    assert rec["restore"]["ok"] is True, rec
+    assert rec["status"] == "COMPLETED" or test != "restart", rec
+    # persist (hedging login, KeepPrivate=1) then the credential-less check
+    persist, check = fake.script_inis[-2:]
+    assert "Login=1111" in persist and "KeepPrivate=1" in persist
+    assert "[Common]" not in check and "Password" not in check
+    assert rec["restore"]["connect_check"] == {
+        "sync_unmet": "", "synced": True, "margin_mode": 2}
+    steps = [s["step"] for s in rec["steps"]]
+    assert "terminal exited by itself: persist hedging login" in steps
+    assert "connection check: credential-less launch connected" in steps
+    # the export (it holds the login) is never left behind
+    assert not (h.data / dh.CHECK_DIR_REL / "EURUSD.json").exists()
+
+
+def test_a_dropped_password_fails_the_run(tmp_path, accounts):
+    # gate_run40/44/46: after the harness a credential-less launch was
+    # "terminal not connected"; played here by a store that keeps nothing
+    h, fake = _harness(tmp_path, accounts, "hedging")
+    fake.honour_keep_private = False
+    rec = h.run()
+    assert rec["status"] == "FAILED"
+    assert rec["restore"]["ok"] is False
+    assert "NOT connected (sync_unmet='terminal not connected')" \
+        in rec["error"]
+
+
+def test_a_check_on_the_wrong_account_fails_the_run(tmp_path, accounts):
+    # the restore's EA lines say hedging (restore_margin_mode 2), but the
+    # account a credential-less launch lands on is a netting one
+    h, fake = _harness(tmp_path, accounts, "restart")
+    fake.mode_by_login["1111"] = 0
+    rec = h.run()
+    assert rec["status"] == "FAILED"
+    assert "margin_mode 0 (required hedging 2)" in rec["error"]
+
+
+def test_a_terminal_that_does_not_exit_by_itself_fails_the_run(
+        tmp_path, accounts):
+    h, fake = _harness(tmp_path, accounts, "netting")
+    fake.script_hangs = True
+    rec = h.run()
+    assert rec["status"] == "FAILED"
+    assert "did not exit by itself" in rec["error"]
+    assert any(s["step"].startswith("terminal KILLED: persist")
+               for s in rec["steps"])
+
+
+def test_a_check_that_writes_nothing_fails_the_run(tmp_path, accounts):
+    h, fake = _harness(tmp_path, accounts, "netting")
+    fake.script_writes_export = False
+    rec = h.run()
+    assert rec["status"] == "FAILED"
+    assert "credential-less launch wrote no export" in rec["error"]
 
 
 def test_restart_completes(tmp_path, accounts):

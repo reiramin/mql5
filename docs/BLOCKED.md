@@ -1,4 +1,4 @@
-# BLOCKED / WAITING — open items (updated 2026-10-12, FILL-MODE-1)
+# BLOCKED / WAITING — open items (updated 2026-10-12, DEMO-IN-GATE-1)
 
 Nothing below is a code blocker that this session can fix. Each item waits
 on an owner action or an input this session cannot produce.
@@ -14,55 +14,55 @@ If a later run refuses again, the terminal's own message (or the
 importer's `symbol_state` JSON) is the fact to report. `mql5/` is not
 touched for it: the importer is outside CLAUDE.md exception 1.
 
-## Stage 3 broker parity: EURUSD denomination probe NOT_SYNCED_AFTER_60s (blocks every gate run)
+## Demo safety files (restart, netting, hedging): run them inside the gate (DEMO-IN-GATE-1)
 
-gate_run40, gate_run44 and gate_run45 all FAILed stage 3 with
-`EURUSD denomination_probe NOT_SYNCED_AFTER_60s` and in-scope PENDING
-rows:
-- gate_run40 and gate_run44 at `6894de2`, Sunday about 22:00 UTC;
-- gate_run45 at `5fd4368`, **Monday 06:56 UTC, in market hours**.
+**What the reports show.**
+- **gate_run46** (`fdd7b58`): the demo session COMPLETED all three tests
+  (FILL-MODE-1 live: every probe order `done=true`).
+- **gate_run47** (same HEAD, gold2): stage 3 PASSED after the owner
+  re-saved the hedging login; gold2 MATCH 37/37; 5/8 safety VALID.
 
-So it is not the weekend re-open. gate_run43 (`4b8cad0`, earlier on
-Sunday) passed stage 3. The first failure, gate_run40, was the first gate
-run after the demo harness logged the terminal in to the demo accounts.
+  The three demo files were rejected. The demo EX5 (`4f03256d…`) differs
+  from the gate's stage-1 EX5 (`d9a5609c…`) at the same HEAD, because
+  MetaEditor output differs per compile. The binding rule stays.
 
-Only EURUSD is exported fresh by the gate; the other symbols' passing
-probes come from older export files. Until stage 3 passes, no gate run
-reaches stage 4+, which includes the gold1 import, the gold2 37/37
-reconciliation proof for FILL-MODE-1, and the demo grading.
+**Fixes, all built, unit-tested, never run live:**
+- **DEMO-LOGIN-PERSIST-1:** the harness keeps the hedging password in the
+  terminal's own store, ends with a clean exit, and proves a
+  credential-less launch connects.
+- **DEMO-IN-GATE-1:** `owner_gate.ps1 -DemoSafety` runs the harness as
+  stage 7 with that run's own stage-1 EX5, FAILs loudly if the terminal is
+  not left connected, and stage 8 grades the runs in the same gate run.
 
-**What the next report will show.** From STAGE3-SYNC-QUOTE-1 on, the
-stage-3 FAIL text quotes the exporter's `synced` / `sync_unmet`: which
-readiness condition never held (terminal not connected / symbol not
-synchronized / no tick / tick value not > 0). That fact decides the next
-step.
+**Next:** the `[runner: demo-in-gate]` run, in FX market hours (not Fri
+20:00 – Sun 22:15 UTC, not 20:45 – 22:15 UTC daily). Expected evidence:
+- stage 7 PASS;
+- stage 8's safety block showing restart / netting / hedging graded, not
+  MISSING;
+- gold2 still MATCH 37/37.
 
-Until then, if the owner can, check the following on the terminal:
-- whether `symbolspec_EURUSD.json` in the last gate run's evidence folder
-  has `"sync_unmet"` in its `denomination_probe` block;
-- whether the terminal was on the usual account at stage 3.
+## gold1 stage 5: the EA's OnInit fails on both gold1 legs (gate_run48)
 
-The exporter (`mql5/Scripts`) is not changed, and the PENDING rule is not
-relaxed.
+gate_run48 (`fdd7b58`, `-Golds gold1`):
+- **Stages 0–4 PASS.** The import is `created_fresh`, round-trip == manifest
+  `074530cd…`, so the stale-symbol item is resolved.
+- **Stage 5 FAILs.** Both gold1 legs: "EA OnInit returned non-zero: the
+  test never ran this leg's strategy … strategy_loaded (expected DSL
+  strategy 'ema_crossover_ref'; the EA logged None)". The real_ticks leg
+  is NOT_APPLICABLE (bar-only fixture).
 
-## Demo safety tests (task 2: restart, netting, hedging): waiting on a demo run
+The report does not contain the EA's own OnInit error. The tester journal
+was excluded for leak reasons, and the stage-5 grade quotes only "OnInit
+returns non-zero code 1".
 
-gate_run40's three demo runs FAILED for three reasons. All three are now
-addressed, but none is proven on the terminal yet:
-1. **The "hedging" login was a netting account.** The owner fixed the
-   accounts file (2026-10-12):
-   - "hedging" is now a real hedging account;
-   - "netting" is a netting account;
-   - the terminal is logged in to the hedging account again.
-2. **FILL-MODE-1, the EA filling-mode bug.** Fixed under CLAUDE.md
-   exception 1.c (DECISIONS FILL-MODE-1): built, unit-tested, never run
-   live.
-3. **The EA started before the demo login.** The harness relaunches once
-   (DEMO-HARNESS-RELAUNCH-1): built, unit-tested, never run live.
+**Needed from the next gold1 run:** the EA's own `[mql5bot]` OnInit lines
+from that leg's tester agent log, with account values masked. For example
+a `DSL bundle refused: …` or `symbol spec build failed: …` line.
 
-**Next:** the runner's `[runner: demo]` run in FX market hours, then a
-gate run that grades `evidence/demo_safety`. That gold2 run must still
-reconcile 37/37. Any change there stops the work and is reported.
+One candidate, unverified: a FRESHLY created bars-only custom symbol may
+read back a calculated tick value of 0 (the importer JSON's own
+`derived_tick_values` note). The EA's spec build refuses
+`tick_value_loss <= 0`. This is the next gold1 item (task 3).
 
 ## Waiting on the items above
 

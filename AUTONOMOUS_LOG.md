@@ -1799,3 +1799,58 @@ BLOCKED.md stage-3 section rewritten.
 **NOT done, and why:** the cause of the unmet readiness is unknown. The
 fact that decides it was dropped from the reports until this change. No
 exporter change (mql5/Scripts) and no acceptance change.
+
+## 2026-10-12 — gate_run46 read; DEMO-LOGIN-PERSIST-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Merged before this:** PR #45 (FILL-MODE-1 + STAGE3-SYNC-QUOTE-1), as
+fdd7b58, with `[runner: demo] [runner: gold1]`.
+
+**Evidence read** (gate-reports, gate_run46 at fdd7b58):
+- **gold2 compile gate:** reconciliation MATCH 37/37 on both models
+  (FILL-MODE-1 gold legs unchanged).
+- **Demo runs:** restart, netting and hedging all COMPLETED, every probe
+  order done=true; not graded yet.
+- **gold1 gate after the demo session:** stage 3 FAIL with
+  `sync_unmet="terminal not connected"`.
+
+**Done:**
+- `demo_harness`: `KeepPrivate=1` on every login, plus a restore persist
+  step (the terminal exits by itself) and a credential-less, gate-shaped
+  connection check that FAILs the run.
+- The FakeTerminal models the login store; 7 new tests; 9 of 64 fail on
+  the old harness.
+- docs: SAFETY_DEMO_PLAN, DECISIONS DEMO-LOGIN-PERSIST-1, BLOCKED.md.
+
+**Checks:** ruff exit 0; full pytest exit 0 before commit.
+
+**NOT done, and why:**
+- **The fix on the terminal:** built, unit-tested, never run live; proof
+  is the next demo session followed by a gate run that passes stage 3.
+- **The cause:** most likely, not proven (KeepPrivate / hard kill).
+
+## 2026-10-12 — gate_run47/48 read; DEMO-IN-GATE-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Evidence read:**
+- **gate_run47** (gold2):
+  - stage 3 PASS after the owner re-saved the hedging login;
+  - gold2 MATCH 37/37; 5/8 safety VALID;
+  - the demo runs rejected on the EX5 binding (another compile's EX5 at
+    the same HEAD).
+- **gate_run48** (gold1): import `created_fresh`; stage 5 FAIL (EA OnInit
+  non-zero, DSL strategy not loaded).
+
+**Done (one PR with DEMO-LOGIN-PERSIST-1):**
+- `owner_gate.ps1 -DemoSafety` (stage-0 preflight; stage 7 `demo_safety`
+  running the harness with this run's stage-1 EX5; stage 8 grades it).
+- Decider `demo-preflight` / `demo-in-gate-outcome`.
+- `demo_harness.fx_market_closed` / `demo_preflight` /
+  `demo_in_gate_outcome`.
+- `tests/test_demo_in_gate.py` (32).
+- docs: SAFETY_DEMO_PLAN, OWNER_GATE, DECISIONS, BLOCKED.
+
+**Checks:** ruff exit 0; full pytest exit 0 before commit.
+
+**NOT done, and why:**
+- **A live run:** the first one is the `[runner: demo-in-gate]` run.
+- **gold1 stage 5 (OnInit / DSL strategy not loaded):** recorded in
+  BLOCKED.md; next item.
