@@ -4831,3 +4831,87 @@ and needs its own investigation.
 - **(c) Are new checks re-computed by the verifier?** Stage 7 decides
   whether the terminal was restored; the safety grades are still built and
   re-verified at stage 8 from the bound EA logs.
+
+## WARMUP-FROMDATE-1 — the gold1 legs start where the EA has its InpDslBars of history (2026-10-12)
+
+**Input.** gate_run48 (`fdd7b58`, `-Golds gold1`): stage 5 FAILed both
+gold1 legs with "EA OnInit returned non-zero". The redacted EA lines
+(`reports/gate_run48/gold1_oninit_lines.txt`) show:
+- the leg ran with `FromDate=2024.01.01`, the fixture's first day, and
+  `InpDslBars=500`;
+- MT5: "start time changed to 2024.01.06 00:00 to provide data at
+  beginning";
+- "history cache … contains 120 bars from 2024.01.01 00:00 to 2024.01.05
+  23:00";
+- then `[mql5bot] DSL series build failed:` with an empty reason, and
+  "tester stopped because OnInit returns non-zero code 1".
+
+**Hypothesis confirmed against the frozen data.**
+- The fixture has 720 H1 bars. Its first day holds 24.
+- MT5's start shift gave the EA 120 bars at OnInit, fewer than the 500
+  `DslBuildSeries` requires: `CopyRates(…, InpDslBars)` returns fewer and
+  it returns false without setting an error.
+- The fixture was **built** for this. `tools/build_gold_standard.py` puts
+  600 bars of constant close (1.12500) before the scenario week, "covering
+  MT5's pre-start history reserve and the EA's InpDslBars=500 readiness".
+  Only the tester start was wrong.
+- gold2 (M1) never hit it: its first day alone holds 1,440 bars.
+
+The tick-value hypothesis is **rejected**: the EA failed at the DSL series
+build, before the symbol spec matters.
+
+**Change (python/ only; no frozen artifact touched).**
+`gate_selfcheck.derive_tester_inputs`, for a bar-only fixture:
+- the tester start stays the fixture's first day when that day alone holds
+  ≥ InpDslBars bars (gold2: `2024.01.01`, unchanged);
+- otherwise it is the earliest fixture day with ≥ InpDslBars fixture bars
+  before it (`dsl_warmup_date_from`). For gold1 that is **`2024.01.30`**,
+  with 504 bars of its own warm-up before it.
+
+It refuses by name (`missing: date_from`) when:
+- no day qualifies;
+- the moved start would come after the earliest expected-execution trade
+  day;
+- the expected run cannot be read to prove that.
+
+A tick fixture keeps the fixture start (its rows are ticks, not bars).
+`date_from_source` and `dsl_bars_before_start` are reported.
+
+**Why EA and Python now see identical history.**
+- The 500 bars before 2024.01.30 are all close 1.12500 (asserted in the
+  tests). EMA10 == EMA30 exactly, and the EA's 500-bar EMA window equals
+  Python's full-history EMA bit for bit, as the builder designed.
+- gold1's earliest expected trade day is 2024.02.05, so no expected trade
+  precedes the start.
+- Stage 8 measures the tester's own window start from its log
+  (`tested_window_start`); it does not assume the fixture's first day.
+
+**Tests.**
+- `tests/test_gold1_warmup_fromdate.py` (9): the gold1 start and its 504
+  bars; the window inside the constant region; the earliest expected day;
+  gold2 unchanged; the old start's 120 bars; the named refusals. 7 fail on
+  the previous code; the 2 that pass assert only fixture facts.
+- `tests/test_stage5_tester_legs.py`: the gold1 start is now `2024.01.30`,
+  and gold2's `2024.01.01` is now asserted too.
+
+Status: built, unit-tested, never run live. Proof is the `[runner: gold1]`
+run: both gold1 legs past OnInit, then stage 8 reconciliation.
+
+**Not done here (outside CLAUDE.md exception 1): the empty failure
+reason.** The EA should log WHY `DslBuildSeries` failed. The reason is
+lost in `mql5/Include/Mql5Bot/DslExecution.mqh` (`if(got<bars) return
+false;`, no error set; `CDslRuntime` has no public setter). The smallest
+logging-only change is at the two `Mql5Bot.mq5` call sites. Exception 1
+covers only (a) safety-test hooks, (b) SAFETY-GATE-1 and (c) FILL-MODE-1,
+not logging, so it is not made. The exact patch is in docs/BLOCKED.md for
+the owner.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No. A start that would drop
+  an expected trade is refused; the reconciliation is unchanged.
+- **(b) Do the gold legs change behaviour at default inputs?** The gold1
+  tester start moves, so that the EA can initialise at all (it never ran
+  before). gold2 is unchanged. mql5/ and artifacts/ are untouched.
+- **(c) Are new checks re-computed by the verifier?** The start is derived
+  from the frozen fixture and expected run on each gate run; stage 8 still
+  measures the window from the tester log.

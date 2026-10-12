@@ -41,28 +41,54 @@ touched for it: the importer is outside CLAUDE.md exception 1.
   MISSING;
 - gold2 still MATCH 37/37.
 
-## gold1 stage 5: the EA's OnInit fails on both gold1 legs (gate_run48)
+## gold1 stage 5: OnInit failed (gate_run48) — fixed by the tester start (WARMUP-FROMDATE-1)
 
-gate_run48 (`fdd7b58`, `-Golds gold1`):
-- **Stages 0–4 PASS.** The import is `created_fresh`, round-trip == manifest
-  `074530cd…`, so the stale-symbol item is resolved.
-- **Stage 5 FAILs.** Both gold1 legs: "EA OnInit returned non-zero: the
-  test never ran this leg's strategy … strategy_loaded (expected DSL
-  strategy 'ema_crossover_ref'; the EA logged None)". The real_ticks leg
-  is NOT_APPLICABLE (bar-only fixture).
+**Cause**, from the redacted EA lines
+(`reports/gate_run48/gold1_oninit_lines.txt`):
+- the gold1 legs started at the fixture's first day;
+- MT5 moved the start to 2024.01.06 and gave the EA 120 H1 bars;
+- the EA needs `InpDslBars=500` and its DSL series build failed at OnInit.
 
-The report does not contain the EA's own OnInit error. The tester journal
-was excluded for leak reasons, and the stage-5 grade quotes only "OnInit
-returns non-zero code 1".
+The tick-value hypothesis is rejected.
 
-**Needed from the next gold1 run:** the EA's own `[mql5bot]` OnInit lines
-from that leg's tester agent log, with account values masked. For example
-a `DSL bundle refused: …` or `symbol spec build failed: …` line.
+**Fix**, built, unit-tested, never run live: the gold1 legs now start at
+`2024.01.30`, the first fixture day with 500 bars of gold1's own constant
+warm-up before it. The EA's window is bit-identical to Python's history;
+the first expected trade is 2024.02.05. gold2 is unchanged.
 
-One candidate, unverified: a FRESHLY created bars-only custom symbol may
-read back a calculated tick value of 0 (the importer JSON's own
-`derived_tick_values` note). The EA's spec build refuses
-`tick_value_loss <= 0`. This is the next gold1 item (task 3).
+**Next:** the `[runner: gold1]` run. Both gold1 legs must pass OnInit, and
+gold1 must reach stage 8 and reconcile like gold2.
+
+## Owner change needed (outside exception 1): log WHY the DSL series build failed
+
+gate_run48's line was `[mql5bot] DSL series build failed: ` with nothing
+after the colon. In `mql5/Include/Mql5Bot/DslExecution.mqh`,
+`DslBuildSeries` returns false on `CopyRates(...) < bars` without recording
+a reason, and `CDslRuntime` keeps `m_error` private.
+
+The smallest logging-only fix is at the two call sites in
+`mql5/Experts/Mql5Bot/Mql5Bot.mq5`, which CLAUDE.md exception 1 does not
+cover (only safety hooks, SAFETY-GATE-1, FILL-MODE-1). The exact change:
+
+```mql5
+// Mql5Bot.mq5, OnInit (~line 689)
+      if(!DslBuildSeries(g_dslJson,g_dslLoader.Spec(),g_symbol,g_tf,InpDslBars,g_dslRuntime))
+        {
+         string why=g_dslRuntime.Error();
+         if(why=="")
+            why=StringFormat("insufficient history: %d bars of %s %s available, InpDslBars=%d",
+                             Bars(g_symbol,g_tf),g_symbol,EnumToString(g_tf),InpDslBars);
+         Print("[mql5bot] DSL series build failed: ",why);
+         return INIT_FAILED;
+        }
+
+// Mql5Bot.mq5, per-bar rebuild (~line 263): the same `why` before
+//      g_log.Error("DSL series build failed: "+why);
+```
+
+It changes no decision, only the message. Gold legs at default inputs are
+identical. To make it, the owner adds an exception (or extends 1), and
+stage 1's strict compile proves it.
 
 ## Waiting on the items above
 
