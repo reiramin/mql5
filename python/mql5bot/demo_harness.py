@@ -188,6 +188,16 @@ def check_preset_text() -> str:
                          "InpDenomProbeTicks=100", ""])
 
 
+def write_crlf_text(path: Path, text: str, encoding: str) -> None:
+    r"""Write MT5 config text that already carries its CRLF line ends,
+    byte-exact (DEMO-CHECK-CRLF-1). Text mode on Windows turns every LF
+    into CRLF, so the CRLF-joined text became CR CR LF. MT5 kept the stray
+    CR in the preset value: gate_run52's connection check opened
+    `Mql5Bot\demo_connect_check\<CR>EURUSD.json` -> err=5004, no export,
+    stage 7 FAIL on a terminal that HAD connected."""
+    path.write_text(text, encoding=encoding, newline="")
+
+
 # --- DEMO-IN-GATE-1: owner_gate.ps1 -DemoSafety ----------------------------
 # The gate runs the harness itself, with THIS run's stage-1 EX5 (a demo run
 # bound to another compile's EX5 is rejected at stage 8, gate_run47). These
@@ -366,7 +376,7 @@ class Harness:
         if path_within(self._tmp.resolve(), self.repo.resolve()):
             raise HarnessError("temp dir is inside the repository")
         ini = self._tmp / "startup.ini"
-        ini.write_text(startup_ini(account, preset), encoding="utf-16")
+        write_crlf_text(ini, startup_ini(account, preset), "utf-16")
         return ini
 
     def _drop_ini(self) -> None:
@@ -544,17 +554,16 @@ class Harness:
         (ShutdownTerminal=1) -- never a kill."""
         pdir = self.data / PRESET_DIR_REL
         pdir.mkdir(parents=True, exist_ok=True)
-        (pdir / CHECK_PRESET).write_text(check_preset_text(),
-                                         encoding="utf-16")
+        write_crlf_text(pdir / CHECK_PRESET, check_preset_text(), "utf-16")
         self._tmp = Path(tempfile.mkdtemp(prefix="mql5bot_demo_"))
         if path_within(self._tmp.resolve(), self.repo.resolve()):
             raise HarnessError("temp dir is inside the repository")
         ini = self._tmp / "startup.ini"
         if account is None:
             # byte-for-byte the gate's own launch shape (ASCII ini)
-            ini.write_text(export_ini(None), encoding="ascii")
+            write_crlf_text(ini, export_ini(None), "ascii")
         else:
-            ini.write_text(export_ini(account), encoding="utf-16")
+            write_crlf_text(ini, export_ini(account), "utf-16")
         self.proc = self.launch([str(self.terminal), f"/config:{ini}"])
         self._step("terminal_started", script=what)
         try:

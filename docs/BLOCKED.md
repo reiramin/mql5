@@ -1,80 +1,49 @@
-# BLOCKED / WAITING — open items (updated 2026-10-12, S8-PATH-1)
+# BLOCKED / WAITING — open items (updated 2026-10-12, DEMO-CHECK-CRLF-1)
 
 Nothing below is a code blocker that this session can fix. Each item waits
 on an owner action or an input this session cannot produce.
 
-## gold1 stage 4: not yet re-measured after the owner deleted EURUSD.G1
+## Demo safety files (restart, netting, hedging): stage 7 connection check (DEMO-CHECK-CRLF-1)
 
-The owner deleted the stale custom symbol EURUSD.G1 (the step this file
-gave after gate_run43). The next gold1 run, gate_run44 (`6894de2`), stopped
-at stage 3 (next section), so the importer never ran. Whether it now takes
-its `created_fresh` path is **not measured**.
+**gate_run52** (`c8bc022`, `-Golds gold2 -DemoSafety`):
+- stages 0-5 PASS, `symbol_state` created_fresh;
+- stage 7 FAILED `[demo_restore_not_connected]` for all three tests;
+- stage 8 did not run, so the gold2 reconciliation was not measured in
+  this run.
 
-If a later run refuses again, the terminal's own message (or the
-importer's `symbol_state` JSON) is the fact to report. `mql5/` is not
-touched for it: the importer is outside CLAUDE.md exception 1.
+The terminal journal shows the credential-less launch WAS connected
+("authorized ... synchronized ... demo account - hedging mode"). The
+exporter failed: `cannot open Mql5Bot\demo_connect_check\ EURUSD.json
+err=5004`.
 
-## Demo safety files (restart, netting, hedging): run them inside the gate (DEMO-IN-GATE-1)
+**Cause:** the "space" is a carriage return.
+- The harness joined its preset/ini lines with CRLF and wrote them in text
+  mode; on Windows every LF became CRLF, so lines ended CR CR LF.
+- MT5 kept the stray CR in `InpExportDir`.
 
-**What the reports show.**
-- **gate_run46** (`fdd7b58`): the demo session COMPLETED all three tests
-  (FILL-MODE-1 live: every probe order `done=true`).
-- **gate_run47** (same HEAD, gold2): stage 3 PASSED after the owner
-  re-saved the hedging login; gold2 MATCH 37/37; 5/8 safety VALID.
+**Fix,** built, unit-tested, never run live:
+- the three CRLF files are written byte-exact (`newline=""`);
+- a test parses them as MT5 does: no whitespace around any value, and the
+  export path is exactly `Mql5Bot\demo_connect_check\EURUSD.json`;
+- the gate now records its own exit code (`gate_exit_code.txt`,
+  `gate_summary.json` `exit_code`, a `GATE_EXIT_CODE=` line), since
+  gate_run52's wrapper captured none.
 
-  The three demo files were rejected. The demo EX5 (`4f03256d…`) differs
-  from the gate's stage-1 EX5 (`d9a5609c…`) at the same HEAD, because
-  MetaEditor output differs per compile. The binding rule stays.
-
-**Fixes, all built, unit-tested, never run live:**
-- **DEMO-LOGIN-PERSIST-1:** the harness keeps the hedging password in the
-  terminal's own store, ends with a clean exit, and proves a
-  credential-less launch connects.
-- **DEMO-IN-GATE-1:** `owner_gate.ps1 -DemoSafety` runs the harness as
-  stage 7 with that run's own stage-1 EX5, FAILs loudly if the terminal is
-  not left connected, and stage 8 grades the runs in the same gate run.
-
-**Next:** the `[runner: demo-in-gate]` run, in FX market hours (not Fri
-20:00 – Sun 22:15 UTC, not 20:45 – 22:15 UTC daily). Expected evidence:
+**Next:** the `[runner: demo-in-gate]` run (gold2 `-DemoSafety`, FX market
+hours). Expected evidence:
 - stage 7 PASS;
-- stage 8's safety block showing restart / netting / hedging graded, not
-  MISSING;
-- gold2 still MATCH 37/37.
+- stage 8 grading all 8 safety files;
+- gold2 MATCH 37/37.
 
-## gold1 stage 8: SIZING_MISMATCH at trade 16 (gate_run51) — fixed by modelling the tester's intrabar order (S8-PATH-1)
+## gold1 stage 8: MATCH (gate_run53) — resolved by S8-PATH-1
 
-**gate_run51** (`c8bc022`, gold1): stages 0-5 PASS (WARMUP-FROMDATE-1
-worked: both legs past OnInit). 18/18 entries paired in both models. First
-divergence: trade 16 (2024-02-07T09:00), volume python 0.13 vs MT5 0.14.
+**gate_run53** (`93d6e45`): gold1 `result: MATCH`, `state: VALID`.
+- 18/18 paired in m1_ohlc and every_tick, with no divergence.
+- every_tick's first different exit is recorded as a tick path, as
+  designed.
 
-**Cause** (from the published log trade lists): not the sizing rule, the
-equity under it.
-- Two huge-range doji bars (2024-02-06 23:00, 2024-02-07 00:00) touch BOTH
-  the SL and the TP of an open short.
-- Python's conservative rule fills the SL first (-103.74, -106.35). MT5's
-  M1-OHLC tick order reaches the low first and fills the TP (+166.11,
-  +170.10).
-- Pre-entry equity is equal to the cent for trades 0-13 and drifts from
-  trade 14 (-269.85, then -546.30).
-
-**Fix**, built, unit-tested, never run live: the tester window run resolves
-a both-touch bar in MT5's own tick order (python/ only). It reproduces all
-18 run51 m1_ohlc entries (time, side, volume, price) and every exit P&L.
-gold2's window run is unchanged. A second gap was also closed: MT5 printed
-no "start time changed" line at the 2024.01.30 start, so the window start
-is now also measured from the ini FromDate plus MT5's first tester-clock
-line.
-
-**No regeneration needed.** The frozen gold1 artifacts are untouched, and
-the expected set is computed from them on each run. Exception 3 is not
-used.
-
-The stale "EXPECTED for the 4257f1e sizing fix" stage-8 label is removed.
-A SIZING/RISK divergence now FAILS with its class named.
-
-**Next:** the `[runner: gold1]` run. gold1 m1_ohlc should reconcile.
-every_tick keeps S8-TICKPATH-1 (MT5's own equity after its first differing
-exit).
+The run's verdict is still `NOT_VERIFIED_ARTIFACT_MISMATCH`, only because
+the three demo safety files are missing (it was not a `-DemoSafety` run).
 
 ## Owner change needed (outside exception 1): log WHY the DSL series build failed
 

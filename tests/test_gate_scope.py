@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -245,7 +246,11 @@ def test_ps1_finish_gate_always_resolves_through_the_scope():
     for key in ("scope", "certifiable", "partial", "excluded",
                 "unscoped_result"):
         assert f"{key} " in fg or f"{key}=" in fg.replace(" ", "")
-    assert 'if ($gateResult -eq "certified") { exit 0 }' in fg
+    # only a certified gate exits 0 (GATE-EXIT-1 records the code first)
+    assert '$exitCode = if ($gateResult -eq "certified") { 0 } else { 1 }' \
+        in fg
+    assert "    exit $exitCode" in fg
+    assert "exit 0" not in fg and "exit 1" not in fg
 
 
 def test_ps1_scopes_imports_legs_and_the_stage_8_comparison():
@@ -351,3 +356,19 @@ Write-Output "REACHED_STAGE_9"
             in by_stage[10]["reason"])
     assert summary["real_tick_coverage"] == {
         "gold2": "NONE (bar-only fixture)"}
+
+
+def test_ps1_records_its_own_exit_code(tmp_path):
+    """GATE-EXIT-1 (gate_run52: the runner's wrapper captured no exit
+    code). The gate writes its exit code to the evidence dir, into
+    gate_summary.json and as a GATE_EXIT_CODE= line, before it exits."""
+    cp, summary, _ = _run_gate(tmp_path, "-Golds", "gold2",
+                               fault="self_protection")
+    assert cp.returncode == 1
+    assert summary["exit_code"] == 1
+    files = list(tmp_path.rglob("gate_exit_code.txt"))
+    assert len(files) == 1
+    assert files[0].read_bytes() == b"1\r\n"
+    assert files[0].parent == next(tmp_path.rglob("gate_summary.json")).parent
+    assert re.search(r"^GATE_EXIT_CODE=1 ", cp.stdout, re.MULTILINE)
+    assert cp.stdout.index("GATE_RESULT=") < cp.stdout.index("GATE_EXIT_CODE=")
