@@ -3,47 +3,30 @@
 Nothing below is a code blocker that this session can fix. Each item waits
 on an owner action or an input this session cannot produce.
 
-## Demo safety files: stage 7 PASS (gate_run54); stage 8 crashed, and restart was mis-graded
+## Resolved by gate_run55 (`90041fe`, gold2 `-DemoSafety`)
 
-**gate_run54** (`422c174`, gold2 `-DemoSafety`):
-- stage 7 PASS: restart, netting and hedging all COMPLETED with this run's
-  stage-1 EX5, and each restore stayed connected (DEMO-CHECK-CRLF-1
-  worked);
-- the builder paired gold2 37/37 with 0 missing and 0 extra in both
-  models;
-- 7 of 8 safety files graded passed by the builder;
-- the gate exit code was recorded (1).
+- **Stage 7:** PASS.
+- **Stage 8:** PASS, verdict `MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE`,
+  nothing missing.
+- **gold2:** MATCH, 37/37 in both models.
+- **Safety:** all 8 results VALID, including the live demo restart,
+  netting and hedging.
+- **gold1:** MATCH 18/18 (gate_run53).
+- **Proven live:** DEMO-CHECK-CRLF-1, STAGE8-EMPTY-NOTBUILT-1 and
+  RESTART-GRADE-1.
 
-**Stage 8 crashed before the verifier ran** (EMPTY-OBJ-1). This was
-`UNHANDLED_ERROR: The property 'Name' cannot be found` in the
-`not_built` note. Under StrictMode 2.0, `.PSObject.Properties.Name` on an
-empty object (`not_built: {}`, i.e. everything built) throws.
-`Get-DataProp` had the same latent bug.
+## Next: the full certification run (`[runner: full]`)
 
-**restart was graded `NO_RESTART`** (RESTART-ORDER-1). The grader ordered
-events by the EA's stamp, which is TimeCurrent(), stale at OnInit. The
-relaunch START was stamped 16:06:55, before the probe's 16:07:21. The
-harness's own UTC steps show the relaunch at 13:08:05, after the probe at
-13:07:20. The grader now orders events by log position, and only a
-probe=1 START counts as the relaunch (stricter).
+An unscoped run could not certify before STAGE10-CERT-1: stage 10 ran
+`certify_strategy.py`, which needs a config that does not exist (stage 10
+SKIP). Stage 10 now certifies the verifier's verdict (owner decision
+2026-10-12). This is built, unit-tested, never run live.
 
-**Fix,** built, unit-tested, never run live. Both fixes are in tools/ and
-python/ only.
-
-**Next:** the `[runner: demo-in-gate]` run. Expected evidence:
-- the verifier runs;
-- all 8 safety files are graded;
-- gold2 is MATCH 37/37.
-
-## gold1 stage 8: MATCH (gate_run53) — resolved by S8-PATH-1
-
-**gate_run53** (`93d6e45`): gold1 `result: MATCH`, `state: VALID`.
-- 18/18 paired in m1_ohlc and every_tick, with no divergence.
-- every_tick's first different exit is recorded as a tick path, as
-  designed.
-
-The run's verdict is still `NOT_VERIFIED_ARTIFACT_MISMATCH`, only because
-the three demo safety files are missing (it was not a `-DemoSafety` run).
+**Expected:**
+- stages 0-10 PASS;
+- verdict `MT5_VALIDATED_BAR_MODELS`;
+- `GATE_RESULT=certified_with_log_graded_legs`. All gold legs are
+  log-graded, which is the distinct-by-design name for a certified run.
 
 ## Optional owner item (outside exception 1): EA log stamps are stale at OnInit
 
