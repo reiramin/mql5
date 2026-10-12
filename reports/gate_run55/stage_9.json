@@ -1,0 +1,14 @@
+{
+    "stage":  9,
+    "name":  "archive_manifest",
+    "status":  "REFUSED",
+    "reason":  "[scope: gold2; PARTIAL run -- certifies nothing] [refused_scoped_run] archive manifest not built: scoped run over gold2; excluded: gold1",
+    "scope":  [
+                  "gold2"
+              ],
+    "partial":  true,
+    "artifacts":  [
+
+                  ],
+    "utc":  "2026-10-12T16:42:30.9547013Z"
+}
