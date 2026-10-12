@@ -92,6 +92,7 @@ input int                     InpPendingOffsetPoints = 10;           // Pending 
 input int                     InpPendingExpireBars = 6;              // Pending expiry (bars)
 input int                     InpDeviation   = 30;                   // Max price deviation (points)
 input int                     InpMaxRetries  = 3;                    // Order retries (RetryQueue cap)
+input int                     InpSpecWaitSeconds = 60;               // SPEC-WAIT-1: max wait for symbol sync at a live start (s)
 input bool                    InpAllowShort  = true;                 // Allow short trades
 input long                    InpMagic       = 20240904;             // Legacy magic (registry off)
 
@@ -165,6 +166,9 @@ int             g_tickCounter   = 0;
 int             g_testEntries   = 0;      // entries made (8a kill switch)
 ulong           g_testStripped[];         // tickets whose SL was stripped (8b)
 bool            g_testRestored[];         // ... and seen restored
+//--- SPEC-WAIT-1: WAITING_SYMBOL state (live start, symbol not synced yet)
+bool            g_specWaiting   = false;
+ulong           g_specWaitStart = 0;      // GetTickCount64() when the wait began
 int             g_demoStep      = 0;      // demo probe step (InpTestDemoProbe)
 int             g_demoTicks     = 0;      // timer ticks since the last step
 #define DEMO_PROBE_FLAG "Mql5Bot\\State\\demo_probe_opened.flag"
@@ -602,11 +606,37 @@ int OnInit()
    ResolveTestInputs();
 
    //--- environment validation: broker facts queried, never assumed ----
+   //    SPEC-WAIT-1: a LIVE start on a symbol the terminal has not
+   //    synchronized yet does not fail init: it waits in WAITING_SYMBOL
+   //    (no orders, no management, no START line) and retries the build on
+   //    OnTimer/OnTick, bounded by InpSpecWaitSeconds. In the Strategy
+   //    Tester a failed build fails init exactly as before.
    if(!BuildSymbolSpec(g_symbol, g_spec))
      {
-      g_log.Error("symbol spec build failed: " + g_spec.reason);
-      return INIT_FAILED;
+      bool inTester = MQLInfoInteger(MQL_TESTER) != 0 ||
+                      MQLInfoInteger(MQL_OPTIMIZATION) != 0;
+      if(!SpecMayWait(inTester, SymbolIsSynchronized(g_symbol), g_spec.reason))
+        {
+         g_log.Error("symbol spec build failed: " + g_spec.reason);
+         return INIT_FAILED;
+        }
+      g_specWaiting   = true;
+      g_specWaitStart = GetTickCount64();
+      g_log.Warn(StringFormat("WAITING_SYMBOL: symbol spec not ready (%s); "
+                              "retrying for up to %d s, no new positions",
+                              g_spec.reason, InpSpecWaitSeconds));
+      EventSetTimer(1);
+      return INIT_SUCCEEDED;
      }
+   return InitAfterSpec();
+  }
+
+//+------------------------------------------------------------------+
+//| The rest of OnInit, once the symbol spec is built (SPEC-WAIT-1:  |
+//| run directly from OnInit, or later from SpecWaitPump)            |
+//+------------------------------------------------------------------+
+int InitAfterSpec()
+  {
    if(!MQLInfoInteger(MQL_TESTER) && !MQLInfoInteger(MQL_OPTIMIZATION))
      {
       if(!TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) ||
@@ -811,6 +841,35 @@ int OnInit()
   }
 
 //+------------------------------------------------------------------+
+//| SPEC-WAIT-1: retry the spec build while WAITING_SYMBOL. Once it   |
+//| builds, the deferred init runs (and logs START); past             |
+//| InpSpecWaitSeconds the EA logs the error and removes itself.      |
+//+------------------------------------------------------------------+
+void SpecWaitPump()
+  {
+   bool built    = BuildSymbolSpec(g_symbol, g_spec);
+   bool waitable = built ||
+                   SpecMayWait(false, SymbolIsSynchronized(g_symbol), g_spec.reason);
+   int  waited   = (int)((GetTickCount64() - g_specWaitStart) / 1000);
+   int  step     = SpecWaitDecision(built, waitable, waited, InpSpecWaitSeconds);
+   if(step == SPEC_WAIT_WAIT)
+      return;
+   g_specWaiting = false;
+   if(step == SPEC_WAIT_READY)
+     {
+      g_log.Info(StringFormat("WAITING_SYMBOL over: symbol spec built after %d s",
+                              waited));
+      if(InitAfterSpec() == INIT_SUCCEEDED)
+         return;
+      g_log.Error("deferred init failed after WAITING_SYMBOL");
+     }
+   else
+      g_log.Error(StringFormat("symbol spec build failed: %s (gave up after %d s "
+                               "WAITING_SYMBOL)", g_spec.reason, waited));
+   ExpertRemove();
+  }
+
+//+------------------------------------------------------------------+
 //| OnDeinit                                                         |
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
@@ -829,6 +888,11 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTimer()
   {
+   if(g_specWaiting)           // SPEC-WAIT-1: nothing runs until the spec is built
+     {
+      SpecWaitPump();
+      return;
+     }
    g_alloc.OnTimerPoll();      // mtime-poll the Meta allocation
    g_tickCounter++;
 
@@ -1269,6 +1333,11 @@ void TestSlStripPump()
 //+------------------------------------------------------------------+
 void OnTick()
   {
+   if(g_specWaiting)           // SPEC-WAIT-1: nothing runs until the spec is built
+     {
+      SpecWaitPump();
+      return;
+     }
    datetime barTime = iTime(g_symbol, g_tf, 0);
    if(barTime != g_lastBarTime)
      {
@@ -1285,6 +1354,8 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
                         const MqlTradeRequest &request,
                         const MqlTradeResult &result)
   {
+   if(g_specWaiting)           // SPEC-WAIT-1: no magic/registry yet
+      return;
    if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
      {
       ulong deal = trans.deal;
