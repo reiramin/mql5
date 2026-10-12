@@ -492,7 +492,7 @@ def expected_set_window_run(repo: Path | str, gold: str,
                             spread_points: float | None = None,
                             spread_source: str | None = None,
                             price_basis: str = "bid",
-                            intrabar_order: str = "mt5_ohlc"
+                            intrabar_order: str | None = None
                             ) -> tuple[dict | None, str]:
     """The tester leg's EXPECTED ENTRY SET (S8-WEIGHT-1): the weight-in-
     force run.
@@ -536,13 +536,16 @@ def expected_set_window_run(repo: Path | str, gold: str,
     ("mid", manifest slippage) and must still reproduce.
 
     ``intrabar_order`` (S8-PATH-1, gate_run51) also applies to the WINDOW
-    run only: "mt5_ohlc" (default) resolves a bar that touches both the SL
+    run only: "mt5_ohlc" (the default under price_basis "bid"; "mid" keeps
+    "stop_first") resolves a bar that touches both the SL
     and the TP in the tester's tick order (open, low, high, close when
     close >= open, else open, high, low, close); "stop_first" is the
     frozen generator's conservative rule. The frozen-trace guard always
     runs "stop_first".
     """
     repo = Path(repo)
+    if intrabar_order is None:
+        intrabar_order = "mt5_ohlc" if price_basis == "bid" else "stop_first"
     files = GOLD_FILES.get(gold, {})
     if not files.get("generator") or not files.get("trace"):
         return None, f"{gold}: no frozen generator/trace wired for a re-run"

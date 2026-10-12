@@ -1915,3 +1915,19 @@ drifted from trade 14 (-269.85, then -546.30).
   `[runner: gold1]` run.
 - **The EA's empty "DSL series build failed:" reason:** still waits on the
   owner (BLOCKED.md).
+
+**Process error (recorded, not hidden):** commit `8b30e27` was pushed with
+the full pytest suite at exit 1. I read the background task's exit code
+(which came from the trailing `echo`) instead of pytest's own `exit=1`
+line. Failures:
+- the window run defaulted to "mt5_ohlc" even under price_basis "mid"
+  (refused by CostConfig);
+- one ps1 structure test counted 4 stage-8 records.
+
+Fixed forward in the next commit (no amend, no force-push):
+- the order now defaults by basis;
+- the structure test now requires every stage-8 record to carry the
+  artifacts.
+
+The full suite was re-run, with pytest's own exit code captured, before
+that commit. No PR was opened or merged on the failing commit.

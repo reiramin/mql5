@@ -4973,7 +4973,8 @@ Every m1_ohlc exit of run51 fits one order, with ticks at :00 / :20 / :40
 - `costs.take_profit_first`: the open is the first tick; a level the open
   reaches fills there, the stop when both do.
 - `engine.manage` consults it only when both levels are touched.
-- `stage8_package.expected_set_window_run(intrabar_order="mt5_ohlc")`: the
+- `stage8_package.expected_set_window_run`: "mt5_ohlc" by default under
+  price_basis "bid" ("mid" keeps "stop_first"), in the
   WINDOW run only. The frozen-trace guard still runs "stop_first" at the
   manifest cost and must still reproduce the frozen trace.
 - `tested_window_start(..., from_date)`: without a "start time changed"

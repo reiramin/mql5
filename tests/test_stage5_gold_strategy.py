@@ -450,7 +450,10 @@ def test_ps1_places_log_trade_lists_before_stage_8_verifies():
     assert '"evidence\\owner_mt5_package"' in S8
     assert 'Join-Path $RepoRoot "artifacts\\owner_mt5_gate\\evidence"' \
         not in PS1
-    assert S8.count("@($s8Art)") >= 4
+    # every stage-8 record carries the placed artifacts (S8-PATH-1 removed
+    # the DIVERGENCE_EXPECTED record, so there are 3, not 4)
+    recs = [ln for ln in S8.splitlines() if 'Record-Stage 8 "' in ln]
+    assert len(recs) >= 3 and all("@($s8Art)" in ln for ln in recs)
 
 
 def test_gold_manifests_are_untouched_by_derivation(tmp_path):
