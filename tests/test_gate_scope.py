@@ -372,3 +372,45 @@ def test_ps1_records_its_own_exit_code(tmp_path):
     assert files[0].parent == next(tmp_path.rglob("gate_summary.json")).parent
     assert re.search(r"^GATE_EXIT_CODE=1 ", cp.stdout, re.MULTILINE)
     assert cp.stdout.index("GATE_RESULT=") < cp.stdout.index("GATE_EXIT_CODE=")
+
+
+def test_ps1_reads_an_empty_object_under_strict_mode(tmp_path):
+    """EMPTY-OBJ-1 (gate_run54 stage 8 UNHANDLED_ERROR at the not_built
+    note): `.PSObject.Properties.Name` on JSON {} throws under StrictMode
+    2.0. Get-PropNames / Get-DataProp (extracted verbatim) read it as no
+    properties; the not_built note is added only when something was not
+    built."""
+    pwsh = _pwsh()
+    if pwsh is None:
+        pytest.skip("pwsh not installed")
+    src = PS1.read_text(encoding="utf-8")
+    assert "PSObject.Properties.Name" not in src
+    i = src.index("$nbNames = @(Get-PropNames")
+    note = src[i:src.index("\n}", i) + 2]
+    script = "\n".join([
+        "Set-StrictMode -Version 2.0",
+        _fn(src, "Get-PropNames"), _fn(src, "Get-DataProp"),
+        "foreach ($j in @('{\"ok\": true, \"not_built\": {}}',",
+        "                 '{\"ok\": true, \"not_built\": {\"b\": 1, \"a\": 2}}',",
+        "                 '{\"ok\": true}')) {",
+        "  $pkgBuild = [pscustomobject]@{ data = ($j | ConvertFrom-Json) }",
+        "  $placeNotes = New-Object System.Collections.ArrayList",
+        note,
+        "  'NOTES=' + ($placeNotes -join '|')",
+        "}",
+        "'EMPTY_HAS=' + (@(Get-PropNames ('{}' | ConvertFrom-Json)).Count)",
+        "'GET_MISSING=' + ($null -eq (Get-DataProp ('{}' | ConvertFrom-Json) 'x'))",
+        "'GET_NULL=' + ($null -eq (Get-DataProp $null 'x'))",
+    ])
+    f = tmp_path / "t.ps1"
+    f.write_text(script, encoding="utf-8")
+    cp = subprocess.run([pwsh, "-NoProfile", "-File", str(f)],
+                        capture_output=True, text=True, check=False)
+    assert cp.returncode == 0, cp.stdout + cp.stderr
+    out = cp.stdout.splitlines()
+    assert out[:3] == ["NOTES=",
+                       ("NOTES=package built by the gate; NOT "
+                        "built: a, b"),
+                       "NOTES="], cp.stdout
+    assert "EMPTY_HAS=0" in out and "GET_MISSING=True" in out
+    assert "GET_NULL=True" in out

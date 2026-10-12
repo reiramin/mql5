@@ -5087,3 +5087,105 @@ Status: built, unit-tested, never run live. Proof is the
 `[runner: demo-in-gate]` run: stage 7 PASS, stage 8 grading all 8 safety
 files, gold2 MATCH 37/37.
 
+## STAGE8-EMPTY-NOTBUILT-1 (EMPTY-OBJ-1) + RESTART-GRADE-1 (RESTART-ORDER-1) — gate_run54 stage 8 (2026-10-12)
+
+**Evidence** (gate-reports `reports/gate_run54`, `422c174`, `-Golds gold2
+-DemoSafety`):
+- stages 0-5 PASS;
+- stage 7 PASS: all three demo runs COMPLETED, `restore.ok=true`, and
+  `ex5_sha256` equals the stage-1 log hash;
+- stage 8 FAILED with `UNHANDLED_ERROR: The property 'Name' cannot be found
+  on this object` (script line 1558), so the verifier did not run;
+- the builder side (not a verdict) shows:
+  - gold2 paired 37/37, 0 missing, 0 extra, in both models;
+  - 7 of 8 safety files passed;
+  - restart graded `NO_RESTART`.
+
+**EMPTY-OBJ-1.** The package build returned `"not_built": {}`. Under
+StrictMode 2.0, `@($nb.PSObject.Properties.Name)` on an object with no
+properties throws. This was reproduced with pwsh 7, and the same
+expression sat in `Get-DataProp`.
+
+Fix: a new `Get-PropNames` reads the names one by one, and both places use
+it. The not_built note is added only when the list is non-empty, as
+before. Test: both functions are extracted verbatim and run under
+StrictMode 2.0 on `{}`, on two keys, and on an absent key.
+
+**RESTART-ORDER-1.** `grade_restart` took the restart START to be a START
+whose EA stamp is ≥ the probe's stamp. The stamp is `TimeCurrent()`,
+stale at OnInit:
+- restart.json quoted three STARTs, all `16:06:55`, and the probe at
+  `16:07:21`;
+- the harness's own UTC steps were START 13:07:18, probe 13:07:20, KILL
+  13:07:50, and relaunch START 13:08:05;
+- so the relaunch existed and came after the probe, but the stamp
+  comparison found none.
+
+The demo `ealog.txt` is the harness's tail of the append-only Experts log,
+so line order is the true order.
+
+**Root cause, checked against each candidate:**
+- **Timestamp source:** this is the cause.
+  `mql5/Include/Mql5Bot/Logger.mqh` stamps every line with
+  `TimeToString(TimeCurrent(), ...)`. `TimeCurrent()` is the last known
+  server tick time, stale at OnInit before the first tick arrives.
+- **The harness killing before the probe opened:** rejected.
+  - The harness saw "probe position opened" at 13:07:20 and killed at
+    13:07:50.
+  - The relaunch START reports `own_positions=1 registry=1`, so the
+    position existed at the relaunch.
+- **Log buffering or write order:** not needed to explain it. Every
+  quoted START carries the same stale second, and the probe line's stamp
+  matches the harness's UTC (+3 h).
+- **Quote order:** the quoted_lines list every START first, then the
+  probe. That is the grader's quoting order, not the log order.
+
+The raw `ealog.txt` is not in the published report (it holds demo account
+values), so these four lines plus run.json are the evidence used.
+
+**The EA side** is not a blocker: grading no longer reads the stamp. The
+stale stamp at OnInit is recorded in BLOCKED.md as an optional owner item,
+because it is outside CLAUDE.md exception 1.
+
+**Exact-quote test.** `tests/test_restart_order.py` uses the gate_run54
+quoted_lines VERBATIM, placed in the harness's step order.
+- Result: the relaunch is found (same magic, own=1, engine=0) and graded
+  `INCONCLUSIVE_NO_HEARTBEAT_AFTER_RESTART`. The four quoted lines alone
+  carry no heartbeat, so "no duplicate" is not proven from them, and it
+  is never a pass on them.
+- With one heartbeat line (test input in the measured format) after the
+  relaunch, the grade is `RESTART_RECOVERED_NO_DUPLICATE`.
+- 6 of the file's 7 tests fail on the previous grader.
+
+**Search for the ps1 pattern.** `PSObject.Properties.Name` appeared twice:
+the not_built note and `Get-DataProp`. Both are fixed, and a test asserts
+the pattern is gone from the script.
+
+Fix (in `safety_legs.py`, used by the builder and by the verifier's
+re-grade alike):
+- events are ordered by line position;
+- the restart START must be a **probe=1** START after the probe line. A
+  cleanup (probe=3) START alone is NO_RESTART, which is stricter;
+- its heartbeats are the snapshot lines between it and the next START.
+
+Every other check (magic, own positions at restart, engine, duplicate
+exposure, registry) is unchanged.
+
+Tests: `tests/test_restart_order.py`, 7 tests: the stale-stamp shape and the
+exact quoted lines. 6 of them fail on the previous grader. The existing
+restart tests are unchanged and pass.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No.
+  - The restart pass condition is unchanged.
+  - Only the ORDER source changes, from a stale stamp to log position,
+    which is a proven unit bug.
+  - The relaunch must now be a probe=1 START, which is stricter.
+- **(b) Do the gold legs change behaviour at default inputs?** No; nothing
+  in mql5/ or artifacts/.
+- **(c) Are new checks re-computed by the verifier?** Yes. The verifier
+  re-grades with the same `safety_legs.grade`.
+
+Status: built, unit-tested, never run live. Proof is the
+`[runner: demo-in-gate]` run.
+

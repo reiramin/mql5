@@ -1,39 +1,39 @@
-# BLOCKED / WAITING — open items (updated 2026-10-12, DEMO-CHECK-CRLF-1)
+# BLOCKED / WAITING — open items (updated 2026-10-12, RESTART-ORDER-1 + EMPTY-OBJ-1)
 
 Nothing below is a code blocker that this session can fix. Each item waits
 on an owner action or an input this session cannot produce.
 
-## Demo safety files (restart, netting, hedging): stage 7 connection check (DEMO-CHECK-CRLF-1)
+## Demo safety files: stage 7 PASS (gate_run54); stage 8 crashed, and restart was mis-graded
 
-**gate_run52** (`c8bc022`, `-Golds gold2 -DemoSafety`):
-- stages 0-5 PASS, `symbol_state` created_fresh;
-- stage 7 FAILED `[demo_restore_not_connected]` for all three tests;
-- stage 8 did not run, so the gold2 reconciliation was not measured in
-  this run.
+**gate_run54** (`422c174`, gold2 `-DemoSafety`):
+- stage 7 PASS: restart, netting and hedging all COMPLETED with this run's
+  stage-1 EX5, and each restore stayed connected (DEMO-CHECK-CRLF-1
+  worked);
+- the builder paired gold2 37/37 with 0 missing and 0 extra in both
+  models;
+- 7 of 8 safety files graded passed by the builder;
+- the gate exit code was recorded (1).
 
-The terminal journal shows the credential-less launch WAS connected
-("authorized ... synchronized ... demo account - hedging mode"). The
-exporter failed: `cannot open Mql5Bot\demo_connect_check\ EURUSD.json
-err=5004`.
+**Stage 8 crashed before the verifier ran** (EMPTY-OBJ-1). This was
+`UNHANDLED_ERROR: The property 'Name' cannot be found` in the
+`not_built` note. Under StrictMode 2.0, `.PSObject.Properties.Name` on an
+empty object (`not_built: {}`, i.e. everything built) throws.
+`Get-DataProp` had the same latent bug.
 
-**Cause:** the "space" is a carriage return.
-- The harness joined its preset/ini lines with CRLF and wrote them in text
-  mode; on Windows every LF became CRLF, so lines ended CR CR LF.
-- MT5 kept the stray CR in `InpExportDir`.
+**restart was graded `NO_RESTART`** (RESTART-ORDER-1). The grader ordered
+events by the EA's stamp, which is TimeCurrent(), stale at OnInit. The
+relaunch START was stamped 16:06:55, before the probe's 16:07:21. The
+harness's own UTC steps show the relaunch at 13:08:05, after the probe at
+13:07:20. The grader now orders events by log position, and only a
+probe=1 START counts as the relaunch (stricter).
 
-**Fix,** built, unit-tested, never run live:
-- the three CRLF files are written byte-exact (`newline=""`);
-- a test parses them as MT5 does: no whitespace around any value, and the
-  export path is exactly `Mql5Bot\demo_connect_check\EURUSD.json`;
-- the gate now records its own exit code (`gate_exit_code.txt`,
-  `gate_summary.json` `exit_code`, a `GATE_EXIT_CODE=` line), since
-  gate_run52's wrapper captured none.
+**Fix,** built, unit-tested, never run live. Both fixes are in tools/ and
+python/ only.
 
-**Next:** the `[runner: demo-in-gate]` run (gold2 `-DemoSafety`, FX market
-hours). Expected evidence:
-- stage 7 PASS;
-- stage 8 grading all 8 safety files;
-- gold2 MATCH 37/37.
+**Next:** the `[runner: demo-in-gate]` run. Expected evidence:
+- the verifier runs;
+- all 8 safety files are graded;
+- gold2 is MATCH 37/37.
 
 ## gold1 stage 8: MATCH (gate_run53) — resolved by S8-PATH-1
 
@@ -44,6 +44,18 @@ hours). Expected evidence:
 
 The run's verdict is still `NOT_VERIFIED_ARTIFACT_MISMATCH`, only because
 the three demo safety files are missing (it was not a `-DemoSafety` run).
+
+## Optional owner item (outside exception 1): EA log stamps are stale at OnInit
+
+`Logger.mqh` stamps each line with `TimeCurrent()`, the last known server
+tick time. Right after a (re)launch, before the first tick, that time is
+stale. In gate_run54 the relaunch START was stamped 16:06:55, before the
+probe's 16:07:21. Grading no longer depends on it (RESTART-GRADE-1 orders
+events by log position), so this is NOT blocking.
+
+Stamping with `TimeGMT()` or `TimeLocal()` would make the log
+chronological. That is an `mql5/` change outside exception 1, so it is
+left to the owner.
 
 ## Owner change needed (outside exception 1): log WHY the DSL series build failed
 

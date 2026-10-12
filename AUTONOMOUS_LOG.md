@@ -1953,3 +1953,36 @@ became CR CR LF.
   `[runner: demo-in-gate]` run.
 - **gold2 37/37 in this state:** not re-measured, because gate_run52
   never reached stage 8.
+
+## 2026-10-12 — gate_run54 read; RESTART-ORDER-1 + EMPTY-OBJ-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Merged before this:** PR #49 (`422c174`, `[runner: demo-in-gate]`).
+
+**gate_run54** (gold2 -DemoSafety):
+- stage 7 PASS;
+- stage 8 crashed (StrictMode: `.Name` on an empty `not_built`) before the
+  verifier ran;
+- builder side: gold2 37/37/0/0; 7/8 safety files passed; restart graded
+  NO_RESTART because of the stale EA timestamps.
+
+**Done:**
+- `Get-PropNames` (ps1);
+- the restart grader orders by log position and requires a probe=1
+  relaunch;
+- tests: `test_restart_order.py` and `test_gate_scope.py`;
+- docs: DECISIONS and BLOCKED.
+
+**NOT done, and why:**
+- **A live run:** built, unit-tested, never run live; proof is the
+  `[runner: demo-in-gate]` run.
+- **The gold2 verifier verdict:** not measured in gate_run54. The builder
+  pairing (37/37) is unchanged.
+
+**Same day, follow-up (user's STAGE8-EMPTY-NOTBUILT-1 / RESTART-GRADE-1
+ask):**
+- Root cause: `Logger.mqh` stamps lines with `TimeCurrent()`, stale at
+  OnInit. The harness steps rule out an early kill.
+- Fix: the grader orders events by log position.
+- Added the exact gate_run54 quoted_lines test.
+- The ps1 pattern appeared twice; both instances are fixed.
+- The EA stamp is recorded in BLOCKED as an optional owner item.
