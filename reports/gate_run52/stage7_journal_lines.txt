@@ -1,0 +1,67 @@
+--- logs/20261012.log lines 1312-1330 (local time UTC-7) ---
+KS	0	04:37:31.045	Startup	successfully initialized from start config "C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_evxn9id1\startup.ini"
+LR	0	04:37:31.096	Terminal	MetaTrader 5 x64 build 6256 started for MetaQuotes Ltd.
+DS	0	04:37:31.097	Terminal	Windows 10 build 19045 on VMware, 4 x Intel Core i9-9980HK  @ 2.40GHz, AVX2, 6 / 9 Gb memory, 22 / 59 Gb disk, UAC, GMT-8
+HO	0	04:37:31.097	Terminal	C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075
+HR	0	04:37:31.097	Terminal	launched with C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_evxn9id1\startup.ini
+IF	0	04:37:31.098	MCP	started on 127.0.0.1:22346
+LR	0	04:37:33.823	MQL5	2 inputs read from script 'Mql5Bot\Mql5BotExportSymbolSpec' set file "C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Presets\mql5bot_demo_connect_check.set"
+DP	0	04:37:33.831	Scripts	script Mql5BotExportSymbolSpec (EURUSD,H1) loaded successfully
+MI	0	04:37:33.867	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 2
+ME	0	04:37:33.867	Network	'<REDACTED>': previous successful authorization performed from 78.159.126.121 on 2026.10.12 14:37:26
+KD	0	04:37:35.052	Network	'<REDACTED>': terminal synchronized with MetaQuotes Ltd.: 0 positions, 0 orders, 12309 symbols, 0 spreads
+PJ	0	04:37:35.052	Network	'<REDACTED>': trading has been enabled, demo account - hedging mode
+PN	0	04:37:35.052	Network	'<REDACTED>': balance management has been disabled - demo account
+GQ	0	04:37:36.374	Scripts	script Mql5BotExportSymbolSpec (EURUSD,H1) closes terminal with code 2
+IH	0	04:37:36.374	Scripts	script Mql5BotExportSymbolSpec (EURUSD,H1) removed
+CL	0	04:37:38.131	Terminal	exit with code 2
+KI	0	04:37:38.301	Network	'<REDACTED>': disconnected from MetaQuotes-Demo
+KS	0	04:37:38.368	Terminal	stopped with 0
+OJ	0	04:37:38.473	Terminal	shutdown with 2
+--- logs/20261012.log lines 1370-1388 (local time UTC-7) ---
+MI	0	04:38:27.949	Startup	successfully initialized from start config "C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_583qau46\startup.ini"
+IK	0	04:38:28.001	Terminal	MetaTrader 5 x64 build 6256 started for MetaQuotes Ltd.
+RL	0	04:38:28.001	Terminal	Windows 10 build 19045 on VMware, 4 x Intel Core i9-9980HK  @ 2.40GHz, AVX2, 6 / 9 Gb memory, 22 / 59 Gb disk, UAC, GMT-8
+FE	0	04:38:28.001	Terminal	C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075
+MQ	0	04:38:28.001	Terminal	launched with C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_583qau46\startup.ini
+HM	0	04:38:28.003	MCP	started on 127.0.0.1:22346
+CF	0	04:38:30.740	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 2
+EE	0	04:38:30.740	Network	'<REDACTED>': previous successful authorization performed from 78.159.126.121 on 2026.10.12 14:38:23
+PG	0	04:38:30.742	MQL5	2 inputs read from script 'Mql5Bot\Mql5BotExportSymbolSpec' set file "C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Presets\mql5bot_demo_connect_check.set"
+GS	0	04:38:30.751	Scripts	script Mql5BotExportSymbolSpec (EURUSD,H1) loaded successfully
+CK	0	04:38:32.144	Network	'<REDACTED>': terminal synchronized with MetaQuotes Ltd.: 0 positions, 0 orders, 12309 symbols, 0 spreads
+DE	0	04:38:32.144	Network	'<REDACTED>': trading has been enabled, demo account - hedging mode
+HI	0	04:38:32.144	Network	'<REDACTED>': balance management has been disabled - demo account
+DN	0	04:38:32.804	Scripts	script Mql5BotExportSymbolSpec (EURUSD,H1) closes terminal with code 2
+FO	0	04:38:32.804	Scripts	script Mql5BotExportSymbolSpec (EURUSD,H1) removed
+NG	0	04:38:34.548	Terminal	exit with code 2
+GO	0	04:38:35.147	Network	'<REDACTED>': disconnected from MetaQuotes-Demo
+CJ	0	04:38:35.243	Terminal	stopped with 0
+RQ	0	04:38:35.351	Terminal	shutdown with 2
+--- logs/20261012.log lines 1428-1446 (local time UTC-7) ---
+QL	0	04:39:24.585	Startup	successfully initialized from start config "C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_z9cko627\startup.ini"
+PL	0	04:39:24.636	Terminal	MetaTrader 5 x64 build 6256 started for MetaQuotes Ltd.
+HE	0	04:39:24.637	Terminal	Windows 10 build 19045 on VMware, 4 x Intel Core i9-9980HK  @ 2.40GHz, AVX2, 6 / 9 Gb memory, 22 / 59 Gb disk, UAC, GMT-8
+DM	0	04:39:24.637	Terminal	C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075
+IE	0	04:39:24.637	Terminal	launched with C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_z9cko627\startup.ini
+ED	0	04:39:24.638	MCP	started on 127.0.0.1:22346
+QL	0	04:39:27.546	MQL5	2 inputs read from script 'Mql5Bot\Mql5BotExportSymbolSpec' set file "C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Presets\mql5bot_demo_connect_check.set"
+NG	0	04:39:27.555	Scripts	script Mql5BotExportSymbolSpec (EURUSD,H1) loaded successfully
+FG	0	04:39:27.841	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 2
+HS	0	04:39:27.841	Network	'<REDACTED>': previous successful authorization performed from 78.159.126.121 on 2026.10.12 14:39:19
+MR	0	04:39:29.026	Network	'<REDACTED>': terminal synchronized with MetaQuotes Ltd.: 0 positions, 0 orders, 12309 symbols, 0 spreads
+FM	0	04:39:29.026	Network	'<REDACTED>': trading has been enabled, demo account - hedging mode
+RP	0	04:39:29.026	Network	'<REDACTED>': balance management has been disabled - demo account
+OG	0	04:39:30.169	Scripts	script Mql5BotExportSymbolSpec (EURUSD,H1) closes terminal with code 2
+IF	0	04:39:30.169	Scripts	script Mql5BotExportSymbolSpec (EURUSD,H1) removed
+EN	0	04:39:31.932	Terminal	exit with code 2
+EG	0	04:39:32.680	Network	'<REDACTED>': disconnected from MetaQuotes-Demo
+NM	0	04:39:32.765	Terminal	stopped with 0
+NH	0	04:39:32.881	Terminal	shutdown with 2
+--- Logs/20261012.log lines 215-220 (local time UTC-7) ---
+PS	0	04:37:27.093	Mql5BotExportSymbolSpec (EURUSD,H1)	[mql5bot] export FAILED: cannot open Mql5Bot\demo_connect_check\ EURUSD.json err=5004
+MM	0	04:37:36.373	Mql5BotExportSymbolSpec (EURUSD,H1)	[mql5bot] export FAILED: cannot open Mql5Bot\demo_connect_check\ EURUSD.json err=5004
+ML	0	04:38:23.983	Mql5BotExportSymbolSpec (EURUSD,H1)	[mql5bot] export FAILED: cannot open Mql5Bot\demo_connect_check\ EURUSD.json err=5004
+QN	0	04:38:32.804	Mql5BotExportSymbolSpec (EURUSD,H1)	[mql5bot] export FAILED: cannot open Mql5Bot\demo_connect_check\ EURUSD.json err=5004
+HH	0	04:39:20.146	Mql5BotExportSymbolSpec (EURUSD,H1)	[mql5bot] export FAILED: cannot open Mql5Bot\demo_connect_check\ EURUSD.json err=5004
+EK	0	04:39:30.168	Mql5BotExportSymbolSpec (EURUSD,H1)	[mql5bot] export FAILED: cannot open Mql5Bot\demo_connect_check\ EURUSD.json err=5004

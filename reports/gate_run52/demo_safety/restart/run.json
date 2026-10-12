@@ -1,0 +1,122 @@
+{
+  "schema": "mql5bot.demo_safety_run/2",
+  "test": "restart",
+  "status": "FAILED",
+  "account_role": "hedging",
+  "symbol": "EURUSD",
+  "period": "M1",
+  "ex5_sha256": "353b05032d453e9be358462ad3ddd299701213294ba3809ffc7ca825985336bf",
+  "steps": [
+    {
+      "utc": "2026-10-12T11:34:37+00:00",
+      "step": "start",
+      "test": "restart",
+      "account_role": "hedging"
+    },
+    {
+      "utc": "2026-10-12T11:34:37+00:00",
+      "step": "terminal_started",
+      "probe": 1
+    },
+    {
+      "utc": "2026-10-12T11:34:44+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-12T11:34:45+00:00",
+      "step": "seen: probe position opened"
+    },
+    {
+      "utc": "2026-10-12T11:35:15+00:00",
+      "step": "terminal KILLED with the probe position open"
+    },
+    {
+      "utc": "2026-10-12T11:35:25+00:00",
+      "step": "terminal_started",
+      "probe": 1
+    },
+    {
+      "utc": "2026-10-12T11:35:33+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-12T11:37:03+00:00",
+      "step": "terminal stopped after observation"
+    },
+    {
+      "utc": "2026-10-12T11:37:03+00:00",
+      "step": "terminal_started",
+      "probe": 3
+    },
+    {
+      "utc": "2026-10-12T11:37:10+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-12T11:37:11+00:00",
+      "step": "seen: cleanup"
+    },
+    {
+      "utc": "2026-10-12T11:37:11+00:00",
+      "step": "terminal stopped"
+    },
+    {
+      "utc": "2026-10-12T11:37:11+00:00",
+      "step": "restore: log back in to the hedging account"
+    },
+    {
+      "utc": "2026-10-12T11:37:11+00:00",
+      "step": "terminal_started",
+      "probe": 3
+    },
+    {
+      "utc": "2026-10-12T11:37:18+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-12T11:37:19+00:00",
+      "step": "seen: restore cleanup"
+    },
+    {
+      "utc": "2026-10-12T11:37:19+00:00",
+      "step": "terminal stopped after restore"
+    },
+    {
+      "utc": "2026-10-12T11:37:19+00:00",
+      "step": "restore: persist the hedging login (KeepPrivate=1, terminal exits by itself)"
+    },
+    {
+      "utc": "2026-10-12T11:37:19+00:00",
+      "step": "terminal_started",
+      "script": "persist hedging login"
+    },
+    {
+      "utc": "2026-10-12T11:37:29+00:00",
+      "step": "terminal exited by itself: persist hedging login"
+    },
+    {
+      "utc": "2026-10-12T11:37:29+00:00",
+      "step": "terminal_started",
+      "script": "credential-less connection check"
+    },
+    {
+      "utc": "2026-10-12T11:37:38+00:00",
+      "step": "terminal exited by itself: credential-less connection check"
+    },
+    {
+      "utc": "2026-10-12T11:37:38+00:00",
+      "step": "restore",
+      "ok": false
+    }
+  ],
+  "error": "restore failed: connection check: the credential-less launch wrote no export (MQL5/Files/Mql5Bot/demo_connect_check/EURUSD.json)",
+  "ea_log_lines": 27,
+  "restore": {
+    "account_role": "hedging",
+    "login_sha256": "991e28ce2767f08dabdaddac273f8640288501b88880fe07b44b910e8eafb8ee",
+    "margin_mode": 2,
+    "ok": false,
+    "reason": "restore failed: connection check: the credential-less launch wrote no export (MQL5/Files/Mql5Bot/demo_connect_check/EURUSD.json)"
+  },
+  "note": "no login, password or server is recorded (the restore login is a prefixed sha256); the EA log lines are the evidence, graded at stage 8"
+}

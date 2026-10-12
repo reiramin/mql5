@@ -1,0 +1,45 @@
+{
+    "stage":  7,
+    "name":  "demo_safety",
+    "status":  "FAIL",
+    "reason":  "[scope: gold2; PARTIAL run -- certifies nothing] [demo_terminal_not_restored] the terminal is NOT left logged in to the hedging account and connected without credentials -- every later gate launch would fail stage 3: [demo_restore_not_connected] restart: restore failed: connection check: the credential-less launch wrote no export (MQL5/Files/Mql5Bot/demo_connect_check/EURUSD.json); [demo_restore_not_connected] netting: restore failed: connection check: the credential-less launch wrote no export (MQL5/Files/Mql5Bot/demo_connect_check/EURUSD.json); [demo_restore_not_connected] hedging: restore failed: connection check: the credential-less launch wrote no export (MQL5/Files/Mql5Bot/demo_connect_check/EURUSD.json) (harness: restart=exit 1, netting=exit 1, hedging=exit 1)",
+    "scope":  [
+                  "gold2"
+              ],
+    "partial":  true,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-113115\\decide_c81ee8fa431b4947a244d3a966fc9648.json",
+                          "sha256":  "1e33fe4372b1b78f28729f6289e71ba50ec80562d742029aab5191136eada115"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-113115\\demo_harness_restart.json",
+                          "sha256":  "c9f44d8434475ad9846aed0273d3a266776a96860106a434a3d28b087354af77"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-113115\\demo_safety\\restart\\run.json",
+                          "sha256":  "daf7b03e00cc693a5ae7149d679a6c9638379309f5bffc60353e2412c88403da"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-113115\\demo_harness_netting.json",
+                          "sha256":  "f0d2c5d2100e8becf6c3291e6ec386752004ac0c4056ff3b7fd516f40dc621d8"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-113115\\demo_safety\\netting\\run.json",
+                          "sha256":  "7ef3932569d95ec37fd676d4801e723b453ee8766b387c24274521cd5108f202"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-113115\\demo_harness_hedging.json",
+                          "sha256":  "5277d4a7f114c6ebeeda68c036b3ea70f19e951115f8f5238eeaa275d332da70"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-113115\\demo_safety\\hedging\\run.json",
+                          "sha256":  "40418366fafb8a9470363456590cc98f993f6b32696bead3134f2bc78b5e05f0"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-113115\\decide_eba67177f059419e8fad02bc3228234d.json",
+                          "sha256":  "ec712334089b8e2fc65cad34bc07db4ab348466a1c82c22663d044e7a3f1b8fb"
+                      }
+                  ],
+    "utc":  "2026-10-12T11:39:35.5525313Z"
+}
