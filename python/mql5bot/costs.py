@@ -54,6 +54,16 @@ at ``open`` (the bid); a long closes at the bid, a short at the ask
 (``bid + spread*point``), and a short's stop/take-profit trigger and gap-
 fill on the ask. Slippage must be 0 under ``"bid"`` (the tester applies
 none); pending-stop entries are not modelled under it and are refused.
+
+``intrabar_order`` (S8-PATH-1) decides which level a bar that touches BOTH
+the stop-loss and the take-profit fills first. ``"stop_first"`` (the
+default, unchanged) is the conservative convention 2 above.
+``"mt5_ohlc"`` models the MT5 tester's tick order inside a bar: open, low,
+high, close when close >= open, else open, high, low, close (measured in
+gate_run51 gold1 m1_ohlc: bullish and doji bars reach the low at :20 and
+the high at :40, bearish bars the high first). It only resolves the
+both-touch case; a single touch and gap-through fills are unchanged. It is
+a tester model, so it requires ``price_basis="bid"``.
 """
 
 from __future__ import annotations
@@ -70,6 +80,10 @@ ENTRY_MODES = (ENTRY_MARKET, ENTRY_PENDING_STOP)
 PRICE_BASIS_MID = "mid"
 PRICE_BASIS_BID = "bid"
 PRICE_BASES = (PRICE_BASIS_MID, PRICE_BASIS_BID)
+# which level a both-touch bar fills first (S8-PATH-1)
+INTRABAR_STOP_FIRST = "stop_first"
+INTRABAR_MT5_OHLC = "mt5_ohlc"
+INTRABAR_ORDERS = (INTRABAR_STOP_FIRST, INTRABAR_MT5_OHLC)
 
 # reasons recorded by the engine (canonical vocabulary)
 REASON_STOP_LOSS = "stop_loss"
@@ -119,6 +133,8 @@ class CostConfig:
     pending_expire_bars: int = 0  # 0 = no expiry
     # price basis (S8-COST-1) -------------------------------------------
     price_basis: str = PRICE_BASIS_MID  # 'mid' | 'bid'
+    # both-touch bar order (S8-PATH-1) ----------------------------------
+    intrabar_order: str = INTRABAR_STOP_FIRST  # 'stop_first' | 'mt5_ohlc'
 
     def validate(self, n_bars: int | None = None) -> None:
         if self.spread_mode not in ("fixed", "variable"):
@@ -136,6 +152,13 @@ class CostConfig:
         if self.price_basis not in PRICE_BASES:
             raise ValueError(f"price_basis must be one of {PRICE_BASES}, "
                              f"got {self.price_basis!r}")
+        if self.intrabar_order not in INTRABAR_ORDERS:
+            raise ValueError(f"intrabar_order must be one of "
+                             f"{INTRABAR_ORDERS}, got {self.intrabar_order!r}")
+        if (self.intrabar_order == INTRABAR_MT5_OHLC
+                and self.price_basis != PRICE_BASIS_BID):
+            raise ValueError("intrabar_order 'mt5_ohlc' models the tester: "
+                             "price_basis must be 'bid'")
         if self.price_basis == PRICE_BASIS_BID:
             if self.slippage_points != 0:
                 raise ValueError("price_basis 'bid' models the tester: "
@@ -354,6 +377,27 @@ def gap_blocks(bar_open: float, prev_close: float, cfg: CostConfig) -> bool:
     if math.isinf(cfg.max_gap_fraction) or prev_close <= 0.0:
         return False
     return abs(bar_open / prev_close - 1.0) > cfg.max_gap_fraction
+
+
+def take_profit_first(bar_open: float, bar_close: float, side: int,
+                      stop_price: float, tp_price: float,
+                      intrabar_order: str) -> bool:
+    """Whether a bar that touches BOTH the stop and the take-profit fills
+    the take-profit first. Always False under ``"stop_first"``.
+
+    Under ``"mt5_ohlc"`` the open is the first tick: a level the open
+    already reaches fills there (the stop when both do). Otherwise the
+    tester visits the low before the high when close >= open, else the
+    high first; a long's take-profit is above, a short's below. Prices are
+    the quotes the position closes on (a short's ask under "bid")."""
+    if intrabar_order != INTRABAR_MT5_OHLC:
+        return False
+    if side * (bar_open - stop_price) <= 0.0:
+        return False
+    if side * (bar_open - tp_price) >= 0.0:
+        return True
+    low_first = bar_close >= bar_open
+    return low_first if side < 0 else not low_first
 
 
 def stop_fill(

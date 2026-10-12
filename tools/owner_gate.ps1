@@ -22,11 +22,11 @@
     windows/evidence-4257f1e (compile log 4/5 targets clean, dsl-parity
     14/14 EXACT + tampered refused, broker parity BTC=PENDING excluded).
 
-    The sizing fix in 4257f1e changes volumes, so a stage-8 divergence on
-    volume/risk fields is EXPECTED: it is classified (SIZING/RISK) and the
-    affected expected_execution must be regenerated with NEW provenance by
-    the owner/build side. This script NEVER reverts the fix and NEVER
-    patches the gold artifacts.
+    A stage-8 divergence on volume/risk fields is classified (SIZING/RISK)
+    and FAILS stage 8 like any other divergence (S8-PATH-1): both golds'
+    expected_execution were regenerated after the 4257f1e sizing fix
+    (S8-FLIP-REGEN, S8-GOLD1-REGEN), so it is no longer an expected one.
+    This script NEVER patches the gold artifacts.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\owner_gate.ps1 `
@@ -1408,8 +1408,8 @@ if ($legFromLog -gt 0) {
 # =====================================================================
 # STAGE 8 -- reconciliation (full bindings + 8a kill-switch, 8b restart,
 #            8c retry/adoption/SlGuard, 8d NETTING and HEDGING) via the
-#            evidence CONSUMER. A volume/risk divergence is EXPECTED for
-#            the 4257f1e sizing fix: classify + record, never patch.
+#            evidence CONSUMER. A volume/risk divergence is classified
+#            and FAILS, like any divergence (S8-PATH-1); never patched.
 # =====================================================================
 # =====================================================================
 # STAGE 7 -- demo safety (DEMO-IN-GATE-1; only with -DemoSafety)
@@ -1573,14 +1573,15 @@ if ($dn.data -and (Get-DataProp $dn.data "note")) { $srcNote += (" [" + (Get-Dat
 if ((Get-DataProp $recon "log_sourced_legs") -and @((Get-DataProp $recon "log_sourced_legs")).Count -gt 0) {
     $srcNote += (" [trade source for {0}: tester agent log (log trade list, from_log=true; no report)]" -f (@((Get-DataProp $recon "log_sourced_legs")) -join ", "))
 }
-# classify any first divergence; a SIZING/RISK class is the EXPECTED 4257f1e
-# outcome -> record + owner/build follow-up, never a silent pass, never patched
+# classify any first divergence and name the class in the FAIL record
+# (S8-PATH-1, gate_run51: a SIZING/RISK class is no longer "EXPECTED for
+# 4257f1e" -- both golds were regenerated after it); never patched
 $divClass = ""
 $divField = ""
 foreach ($gld in @($Script:Scope)) {
     $fd = Get-DataProp (Get-DataProp $recon "first_divergence") $gld
-    # only a divergence found AFTER the full binding chain verified may be
-    # classified as the EXPECTED sizing divergence; an observed one never
+    # only a divergence found AFTER the full binding chain verified is
+    # classified; an observed (unbound) one never
     if ((Get-DataProp $fd "first_divergent_field") -and ((Get-DataProp $fd "binding_verified") -eq $true)) {
         $divField = Get-DataProp $fd "first_divergent_field"
         $cd = Invoke-Decide @("classify", $divField)
@@ -1598,15 +1599,9 @@ $Script:CertScope = if ($s8Verdict -like "MT5_VALIDATED_BAR_MODELS*") { "bar mod
 if ($s8Verdict -eq "MT5_VALIDATED" -or $s8Verdict -eq "MT5_VALIDATED_BAR_MODELS" -or ($Script:Partial -and ($s8Verdict -eq "MT5_VALIDATED_PARTIAL_SCOPE" -or $s8Verdict -eq "MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE"))) {
     $scopeNote = if ($Script:CertScope -eq "bar models") { " [verdict ${s8Verdict}: bar models -- no real-tick claim; m1_ohlc + every_tick only]" } else { "" }
     Record-Stage 8 "reconciliation" "PASS" ("bindings + 8a-8d verified; gold parity holds on the owner terminal" + $scopeNote + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
-} elseif ($divClass -eq "SIZING_MISMATCH" -or $divClass -eq "RISK_MISMATCH") {
-    $note = ("EXPECTED for the 4257f1e sizing fix: first divergence on '{0}' -> {1}. Regenerate the affected expected_execution with NEW provenance (owner/build side); NEVER revert the fix, NEVER patch the gold artifacts here." -f $divField, $divClass)
-    Record-Stage 8 "reconciliation" "DIVERGENCE_EXPECTED" ($note + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
-    # a recorded expected divergence still blocks MT5 certification until the
-    # owner regenerates expected_execution + re-anchors; stop here, fail-closed
-    $Script:Blocked = "reconciliation"
-    Finish-Gate "reconciliation"
 } else {
-    Record-Stage 8 "reconciliation" "FAIL" (("verdict {0}: {1}" -f (Get-DataProp $recon "verdict"), ((Get-DataProp $recon "reasons") -join "; ")) + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
+    $classNote = if ($divClass) { (" [first divergence on '{0}' classified {1}: a real divergence, not an expected one]" -f $divField, $divClass) } else { "" }
+    Record-Stage 8 "reconciliation" "FAIL" (("verdict {0}: {1}" -f (Get-DataProp $recon "verdict"), ((Get-DataProp $recon "reasons") -join "; ")) + $classNote + $srcNote) (@((New-Artifact $verifyOut)) + @($s8Art)) | Out-Null
     Finish-Gate "reconciliation"
 }
 

@@ -847,6 +847,12 @@ def _ini_currency(data: bytes) -> str | None:
     return _ini_tester_value(data, "Currency")
 
 
+def ini_from_date(data: bytes) -> str | None:
+    """`FromDate=` (``YYYY.MM.DD``) of an ini's [Tester] section, else None."""
+    raw = _ini_tester_value(data, "FromDate")
+    return raw if raw and re.fullmatch(r"\d{4}\.\d{2}\.\d{2}", raw) else None
+
+
 def ini_deposit(data: bytes) -> float | None:
     """`Deposit=` of an ini's [Tester] section as a number, else None."""
     raw = _ini_tester_value(data, "Deposit")

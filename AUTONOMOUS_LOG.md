@@ -1882,3 +1882,36 @@ constant warm-up). The tick-value hypothesis is rejected.
   exception 1 (the exact patch is in BLOCKED.md).
 - **A live run:** built, unit-tested, never run live; proof is the
   `[runner: gold1]` run.
+
+## 2026-10-12 — gold1 stage 8 (gate_run51) read; S8-PATH-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Merged before this:** PR #47 (WARMUP-FROMDATE-1), merge commit `c8bc022`
+with `[runner: gold1]`. gate_run51 then showed stages 0-5 PASS (gold1 past
+OnInit), 18/18 entries paired in both models, and a first divergence at
+trade 16 (volume 0.13 vs 0.14, SIZING_MISMATCH).
+
+**Evidence read:** `reports/gate_run51` (log trade lists, reconciliation_verify,
+trade-16 lines, stage_8, console).
+
+**Cause:** two both-touch doji bars (2024-02-06 23:00, 2024-02-07 00:00).
+Python's conservative stop-first rule booked two losses where MT5's M1-OHLC
+tick order took profit. Pre-entry equity was equal through trade 13 and
+drifted from trade 14 (-269.85, then -546.30).
+
+**Done:**
+- the window run models the tester's intrabar order (`intrabar_order
+  "mt5_ohlc"`); it reproduces all 18 run51 m1_ohlc entries and exits;
+  gold2 is unchanged;
+- the window start is measured from FromDate + MT5's first tester-clock
+  line when no "start time changed" line exists;
+- the stale "EXPECTED for 4257f1e" stage-8 branch is removed (a sizing
+  divergence now FAILS, class named);
+- tests: `test_s8_path_mt5_ohlc.py` and a ps1 test;
+- docs: DECISIONS S8-PATH-1, BLOCKED, OWNER_GATE.
+
+**NOT done, and why:**
+- **No regeneration of gold1 artifacts:** not needed; exception 3 unused.
+- **A live run:** built, unit-tested, never run live; proof is the next
+  `[runner: gold1]` run.
+- **The EA's empty "DSL series build failed:" reason:** still waits on the
+  owner (BLOCKED.md).
