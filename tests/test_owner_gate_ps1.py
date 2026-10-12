@@ -2302,5 +2302,6 @@ def test_broker_in_scope_pending_quotes_failed_probe_only_for_in_scope():
     assert not r["ok"]
     assert r["reasons"][-1] == (
         'EURUSD denomination_probe: reason="NOT_SYNCED_AFTER_60s" '
-        'attempts=1 waited_seconds=60.25 last_error=0')
+        'attempts=1 waited_seconds=60.25 last_error=0 synced=absent '
+        'sync_unmet=absent')
     assert not any("BTCUSD denomination_probe" in x for x in r["reasons"])

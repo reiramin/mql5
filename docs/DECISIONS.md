@@ -4545,3 +4545,130 @@ market-hours re-run on the usual account.
   is untouched.
 - **(c) Are new checks re-computed by the verifier?** No new checks;
   restore and demo grading are unchanged.
+
+## FILL-MODE-1 — OWNER AUTHORIZATION (CLAUDE.md exception 1.c): the EA picks a filling mode the broker allows (2026-10-12)
+
+**Authority.** CLAUDE.md exception 1.c (FILL-MODE-1): the filling-mode
+selection in `SymbolSpec.mqh` and its callers in `TradeManager.mqh` may be
+fixed. The demo probe orders in `Mql5Bot.mq5` are demo hooks under 1.a.
+Gold-leg results must stay identical, proven by the next gate run's
+reconciliation.
+
+**The bug** (DEMO-HARNESS-RELAUNCH-1 "FILL-MASK"). `SpecIsFillingAllowed`
+tested `spec.fillingMode & (long)filling`: the `ENUM_ORDER_TYPE_FILLING`
+index (FOK 0, IOC 1, RETURN 2) used as a bit of the `SYMBOL_FILLING_MODE`
+flag mask (SYMBOL_FILLING_FOK 1, SYMBOL_FILLING_IOC 2).
+- FOK was never "allowed".
+- IOC read as allowed whenever the FOK flag was set.
+- RETURN read as allowed whenever the IOC flag was set.
+
+On EURUSD (mask 1, gate_run44's live export) the EA sent IOC, got
+INVALID_FILL, and had nothing to fall back to: gate_run40's restart run.
+
+The two demo hooks (`DemoCloseAll`, `DemoForeignOrder`) hard-coded
+`ORDER_FILLING_IOC`, so they failed the same way.
+
+**Change.**
+- `SSymbolSpec.executionMode`: new field, read from
+  `SYMBOL_TRADE_EXEMODE`.
+- `SpecIsFillingAllowed`:
+  - FOK iff the `SYMBOL_FILLING_FOK` flag is set;
+  - IOC iff the `SYMBOL_FILLING_IOC` flag is set;
+  - RETURN iff the execution mode is not `SYMBOL_TRADE_EXECUTION_MARKET`
+    (the MQL5 reference: RETURN is enabled in every execution mode except
+    Market execution).
+- `SpecPreferredFilling`: unchanged order, FOK → IOC → RETURN; the first
+  allowed mode.
+- `SpecNextFilling`: now moves strictly forward. From RETURN it returns -1
+  instead of RETURN again.
+- `SpecChooseFilling` (new) is the one selection for every live market
+  deal: TradeManager opens and closes, and both demo hooks.
+  - It keeps the old fallback: FOK when the broker allows none.
+  - It logs the choice once per symbol:
+    `[mql5bot] FILLING|<sym>|<mode>|filling_mode_mask=<m>|exemode=<e>`.
+- No `ORDER_FILLING_*` constant is left outside `SymbolSpec.mqh`.
+
+**Tests (`tests/test_fill_mode.py`).** The three selection functions are
+EXECUTED from the `.mqh` source. A strict line transpiler accepts only
+`if(...)` / `return ...;` lines and known constants, and refuses anything
+else. They cover:
+- masks 1, 2, 3 (and 0) × all four execution modes (a written-out table:
+  allowed set and preferred mode);
+- the gate_run40 case (mask 1, Market execution → FOK, never IOC);
+- `SpecNextFilling` moving strictly forward;
+- the log-once guard and the FOK fallback;
+- a source scan: no `ORDER_FILLING_*` outside `SymbolSpec.mqh`, every
+  `type_filling` assignment comes from `SpecChooseFilling` (or the
+  TradeManager send parameter), and the TradeManager paths and both demo
+  hooks call it.
+
+On the previous `SymbolSpec.mqh`, 22 of the 29 tests fail. The 7 that
+pass are rows where the old index-as-bit test happens to agree.
+
+**Gold legs.** The custom tester symbols' filling mask is not in the
+reports, so the mode the gold legs now send may differ from before. In
+the tester, a full-volume market order fills completely at the same price
+under any accepted mode. The new selection only sends a mode the symbol's
+flags allow. Identical results are therefore expected, but they are **not
+proven here**.
+
+Proof is the next gold2 gate run: reconciliation must still be 37/37. If
+any row changes, the change stops there and is reported, and no further
+fix goes on top of it (owner instruction).
+
+Status: built, unit-tested, never run live. Compile proof is the owner
+terminal's stage-1 strict compile.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No. No grader, builder or
+  verifier change.
+- **(b) Do the gold legs change behaviour at default inputs?** The filling
+  mode sent may differ; fills are expected identical. This is the one
+  thing exception 1.c makes the next gate run prove (gold2 37/37).
+- **(c) Are new checks re-computed by the verifier?** No new verifier
+  checks.
+
+## STAGE3-SYNC-QUOTE-1 — the stage-3 FAIL text names the exporter's unmet readiness condition (2026-10-12)
+
+**Input.** Three gate runs FAILed stage 3 with the same in-scope PENDING
+EURUSD rows and `denomination_probe reason="NOT_SYNCED_AFTER_60s"`:
+- gate_run40 at `6894de2`, about 22:00 UTC Sunday;
+- gate_run44 at `6894de2`, about 22:00 UTC Sunday;
+- gate_run45 at `5fd4368`, 06:56 UTC Monday, in FX market hours.
+
+gate_run45 rules out the weekend re-open as the explanation.
+
+Facts from the reports and the code:
+- **Only EURUSD is exported fresh by the gate**, by
+  `Invoke-SymbolSpecExport "EURUSD"` in stage 3. BTC, US30 and XAUEUR
+  come from earlier export files, and their probes pass. So the failure
+  is "the gate's own fresh export never becomes ready within 60 s"; it is
+  not shown to be specific to EURUSD.
+- **The first failing run, gate_run40, was the first gate run after the
+  demo harness** had logged the terminal in to the demo accounts.
+  gate_run43, earlier the same day, passed stage 3. The code between
+  those runs changed only docs and the demo harness.
+- **The exporter already writes which readiness condition its wait ended
+  on** (`synced`, `sync_unmet` in its `denomination_probe` block: terminal
+  not connected / symbol not synchronized / no tick / tick value not > 0).
+  But `parity_report.json` and the stage-3 reason dropped them, so the
+  deciding fact never reached `gate-reports`.
+
+**Change (tools/ + python/, quoting only).**
+- `DENOMINATION_PROBE_QUOTED` also copies `synced` and `sync_unmet`
+  verbatim.
+- `gate_selfcheck._failed_probe_quotes` quotes them. A field the export
+  lacks reads `absent`, as before.
+
+Nothing is inferred, and the PENDING rule is unchanged: a probe that did
+not run is still not a pass.
+
+The tests' expected strings now include the two fields (exact matches;
+stricter, not weaker): `tests/test_broker_symbol_parity.py` and
+`tests/test_owner_gate_ps1.py`.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No; only the FAIL text
+  quotes two more export fields.
+- **(b) Do the gold legs change behaviour at default inputs?** No.
+- **(c) Are new checks re-computed by the verifier?** No new checks.

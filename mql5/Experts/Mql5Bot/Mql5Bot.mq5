@@ -1373,7 +1373,7 @@ int DemoCloseAll()
       req.price     = buy ? SymbolInfoDouble(g_symbol, SYMBOL_BID)
                           : SymbolInfoDouble(g_symbol, SYMBOL_ASK);
       req.deviation = InpDeviation;
-      req.type_filling = ORDER_FILLING_IOC;
+      req.type_filling = SpecChooseFilling(g_spec);   // FILL-MODE-1
       if(OrderSend(req, res) && IsSuccessRetcode(res.retcode))
          n++;
      }
@@ -1396,7 +1396,7 @@ bool DemoForeignOrder(const double lots)
    req.price     = SymbolInfoDouble(g_symbol, SYMBOL_ASK);
    req.deviation = InpDeviation;
    req.comment   = "demo_foreign";
-   req.type_filling = ORDER_FILLING_IOC;
+   req.type_filling = SpecChooseFilling(g_spec);      // FILL-MODE-1
    return OrderSend(req, res) && IsSuccessRetcode(res.retcode);
   }
 

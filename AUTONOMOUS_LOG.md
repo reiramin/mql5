@@ -1754,3 +1754,48 @@ Both had CI green on 3.10/3.11/3.12 and full local pytest exit 0.
 - **Stage 3:** no code change; nothing shows a defect, and the PENDING
   rule stays.
 - **Harness relaunch:** built, unit-tested, never run live.
+
+## 2026-10-12 — FILL-MODE-1 (CLAUDE.md exception 1.c); branch `claude/aegis-safety-fixes-20aen5`
+
+**Input:**
+- The owner added exception 1.c and fixed the accounts file ("hedging" is
+  a real hedging account).
+- Instruction: fix the filling-mode selection; demo hooks use the same
+  selection; tests; merge with `[runner: demo] [runner: gold1]`; gold2
+  must stay 37/37.
+
+**Done:**
+- `SymbolSpec.mqh`:
+  - `executionMode` field;
+  - flag-correct `SpecIsFillingAllowed` (RETURN except in Market
+    execution);
+  - forward-only `SpecNextFilling`;
+  - `SpecChooseFilling` (first allowed mode, FOK fallback, logged once per
+    symbol).
+- `TradeManager.mqh`: opens and closes use it.
+- `Mql5Bot.mq5`: `DemoCloseAll` / `DemoForeignOrder` use it, no
+  hard-coded IOC.
+- `tests/test_fill_mode.py` executes the selection functions from source.
+- DECISIONS FILL-MODE-1; BLOCKED.md demo section updated.
+
+**Checks:** ruff exit 0; full pytest exit 0 before commit.
+
+**NOT done, and why:**
+- **Proof that gold-leg fills are unchanged:** needs the next gold2 gate
+  run (37/37), so it cannot be produced here.
+- **The stage-1 strict compile:** owner terminal only.
+- **The fix live:** built, unit-tested, never run live.
+
+## 2026-10-12 — gate_run45 read; STAGE3-SYNC-QUOTE-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Evidence read:** gate_run45 (gate-reports `ad8059a`, `5fd4368`, gold2,
+06:56 UTC Monday): stage 3 FAIL, the same EURUSD `NOT_SYNCED_AFTER_60s`.
+In market hours, so the weekend explanation is out.
+
+**Done (on the FILL-MODE-1 PR):** the stage-3 FAIL text now also quotes
+the exporter's `synced` / `sync_unmet`. DECISIONS STAGE3-SYNC-QUOTE-1;
+BLOCKED.md stage-3 section rewritten.
+
+**NOT done, and why:** the cause of the unmet readiness is unknown. The
+fact that decides it was dropped from the reports until this change. No
+exporter change (mql5/Scripts) and no acceptance change.
