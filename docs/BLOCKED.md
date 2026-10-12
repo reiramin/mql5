@@ -1,4 +1,4 @@
-# BLOCKED / WAITING — open items (updated 2026-10-12, DEMO-IN-GATE-1)
+# BLOCKED / WAITING — open items (updated 2026-10-12, S8-PATH-1)
 
 Nothing below is a code blocker that this session can fix. Each item waits
 on an owner action or an input this session cannot produce.
@@ -41,23 +41,40 @@ touched for it: the importer is outside CLAUDE.md exception 1.
   MISSING;
 - gold2 still MATCH 37/37.
 
-## gold1 stage 5: OnInit failed (gate_run48) — fixed by the tester start (WARMUP-FROMDATE-1)
+## gold1 stage 8: SIZING_MISMATCH at trade 16 (gate_run51) — fixed by modelling the tester's intrabar order (S8-PATH-1)
 
-**Cause**, from the redacted EA lines
-(`reports/gate_run48/gold1_oninit_lines.txt`):
-- the gold1 legs started at the fixture's first day;
-- MT5 moved the start to 2024.01.06 and gave the EA 120 H1 bars;
-- the EA needs `InpDslBars=500` and its DSL series build failed at OnInit.
+**gate_run51** (`c8bc022`, gold1): stages 0-5 PASS (WARMUP-FROMDATE-1
+worked: both legs past OnInit). 18/18 entries paired in both models. First
+divergence: trade 16 (2024-02-07T09:00), volume python 0.13 vs MT5 0.14.
 
-The tick-value hypothesis is rejected.
+**Cause** (from the published log trade lists): not the sizing rule, the
+equity under it.
+- Two huge-range doji bars (2024-02-06 23:00, 2024-02-07 00:00) touch BOTH
+  the SL and the TP of an open short.
+- Python's conservative rule fills the SL first (-103.74, -106.35). MT5's
+  M1-OHLC tick order reaches the low first and fills the TP (+166.11,
+  +170.10).
+- Pre-entry equity is equal to the cent for trades 0-13 and drifts from
+  trade 14 (-269.85, then -546.30).
 
-**Fix**, built, unit-tested, never run live: the gold1 legs now start at
-`2024.01.30`, the first fixture day with 500 bars of gold1's own constant
-warm-up before it. The EA's window is bit-identical to Python's history;
-the first expected trade is 2024.02.05. gold2 is unchanged.
+**Fix**, built, unit-tested, never run live: the tester window run resolves
+a both-touch bar in MT5's own tick order (python/ only). It reproduces all
+18 run51 m1_ohlc entries (time, side, volume, price) and every exit P&L.
+gold2's window run is unchanged. A second gap was also closed: MT5 printed
+no "start time changed" line at the 2024.01.30 start, so the window start
+is now also measured from the ini FromDate plus MT5's first tester-clock
+line.
 
-**Next:** the `[runner: gold1]` run. Both gold1 legs must pass OnInit, and
-gold1 must reach stage 8 and reconcile like gold2.
+**No regeneration needed.** The frozen gold1 artifacts are untouched, and
+the expected set is computed from them on each run. Exception 3 is not
+used.
+
+The stale "EXPECTED for the 4257f1e sizing fix" stage-8 label is removed.
+A SIZING/RISK divergence now FAILS with its class named.
+
+**Next:** the `[runner: gold1]` run. gold1 m1_ohlc should reconcile.
+every_tick keeps S8-TICKPATH-1 (MT5's own equity after its first differing
+exit).
 
 ## Owner change needed (outside exception 1): log WHY the DSL series build failed
 

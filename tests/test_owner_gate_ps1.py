@@ -620,11 +620,22 @@ def test_ps1_honours_the_hard_rules():
         assert banned not in src, f"ps1 must not run: {banned}"
 
 
-def test_ps1_records_expected_sizing_divergence_without_patching():
+def test_ps1_fails_a_classified_sizing_divergence_without_patching():
+    """S8-PATH-1 (gate_run51): a SIZING/RISK first divergence is no longer
+    recorded as "EXPECTED for the 4257f1e sizing fix" -- both golds were
+    regenerated after it. It FAILS stage 8 with its class named."""
     src = _ps1()
-    assert "DIVERGENCE_EXPECTED" in src
-    assert "SIZING_MISMATCH" in src and "RISK_MISMATCH" in src
-    assert "NEVER revert" in src or "never revert" in src.lower()
+    assert 'Record-Stage 8 "reconciliation" "DIVERGENCE_EXPECTED"' not in src
+    assert "EXPECTED for the 4257f1e" not in src
+    assert '$divClass -eq "SIZING_MISMATCH"' not in src
+    s8 = src.index('Enter-Stage 8 "reconciliation"')
+    body = src[s8:src.index("STAGE 9", s8)]
+    assert 'Invoke-Decide @("classify", $divField)' in body
+    # the verdict FAIL (after classification) names the class
+    fail = [ln for ln in body.splitlines()
+            if 'Record-Stage 8 "reconciliation" "FAIL" (("verdict' in ln]
+    assert len(fail) == 1 and "$classNote" in fail[0]
+    assert "a real divergence, not an expected one" in body
 
 
 def test_ps1_stage3_applies_the_btc_pending_scope_rule():
@@ -2268,15 +2279,15 @@ def test_ps1_stage5_pass_from_log_is_its_own_status_and_counted():
 
 def test_ps1_stage8_records_a_log_trade_source_in_every_verdict():
     """Stage 8 names the tester agent log as the trade source for any
-    log-sourced leg, in each of its PASS / DIVERGENCE_EXPECTED / FAIL
-    records (the verifier's log_sourced_legs drives it)."""
+    log-sourced leg, in each of its PASS / FAIL records (the verifier's
+    log_sourced_legs drives it)."""
     src = _ps1()
     s8 = src.index('Enter-Stage 8 "reconciliation"')
     s9 = src.index("STAGE 9", s8)
     body = src[s8:s9]
     assert '(Get-DataProp $recon "log_sourced_legs")' in body
     assert "tester agent log" in body
-    for status in ('"PASS"', '"DIVERGENCE_EXPECTED"'):
+    for status in ('"PASS"',):
         rec = [ln for ln in body.splitlines()
                if f'Record-Stage 8 "reconciliation" {status}' in ln]
         assert rec and all("$srcNote" in ln for ln in rec), status

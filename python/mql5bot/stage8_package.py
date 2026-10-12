@@ -171,6 +171,10 @@ _MT5_DEAL_LINE_RE = re.compile(
 _WINDOW_START_RE = re.compile(
     r"start time changed to (\d{4})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2})"
     r"(?::(\d{2}))?\s+to provide data at (?:the )?beginning", re.IGNORECASE)
+# MEASURED (gate_run51 console.txt): a tester agent line carrying MT5's own
+# clock, `ER\t0\t03:33:20.428\tCore 1\t2024.01.30 00:00:00   [mql5bot] ...`
+_TESTER_CLOCK_RE = re.compile(
+    r"\tCore \d+\t(\d{4})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2}):(\d{2})\s")
 # python expected_execution side -> MT5 journal side, for the comparison only
 _PY_SIDE_TO_MT5 = {"long": "buy", "short": "sell"}
 # pairing states (event `pairing` key; NOT divergence classifications --
@@ -487,7 +491,8 @@ def expected_set_window_run(repo: Path | str, gold: str,
                             frozen_rel: str = FROZEN_INPUTS_REL,
                             spread_points: float | None = None,
                             spread_source: str | None = None,
-                            price_basis: str = "bid"
+                            price_basis: str = "bid",
+                            intrabar_order: str | None = None
                             ) -> tuple[dict | None, str]:
     """The tester leg's EXPECTED ENTRY SET (S8-WEIGHT-1): the weight-in-
     force run.
@@ -529,8 +534,18 @@ def expected_set_window_run(repo: Path | str, gold: str,
     bid, a short at the ask (its SL/TP trigger on the ask), slippage 0. The
     frozen-trace reproduction guard always runs at the manifest cost
     ("mid", manifest slippage) and must still reproduce.
+
+    ``intrabar_order`` (S8-PATH-1, gate_run51) also applies to the WINDOW
+    run only: "mt5_ohlc" (the default under price_basis "bid"; "mid" keeps
+    "stop_first") resolves a bar that touches both the SL
+    and the TP in the tester's tick order (open, low, high, close when
+    close >= open, else open, high, low, close); "stop_first" is the
+    frozen generator's conservative rule. The frozen-trace guard always
+    runs "stop_first".
     """
     repo = Path(repo)
+    if intrabar_order is None:
+        intrabar_order = "mt5_ohlc" if price_basis == "bid" else "stop_first"
     files = GOLD_FILES.get(gold, {})
     if not files.get("generator") or not files.get("trace"):
         return None, f"{gold}: no frozen generator/trace wired for a re-run"
@@ -579,7 +594,8 @@ def expected_set_window_run(repo: Path | str, gold: str,
         ec, cc = manifest["engine_config"], manifest["cost_config"]
         risk = manifest["risk_config"]
 
-        def run(signal, schedule, spread=None, basis="mid"):
+        def run(signal, schedule, spread=None, basis="mid",
+                order="stop_first"):
             # "mid" = the manifest cost the frozen trace was built with;
             # "bid" = the tester model (S8-COST-1): slippage 0
             costs = CostConfig(symbol=manifest["symbol"],
@@ -588,7 +604,7 @@ def expected_set_window_run(repo: Path | str, gold: str,
                                slippage_points=(cc["slippage_points"]
                                                 if basis == "mid" else 0.0),
                                commission_per_lot=cc["commission_per_lot"],
-                               price_basis=basis)
+                               price_basis=basis, intrabar_order=order)
             cfg = RunConfig(initial_capital=float(risk["equity_start"]),
                             mode=ec["mode"], allow_short=ec["allow_short"],
                             sizing_mode=ec["sizing_mode"],
@@ -616,7 +632,7 @@ def expected_set_window_run(repo: Path | str, gold: str,
         start = pd.Timestamp(window_start)
         win_sig = sig.where(sig.index >= start, 0)
         win = run(win_sig, ((df.index[0], weight),), spread_points,
-                  price_basis)
+                  price_basis, intrabar_order)
     except Exception as exc:  # noqa: BLE001 -- any failure refuses the set
         return None, f"expected-set re-run failed: {type(exc).__name__}: {exc}"
     step_s = TF_SECONDS[str(manifest.get("timeframe"))]
@@ -708,6 +724,10 @@ def expected_set_window_run(repo: Path | str, gold: str,
             + (" (S8-COST-1: bar prices are BID; buy at open+spread, sell "
                "at open; shorts close/stop on the ask; slippage 0)"
                if price_basis == "bid" else "")
+            + f", intrabar_order {intrabar_order!r}"
+            + (" (S8-PATH-1: a bar touching both SL and TP fills in the "
+               "tester's tick order O-L-H-C when close >= open, else "
+               "O-H-L-C)" if intrabar_order == "mt5_ohlc" else "")
             + "; self-checks: frozen trace reproduced (manifest cost, "
             "price_basis 'mid'), frozen approvals reproduced, run lots == "
             "frozen sizing rule on the run's signal-bar-close equity")
@@ -799,19 +819,39 @@ def python_stop_levels(ctx: dict | None, fill_minute: str, side: str,
             "stop_distance": sd}
 
 
-def tested_window_start(window_text: str,
-                        symbol: str | None) -> tuple[str | None, str | None]:
+def tested_window_start(window_text: str, symbol: str | None,
+                        from_date: str | None = None
+                        ) -> tuple[str | None, str | None]:
     """The tested-window start MT5 ITSELF states for this leg's symbol
     (`start time changed to <Y.M.D H:M> to provide data at beginning`).
-    (None, None) when no such line names the symbol: the start was not
-    measured and no window is assumed."""
-    for line in (window_text or "").splitlines():
+
+    S8-PATH-1 (gate_run51): when MT5 keeps the requested start it prints
+    no such line (gold1 at FromDate 2024.01.30). The start is then the
+    leg's ini ``from_date`` ONLY when this window names the symbol and its
+    FIRST tester-clock line (the EA's OnInit, MT5's own clock) is stamped
+    exactly ``from_date 00:00:00``. (None, None) otherwise: the start was
+    not measured and no window is assumed."""
+    lines = (window_text or "").splitlines()
+    for line in lines:
         if not symbol or symbol not in line:
             continue
         m = _WINDOW_START_RE.search(line)
         if m:
             y, mo, d, h, mi, sec = m.groups()
             return f"{y}-{mo}-{d}T{h}:{mi}:{sec or '00'}", line.strip()
+    if not from_date or not symbol or \
+            not any(symbol in line for line in lines):
+        return None, None
+    for line in lines:
+        m = _TESTER_CLOCK_RE.search(line)
+        if not m:
+            continue
+        y, mo, d, h, mi, sec = m.groups()
+        if f"{y}.{mo}.{d} {h}:{mi}:{sec}" != f"{from_date} 00:00:00":
+            return None, None
+        return (f"{y}-{mo}-{d}T00:00:00",
+                (f"no 'start time changed' line; FromDate {from_date} and "
+                 f"the first tester-clock line is at it: {line.strip()}"))
     return None, None
 
 
@@ -1713,6 +1753,8 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
             if wcopy.is_file() else {})
         ini = pkg / og.tester_ini_rel(gold, model)
         dep = og.ini_deposit(ini.read_bytes()) if ini.is_file() else None
+        from_date = (og.ini_from_date(ini.read_bytes())
+                     if ini.is_file() else None)
         eq0 = ((manifest.get("risk_config") or {}).get("equity_start"))
         if dep is None:
             deposits[model] = (None, f"no Deposit in {og.tester_ini_rel(gold, model)}")
@@ -1733,7 +1775,7 @@ def _build_reconciliation(repo: Path, pkg: Path, gold: str, na: dict,
                if gate_evidence else None)
         window_starts[model] = tested_window_start(
             gs.read_text_bom_aware(win) if win and win.is_file() else "",
-            files["tester_symbol"])
+            files["tester_symbol"], from_date)
     if not mt5_by_model:
         return "no log-sourced model yielded a usable entry list: " + "; ".join(
             f"{k}: {v}" for k, v in notes.items())

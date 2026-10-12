@@ -9,8 +9,8 @@ hand.
 This document describes what the script DOES. It makes no claim that any
 compile, tester run, dataset import, broker-parity or certification step has
 passed — those outcomes are produced only when the owner runs the command on
-a real terminal, and each is recorded truthfully (PASS / FAIL / SKIP /
-DIVERGENCE_EXPECTED) in the evidence directory.
+a real terminal, and each is recorded truthfully (PASS / PASS_FROM_LOG /
+FAIL / SKIP / BLOCKED / REFUSED) in the evidence directory.
 
 ## The single command
 
@@ -91,12 +91,11 @@ All output lands under `evidence\owner_gate\<UTC>\`, append-only: one
   "NONE (bar-only fixture)"` for that gold.
 - **8. Reconciliation** — the full bindings object plus the safety sub-checks
   (kill-switch; restart; retry/adoption/SlGuard; netting and hedging) via
-  `verify_owner_mt5_gate.py`. A first divergence on a volume/risk field is
-  the EXPECTED consequence of the 4257f1e sizing fix: it is classified
-  (`SIZING_MISMATCH` / `RISK_MISMATCH`) and recorded as
-  `DIVERGENCE_EXPECTED` with an owner/build follow-up note to regenerate the
-  affected `expected_execution` with NEW provenance. The script never reverts
-  the fix and never patches the gold artifacts.
+  `verify_owner_mt5_gate.py`. A first divergence is classified
+  (`SIZING_MISMATCH` / `RISK_MISMATCH` / ...) and FAILS stage 8 with its
+  class named (S8-PATH-1). It is no longer recorded as "EXPECTED for the
+  4257f1e sizing fix": both golds were regenerated after that fix. The
+  script never patches the gold artifacts.
 - **9. Archive manifest** — `owner_evidence_bind.py` only; no hand-typed
   hash.
 - **10. Certify** — `certify_strategy.py` records whatever state it assigns.

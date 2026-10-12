@@ -4915,3 +4915,110 @@ the owner.
 - **(c) Are new checks re-computed by the verifier?** The start is derived
   from the frozen fixture and expected run on each gate run; stage 8 still
   measures the window from the tester log.
+
+## S8-PATH-1 — gold1 trade-16 SIZING_MISMATCH (gate_run51): model the tester's intrabar order (2026-10-12)
+
+**Evidence** (gate-reports `reports/gate_run51`, HEAD `c8bc022`, `-Golds
+gold1`):
+- stages 0-5 PASS: WARMUP-FROMDATE-1 worked, both legs past OnInit;
+- 18/18 entries paired in m1_ohlc and every_tick (0 missing, 0 extra);
+- first divergence: trade 16 (2024-02-07T09:00), volume python 0.13 vs
+  MT5 0.14, SIZING_MISMATCH;
+- stage_8.json labelled it "EXPECTED for the 4257f1e sizing fix".
+
+**Is gold1 on the same S8 machinery as gold2?** Yes:
+- the weight-in-force window run (`expected_set_window_run`, gold1 wired
+  since S8-GOLD1-REGEN);
+- price_basis "bid", the custom fixed spread (1 point: every MT5 buy fills
+  at fixture open + 0.00001);
+- tester deposit 10000 = manifest equity_start (trade 0 sized 0.68 on
+  10000 on both sides);
+- the window start 2024-01-30 from WARMUP-FROMDATE-1.
+
+One gap: MT5 printed **no** "start time changed" line, because it kept
+the requested start. `tested_window_start` found nothing, so the builder
+had no measured start and fell back to the frozen scheduled-weight column.
+At trade 16 both columns give 0.13, so the verdict was the same either
+way.
+
+**Pre-entry equity, python window run vs MT5 (deposit + closed P&L).**
+- Equal to the cent for trades 0-13.
+- Trade 14 (2024-02-07T00:00): python 10743.36 vs MT5 11013.21 (-269.85).
+- Trades 15-17: -546.30, -546.30, -539.29.
+- Trades 14 and 15 still size identically (0.15, 0.10). Trade 16 is the
+  first where the lot floor differs: 1% of 11080.01 over the 0.0078361
+  stop gives 0.14; 1% of 10533.71 gives 0.13.
+
+**Per-field, trades 0-15:** the fill minute, side, volume and entry price
+of all 16 equal MT5's journal deal lines. The verifier's first divergence
+is trade 16's volume, so no earlier compared field (entry_price, sl, tp,
+timestamp) diverged. Trade 16's python SL/TP (1.12814 / 1.10776) equal
+MT5's own request line.
+
+**Cause: the intrabar order, not the sizer.** Two huge-range doji bars
+(2024-02-06 23:00, 2024-02-07 00:00; the manifest's "simultaneous_edge"
+scenario) touch both the SL and the TP of an open short.
+- The engine's conservative rule fills the SL first (-103.74, -106.35).
+- MT5 filled the TP (+166.11 at 23:00:20, +170.10 at 00:00:20).
+
+Every m1_ohlc exit of run51 fits one order, with ticks at :00 / :20 / :40
+/ :59:
+- close >= open (bullish and both dojis): open, low, high, close (the low
+  at :20, the high at :40);
+- close < open: open, high, low, close.
+
+**Change (python/ only):**
+- `costs.CostConfig.intrabar_order`: "stop_first" (default, unchanged) or
+  "mt5_ohlc". "mt5_ohlc" requires price_basis "bid".
+- `costs.take_profit_first`: the open is the first tick; a level the open
+  reaches fills there, the stop when both do.
+- `engine.manage` consults it only when both levels are touched.
+- `stage8_package.expected_set_window_run`: "mt5_ohlc" by default under
+  price_basis "bid" ("mid" keeps "stop_first"), in the
+  WINDOW run only. The frozen-trace guard still runs "stop_first" at the
+  manifest cost and must still reproduce the frozen trace.
+- `tested_window_start(..., from_date)`: without a "start time changed"
+  line, the start is the leg ini's FromDate only when the window names the
+  symbol AND its first tester-clock line (the EA's OnInit, on MT5's own
+  clock) is exactly FromDate 00:00:00. Otherwise it stays unmeasured. A
+  "start time changed" line still wins.
+- `owner_gate.ps1`: the "DIVERGENCE_EXPECTED ... 4257f1e" branch is
+  removed. Both expected sets were regenerated after 4257f1e
+  (S8-FLIP-REGEN `d7ecf11`, S8-GOLD1-REGEN `7e38d9b`). A classified
+  divergence now FAILS stage 8, and the FAIL names the class.
+
+**Result on the run51 data:**
+- the gold1 window run reproduces all 18 m1_ohlc entries (time, side,
+  volume, price) and every exit P&L;
+- pre-entry equity diff is 0.00 on all 18;
+- gold2's window run is identical under both orders (66 rows), so its
+  37/37 cannot change from this.
+
+**No regeneration.** `artifacts/` is untouched. The expected set is
+computed from the frozen artifacts on each run. Exception 3 is not used.
+
+**Tests:** `tests/test_s8_path_mt5_ohlc.py`, which cannot even import
+on the previous code, and `test_ps1_fails_a_classified_sizing_divergence_without_patching`
+(fails on the previous ps1). The run51 m1_ohlc log trade list is
+byte-copied to
+`tests/data/owner_gate/gate_run51_gold1_m1_ohlc_log_trades.json`
+(sha256 asserted).
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No.
+  - The comparison rules and tolerances are unchanged.
+  - The expected set models the tester more exactly.
+  - The window-start rule accepts only a start that MT5's own clock states.
+  - A sizing divergence moves from DIVERGENCE_EXPECTED to FAIL, which is
+    stricter.
+- **(b) Do the gold legs change behaviour at default inputs?** No. Nothing
+  in mql5/ or artifacts/ changed. The engine default is "stop_first".
+- **(c) Are new checks re-computed by the verifier?** The verifier
+  re-reads the events the gate builder writes, as before. The window run
+  and window start are derived by the builder on each run from the frozen
+  artifacts and that run's own log, and each event names its expected set
+  and order rule.
+
+Status: built, unit-tested, never run live. Proof is the next
+`[runner: gold1]` run.
+

@@ -127,6 +127,7 @@ from .costs import (
     gap_blocks,
     stop_fill,
     swap_charge,
+    take_profit_first,
     tp_fill,
 )
 from .dayclock import DayClock, server_day_ids
@@ -971,17 +972,21 @@ class PortfolioEngine:
                             b.partial_done = True
                 if b not in books:
                     continue
-                # intrabar stop first (conservative), then take-profit
+                # intrabar stop first (conservative), then take-profit;
+                # under intrabar_order "mt5_ohlc" a both-touch bar fills
+                # whichever level the tester's tick order reaches first
                 off = close_quote_offset(ln, bar, b.side)
                 hit_sl, fill_sl = stop_fill(ln.o[bar] + off, ln.l[bar] + off,
                                             ln.h[bar] + off,
                                             b.side, b.sl, ln.costs, ln.point)
-                if hit_sl:
-                    close_whole_book(b, bar, REASON_STOP_LOSS, fill_sl, b.sl)
-                    continue
                 hit_tp, fill_tp = tp_fill(ln.o[bar] + off, ln.l[bar] + off,
                                           ln.h[bar] + off,
                                           b.side, b.tp, ln.costs, ln.point)
+                if hit_sl and not (hit_tp and take_profit_first(
+                        ln.o[bar] + off, ln.c[bar] + off, b.side, b.sl,
+                        b.tp, ln.costs.intrabar_order)):
+                    close_whole_book(b, bar, REASON_STOP_LOSS, fill_sl, b.sl)
+                    continue
                 if hit_tp:
                     close_whole_book(b, bar, REASON_TAKE_PROFIT, fill_tp, b.tp)
                     continue
