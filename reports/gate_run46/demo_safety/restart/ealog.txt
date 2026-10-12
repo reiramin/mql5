@@ -1,0 +1,27 @@
+[2026.10.12 11:24:26] [INFO] strategy id 'ema_crossover' -> magic 17514383
+[2026.10.12 11:24:26] [INFO] initialised: strategy=ema_crossover risk=1.00% sl=2.50 ATR tp=4.00 ATR
+[2026.10.12 11:24:26] [INFO] TEST demo: START probe=1 magic=17514383 own_positions=0 registry=0 engine=0 margin_mode=2
+[2026.10.12 11:25:36] [INFO] registered own entry position #58853376501
+[2026.10.12 11:25:36] [INFO] TEST demo: PROBE position opened
+[2026.10.12 11:25:36] [INFO] DEAL #58460163211 EURUSD vol=0.01 price=1.11926 pnl=0.00
+[2026.10.12 11:25:45] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:25:55] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:26:05] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:24:26] [INFO] strategy id 'ema_crossover' -> magic 17514383
+[2026.10.12 11:24:26] [INFO] initialised: strategy=ema_crossover risk=1.00% sl=2.50 ATR tp=4.00 ATR
+[2026.10.12 11:24:26] [INFO] TEST demo: START probe=1 magic=17514383 own_positions=1 registry=1 engine=0 margin_mode=2
+[2026.10.12 11:26:31] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:26:41] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:26:51] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:27:01] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:27:10] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:27:20] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:27:31] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:27:41] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:27:51] [INFO] TEST demo: SNAPSHOT heartbeat margin_mode=2 own_positions=1 registry=1 positions=[58853376501:buy:0.01:17514383]
+[2026.10.12 11:27:57] [INFO] strategy id 'ema_crossover' -> magic 17514383
+[2026.10.12 11:27:57] [INFO] initialised: strategy=ema_crossover risk=1.00% sl=2.50 ATR tp=4.00 ATR
+[2026.10.12 11:27:57] [INFO] TEST demo: START probe=3 magic=17514383 own_positions=1 registry=1 engine=0 margin_mode=2
+[2026.10.12 11:27:58] [INFO] TEST demo: CLEANUP closed 1
+[2026.10.12 11:27:58] [INFO] TEST demo: SNAPSHOT after_cleanup margin_mode=2 own_positions=0 registry=0 positions=[]
+[2026.10.12 11:27:58] [INFO] DEAL #58460201126 EURUSD vol=0.01 price=1.11911 pnl=-0.13

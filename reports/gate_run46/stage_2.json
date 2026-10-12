@@ -1,0 +1,17 @@
+{
+    "stage":  2,
+    "name":  "dsl_parity",
+    "status":  "PASS",
+    "reason":  "[scope: gold1; PARTIAL run -- certifies nothing] 14/14 fixtures EXACT + tampered refused",
+    "scope":  [
+                  "gold1"
+              ],
+    "partial":  true,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-082928\\dsl_compare_report.txt",
+                          "sha256":  "32a053bc4eedbee8e0c84d48026bca03f45eaf708b43141e6067d8c76bdc76bf"
+                      }
+                  ],
+    "utc":  "2026-10-12T08:29:59.0600521Z"
+}

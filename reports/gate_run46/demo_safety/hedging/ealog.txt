@@ -1,0 +1,14 @@
+[2026.10.12 11:24:26] [INFO] strategy id 'ema_crossover' -> magic 17514383
+[2026.10.12 11:24:26] [INFO] initialised: strategy=ema_crossover risk=1.00% sl=2.50 ATR tp=4.00 ATR
+[2026.10.12 11:24:26] [INFO] TEST demo: START probe=2 magic=17514383 own_positions=0 registry=0 engine=0 margin_mode=2
+[2026.10.12 11:28:49] [WARN] adopted unknown position #58853429704 (restart recovery)
+[2026.10.12 11:28:49] [INFO] TEST demo: SNAPSHOT after_A buy 0.01 done=true margin_mode=2 own_positions=1 registry=1 positions=[58853429704:buy:0.01:17514383]
+[2026.10.12 11:28:49] [INFO] DEAL #58460214866 EURUSD vol=0.01 price=1.11910 pnl=0.00
+[2026.10.12 11:28:54] [WARN] adopted unknown position #58853431041 (restart recovery)
+[2026.10.12 11:28:54] [INFO] TEST demo: SNAPSHOT after_B sell 0.02 done=true margin_mode=2 own_positions=2 registry=2 positions=[58853431041:sell:0.02:17514383,58853429704:buy:0.01:17514383]
+[2026.10.12 11:28:54] [INFO] DEAL #58460216207 EURUSD vol=0.02 price=1.11914 pnl=0.00
+[2026.10.12 11:28:59] [INFO] TEST demo: SNAPSHOT after_F foreign_buy 0.01 magic=17514384 done=true margin_mode=2 own_positions=2 registry=2 positions=[58853432531:buy:0.01:17514384,58853431041:sell:0.02:17514383,58853429704:buy:0.01:17514383]
+[2026.10.12 11:29:04] [INFO] TEST demo: CLEANUP closed 3
+[2026.10.12 11:29:04] [INFO] TEST demo: SNAPSHOT after_cleanup margin_mode=2 own_positions=0 registry=0 positions=[]
+[2026.10.12 11:29:04] [INFO] DEAL #58460219133 EURUSD vol=0.02 price=1.11909 pnl=0.09
+[2026.10.12 11:29:04] [INFO] DEAL #58460219187 EURUSD vol=0.01 price=1.11908 pnl=-0.02
