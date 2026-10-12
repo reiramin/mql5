@@ -61,7 +61,51 @@ Full text in stage_8.json and console.txt. This was not a `-DemoSafety` run.
 ## reconciliation_verify.json "safety" block (verbatim)
 
 ```json
-SAFETY_BLOCK
+{
+  "hedging": {
+    "reasons": [
+      "hedging evidence missing"
+    ],
+    "state": "MISSING"
+  },
+  "kill_switch": {
+    "reasons": [],
+    "result": "ZERO_NEW_ORDERS_WHILE_LATCHED",
+    "state": "VALID"
+  },
+  "lost_response": {
+    "reasons": [],
+    "result": "LOST_RESPONSE_ADOPTED_NO_DUPLICATE",
+    "state": "VALID"
+  },
+  "meta_reduce": {
+    "reasons": [],
+    "result": "ALL_SIZES_LE_RISK_APPROVED",
+    "state": "VALID"
+  },
+  "netting": {
+    "reasons": [
+      "netting evidence missing"
+    ],
+    "state": "MISSING"
+  },
+  "restart": {
+    "reasons": [
+      "restart evidence missing"
+    ],
+    "state": "MISSING"
+  },
+  "risk_veto": {
+    "reasons": [],
+    "result": "ENTRIES_VETOED_FOR_THE_DAY",
+    "state": "VALID"
+  },
+  "sl_verify": {
+    "reasons": [],
+    "result": "SL_STRIPPED_AND_RESTORED",
+    "state": "VALID"
+  }
+}
 ```
 
 ## import symbol_state (import_EURUSD.G1.json, verbatim)
