@@ -5274,3 +5274,91 @@ were updated to the new call.
 Status: built, unit-tested, never run live. Proof is the
 `[runner: full]` run.
 
+## SPEC-WAIT-1 — OWNER DECISION (CLAUDE.md exception 1.d) + HARNESS-INIT-FAIL-1: gate_run56's restart finding (2026-10-12)
+
+**Evidence** (gate-reports `reports/gate_run56` `82e6bbb`, the first FULL
+run, master `32664ac`, `owner_gate.ps1 -DemoSafety`):
+- gold1 MATCH 18/18 and gold2 MATCH 37/37, in both models;
+- netting, hedging and the 5 tester safety results VALID;
+- **restart MISSING.** Verdict `NOT_VERIFIED_ARTIFACT_MISMATCH`, `missing:
+  ['safety_restart']`. Stages 9-10 did not run, and no certificate was
+  issued.
+
+The restart run itself:
+- probe opened 17:49:12, KILLED with the probe open 17:49:42, relaunch
+  START 17:49:57, observation done 17:51:28;
+- then the **probe-3 (cleanup) launch failed OnInit**:
+  - Experts log: `symbol spec build failed: tick_value_loss <= 0`, then
+    `shutting down (reason 8)`;
+  - terminal journal: `initializing of Mql5Bot (EURUSD,M1) failed with
+    code 1`, and two `connection to MetaQuotes-Demo lost` lines around
+    that time;
+- the harness waited the full 900 s for a START that could not come.
+
+**Root cause.** On a live (re)start while the broker connection was
+unstable, the symbol was not synchronized yet. `SYMBOL_TRADE_TICK_VALUE_LOSS`
+read 0, `BuildSymbolSpec` refused, and OnInit returned INIT_FAILED. The
+EA failed safe: no orders on a broken spec. But it means a restart during
+a slow broker connection leaves the open position unmanaged. This is a
+**real finding of the live restart test**, not a harness artifact, so it
+is not hidden behind a harness retry.
+
+**Decision SPEC-WAIT-1 (Sal, 2026-10-12; CLAUDE.md exception 1.d).**
+- **`SymbolSpec.mqh`** gets three pure functions:
+  - `SpecReasonIsUnsynced`: point / tick size / tick value loss or profit
+    / contract size `<= 0`;
+  - `SpecMayWait(in_tester, synchronized, reason)`: never in the tester;
+    otherwise when not synchronized or the reason is an unsynced one;
+  - `SpecWaitDecision(built, waitable, waited_s, limit_s)`: READY / WAIT /
+    GIVE_UP.
+- **`Mql5Bot.mq5` OnInit.** A failed spec build that may wait sets
+  `g_specWaiting`, logs `WAITING_SYMBOL: ...`, starts the 1 s timer and
+  returns INIT_SUCCEEDED. Otherwise it fails exactly as before. Everything
+  after the spec build moved verbatim into `InitAfterSpec()`, including the
+  trading-enabled check, the trade manager and the `TEST demo: START`
+  line, so **START is logged only once the spec is built**.
+- **While waiting.** `OnTimer` / `OnTick` only call `SpecWaitPump()`, and
+  `OnTradeTransaction` returns at once. No orders are sent and nothing is
+  managed: there is no spec to manage with.
+- **`SpecWaitPump`.** It runs the deferred `InitAfterSpec()` once the spec
+  builds. Past `InpSpecWaitSeconds` (new input, default 60, mirrored in
+  `EA_INPUT_DEFAULTS`) it logs `symbol spec build failed: <reason> (gave
+  up after N s WAITING_SYMBOL)` and calls `ExpertRemove()`.
+- **Gold legs.** In the Strategy Tester `SpecMayWait` is false, so a failed
+  build fails init as before. A successful build runs the same code in the
+  same order. The new input sits at its default.
+
+**HARNESS-INIT-FAIL-1.** The harness now follows the terminal journal
+(`<data>/logs/*.log`) for this launch. On `initializing of Mql5Bot (...)
+failed with code N`, or on the EA's SPEC-WAIT-1 give-up line, it fails the
+run with `[ea_init_failed] <journal line> | <EA error lines>` after a 5 s
+grace, instead of waiting 900 s.
+- The grace keeps the not-logged-in refusal (gate_run40) a relaunch, since
+  that refusal also fails OnInit in the journal.
+- It never retries a failed init: the failure is the evidence.
+
+**Tests.**
+- `tests/test_spec_wait.py` executes the three MQL functions through a
+  strict transpiler. A fake symbol that synchronizes after N calls starts
+  once built; one that never synchronizes gives up at the bound; the
+  tester fails init as before. It also checks the EA wiring. It cannot
+  even collect on the previous code.
+- `tests/test_safety_demo.py` adds 4 tests (all fail on the previous
+  harness): gate_run56's failed init is named, with the sleep count far
+  below 900; the give-up line is named; an early start still relaunches
+  with the journal line present; and the journal follower itself.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No. The verifier, the
+  grader and the pinned `RESTART_RECOVERED_NO_DUPLICATE` are untouched.
+  The harness now fails faster and by name.
+- **(b) Do the gold legs change behaviour at default inputs?** No. The
+  tester path is unchanged (`SpecMayWait` is false in the tester), and the
+  new input is at its default. This is proven by the stage-1 strict compile
+  and the next run's reconciliation.
+- **(c) Are new checks re-computed by the verifier?** The restart run is
+  graded at stage 8 from its EA log, as before.
+
+Status: built, unit-tested, never run live. The EX5 changes, so the
+golds are re-run: merge with `[runner: full]`.
+

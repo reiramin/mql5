@@ -2016,3 +2016,27 @@ real-tick ladder. The owner chose a certificate of the verifier verdict
 **NOT done:**
 - **The full run:** built, unit-tested, never run live.
 - **docs/SHOWCASE.md:** waits for the full run's report.
+
+## 2026-10-12 — gate_run56 (FULL) read; SPEC-WAIT-1 + HARNESS-INIT-FAIL-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Merged before this:** PR #51 (`32664ac`, `[runner: full]`).
+
+**gate_run56:**
+- gold1 18/18 and gold2 37/37 MATCH;
+- 7/8 safety results VALID;
+- restart MISSING: the probe-3 relaunch failed OnInit (`tick_value_loss
+  <= 0`, broker connection lost), and the harness waited 900 s;
+- no certificate.
+
+**Done (owner decision SPEC-WAIT-1, CLAUDE.md exception 1.d added):**
+- the EA's WAITING_SYMBOL state;
+- the deferred `InitAfterSpec`;
+- the `InpSpecWaitSeconds=60` input;
+- the harness journal follower with a named `[ea_init_failed]`;
+- tests: `test_spec_wait.py` and 4 harness tests;
+- docs: DECISIONS, BLOCKED.
+
+**NOT done:**
+- **A live run:** built, unit-tested, never run live. The stage-1 strict
+  compile on the owner terminal is the compile proof.
+- **docs/SHOWCASE.md:** waits for a certified full run.

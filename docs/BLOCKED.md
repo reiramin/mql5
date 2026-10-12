@@ -15,18 +15,28 @@ on an owner action or an input this session cannot produce.
 - **Proven live:** DEMO-CHECK-CRLF-1, STAGE8-EMPTY-NOTBUILT-1 and
   RESTART-GRADE-1.
 
-## Next: the full certification run (`[runner: full]`)
+## gate_run56 (FULL run, `32664ac`): restart MISSING; SPEC-WAIT-1 is the fix
 
-An unscoped run could not certify before STAGE10-CERT-1: stage 10 ran
-`certify_strategy.py`, which needs a config that does not exist (stage 10
-SKIP). Stage 10 now certifies the verifier's verdict (owner decision
-2026-10-12). This is built, unit-tested, never run live.
+**Result:**
+- gold1 18/18 and gold2 37/37 MATCH in both models;
+- 7 of 8 safety results VALID;
+- **restart MISSING**: the probe-3 relaunch failed OnInit with `symbol
+  spec build failed: tick_value_loss <= 0` while the broker connection
+  dropped;
+- verdict `NOT_VERIFIED_ARTIFACT_MISMATCH`; no certificate.
 
-**Expected:**
+**Fix,** built, unit-tested, never run live (owner decision, CLAUDE.md
+exception 1.d):
+- **SPEC-WAIT-1:** the EA waits in WAITING_SYMBOL, bounded at 60 s, instead
+  of failing init on a live start.
+- **HARNESS-INIT-FAIL-1:** the harness fails a launch whose EA init fails,
+  by name, without the 900 s wait.
+
+**Next:** the `[runner: full]` run. The EX5 changes, so the golds are
+re-run. Expected:
 - stages 0-10 PASS;
 - verdict `MT5_VALIDATED_BAR_MODELS`;
-- `GATE_RESULT=certified_with_log_graded_legs`. All gold legs are
-  log-graded, which is the distinct-by-design name for a certified run.
+- `GATE_RESULT=certified_with_log_graded_legs`.
 
 ## Optional owner item (outside exception 1): EA log stamps are stale at OnInit
 

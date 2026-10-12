@@ -129,7 +129,10 @@ def test_a_refused_input_is_logged_and_acts_as_zero():
 
 
 def test_gate_runs_once_right_after_the_logger_and_before_the_hooks():
-    init = EA[EA.index("int OnInit()"):EA.index("EventSetTimer(1);")]
+    # SPEC-WAIT-1: OnInit continues in InitAfterSpec once the spec is built
+    s = EA.index("int OnInit()")
+    init = EA[s:EA.index("EventSetTimer(1);",
+                         EA.index("int InitAfterSpec()"))]
     assert re.search(r"g_log\.Init\([^;]*;\s*\n\s*//[^\n]*\n\s*"
                      r"ResolveTestInputs\(\);", init)
     assert init.index("ResolveTestInputs();") < \
@@ -518,6 +521,24 @@ class FakeTerminal:
         self.script_hangs = False
         self.logdir = data / dh.LOG_DIR_REL
         self.logdir.mkdir(parents=True)
+        # HARNESS-INIT-FAIL-1: cleanup (probe 3) launches that play
+        # gate_run56 (OnInit failed, journal "initializing ... failed"), or
+        # SPEC-WAIT-1's give-up; and an early start that also logs the
+        # journal failure line (it must still be relaunched)
+        self.init_fail_cleanup = 0
+        self.spec_gave_up_cleanup = 0
+        self.journal_early = False
+        self.journal = data / dh.JOURNAL_DIR_REL / "20261012.log"
+
+    def _journal(self, line: str) -> None:
+        self.journal.parent.mkdir(parents=True, exist_ok=True)
+        enc = "utf-16-le" if self.journal.exists() else "utf-16"
+        with self.journal.open("ab") as fh:
+            fh.write((line + "\r\n").encode(enc))
+
+    def _ea_log(self, text: str) -> None:
+        (self.logdir / "mql5bot_EURUSD_M1_2026.10.12.log").write_bytes(
+            text.encode("utf-16"))
 
     def _login(self, text: str) -> None:
         m = re.search(r"Login=(\S+)", text)
@@ -566,7 +587,28 @@ class FakeTerminal:
             self.data / dh.PRESET_DIR_REL / preset).read_text()).group(1))
         n = len(self.launches)
         self.launches.append(probe)
+        init_failed = ("GR\t2\t10:51:38.535\tExperts\tinitializing of "
+                       "Mql5Bot (EURUSD,M1) failed with code 1")
+        if probe == 3 and self.init_fail_cleanup:
+            self.init_fail_cleanup -= 1
+            self._ea_log("[2026.10.12 20:48:46] [ERROR] symbol spec build "
+                         "failed: tick_value_loss <= 0\n"
+                         "[2026.10.12 20:48:46] [INFO] shutting down "
+                         "(reason 8)\n")
+            self._journal(init_failed)
+            return self
+        if probe == 3 and self.spec_gave_up_cleanup:
+            self.spec_gave_up_cleanup -= 1
+            self._ea_log("[2026.10.12 20:48:46] [WARN] WAITING_SYMBOL: symbol "
+                         "spec not ready (tick_value_loss <= 0); retrying for "
+                         "up to 60 s, no new positions\n"
+                         "[2026.10.12 20:49:46] [ERROR] symbol spec build "
+                         "failed: tick_value_loss <= 0 (gave up after 60 s "
+                         "WAITING_SYMBOL)\n")
+            return self
         if self.early:
+            if self.journal_early:
+                self._journal(init_failed)
             self.early -= 1
             (self.logdir / "mql5bot_EURUSD_M1_2024.08.23.log").write_bytes((
                 f"[2024.08.23 23:58:5{n}] [WARN] TEST input "
@@ -718,6 +760,69 @@ def test_a_start_refused_twice_fails_naming_the_refusal(tmp_path, accounts):
     assert "timeout" not in rec["error"]          # named, not a 900 s wait
     assert fake.launches == [2, 2, 3]             # ... + the restore
     assert rec["restore"]["ok"] is True
+
+
+# --- HARNESS-INIT-FAIL-1 (gate_run56) ---------------------------------------
+
+def _counting_harness(tmp_path, accounts, test):
+    """A harness with the production 900 s timeout and a sleep counter."""
+    h, fake = _harness(tmp_path, accounts, test)
+    h.timeout_s = 900
+    slept = []
+    h.sleep = lambda s: slept.append(s)
+    return h, fake, slept
+
+
+def test_a_failed_ea_init_fails_the_run_named_not_after_900s(tmp_path,
+                                                             accounts):
+    # gate_run56: the probe-3 relaunch failed OnInit; the harness waited
+    # 900 s for a START that could not come
+    h, fake, slept = _counting_harness(tmp_path, accounts, "restart")
+    fake.init_fail_cleanup = 1
+    rec = h.run()
+    assert rec["status"] == "FAILED"
+    assert rec["error"].startswith("[ea_init_failed] ")
+    assert "initializing of Mql5Bot (EURUSD,M1) failed with code 1" \
+        in rec["error"]
+    assert "symbol spec build failed: tick_value_loss <= 0" in rec["error"]
+    assert "timeout" not in rec["error"]
+    assert len(slept) < 60                     # the grace, never 900 s
+    assert any(s["step"] == "seen: EA init failed" for s in rec["steps"])
+    assert rec["restore"]["ok"] is True        # the restore still runs
+
+
+def test_a_spec_wait_give_up_fails_the_run_named(tmp_path, accounts):
+    h, fake, slept = _counting_harness(tmp_path, accounts, "restart")
+    fake.spec_gave_up_cleanup = 1
+    rec = h.run()
+    assert rec["status"] == "FAILED"
+    assert rec["error"].startswith("[ea_init_failed] ")
+    assert "gave up after 60 s WAITING_SYMBOL" in rec["error"]
+    assert len(slept) < 60
+
+
+def test_a_start_before_the_login_still_relaunches_despite_the_journal(
+        tmp_path, accounts):
+    # the not-logged-in refusal ALSO fails OnInit in the journal; it is a
+    # relaunch, never [ea_init_failed]
+    h, fake, _ = _counting_harness(tmp_path, accounts, "restart")
+    fake.early = 1
+    fake.journal_early = True
+    rec = h.run()
+    assert rec["error"] is None and rec["status"] == "COMPLETED", rec
+    assert fake.launches == [1, 1, 1, 3, 3]
+
+
+def test_journal_follower_reads_only_new_utf16_lines(tmp_path):
+    j = tmp_path / dh.JOURNAL_DIR_REL / "20261012.log"
+    j.parent.mkdir(parents=True)
+    j.write_bytes("old line\r\n".encode("utf-16"))
+    f = dh.JournalFollower(tmp_path)
+    assert f.poll() == []
+    with j.open("ab") as fh:
+        fh.write("new line\r\n".encode("utf-16-le"))
+    assert f.poll() == ["new line"]
+    assert f.poll() == []
 
 
 # --- DEMO-LOGIN-PERSIST-1 ---------------------------------------------------

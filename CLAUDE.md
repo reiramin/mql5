@@ -36,6 +36,14 @@ These narrow the NEVER-modify rule above; everything not listed stays fully prot
    (and its callers in TradeManager.mqh) may be fixed so the EA picks a filling mode the
    broker's SYMBOL_FILLING_MODE flags actually allow. Gold-leg results must stay identical
    (proven by the next gate run's reconciliation).
+   d. SPEC-WAIT-1 (Sal, 2026-10-12): in Mql5Bot.mq5 / SymbolSpec.mqh, when the symbol spec
+   cannot be built at OnInit because the symbol is not yet synchronized (tick value, tick
+   size, contract size or point <= 0, or SymbolIsSynchronized false), the EA does NOT fail
+   init: it returns INIT_SUCCEEDED in a WAITING_SYMBOL state, opens no new positions,
+   retries the spec build on OnTimer/OnTick, and only after a bounded wait
+   (InpSpecWaitSeconds, default 60) logs the error and shuts down. While waiting it manages
+   existing positions only if the spec is available; otherwise it just waits. The START
+   line is logged only once the spec is built. Gold-leg results must stay identical.
 3. artifacts/gold/ (gold1 fixture + expected_execution) and
    artifacts/owner_mt5_gate/frozen_inputs.json may be regenerated/re-anchored ONCE for
    gold1, by the existing S8-REANCHOR procedure, with hashes produced by the tools

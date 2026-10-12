@@ -43,6 +43,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -71,6 +72,17 @@ RESTORE_ROLE = "hedging"     # the terminal's account after every run
 # then "symbol spec build failed" and the EA shut down)
 EA_NOT_LOGGED_IN = "REFUSED: honoured only on a logged-in DEMO account"
 START_LAUNCHES = 2           # one relaunch for a start before the login
+# HARNESS-INIT-FAIL-1 (gate_run56): the terminal journal's own line for an
+# EA whose OnInit failed; the harness fails the run on it instead of
+# waiting the full timeout for a START that cannot come
+JOURNAL_DIR_REL = Path("logs")
+EA_INIT_FAILED_RE = re.compile(
+    r"initializing of Mql5Bot \(([^)]*)\) failed with code (-?\d+)")
+# SPEC-WAIT-1: the EA's own give-up line after WAITING_SYMBOL
+SPEC_WAIT_GAVE_UP = "WAITING_SYMBOL)"
+# seconds the EA log gets to show the not-logged-in refusal (which is a
+# relaunch, not a failure) after the journal reports a failed init
+INIT_FAIL_GRACE_S = 5
 # DEMO-LOGIN-PERSIST-1: the credential-less connection check after the
 # restore runs the gate's own exporter (stage 3, owner_gate.ps1
 # Invoke-SymbolSpecExport) into a separate folder, never the gate's
@@ -328,6 +340,39 @@ class EaLogFollower:
         return any(needle in ln for ln in self.lines[after:])
 
 
+class JournalFollower:
+    """The terminal journal (<data>/logs/YYYYMMDD.log, UTF-16): the lines
+    appended since this follower was created. Only the init-failure line
+    is read from it (HARNESS-INIT-FAIL-1)."""
+
+    def __init__(self, data_folder: Path | str):
+        self.dir = Path(data_folder) / JOURNAL_DIR_REL
+        self.lines: list[str] = []
+        self._seen: dict[str, int] = {
+            p.name: len(self._read(p)) for p in self._files()}
+
+    def _files(self) -> list[Path]:
+        return sorted(self.dir.glob("*.log")) if self.dir.is_dir() else []
+
+    @staticmethod
+    def _read(path: Path) -> list[str]:
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            return []
+        return gs.decode_bom_aware(raw).splitlines()
+
+    def poll(self) -> list[str]:
+        new: list[str] = []
+        for path in self._files():
+            lines = self._read(path)
+            seen = self._seen.get(path.name, 0)
+            new += [ln for ln in lines[seen:] if ln.strip()]
+            self._seen[path.name] = len(lines)
+        self.lines += new
+        return new
+
+
 def _utc() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -359,6 +404,8 @@ class Harness:
                                                        observe_s)
         self.steps: list[dict] = []
         self.log = EaLogFollower(self.data)
+        self.journal = JournalFollower(self.data)
+        self._jmark = 0
         self.proc = None
         self._tmp: Path | None = None
         self.restore_lines: list[str] = []
@@ -392,6 +439,8 @@ class Harness:
         for launch_no in range(1, START_LAUNCHES + 1):
             ini = self._write_ini(account, probe)
             mark = len(self.log.lines)
+            self.journal.poll()                 # journal lines of THIS launch
+            self._jmark = len(self.journal.lines)
             self.proc = self.launch([str(self.terminal), f"/config:{ini}"])
             self._step("terminal_started", probe=probe)
             try:
@@ -410,12 +459,27 @@ class Harness:
             self.sleep(10)
         return mark
 
+    def _init_failure(self, after: int) -> str | None:
+        """HARNESS-INIT-FAIL-1: the journal's init-failure line for this
+        launch (with the EA's own error lines), or the EA's SPEC-WAIT-1
+        give-up line; None when neither is there."""
+        errs = [ln for ln in self.log.lines[after:]
+                if "[ERROR]" in ln or SPEC_WAIT_GAVE_UP in ln]
+        for ln in self.journal.lines[self._jmark:]:
+            if EA_INIT_FAILED_RE.search(ln):
+                return " | ".join([ln.strip()] + [e.strip() for e in errs])
+        gave_up = [e for e in errs if SPEC_WAIT_GAVE_UP in e]
+        return gave_up[0].strip() if gave_up else None
+
     def _wait_start(self, after: int) -> bool:
         """True on the START line; False on the EA's not-logged-in
-        refusal; HarnessError on timeout."""
+        refusal; HarnessError on a failed EA init (named, after a short
+        grace for the refusal line) or on timeout."""
         waited = 0
+        failed_at = None
         while True:
             self.log.poll()
+            self.journal.poll()
             if self.log.has("TEST demo: START", after):
                 self._step("seen: EA START")
                 return True
@@ -423,6 +487,12 @@ class Harness:
                 self._step("seen: EA refused the probe before the login "
                            "completed")
                 return False
+            failure = self._init_failure(after)
+            if failure is not None:
+                failed_at = waited if failed_at is None else failed_at
+                if waited - failed_at >= INIT_FAIL_GRACE_S:
+                    self._step("seen: EA init failed", detail=failure)
+                    raise HarnessError(f"[ea_init_failed] {failure}")
             if waited >= self.timeout_s:
                 raise HarnessError(f"timeout after {waited}s waiting for "
                                    "'EA START' in the EA log")

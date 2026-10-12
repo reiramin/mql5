@@ -114,6 +114,55 @@ bool BuildSymbolSpec(const string symbol, SSymbolSpec &out)
   }
 
 //+------------------------------------------------------------------+
+//| SPEC-WAIT-1 (owner decision 2026-10-12, CLAUDE.md exception 1.d): |
+//| a live start on a symbol the terminal has not synchronized yet    |
+//| (gate_run56: "symbol spec build failed: tick_value_loss <= 0"     |
+//| while the broker connection was lost) waits in WAITING_SYMBOL     |
+//| instead of failing init. Never in the Strategy Tester.            |
+//+------------------------------------------------------------------+
+#define SPEC_WAIT_READY   0
+#define SPEC_WAIT_WAIT    1
+#define SPEC_WAIT_GIVE_UP 2
+
+// The build failures a not-yet-synchronized symbol produces.
+bool SpecReasonIsUnsynced(const string reason)
+  {
+   if(reason == "point <= 0")
+      return true;
+   if(reason == "tick_size <= 0")
+      return true;
+   if(reason == "tick_value_loss <= 0")
+      return true;
+   if(reason == "tick_value_profit <= 0")
+      return true;
+   if(reason == "contract_size <= 0")
+      return true;
+   return false;
+  }
+
+// May a failed spec build wait for the symbol? Never in the tester.
+bool SpecMayWait(const bool in_tester, const bool synchronized, const string reason)
+  {
+   if(in_tester)
+      return false;
+   if(!synchronized)
+      return true;
+   return SpecReasonIsUnsynced(reason);
+  }
+
+// One WAITING_SYMBOL step: ready, keep waiting, or give up (bounded).
+int SpecWaitDecision(const bool built, const bool waitable, const int waited_s, const int limit_s)
+  {
+   if(built)
+      return SPEC_WAIT_READY;
+   if(!waitable)
+      return SPEC_WAIT_GIVE_UP;
+   if(waited_s >= limit_s)
+      return SPEC_WAIT_GIVE_UP;
+   return SPEC_WAIT_WAIT;
+  }
+
+//+------------------------------------------------------------------+
 //| Pure normalisers (match python/mql5bot/symbolspec.py semantics)  |
 //+------------------------------------------------------------------+
 
