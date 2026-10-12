@@ -1,0 +1,109 @@
+{
+    "stage":  8,
+    "name":  "reconciliation",
+    "status":  "FAIL",
+    "reason":  "[scope: gold2; PARTIAL run -- certifies nothing] verdict NOT_VERIFIED_ARTIFACT_MISMATCH: missing artifacts: [\u0027hedging\u0027, \u0027netting\u0027, \u0027safety_restart\u0027]; archive manifest INVALID: [\"archive manifest does not bind: [\u0027safety/hedging.json\u0027, \u0027safety/netting.json\u0027, \u0027safety/restart.json\u0027]\"]; safety evidence missing: [\u0027restart\u0027, \u0027netting\u0027, \u0027hedging\u0027]; PARTIAL: excluded [\u0027gold1\u0027] were not examined ? this verifies nothing about them and certifies nothing; [\u0027gold2:real_ticks\u0027]: NOT_APPLICABLE_BAR_ONLY_FIXTURE (bar-only fixture, leg not launched): no report exists and none is required; real-tick coverage NONE never yields MT5_VALIDATED; trade source for [\u0027gold2:every_tick\u0027, \u0027gold2:m1_ohlc\u0027]: tester agent log (PASS_FROM_LOG log trade list; no report exists) [gold2_m1_ohlc: log trade list placed (74 deals); gold2_every_tick: log trade list placed (74 deals); safety leg safety_kill_switch: tester leg ran (exit 1); window kept for grading; safety leg safety_risk_veto: tester leg ran (exit 1); window kept for grading; safety leg safety_meta_reduce: tester leg ran (exit 1); window kept for grading; safety leg safety_sl_verify: tester leg ran (exit 1); window kept for grading; safety leg safety_lost_response: tester leg ran (exit 1); window kept for grading; package built by the gate; NOT built: safety/hedging.json, safety/netting.json, safety/restart.json] [trade source for gold2:every_tick, gold2:m1_ohlc: tester agent log (log trade list, from_log=true; no report)]",
+    "scope":  [
+                  "gold2"
+              ],
+    "partial":  true,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\reconciliation_verify.json",
+                          "sha256":  "8a33676493b3c7512456ce74599994d294c6b96536ab7e33fe538663e5c3396c"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_30f8ba268cde477c89b29d4b420d85c0.json",
+                          "sha256":  "b6c65c5e3dc80ae1c2039ddf0c9631f3bf4bd2253db552590e27c7b8f14bc217"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_47a62722da104c86a4acf684c4baa1e1.json",
+                          "sha256":  "16744a6f41fe3cada005613b2b9ac69aaceefa60dba5f98aeb5b5f2ff0aa98a3"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\tester_safety_kill_switch.ini",
+                          "sha256":  "341315930f1c8f869ffbdc71a7589e743fc1d61c08ec0cb2e6d5601ae4eb2344"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\tester_safety_kill_switch_window.txt",
+                          "sha256":  "b006eaaeb5d5b2f7bdd9acb4699a5b7f988670ba7bc44efb2dc11d6d4ae2d287"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_3bf89ff674474e76be0bcc009cd6bcea.json",
+                          "sha256":  "0aa0254fc7c64d6f37d5df1688f169d5d200e611c9a638ce7bf08f4781074476"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_0e0657e1a8de42559ccfee9a9ac85a55.json",
+                          "sha256":  "df0eee42e172eb1a415f4b2b57be8bc7a9e7e8c90d29b0b2609ca7c3c13dd1ab"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\tester_safety_risk_veto.ini",
+                          "sha256":  "a5dc34cbce050f71e11ac03b3569b4304749003d03d960c55f75cb2b7817553e"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\tester_safety_risk_veto_window.txt",
+                          "sha256":  "a2da6ad46c57c5c8d2511595e355598e210a11cde4d2fbff1e31237dba4fab0e"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_9309356c42b04e3ead90fb472f0ea39d.json",
+                          "sha256":  "7aab87d8bf6605247cc405c14258455cbb0adb40c6e89629908794228b3ce2d8"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_7ee026eb3ce74df1b8d15f4e26d7f33f.json",
+                          "sha256":  "a1edcaf817cbe9d586ad3beb77f3c0668956dfd4231518866ce643cce18316ce"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\tester_safety_meta_reduce.ini",
+                          "sha256":  "6c55bafa3dc7ee9f1731fcfe8cae094b1c96cdb45cd92c64849baf77b2194bf0"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\tester_safety_meta_reduce_window.txt",
+                          "sha256":  "bcaf3c8da639e5dba71e2e7ff5193db3df9989b55e16a680d589620d9f5b4606"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_ab0f1c1c6acd4a88a6e86e3f331dccbd.json",
+                          "sha256":  "448224bcc5279c074fc44d1f881f662900ba8947f6684f75102ca1fd9fd400f9"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_ccb102fe06554881b4f84095ca0ab167.json",
+                          "sha256":  "9bba082925cd47a4179b310dadec962f8b66e890f893e588f70374456c1e8530"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\tester_safety_sl_verify.ini",
+                          "sha256":  "3ccf565577a948a32805de0fd75e8d195c2332943c88486a29bbbdeb6b38dfec"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\tester_safety_sl_verify_window.txt",
+                          "sha256":  "569841ac9c83827c19b2860f89f2750499614bb34f6a139614c7934fb80f398c"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_de3499890d6946f38d9d19ac208dde8d.json",
+                          "sha256":  "2e296eb07c452cb782ac5e1eb2d5ee6bc0fdc5f23f171d02b23168262057ab88"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_a164099e4fae463ab9001266582d967d.json",
+                          "sha256":  "a69d2837b635de8f8698de559eaedf2fb67b48a27b28e4eebc2747c31919d789"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\tester_safety_lost_response.ini",
+                          "sha256":  "4cf9a4e517266a9ab2ced135621707a86d17839d0b8ae1ba584697fe002e2a34"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\tester_safety_lost_response_window.txt",
+                          "sha256":  "57678ec2ff86b6e959e96fb59865e27eca2661114ce4a07844151038535942fc"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_6176cdbd99c9433daa3c699cc31fcee3.json",
+                          "sha256":  "b1a10cb7dc6d8fd58907b5aede113a7cccf939b2667d46051343d1df1862e264"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_1eebc8a7b7084cd9893b763793c47ff2.json",
+                          "sha256":  "ff21c150b017752d2be0f28d03f319ba2dde48553901a43e4a1cbbc880bed90f"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-090748\\decide_77ea40a8087d45b39cb9280471c38434.json",
+                          "sha256":  "16e2915fc89d0cb9ca09c0303020bc08b01f1b53366ef0160868c696b67e2bb6"
+                      }
+                  ],
+    "utc":  "2026-10-12T09:12:29.8420167Z"
+}
