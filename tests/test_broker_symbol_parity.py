@@ -1215,15 +1215,18 @@ def test_parity_report_carries_the_probe_facts_as_written(tmp_path, monkeypatch)
     report, _ = _run_parity_and_scope(tmp_path, monkeypatch, _failed_probe())
     assert report["denomination_probes"] == {"EURUSD": {
         "ok": False, "reason": "NOT_SYNCED_AFTER_60s", "last_error": 0,
-        "attempts": 10, "waited_seconds": 70.512}}
+        "attempts": 10, "waited_seconds": 70.512, "synced": False,
+        "sync_unmet": "SYMBOL_TRADE_TICK_VALUE not > 0"}}
 
 
 def test_stage3_fail_text_quotes_reason_attempts_waited_seconds(tmp_path, monkeypatch):
     _, scope = _run_parity_and_scope(tmp_path, monkeypatch, _failed_probe())
     assert not scope["ok"]
     assert ["EURUSD", "sizer.behaviour"] in [list(x) for x in scope["pending_in_scope"]]
+    # the unmet readiness condition is named (gate_run40/44/45 lacked it)
     assert ('EURUSD denomination_probe: reason="NOT_SYNCED_AFTER_60s" '
-            'attempts=10 waited_seconds=70.512 last_error=0') in scope["reasons"]
+            'attempts=10 waited_seconds=70.512 last_error=0 synced=false '
+            'sync_unmet="SYMBOL_TRADE_TICK_VALUE not > 0"') in scope["reasons"]
 
 
 def test_stage3_fail_text_quotes_last_ordercalcprofit_reason(tmp_path, monkeypatch):
@@ -1231,8 +1234,8 @@ def test_stage3_fail_text_quotes_last_ordercalcprofit_reason(tmp_path, monkeypat
                           synced=True, sync_unmet="", waited_seconds=12.004)
     _, scope = _run_parity_and_scope(tmp_path, monkeypatch, probe)
     assert ('EURUSD denomination_probe: reason="BUY OrderCalcProfit returned '
-            'non-negative loss" attempts=10 waited_seconds=12.004 last_error=0'
-            ) in scope["reasons"]
+            'non-negative loss" attempts=10 waited_seconds=12.004 last_error=0 '
+            'synced=true sync_unmet=""') in scope["reasons"]
 
 
 def test_older_export_without_attempts_reads_absent_not_invented(tmp_path, monkeypatch):
@@ -1247,7 +1250,7 @@ def test_older_export_without_attempts_reads_absent_not_invented(tmp_path, monke
     _, scope = _run_parity_and_scope(tmp_path, monkeypatch, probe)
     assert ('EURUSD denomination_probe: reason="BUY OrderCalcProfit returned '
             'non-negative loss" attempts=absent waited_seconds=absent '
-            'last_error=0') in scope["reasons"]
+            'last_error=0 synced=absent sync_unmet=absent') in scope["reasons"]
 
 
 def test_passing_probe_adds_no_probe_quote(tmp_path, monkeypatch):

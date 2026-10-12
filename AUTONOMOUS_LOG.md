@@ -1785,3 +1785,17 @@ Both had CI green on 3.10/3.11/3.12 and full local pytest exit 0.
   run (37/37), so it cannot be produced here.
 - **The stage-1 strict compile:** owner terminal only.
 - **The fix live:** built, unit-tested, never run live.
+
+## 2026-10-12 — gate_run45 read; STAGE3-SYNC-QUOTE-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Evidence read:** gate_run45 (gate-reports `ad8059a`, `5fd4368`, gold2,
+06:56 UTC Monday): stage 3 FAIL, the same EURUSD `NOT_SYNCED_AFTER_60s`.
+In market hours, so the weekend explanation is out.
+
+**Done (on the FILL-MODE-1 PR):** the stage-3 FAIL text now also quotes
+the exporter's `synced` / `sync_unmet`. DECISIONS STAGE3-SYNC-QUOTE-1;
+BLOCKED.md stage-3 section rewritten.
+
+**NOT done, and why:** the cause of the unmet readiness is unknown. The
+fact that decides it was dropped from the reports until this change. No
+exporter change (mql5/Scripts) and no acceptance change.

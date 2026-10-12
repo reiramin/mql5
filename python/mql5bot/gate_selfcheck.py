@@ -248,7 +248,7 @@ def _failed_probe_quotes(report: dict, symbols: set) -> list[str]:
             continue
         parts = [f"{k}={json.dumps(probe[k]) if k in probe else 'absent'}"
                  for k in ("reason", "attempts", "waited_seconds",
-                           "last_error")]
+                           "last_error", "synced", "sync_unmet")]
         out.append(f"{sym} denomination_probe: " + " ".join(parts))
     return out
 

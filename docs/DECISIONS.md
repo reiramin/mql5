@@ -4627,3 +4627,48 @@ terminal's stage-1 strict compile.
   thing exception 1.c makes the next gate run prove (gold2 37/37).
 - **(c) Are new checks re-computed by the verifier?** No new verifier
   checks.
+
+## STAGE3-SYNC-QUOTE-1 — the stage-3 FAIL text names the exporter's unmet readiness condition (2026-10-12)
+
+**Input.** Three gate runs FAILed stage 3 with the same in-scope PENDING
+EURUSD rows and `denomination_probe reason="NOT_SYNCED_AFTER_60s"`:
+- gate_run40 at `6894de2`, about 22:00 UTC Sunday;
+- gate_run44 at `6894de2`, about 22:00 UTC Sunday;
+- gate_run45 at `5fd4368`, 06:56 UTC Monday, in FX market hours.
+
+gate_run45 rules out the weekend re-open as the explanation.
+
+Facts from the reports and the code:
+- **Only EURUSD is exported fresh by the gate**, by
+  `Invoke-SymbolSpecExport "EURUSD"` in stage 3. BTC, US30 and XAUEUR
+  come from earlier export files, and their probes pass. So the failure
+  is "the gate's own fresh export never becomes ready within 60 s"; it is
+  not shown to be specific to EURUSD.
+- **The first failing run, gate_run40, was the first gate run after the
+  demo harness** had logged the terminal in to the demo accounts.
+  gate_run43, earlier the same day, passed stage 3. The code between
+  those runs changed only docs and the demo harness.
+- **The exporter already writes which readiness condition its wait ended
+  on** (`synced`, `sync_unmet` in its `denomination_probe` block: terminal
+  not connected / symbol not synchronized / no tick / tick value not > 0).
+  But `parity_report.json` and the stage-3 reason dropped them, so the
+  deciding fact never reached `gate-reports`.
+
+**Change (tools/ + python/, quoting only).**
+- `DENOMINATION_PROBE_QUOTED` also copies `synced` and `sync_unmet`
+  verbatim.
+- `gate_selfcheck._failed_probe_quotes` quotes them. A field the export
+  lacks reads `absent`, as before.
+
+Nothing is inferred, and the PENDING rule is unchanged: a probe that did
+not run is still not a pass.
+
+The tests' expected strings now include the two fields (exact matches;
+stricter, not weaker): `tests/test_broker_symbol_parity.py` and
+`tests/test_owner_gate_ps1.py`.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No; only the FAIL text
+  quotes two more export fields.
+- **(b) Do the gold legs change behaviour at default inputs?** No.
+- **(c) Are new checks re-computed by the verifier?** No new checks.

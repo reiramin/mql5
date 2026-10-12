@@ -265,8 +265,10 @@ def assess_tick_value_denomination(doc: dict) -> dict[str, object]:
 #: gate's stage-3 FAIL text can quote them (gate_run32/33: the probe reason
 #: never reached the stage verdict). attempts / waited_seconds come from the
 #: readiness-waiting exporter; an export without them simply lacks the key.
+#: synced / sync_unmet name WHICH readiness condition the exporter's wait
+#: ended on (gate_run40/44/45: NOT_SYNCED_AFTER_60s without saying why).
 DENOMINATION_PROBE_QUOTED = ("ok", "reason", "last_error", "attempts",
-                             "waited_seconds")
+                             "waited_seconds", "synced", "sync_unmet")
 
 
 def denomination_probe_summary(exports: list[dict]) -> dict[str, dict]:

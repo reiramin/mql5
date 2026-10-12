@@ -14,34 +14,36 @@ If a later run refuses again, the terminal's own message (or the
 importer's `symbol_state` JSON) is the fact to report. `mql5/` is not
 touched for it: the importer is outside CLAUDE.md exception 1.
 
-## Stage 3 broker parity: EURUSD denomination probe NOT_SYNCED_AFTER_60s (re-run)
+## Stage 3 broker parity: EURUSD denomination probe NOT_SYNCED_AFTER_60s (blocks every gate run)
 
-gate_run40 (gold2) and gate_run44 (gold1) both ran at `6894de2` around
-22:00 UTC on Sunday 2026-10-11, and both FAILed stage 3 with the same
+gate_run40, gate_run44 and gate_run45 all FAILed stage 3 with
+`EURUSD denomination_probe NOT_SYNCED_AFTER_60s` and in-scope PENDING
 rows:
-- in-scope PENDING `EURUSD sizer.behaviour` / `tick_value_denomination`;
-- `denomination_probe: reason="NOT_SYNCED_AFTER_60s" attempts=10`.
+- gate_run40 and gate_run44 at `6894de2`, Sunday about 22:00 UTC;
+- gate_run45 at `5fd4368`, **Monday 06:56 UTC, in market hours**.
 
-BTC, US30 and XAUEUR passed their probes in the same runs. gate_run43, at
-14:29 UTC the same Sunday, passed stage 3.
+So it is not the weekend re-open. gate_run43 (`4b8cad0`, earlier on
+Sunday) passed stage 3. The first failure, gate_run40, was the first gate
+run after the demo harness logged the terminal in to the demo accounts.
 
-Two differences are visible, and neither is proven to be the cause:
-- **The account.** Both runs came straight after the demo harness, whose
-  restores ended on the "hedging"-role login. That login is a netting
-  account (next section), so stage 3 may have exported on a different
-  account than in gate_run43.
-- **The time.** Around 22:00 UTC Sunday is the weekly FX re-open
-  boundary.
+Only EURUSD is exported fresh by the gate; the other symbols' passing
+probes come from older export files. Until stage 3 passes, no gate run
+reaches stage 4+, which includes the gold1 import, the gold2 37/37
+reconciliation proof for FILL-MODE-1, and the demo grading.
 
-No code defect is shown. The PENDING rule is not relaxed: a probe that
-did not run is not a pass. The exporter is in `mql5/Scripts` and is not
-changed.
+**What the next report will show.** From STAGE3-SYNC-QUOTE-1 on, the
+stage-3 FAIL text quotes the exporter's `synced` / `sync_unmet`: which
+readiness condition never held (terminal not connected / symbol not
+synchronized / no tick / tick value not > 0). That fact decides the next
+step.
 
-**Next run:** re-run the gate in FX market hours, with the terminal on
-the usual hedging account. If stage 3 fails again, include these fields
-from that run's `symbolspec_EURUSD.json`: `account_currency`,
-`account_margin_mode`, `server`, and the `denomination_probe` /
-`sync_unmet` block. Not the login.
+Until then, if the owner can, check the following on the terminal:
+- whether `symbolspec_EURUSD.json` in the last gate run's evidence folder
+  has `"sync_unmet"` in its `denomination_probe` block;
+- whether the terminal was on the usual account at stage 3.
+
+The exporter (`mql5/Scripts`) is not changed, and the PENDING rule is not
+relaxed.
 
 ## Demo safety tests (task 2: restart, netting, hedging): waiting on a demo run
 
