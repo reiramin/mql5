@@ -1,0 +1,17 @@
+{
+    "stage":  1,
+    "name":  "strict_compile",
+    "status":  "PASS",
+    "reason":  "[scope: gold2; PARTIAL run -- certifies nothing] 0 errors, 0 warnings; targets clean: DslParityRunner.mq5, Mql5Bot.mq5, Mql5BotDownloadData.mq5, Mql5BotExportSymbolSpec.mq5, Mql5BotImportFixture.mq5",
+    "scope":  [
+                  "gold2"
+              ],
+    "partial":  true,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-130454\\compile-20261012-130500.log",
+                          "sha256":  "1c2b9a21f438b8d26b56b662b132a06a34377d89c9e7227444f468ecc572115f"
+                      }
+                  ],
+    "utc":  "2026-10-12T13:05:17.0395134Z"
+}
