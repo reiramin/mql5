@@ -285,16 +285,17 @@ def test_ps1_partial_run_refuses_stages_9_and_10_before_entering_them():
     assert refusal > SRC.index('Enter-Stage 8 "reconciliation"')
     assert refusal < SRC.index('Enter-Stage 9 "archive_manifest"')
     assert refusal < SRC.index('"owner_evidence_bind.py"')
-    assert refusal < SRC.index('(Join-Path $PSScriptRoot "certify_strategy.py")')
+    assert refusal < SRC.index('@("issue-certificate"')
     block = _refusal_block()
     assert 'Record-Stage 9 "archive_manifest" "REFUSED"' in block
     assert 'Record-Stage 10 "certify" "REFUSED"' in block
     assert "[refused_scoped_run]" in block
     assert 'Finish-Gate "reconciliation"' in block
-    # the belt-and-braces guard inside stage 10 still precedes the certifier
+    # the belt-and-braces guard inside stage 10 still precedes the
+    # certificate (STAGE10-CERT-1)
     s10 = _stage('Enter-Stage 10 "certify"', 'Finish-Gate "certified"')
     guard = s10.index("if ($Script:Partial)")
-    assert guard < s10.index('(Join-Path $PSScriptRoot "certify_strategy.py")')
+    assert guard < s10.index('@("issue-certificate"')
     assert '"REFUSED"' in s10[guard:s10.index("\n}", guard)]
 
 

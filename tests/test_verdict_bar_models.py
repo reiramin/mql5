@@ -210,7 +210,9 @@ def test_ps1_accepts_bar_models_and_labels_stages_9_10():
     assert ('$Script:CertScope = if ($s8Verdict -like '
             '"MT5_VALIDATED_BAR_MODELS*") { "bar models" } else { "full" }'
             ) in PS1
-    assert '"--certificate-scope", $Script:CertScope' in PS1
+    # STAGE10-CERT-1: stage 10 certifies the verifier's own verdict; the
+    # scope is derived from that verdict by the decider, not passed in
+    assert '@("issue-certificate", "--verify", $verifyOut' in PS1
     assert "scope: \" + $Script:CertScope" in PS1
     # a scoped run is still refused at stages 9-10, whatever the verdict
     assert "[refused_scoped_run] archive manifest not built" in PS1

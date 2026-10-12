@@ -1986,3 +1986,33 @@ ask):**
 - Added the exact gate_run54 quoted_lines test.
 - The ps1 pattern appeared twice; both instances are fixed.
 - The EA stamp is recorded in BLOCKED as an optional owner item.
+
+## 2026-10-12 — gate_run55 read; STAGE10-CERT-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Merged before this:** PR #50 (`90041fe`, `[runner: demo-in-gate]`).
+
+**gate_run55** (gold2 -DemoSafety):
+- stages 7 and 8 PASS;
+- verdict `MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE`, missing [];
+- gold2 37/37 MATCH;
+- all 8 safety results VALID;
+- 9-10 REFUSED only because the run was scoped.
+
+STAGE8-EMPTY-NOTBUILT-1, RESTART-GRADE-1 and DEMO-CHECK-CRLF-1 are now
+proven live. gold1 was MATCH 18/18 in gate_run53.
+
+**Code check before `[runner: full]`:** stage 10 would SKIP, because
+`certify_config.json` is absent and `certify_strategy.py` is a different,
+real-tick ladder. The owner chose a certificate of the verifier verdict
+(STAGE10-CERT-1).
+
+**Done:**
+- `gate_certificate.py`;
+- decider `issue-certificate`;
+- ps1 stage 10;
+- tests;
+- docs: DECISIONS, BLOCKED, OWNER_GATE (runner tags).
+
+**NOT done:**
+- **The full run:** built, unit-tested, never run live.
+- **docs/SHOWCASE.md:** waits for the full run's report.

@@ -98,7 +98,22 @@ All output lands under `evidence\owner_gate\<UTC>\`, append-only: one
   script never patches the gold artifacts.
 - **9. Archive manifest** — `owner_evidence_bind.py` only; no hand-typed
   hash.
-- **10. Certify** — `certify_strategy.py` records whatever state it assigns.
+- **10. Certify** — a certificate OF the stage-8 verifier verdict
+  (STAGE10-CERT-1, owner decision 2026-10-12; this replaced
+  `certify_strategy.py`). `owner_gate_decide.py issue-certificate` writes
+  `certificate/certificate.json` and `certificate.md` only when:
+  - the verdict is an unscoped `MT5_VALIDATED` or `MT5_VALIDATED_BAR_MODELS`;
+  - nothing is missing;
+  - gold1 and gold2 are both MATCH/VALID;
+  - all 8 safety results are VALID;
+  - the stage-9 archive manifest binds that exact `reconciliation_verify.json`
+    by sha256.
+
+  Anything else is a named FAIL. The certificate states its scope (bar
+  models: no real-tick claim) and makes no profitability claim.
+  - With every gold leg graded from the tester log, a passing run ends
+    `GATE_RESULT=certified_with_log_graded_legs`, kept distinct from
+    `certified` by design. Only `certified` exits 0.
 
 ## The stage-8 evidence package: what the gate builds, what the owner still supplies
 
@@ -166,6 +181,20 @@ risk_veto, meta_reduce, sl_verify) and writes `safety/<test>.json` only
 from those legs' graded windows (docs/SAFETY_8A_8D_PLAN.md). lost_response,
 restart, netting and hedging are demo-only: the gate never writes them, so
 stage 8 keeps FAILING on them until they are run on demo.
+
+## Runner trigger tags
+
+The Windows MT5 runner launches the gate when a merge commit on master
+carries a tag:
+
+| Tag | Command | What runs |
+|---|---|---|
+| `[runner: gold1]` / `[runner: gold2]` | `owner_gate.ps1 -Golds gold1` (or `gold2`) | one gold, stages 0-5 and 8; 9-10 REFUSED (scoped) |
+| `[runner: demo-in-gate]` | `owner_gate.ps1 -Golds gold2 -DemoSafety` | gold2 plus the live demo tests (stage 7); 9-10 REFUSED (scoped) |
+| `[runner: full]` | `owner_gate.ps1 -DemoSafety` (no `-Golds`) | **the certification run**: gold1 + gold2 + demo, stages 0-10. Stage 10 issues the certificate when the verifier's unscoped verdict is `MT5_VALIDATED_BAR_MODELS` (or `MT5_VALIDATED`). |
+
+The full run needs FX market hours (the demo tests place live demo
+orders) and the local demo accounts file. Neither is in the repo.
 
 ## Scoped (partial) runs: `-Golds`
 

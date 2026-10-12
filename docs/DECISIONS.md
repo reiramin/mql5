@@ -5189,3 +5189,88 @@ restart tests are unchanged and pass.
 Status: built, unit-tested, never run live. Proof is the
 `[runner: demo-in-gate]` run.
 
+## Status update — proven live in gate_run55 (2026-10-12)
+
+gate-reports `reports/gate_run55` (`33c5972`), run on master `90041fe`,
+`-Golds gold2 -DemoSafety`:
+- stage 7 PASS and stage 8 PASS;
+- verdict `MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE`, `missing: []`;
+- gold2 MATCH, 37/37 in both models;
+- all 8 safety results VALID, with restart `RESTART_RECOVERED_NO_DUPLICATE`;
+- stages 9-10 REFUSED only because the run was scoped.
+
+**Proven live in that run:**
+- STAGE8-EMPTY-NOTBUILT-1: the verifier ran;
+- RESTART-GRADE-1: restart graded VALID;
+- DEMO-CHECK-CRLF-1 and GATE-EXIT-1: `GATE_EXIT_CODE=1` recorded.
+
+gold1 was MATCH 18/18 in gate_run53 (S8-PATH-1).
+
+## STAGE10-CERT-1 — OWNER DECISION: stage 10 certifies the verifier's verdict (2026-10-12)
+
+**Finding (code read before the first `[runner: full]`).** An unscoped
+`-DemoSafety` run could never end certified.
+- Stage 10 ran `tools/certify_strategy.py --config
+  artifacts/owner_mt5_gate/certify_config.json`. That file does not exist,
+  so stage 10 recorded SKIP and the run ended `GATE_RESULT=reconciliation`.
+- Even with a config, that tool runs a different protocol (Phase-F
+  real-tick certification): its own tester ladder over real 2020-2023
+  regimes, model ladder (1, 0, 4) with the real-ticks leg REQUIRED, a
+  100-trade minimum and degradation bands. It cannot honestly certify the
+  bar-model gold parity that S8-CEILING-1 defines.
+- I did not create the config: `artifacts/` is never modified.
+
+**Decision (owner, 2026-10-12):** stage 10 issues a certificate OF the
+stage-8 verifier verdict. This supersedes the stage-10 part of
+S8-CEILING-1; the rest of S8-CEILING-1 is unchanged.
+
+`mql5bot.gate_certificate.issue_certificate` (decider
+`issue-certificate`) writes `certificate/certificate.json` and `.md`
+ONLY when all of these hold:
+- `reconciliation_verify.json` is unscoped (`partial: false`), with
+  `missing: []`;
+- the verdict is `MT5_VALIDATED` or `MT5_VALIDATED_BAR_MODELS`. Every
+  `*_PARTIAL_SCOPE` verdict is refused;
+- gold1 AND gold2 are both present, MATCH and VALID;
+- every safety result is VALID;
+- stage 9's archive manifest binds `reconciliation_verify.json` with the
+  report's current sha256.
+
+Anything else is a named FAIL, and no certificate file is written. The
+certificate states:
+- its scope (`bar models -- no real-tick claim; m1_ohlc + every_tick
+  only`);
+- the per-gold real-tick coverage;
+- the log-graded legs;
+- "No profitability claim".
+
+The final GATE_RESULT logic is unchanged: with log-graded legs a passing
+run ends `certified_with_log_graded_legs`, and only `certified` exits 0.
+
+**Tests:** `tests/test_gate_certificate.py`:
+- a positive certificate;
+- 8 named refusals;
+- the manifest binding (absent, wrong sha);
+- the decider CLI;
+- the ps1 path: an unscoped run reaches stages 9-10, there is no SKIP
+  path, and certify_strategy.py is no longer invoked.
+
+The stage-10 assertions in `test_gate_scope` and `test_verdict_bar_models`
+were updated to the new call.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No.
+  - The verifier and its verdict ladder are untouched.
+  - Stage 10 previously could only SKIP or run an unrelated protocol.
+  - It now certifies nothing the verifier did not already validate, and
+    adds checks: both golds, every safety result VALID, and the manifest
+    bound by sha.
+- **(b) Do the gold legs change behaviour at default inputs?** No; nothing
+  in mql5/ or artifacts/.
+- **(c) Are new checks re-computed by the verifier?** The certificate
+  reads the verifier's own report and re-hashes it against the archive
+  manifest at issue time.
+
+Status: built, unit-tested, never run live. Proof is the
+`[runner: full]` run.
+

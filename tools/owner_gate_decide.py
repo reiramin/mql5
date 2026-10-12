@@ -243,6 +243,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dir", required=True,
                    help="this run's demo evidence dir (<dir>/<test>/run.json)")
 
+    p = sub.add_parser("issue-certificate",
+                       help="stage 10 (STAGE10-CERT-1): certificate of the "
+                            "stage-8 verifier verdict, bound by the stage-9 "
+                            "archive manifest; refuses by name otherwise")
+    p.add_argument("--verify", required=True,
+                   help="stage 8's reconciliation_verify.json")
+    p.add_argument("--manifest", required=True,
+                   help="stage 9's archive_manifest.json")
+    p.add_argument("--out", required=True, help="directory for certificate.*")
+    p.add_argument("--real-tick-coverage", action="append", default=[],
+                   metavar="GOLD=COVERAGE")
+
     args = ap.parse_args(argv)
     repo = Path(args.repo).resolve()
 
@@ -416,6 +428,18 @@ def main(argv: list[str] | None = None) -> int:
                    if args.now else datetime.now(timezone.utc))
             return _emit(dh.demo_preflight(
                 args.accounts or dh.default_accounts_path(), repo, now))
+
+        if args.cmd == "issue-certificate":
+            from mql5bot import gate_certificate as gc
+            cov = {}
+            for pair in args.real_tick_coverage:
+                gold, sep, value = pair.partition("=")
+                if not sep or not gold.strip() or not value.strip():
+                    raise ValueError("--real-tick-coverage expects "
+                                     f"GOLD=COVERAGE, got {pair!r}")
+                cov[gold.strip()] = value.strip()
+            return _emit(gc.issue_certificate(args.verify, args.manifest,
+                                              args.out, coverage=cov))
 
         if args.cmd == "demo-in-gate-outcome":
             return _emit(dh.demo_in_gate_outcome(args.dir))

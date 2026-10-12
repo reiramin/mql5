@@ -1635,7 +1635,7 @@ $covNote = if ($covPairs.Count -gt 0) { " [real-tick coverage: " + ($covPairs -j
 if ($Script:Partial) {
     $exclNames = (@($Script:Excluded) | ForEach-Object { $_.gold }) -join ","
     Record-Stage 9 "archive_manifest" "REFUSED" ("[refused_scoped_run] archive manifest not built: scoped run over {0}; excluded: {1}" -f (@($Script:Scope) -join ","), $exclNames) @() | Out-Null
-    Record-Stage 10 "certify" "REFUSED" (("[refused_scoped_run] certify_strategy.py not run: a scoped run is never certifiable; excluded: {0}" -f $exclNames) + $covNote) @() | Out-Null
+    Record-Stage 10 "certify" "REFUSED" (("[refused_scoped_run] no certificate issued: a scoped run is never certifiable; excluded: {0}" -f $exclNames) + $covNote) @() | Out-Null
     Finish-Gate "reconciliation"
 }
 
@@ -1654,29 +1654,34 @@ if ($ap.ExitCode -ne 0) {
 Record-Stage 9 "archive_manifest" "PASS" ("evidence bound by owner_evidence_bind.py (no hand-typed hash); scope: " + $Script:CertScope) @((New-Artifact $archiveManifest)) | Out-Null
 
 # =====================================================================
-# STAGE 10 -- certify_strategy.py records whatever state it assigns
+# STAGE 10 -- certificate OF the stage-8 verifier verdict (STAGE10-CERT-1)
 # =====================================================================
+# The verdict of record is reconciliation_verify.json (stage 8); stage 9's
+# archive manifest must bind it by sha256. The decider issues a certificate
+# only for an unscoped MT5_VALIDATED / MT5_VALIDATED_BAR_MODELS with nothing
+# missing, every gold MATCH and every safety result VALID; anything else is
+# a named FAIL. tools/certify_strategy.py (a separate real-market ladder
+# that needs a real-ticks leg) is no longer run here (owner, 2026-10-12).
 Enter-Stage 10 "certify"
-$certConfig = Join-Path $RepoRoot "artifacts\owner_mt5_gate\certify_config.json"
-$certReport = Join-Path $Evidence "certification_report.md"
 if ($Script:Partial) {
     # unreachable (a scoped run is refused before stage 9); kept so that no
-    # future edit above can let certify_strategy.py run on scoped evidence
-    Record-Stage 10 "certify" "REFUSED" ("[refused_scoped_run] certify_strategy.py not run: a scoped run is never certifiable" + $covNote) @() | Out-Null
+    # future edit above can let a certificate be issued on scoped evidence
+    Record-Stage 10 "certify" "REFUSED" ("[refused_scoped_run] no certificate: a scoped run is never certifiable" + $covNote) @() | Out-Null
     Finish-Gate "certify"
 }
-if (-not (Test-Path -LiteralPath $certConfig)) {
-    Record-Stage 10 "certify" "SKIP" ("no certify_config.json present; certification state unassigned" + $covNote) @() | Out-Null
-    Finish-Gate "reconciliation"
-}
+$certDir = Join-Path $Evidence "certificate"
 $covArgs = @()
 foreach ($pair in $covPairs) { $covArgs += @("--real-tick-coverage", $pair) }
-$cp = Start-Process -FilePath $Python `
-    -ArgumentList (Get-ProcArgs (@((Join-Path $PSScriptRoot "certify_strategy.py"), "--config", $certConfig, "--out", $certReport, "--certificate-scope", $Script:CertScope) + $covArgs)) `
-    -Wait -PassThru -NoNewWindow
-$certStatus = if ($cp.ExitCode -eq 0) { "PASS" } else { "FAIL" }
-Record-Stage 10 "certify" $certStatus (("certify_strategy.py exit {0} (state recorded as assigned; certificate scope: {1})" -f $cp.ExitCode, $Script:CertScope) + $covNote) @((New-Artifact $certReport)) | Out-Null
-if ($certStatus -eq "FAIL") { Finish-Gate "certify" }
+$cert = Invoke-Decide (@("issue-certificate", "--verify", $verifyOut, "--manifest", $archiveManifest, "--out", $certDir) + $covArgs)
+$certArt = @((New-Artifact $cert.raw))
+if ($cert.ok) {
+    $certArt += @((New-Artifact (Join-Path $certDir "certificate.json")), (New-Artifact (Join-Path $certDir "certificate.md")))
+    Record-Stage 10 "certify" "PASS" (("certificate issued for verdict {0} (certificate scope: {1}; no profitability claim)" -f (Get-DataProp $cert.data "verdict"), (Get-DataProp $cert.data "certificate_scope")) + $covNote) $certArt | Out-Null
+} else {
+    $why = if ($cert.data -and (Get-DataProp $cert.data "reasons")) { (@(Get-DataProp $cert.data "reasons") -join "; ") } else { "issue-certificate gave no reasons" }
+    Record-Stage 10 "certify" "FAIL" (("[certificate_refused] {0}" -f $why) + $covNote) $certArt | Out-Null
+    Finish-Gate "certify"
+}
 
 if ($Script:Stage5FromLog) { Finish-Gate "certified_with_log_graded_legs" }
 Finish-Gate "certified"
