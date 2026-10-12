@@ -1269,6 +1269,81 @@ def real_ticks_leg_decision(tick_content: dict) -> dict:
     }
 
 
+def dsl_warmup_date_from(fixture_csv_path: Path | str,
+                         dsl_bars: int) -> dict:
+    """WARMUP-FROMDATE-1 (gate_run48): the tester FromDate that gives the EA
+    its InpDslBars closed bars of history at OnInit.
+
+    The EA builds its DSL series from the last InpDslBars closed bars and
+    refuses OnInit when fewer exist. MT5 reserves whole days of history
+    before the tester start ("start time changed to ... to provide data at
+    beginning"): gold1 (H1, FromDate = the fixture's first day) got 5 days =
+    120 bars, fewer than InpDslBars=500, and OnInit failed. gold2 (M1) never
+    did: its first day alone holds 1440 bars.
+
+    So: when the fixture's FIRST day holds >= ``dsl_bars`` bars, the start
+    stays the fixture's first day (gold2, unchanged); otherwise it is the
+    earliest fixture day with >= ``dsl_bars`` fixture bars before it. The
+    bars before it are the gold's own warm-up, read by the Python expected
+    run from the same fixture. ``date_from`` None when no day qualifies."""
+    days: list[str] = []
+    counts: dict[str, int] = {}
+    path = Path(fixture_csv_path)
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        m = re.match(r"(\d{4})[.\-/](\d{2})[.\-/](\d{2})",
+                     line.split(",", 1)[0].strip())
+        if not m:
+            continue
+        day = f"{m.group(1)}.{m.group(2)}.{m.group(3)}"
+        if day not in counts:
+            days.append(day)
+            counts[day] = 0
+        counts[day] += 1
+    days.sort()
+    if not days:
+        return {"date_from": None, "bars_before": 0,
+                "reason": f"no YYYY-MM-DD time column in {path}"}
+    if counts[days[0]] >= dsl_bars:
+        return {"date_from": days[0], "bars_before": 0,
+                "reason": (f"fixture start: its first day alone holds "
+                           f"{counts[days[0]]} >= InpDslBars={dsl_bars} bars "
+                           "(MT5 reserves whole days before the start)")}
+    before = 0
+    for d in days:
+        if before >= dsl_bars:
+            return {"date_from": d, "bars_before": before,
+                    "reason": (f"first fixture day with >= InpDslBars="
+                               f"{dsl_bars} fixture bars before it ({before}); "
+                               f"the fixture's first day holds only "
+                               f"{counts[days[0]]}")}
+        before += counts[d]
+    return {"date_from": None, "bars_before": before,
+            "reason": (f"the fixture holds {before} bars: no day has "
+                       f"InpDslBars={dsl_bars} bars before it")}
+
+
+def _earliest_expected_day(expected_path: Path) -> str | None:
+    """The earliest trade/signal/fill day in an expected_execution.json, as
+    YYYY.MM.DD (None when the file states none)."""
+    doc = json.loads(expected_path.read_text(encoding="utf-8"))
+    stamps: list[str] = []
+
+    def walk(o, key=""):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                walk(v, k)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v, key)
+        elif isinstance(o, str) and any(
+                t in key for t in ("time", "fill", "signal", "entry")):
+            m = re.match(r"(\d{4})-(\d{2})-(\d{2})", o)
+            if m:
+                stamps.append(f"{m.group(1)}.{m.group(2)}.{m.group(3)}")
+    walk(doc)
+    return min(stamps) if stamps else None
+
+
 def derive_tester_inputs(manifest_path: Path | str,
                          fixture_csv_path: Path | str,
                          fixture_display: str | None = None) -> dict:
@@ -1300,9 +1375,39 @@ def derive_tester_inputs(manifest_path: Path | str,
                 "reasons": [f"cannot derive tester period: {exc}"]}
     ticks = fixture_tick_content(manifest_path, fixture_csv_path,
                                  fixture_display)
+    wu = {"reason": "fixture start (tick fixture: its rows are ticks, not "
+                    "bars; the warm-up rule counts bars)", "bars_before": None}
+    if ticks["bar_only"]:
+        # WARMUP-FROMDATE-1: FromDate gives the EA its InpDslBars of history
+        dsl_bars = int(mt.EA_INPUT_DEFAULTS["InpDslBars"])
+        wu = dsl_warmup_date_from(fixture_csv_path, dsl_bars)
+        if wu["date_from"] is None:
+            return {"ok": False, "missing": "date_from",
+                    "reasons": [(f"cannot derive a tester start with "
+                                 f"InpDslBars={dsl_bars} bars of history: "
+                                 f"{wu['reason']}")]}
+        if wu["date_from"] != date_from:
+            # a later start must not cut off any expected trade
+            expected = Path(manifest_path).parent / "expected_execution.json"
+            try:
+                first = _earliest_expected_day(expected)
+            except (OSError, ValueError) as exc:
+                return {"ok": False, "missing": "date_from",
+                        "reasons": [(f"tester start {wu['date_from']} would be "
+                                     f"later than the fixture start {date_from}, "
+                                     f"and {expected} cannot prove no expected "
+                                     f"trade precedes it: {exc}")]}
+            if first is None or first < wu["date_from"]:
+                return {"ok": False, "missing": "date_from",
+                        "reasons": [(f"tester start {wu['date_from']} (InpDslBars "
+                                     f"warm-up) is after the earliest expected "
+                                     f"trade day {first} in {expected}")]}
+        date_from = wu["date_from"]
     rt = real_ticks_leg_decision(ticks)
     return {"ok": True, "missing": None, "reasons": [], "timeframe": tf,
             "date_from": date_from, "date_to": date_to,
+            "date_from_source": wu["reason"],
+            "dsl_bars_before_start": wu["bars_before"],
             "manifest_symbol": man.get("symbol"),
             "bar_only": ticks["bar_only"], "fixture_ticks": ticks,
             "real_ticks_leg": rt,

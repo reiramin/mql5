@@ -1854,3 +1854,31 @@ fdd7b58, with `[runner: demo] [runner: gold1]`.
 - **A live run:** the first one is the `[runner: demo-in-gate]` run.
 - **gold1 stage 5 (OnInit / DSL strategy not loaded):** recorded in
   BLOCKED.md; next item.
+
+## 2026-10-12 — gold1 OnInit (gate_run48) read; WARMUP-FROMDATE-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Evidence read:** `reports/gate_run48/gold1_oninit_lines.txt` (redacted):
+- MT5 moved the start to 2024.01.06, giving 120 H1 bars;
+- `InpDslBars=500`;
+- `DSL series build failed:` with an empty reason.
+
+The hypothesis was confirmed against the fixture (720 bars, 600 of
+constant warm-up). The tick-value hypothesis is rejected.
+
+**Done:**
+- `gate_selfcheck.derive_tester_inputs` starts a bar-only gold where
+  InpDslBars of its own fixture bars precede it: gold1 at 2024.01.30 (504
+  bars); gold2 unchanged at 2024.01.01. It refuses by name if an expected
+  trade would be cut.
+- Tests: `test_gold1_warmup_fromdate.py` (9, 7 fail on the old code), and
+  the updated gold1 start in `test_stage5_tester_legs`.
+- docs: DECISIONS WARMUP-FROMDATE-1; BLOCKED (fix + exact owner patch for
+  the empty log reason).
+
+**Checks:** ruff exit 0; full pytest exit 0 before commit.
+
+**NOT done, and why:**
+- **The EA logging fix:** `Mql5Bot.mq5` call sites; not covered by
+  exception 1 (the exact patch is in BLOCKED.md).
+- **A live run:** built, unit-tested, never run live; proof is the
+  `[runner: gold1]` run.

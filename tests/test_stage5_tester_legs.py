@@ -172,7 +172,11 @@ def test_derive_tester_inputs_from_real_gold1():
                                 REPO / "artifacts/gold/gold_fixture.csv")
     assert r["ok"], r["reasons"]
     assert r["timeframe"] == "H1"
-    assert r["date_from"] == "2024.01.01" and r["date_to"] == "2024.02.09"
+    # WARMUP-FROMDATE-1 (gate_run48): the first fixture day with
+    # InpDslBars=500 H1 bars before it, not the fixture's first day (which
+    # left the EA 120 bars at OnInit); the fixture still ends 2024.02.09
+    assert r["date_from"] == "2024.01.30" and r["date_to"] == "2024.02.09"
+    assert r["dsl_bars_before_start"] == 504
 
 
 def test_derive_tester_inputs_from_real_gold2():
@@ -180,6 +184,9 @@ def test_derive_tester_inputs_from_real_gold2():
                                 REPO / "artifacts/gold_2/gold2_fixture.csv")
     assert r["ok"], r["reasons"]
     assert r["timeframe"] == "M1"
+    # unchanged by WARMUP-FROMDATE-1: its first day alone holds 1440 bars
+    assert r["date_from"] == "2024.01.01" and r["date_to"] == "2024.01.04"
+    assert r["dsl_bars_before_start"] == 0
 
 
 def test_derive_tester_inputs_fails_naming_missing_timeframe(tmp_path: Path):
