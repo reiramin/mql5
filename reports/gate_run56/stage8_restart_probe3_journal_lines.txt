@@ -1,0 +1,32 @@
+--- logs/20261012.log lines 2624-2651 (local time UTC-7) ---
+PL	0	10:51:29.445	Startup	successfully initialized from start config "C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_ty2x67xa\startup.ini"
+FP	0	10:51:29.478	Terminal	MetaTrader 5 x64 build 6256 started for MetaQuotes Ltd.
+DQ	0	10:51:29.479	Terminal	Windows 10 build 19045 on VMware, 4 x Intel Core i9-9980HK  @ 2.40GHz, AVX2, 4 / 9 Gb memory, 19 / 59 Gb disk, UAC, GMT-8
+RQ	0	10:51:29.479	Terminal	C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075
+CM	0	10:51:29.479	Terminal	launched with C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_ty2x67xa\startup.ini
+HP	0	10:51:29.480	MCP	started on 127.0.0.1:22346
+OL	0	10:51:32.197	MQL5	58 inputs read from expert 'Mql5Bot\Mql5Bot' set file "C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Presets\mql5bot_demo_restart_3.set"
+QR	0	10:51:32.205	Experts	expert Mql5Bot (EURUSD,M1) loaded successfully
+RJ	2	10:51:38.535	Experts	initializing of Mql5Bot (EURUSD,M1) failed with code 1
+HR	0	10:51:38.543	Experts	expert Mql5Bot (EURUSD,M1) removed
+HF	0	10:51:38.600	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 0
+KE	0	10:51:38.600	Network	'<REDACTED>': previous successful authorization performed from 78.159.126.121 on 2026.10.12 20:49:58
+OD	0	10:51:39.681	Network	'<REDACTED>': terminal synchronized with MetaQuotes Ltd.: 1 positions, 0 orders, 12309 symbols, 0 spreads
+KJ	0	10:51:39.681	Network	'<REDACTED>': trading has been enabled, demo account - hedging mode
+KN	0	10:51:39.681	Network	'<REDACTED>': balance management has been disabled - demo account
+CN	1	11:03:49.992	Network	'<REDACTED>': connection to MetaQuotes-Demo lost
+PD	0	11:03:51.773	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 0
+JP	0	11:03:51.773	Network	'<REDACTED>': previous successful authorization performed from 78.159.126.121 on 2026.10.12 20:51:38
+EQ	0	11:03:53.241	Network	'<REDACTED>': terminal synchronized with MetaQuotes Ltd.: 1 positions, 0 orders, 12309 symbols, 0 spreads
+IL	0	11:03:53.241	Network	'<REDACTED>': trading has been enabled, demo account - hedging mode
+IP	0	11:03:53.241	Network	'<REDACTED>': balance management has been disabled - demo account
+MK	1	11:07:24.579	Network	'<REDACTED>': connection to MetaQuotes-Demo lost
+ER	0	11:07:55.274	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 1
+MN	0	11:07:55.274	Network	'<REDACTED>': previous successful authorization performed from 78.159.126.121 on 2026.10.12 21:03:53
+QO	0	11:07:56.187	Network	'<REDACTED>': terminal synchronized with MetaQuotes Ltd.: 1 positions, 0 orders, 12309 symbols, 0 spreads
+MN	0	11:07:56.187	Network	'<REDACTED>': trading has been enabled, demo account - hedging mode
+MR	0	11:07:56.187	Network	'<REDACTED>': balance management has been disabled - demo account
+PF	0	11:07:57.265	Network	'<REDACTED>': scanning network for access points
+--- Logs/20261012.log lines 360-361 (local time UTC-7) ---
+HO	0	10:51:38.535	Mql5Bot (EURUSD,M1)	[2026.10.12 20:48:46] [ERROR] symbol spec build failed: tick_value_loss <= 0
+ML	0	10:51:38.535	Mql5Bot (EURUSD,M1)	[2026.10.12 20:48:46] [INFO] shutting down (reason 8)

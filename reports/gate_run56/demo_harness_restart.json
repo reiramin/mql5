@@ -1,0 +1,130 @@
+{
+  "ok": false,
+  "schema": "mql5bot.demo_safety_run/2",
+  "test": "restart",
+  "status": "FAILED",
+  "account_role": "hedging",
+  "symbol": "EURUSD",
+  "period": "M1",
+  "ex5_sha256": "72f6185b39aefbd84973d788c37c774aa06ff7053ca00d433316a5c77784ecd3",
+  "steps": [
+    {
+      "utc": "2026-10-12T17:49:04+00:00",
+      "step": "start",
+      "test": "restart",
+      "account_role": "hedging"
+    },
+    {
+      "utc": "2026-10-12T17:49:04+00:00",
+      "step": "terminal_started",
+      "probe": 1
+    },
+    {
+      "utc": "2026-10-12T17:49:10+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-12T17:49:12+00:00",
+      "step": "seen: probe position opened"
+    },
+    {
+      "utc": "2026-10-12T17:49:42+00:00",
+      "step": "terminal KILLED with the probe position open"
+    },
+    {
+      "utc": "2026-10-12T17:49:52+00:00",
+      "step": "terminal_started",
+      "probe": 1
+    },
+    {
+      "utc": "2026-10-12T17:49:57+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-12T17:51:28+00:00",
+      "step": "terminal stopped after observation"
+    },
+    {
+      "utc": "2026-10-12T17:51:28+00:00",
+      "step": "terminal_started",
+      "probe": 3
+    },
+    {
+      "utc": "2026-10-12T18:09:29+00:00",
+      "step": "error",
+      "reason": "timeout after 900s waiting for 'EA START' in the EA log"
+    },
+    {
+      "utc": "2026-10-12T18:09:29+00:00",
+      "step": "terminal stopped"
+    },
+    {
+      "utc": "2026-10-12T18:09:29+00:00",
+      "step": "restore: log back in to the hedging account"
+    },
+    {
+      "utc": "2026-10-12T18:09:29+00:00",
+      "step": "terminal_started",
+      "probe": 3
+    },
+    {
+      "utc": "2026-10-12T18:09:34+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-12T18:09:35+00:00",
+      "step": "seen: restore cleanup"
+    },
+    {
+      "utc": "2026-10-12T18:09:35+00:00",
+      "step": "terminal stopped after restore"
+    },
+    {
+      "utc": "2026-10-12T18:09:35+00:00",
+      "step": "restore: persist the hedging login (KeepPrivate=1, terminal exits by itself)"
+    },
+    {
+      "utc": "2026-10-12T18:09:35+00:00",
+      "step": "terminal_started",
+      "script": "persist hedging login"
+    },
+    {
+      "utc": "2026-10-12T18:09:42+00:00",
+      "step": "terminal exited by itself: persist hedging login"
+    },
+    {
+      "utc": "2026-10-12T18:09:42+00:00",
+      "step": "terminal_started",
+      "script": "credential-less connection check"
+    },
+    {
+      "utc": "2026-10-12T18:09:49+00:00",
+      "step": "terminal exited by itself: credential-less connection check"
+    },
+    {
+      "utc": "2026-10-12T18:09:49+00:00",
+      "step": "connection check: credential-less launch connected",
+      "margin_mode": 2
+    },
+    {
+      "utc": "2026-10-12T18:09:49+00:00",
+      "step": "restore",
+      "ok": true
+    }
+  ],
+  "error": "timeout after 900s waiting for 'EA START' in the EA log",
+  "ea_log_lines": 23,
+  "restore": {
+    "account_role": "hedging",
+    "login_sha256": "991e28ce2767f08dabdaddac273f8640288501b88880fe07b44b910e8eafb8ee",
+    "margin_mode": 2,
+    "ok": true,
+    "reason": "",
+    "connect_check": {
+      "sync_unmet": "",
+      "synced": true,
+      "margin_mode": 2
+    }
+  },
+  "note": "no login, password or server is recorded (the restore login is a prefixed sha256); the EA log lines are the evidence, graded at stage 8"
+}

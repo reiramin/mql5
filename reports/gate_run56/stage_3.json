@@ -1,0 +1,38 @@
+{
+    "stage":  3,
+    "name":  "broker_parity",
+    "status":  "PASS",
+    "reason":  "12 MATCH rows; crypto PENDING excluded: BTC:sizer.behaviour, BTC:tick_value_denomination; EURUSD export: gate-run Mql5BotExportSymbolSpec (this run) C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-174443\\symbolspec_EURUSD.json",
+    "scope":  [
+                  "gold1",
+                  "gold2"
+              ],
+    "partial":  false,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-174443\\parity_report.json",
+                          "sha256":  "80901733c4f98094eff13e1ed4628bacab9bca2b3c7044feef5a314b6f4c0979"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-174443\\export_symbolspec_EURUSD.set",
+                          "sha256":  "9a211478b12778864db08adc535adec54a397e9286539d1f1aabce07ff1da54a"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-174443\\export_symbolspec_EURUSD.ini",
+                          "sha256":  "d23c1c790469ad66e43ec78f84b49778ffb32ec1cbac0c61eb63d8b7703931b3"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Files\\Mql5Bot\\broker_exports\\EURUSD.json",
+                          "sha256":  "08d64793cd908a715d940b2ba1dc2aa6c61a5c6c8579338c390f22434a13e4a2"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-174443\\symbolspec_EURUSD.json",
+                          "sha256":  "08d64793cd908a715d940b2ba1dc2aa6c61a5c6c8579338c390f22434a13e4a2"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-174443\\decide_0c5fbf6194f24480b143b4b0e40715ce.json",
+                          "sha256":  "24571cd66bd7684cb60d9c3acee306dde9febd04288258d87d9767a8e6209920"
+                      }
+                  ],
+    "utc":  "2026-10-12T17:45:29.5909057Z"
+}

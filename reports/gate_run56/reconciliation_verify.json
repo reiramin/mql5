@@ -1,0 +1,715 @@
+{
+  "archive_manifest": {
+    "reasons": [
+      "archive manifest does not bind: ['safety/restart.json']"
+    ],
+    "state": "INVALID"
+  },
+  "artifacts": {
+    "archive_manifest": {
+      "path": "archive_manifest.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "compile_log": {
+      "path": "compile/compile.log",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "compile_metadata": {
+      "path": "compile/compile_metadata.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "environment": {
+      "path": "environment.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "ex5": {
+      "path": "compile/Mql5Bot.ex5",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "hedging": {
+      "path": "safety/hedging.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "log_trades_gold1_every_tick": {
+      "path": "log_trades/gold1_every_tick.json",
+      "state": "PRESENT_UNVERIFIED",
+      "trade_source": "tester agent log"
+    },
+    "log_trades_gold1_m1_ohlc": {
+      "path": "log_trades/gold1_m1_ohlc.json",
+      "state": "PRESENT_UNVERIFIED",
+      "trade_source": "tester agent log"
+    },
+    "log_trades_gold2_every_tick": {
+      "path": "log_trades/gold2_every_tick.json",
+      "state": "PRESENT_UNVERIFIED",
+      "trade_source": "tester agent log"
+    },
+    "log_trades_gold2_m1_ohlc": {
+      "path": "log_trades/gold2_m1_ohlc.json",
+      "state": "PRESENT_UNVERIFIED",
+      "trade_source": "tester agent log"
+    },
+    "netting": {
+      "path": "safety/netting.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "parsed_gold1_every_tick": {
+      "path": "parsed/gold1_every_tick.json",
+      "state": "LOG_SOURCED"
+    },
+    "parsed_gold1_m1_ohlc": {
+      "path": "parsed/gold1_m1_ohlc.json",
+      "state": "LOG_SOURCED"
+    },
+    "parsed_gold1_real_ticks": {
+      "path": "parsed/gold1_real_ticks.json",
+      "state": "NOT_APPLICABLE"
+    },
+    "parsed_gold2_every_tick": {
+      "path": "parsed/gold2_every_tick.json",
+      "state": "LOG_SOURCED"
+    },
+    "parsed_gold2_m1_ohlc": {
+      "path": "parsed/gold2_m1_ohlc.json",
+      "state": "LOG_SOURCED"
+    },
+    "parsed_gold2_real_ticks": {
+      "path": "parsed/gold2_real_ticks.json",
+      "state": "NOT_APPLICABLE"
+    },
+    "raw_gold1_every_tick": {
+      "path": "gold1/every_tick.htm",
+      "state": "LOG_SOURCED"
+    },
+    "raw_gold1_m1_ohlc": {
+      "path": "gold1/m1_ohlc.htm",
+      "state": "LOG_SOURCED"
+    },
+    "raw_gold1_real_ticks": {
+      "path": "gold1/real_ticks.htm",
+      "state": "NOT_APPLICABLE"
+    },
+    "raw_gold2_every_tick": {
+      "path": "gold2/every_tick.htm",
+      "state": "LOG_SOURCED"
+    },
+    "raw_gold2_m1_ohlc": {
+      "path": "gold2/m1_ohlc.htm",
+      "state": "LOG_SOURCED"
+    },
+    "raw_gold2_real_ticks": {
+      "path": "gold2/real_ticks.htm",
+      "state": "NOT_APPLICABLE"
+    },
+    "real_tick_coverage": {
+      "path": "real_tick_coverage.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "reconciliation_gold1": {
+      "path": "reconciliation/gold1.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "reconciliation_gold2": {
+      "path": "reconciliation/gold2.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "safety_kill_switch": {
+      "path": "safety/kill_switch.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "safety_lost_response": {
+      "path": "safety/lost_response.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "safety_meta_reduce": {
+      "path": "safety/meta_reduce.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "safety_restart": {
+      "path": "safety/restart.json",
+      "state": "MISSING"
+    },
+    "safety_risk_veto": {
+      "path": "safety/risk_veto.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "safety_sl_verify": {
+      "path": "safety/sl_verify.json",
+      "state": "PRESENT_UNVERIFIED"
+    },
+    "symbolspec": {
+      "path": "symbolspec/symbolspec.json",
+      "state": "PRESENT_UNVERIFIED"
+    }
+  },
+  "compile": {
+    "checks": {
+      "ex5_hash": "VALID",
+      "freshness": "VALID",
+      "log_hash": "VALID",
+      "provenance_fields": "VALID",
+      "source_commit": "VALID",
+      "zero_errors": "VALID",
+      "zero_warnings": "VALID"
+    },
+    "reasons": [],
+    "source_commit_relation": {
+      "accepted": true,
+      "anchor": "6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7",
+      "frozen_files": {
+        "artifacts/gold/dsl_trace.json": {
+          "at_anchor": "07f3e9718dc7901bcf3d3e5118782da03791f97ca8cd03c08e7fde2813e11395",
+          "at_commit": "07f3e9718dc7901bcf3d3e5118782da03791f97ca8cd03c08e7fde2813e11395",
+          "pin": "07f3e9718dc7901bcf3d3e5118782da03791f97ca8cd03c08e7fde2813e11395"
+        },
+        "artifacts/gold/expected_execution.json": {
+          "at_anchor": "c4ae60fa84fd5184a659f2304bd1455f5307e4c135e987d999803535cd7ad43c",
+          "at_commit": "c4ae60fa84fd5184a659f2304bd1455f5307e4c135e987d999803535cd7ad43c",
+          "pin": "c4ae60fa84fd5184a659f2304bd1455f5307e4c135e987d999803535cd7ad43c"
+        },
+        "artifacts/gold/gold_fixture.csv": {
+          "at_anchor": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3",
+          "at_commit": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3",
+          "pin": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3"
+        },
+        "artifacts/gold/manifest.json": {
+          "at_anchor": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3",
+          "at_commit": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3",
+          "pin": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3"
+        },
+        "artifacts/gold/python_trace.json": {
+          "at_anchor": "753c89094cc0743ce09e7d89d37f5e43629a437ca607a02243262b955fc01e29",
+          "at_commit": "753c89094cc0743ce09e7d89d37f5e43629a437ca607a02243262b955fc01e29",
+          "pin": "753c89094cc0743ce09e7d89d37f5e43629a437ca607a02243262b955fc01e29"
+        },
+        "artifacts/gold/reconciliation.json": {
+          "at_anchor": "b187827ed12f2fffaa0b60fd1ec65bb923397cefc873460bec92541c65cde152",
+          "at_commit": "b187827ed12f2fffaa0b60fd1ec65bb923397cefc873460bec92541c65cde152",
+          "pin": "b187827ed12f2fffaa0b60fd1ec65bb923397cefc873460bec92541c65cde152"
+        },
+        "artifacts/gold_2/dsl_trace.json": {
+          "at_anchor": "e2a046a0e456208fb20f618352edf38d173cd69f0decab48e1b6f5a9676bb619",
+          "at_commit": "e2a046a0e456208fb20f618352edf38d173cd69f0decab48e1b6f5a9676bb619",
+          "pin": "e2a046a0e456208fb20f618352edf38d173cd69f0decab48e1b6f5a9676bb619"
+        },
+        "artifacts/gold_2/expected_execution.json": {
+          "at_anchor": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753",
+          "at_commit": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753",
+          "pin": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753"
+        },
+        "artifacts/gold_2/gold2_fixture.csv": {
+          "at_anchor": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
+          "at_commit": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
+          "pin": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79"
+        },
+        "artifacts/gold_2/manifest.json": {
+          "at_anchor": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f",
+          "at_commit": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f",
+          "pin": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f"
+        },
+        "artifacts/gold_2/python_trace.json": {
+          "at_anchor": "d0d571498dd848fc756a20237f281ea9a4dafe3ad262661f4fc6855e4138e655",
+          "at_commit": "d0d571498dd848fc756a20237f281ea9a4dafe3ad262661f4fc6855e4138e655",
+          "pin": "d0d571498dd848fc756a20237f281ea9a4dafe3ad262661f4fc6855e4138e655"
+        },
+        "artifacts/gold_2/reconciliation.json": {
+          "at_anchor": "9d68bbc1b830039c7097868efb02367a6226af0628041d140276af796dd848c3",
+          "at_commit": "9d68bbc1b830039c7097868efb02367a6226af0628041d140276af796dd848c3",
+          "pin": "9d68bbc1b830039c7097868efb02367a6226af0628041d140276af796dd848c3"
+        }
+      },
+      "reasons": [],
+      "recorded": "32664ac4b4a24ff3ab6335363e6bf99349c064a6",
+      "relation": "DESCENDANT_FROZEN_BYTES_IDENTICAL"
+    },
+    "state": "VALID"
+  },
+  "environment": {
+    "reasons": [],
+    "state": "VALID"
+  },
+  "excluded": [],
+  "first_divergence": {
+    "gold1": null,
+    "gold2": null
+  },
+  "first_trade_divergence": {
+    "gold1": null,
+    "gold2": null
+  },
+  "frozen_source_commit": "6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7",
+  "gold": {
+    "gold1": {
+      "entry_counts": {
+        "every_tick": {
+          "extra_in_mt5": 0,
+          "missing_in_mt5": 0,
+          "mt5_deals": 35,
+          "mt5_entry_deals": 18,
+          "paired": 18
+        },
+        "m1_ohlc": {
+          "extra_in_mt5": 0,
+          "missing_in_mt5": 0,
+          "mt5_deals": 35,
+          "mt5_entry_deals": 18,
+          "paired": 18
+        }
+      },
+      "first_divergence": null,
+      "first_trade_divergence": null,
+      "gold": "gold1",
+      "log_trade_counts": {
+        "every_tick": 35,
+        "m1_ohlc": 35
+      },
+      "not_applicable_models": [
+        "real_ticks"
+      ],
+      "python_trade_count": 18,
+      "reasons": [],
+      "result": "MATCH",
+      "source_commit_relation": {
+        "accepted": true,
+        "anchor": "6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7",
+        "frozen_files": {
+          "artifacts/gold/dsl_trace.json": {
+            "at_anchor": "07f3e9718dc7901bcf3d3e5118782da03791f97ca8cd03c08e7fde2813e11395",
+            "at_commit": "07f3e9718dc7901bcf3d3e5118782da03791f97ca8cd03c08e7fde2813e11395",
+            "pin": "07f3e9718dc7901bcf3d3e5118782da03791f97ca8cd03c08e7fde2813e11395"
+          },
+          "artifacts/gold/expected_execution.json": {
+            "at_anchor": "c4ae60fa84fd5184a659f2304bd1455f5307e4c135e987d999803535cd7ad43c",
+            "at_commit": "c4ae60fa84fd5184a659f2304bd1455f5307e4c135e987d999803535cd7ad43c",
+            "pin": "c4ae60fa84fd5184a659f2304bd1455f5307e4c135e987d999803535cd7ad43c"
+          },
+          "artifacts/gold/gold_fixture.csv": {
+            "at_anchor": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3",
+            "at_commit": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3",
+            "pin": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3"
+          },
+          "artifacts/gold/manifest.json": {
+            "at_anchor": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3",
+            "at_commit": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3",
+            "pin": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3"
+          },
+          "artifacts/gold/python_trace.json": {
+            "at_anchor": "753c89094cc0743ce09e7d89d37f5e43629a437ca607a02243262b955fc01e29",
+            "at_commit": "753c89094cc0743ce09e7d89d37f5e43629a437ca607a02243262b955fc01e29",
+            "pin": "753c89094cc0743ce09e7d89d37f5e43629a437ca607a02243262b955fc01e29"
+          },
+          "artifacts/gold/reconciliation.json": {
+            "at_anchor": "b187827ed12f2fffaa0b60fd1ec65bb923397cefc873460bec92541c65cde152",
+            "at_commit": "b187827ed12f2fffaa0b60fd1ec65bb923397cefc873460bec92541c65cde152",
+            "pin": "b187827ed12f2fffaa0b60fd1ec65bb923397cefc873460bec92541c65cde152"
+          },
+          "artifacts/gold_2/dsl_trace.json": {
+            "at_anchor": "e2a046a0e456208fb20f618352edf38d173cd69f0decab48e1b6f5a9676bb619",
+            "at_commit": "e2a046a0e456208fb20f618352edf38d173cd69f0decab48e1b6f5a9676bb619",
+            "pin": "e2a046a0e456208fb20f618352edf38d173cd69f0decab48e1b6f5a9676bb619"
+          },
+          "artifacts/gold_2/expected_execution.json": {
+            "at_anchor": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753",
+            "at_commit": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753",
+            "pin": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753"
+          },
+          "artifacts/gold_2/gold2_fixture.csv": {
+            "at_anchor": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
+            "at_commit": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
+            "pin": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79"
+          },
+          "artifacts/gold_2/manifest.json": {
+            "at_anchor": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f",
+            "at_commit": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f",
+            "pin": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f"
+          },
+          "artifacts/gold_2/python_trace.json": {
+            "at_anchor": "d0d571498dd848fc756a20237f281ea9a4dafe3ad262661f4fc6855e4138e655",
+            "at_commit": "d0d571498dd848fc756a20237f281ea9a4dafe3ad262661f4fc6855e4138e655",
+            "pin": "d0d571498dd848fc756a20237f281ea9a4dafe3ad262661f4fc6855e4138e655"
+          },
+          "artifacts/gold_2/reconciliation.json": {
+            "at_anchor": "9d68bbc1b830039c7097868efb02367a6226af0628041d140276af796dd848c3",
+            "at_commit": "9d68bbc1b830039c7097868efb02367a6226af0628041d140276af796dd848c3",
+            "pin": "9d68bbc1b830039c7097868efb02367a6226af0628041d140276af796dd848c3"
+          }
+        },
+        "reasons": [],
+        "recorded": "32664ac4b4a24ff3ab6335363e6bf99349c064a6",
+        "relation": "DESCENDANT_FROZEN_BYTES_IDENTICAL"
+      },
+      "state": "VALID",
+      "tick_path_divergence": {
+        "every_tick": {
+          "note": "first differing exit at deal index 1",
+          "record": {
+            "classification": "TICK_PATH_DIVERGENCE",
+            "deal_index": 1,
+            "note": "first exit whose time/price differs from the m1_ohlc leg; every deal before it is identical (time, side, volume, price, pnl). Observed and named, never a python<->MT5 divergence by itself.",
+            "observed": true,
+            "reference_deal": {
+              "lines": [
+                "MR\t0\t10:46:37.969\tCore 1\t2024.02.05 02:00:40   [2024.02.05 02:00:40] [INFO] DEAL #3 EURUSD.G1 vol=0.68 price=1.12842 pnl=157.08",
+                "JG\t0\t10:46:37.969\tCore 1\t2024.02.05 02:00:40   deal #3 sell 0.68 EURUSD.G1 at 1.12842 done (based on order #3)"
+              ],
+              "pnl": 157.08,
+              "price": 1.12842,
+              "side": "sell",
+              "ticket": 3,
+              "time": "2024.02.05 02:00:40",
+              "volume": 0.68
+            },
+            "reference_model": "m1_ohlc",
+            "tick_deal": {
+              "lines": [
+                "PF\t0\t10:47:22.121\tCore 1\t2024.02.05 02:00:43   [2024.02.05 02:00:43] [INFO] DEAL #3 EURUSD.G1 vol=0.68 price=1.12855 pnl=165.92",
+                "DS\t0\t10:47:22.121\tCore 1\t2024.02.05 02:00:43   deal #3 sell 0.68 EURUSD.G1 at 1.12855 done (based on order #3)"
+              ],
+              "pnl": 165.92,
+              "price": 1.12855,
+              "side": "sell",
+              "ticket": 3,
+              "time": "2024.02.05 02:00:43",
+              "volume": 0.68
+            },
+            "ticket": 3
+          }
+        }
+      },
+      "trade_sources": {
+        "every_tick": "tester agent log",
+        "m1_ohlc": "tester agent log",
+        "real_ticks": "not applicable (leg not launched)"
+      }
+    },
+    "gold2": {
+      "entry_counts": {
+        "every_tick": {
+          "extra_in_mt5": 0,
+          "missing_in_mt5": 0,
+          "mt5_deals": 74,
+          "mt5_entry_deals": 37,
+          "paired": 37
+        },
+        "m1_ohlc": {
+          "extra_in_mt5": 0,
+          "missing_in_mt5": 0,
+          "mt5_deals": 74,
+          "mt5_entry_deals": 37,
+          "paired": 37
+        }
+      },
+      "first_divergence": null,
+      "first_trade_divergence": null,
+      "gold": "gold2",
+      "log_trade_counts": {
+        "every_tick": 74,
+        "m1_ohlc": 74
+      },
+      "not_applicable_models": [
+        "real_ticks"
+      ],
+      "python_trade_count": 56,
+      "reasons": [],
+      "result": "MATCH",
+      "source_commit_relation": {
+        "accepted": true,
+        "anchor": "6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7",
+        "frozen_files": {
+          "artifacts/gold/dsl_trace.json": {
+            "at_anchor": "07f3e9718dc7901bcf3d3e5118782da03791f97ca8cd03c08e7fde2813e11395",
+            "at_commit": "07f3e9718dc7901bcf3d3e5118782da03791f97ca8cd03c08e7fde2813e11395",
+            "pin": "07f3e9718dc7901bcf3d3e5118782da03791f97ca8cd03c08e7fde2813e11395"
+          },
+          "artifacts/gold/expected_execution.json": {
+            "at_anchor": "c4ae60fa84fd5184a659f2304bd1455f5307e4c135e987d999803535cd7ad43c",
+            "at_commit": "c4ae60fa84fd5184a659f2304bd1455f5307e4c135e987d999803535cd7ad43c",
+            "pin": "c4ae60fa84fd5184a659f2304bd1455f5307e4c135e987d999803535cd7ad43c"
+          },
+          "artifacts/gold/gold_fixture.csv": {
+            "at_anchor": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3",
+            "at_commit": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3",
+            "pin": "074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3"
+          },
+          "artifacts/gold/manifest.json": {
+            "at_anchor": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3",
+            "at_commit": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3",
+            "pin": "54cdc8f944b6323df6a3d519f59fa65891347aafc5abe0a39207d00a3c37d7b3"
+          },
+          "artifacts/gold/python_trace.json": {
+            "at_anchor": "753c89094cc0743ce09e7d89d37f5e43629a437ca607a02243262b955fc01e29",
+            "at_commit": "753c89094cc0743ce09e7d89d37f5e43629a437ca607a02243262b955fc01e29",
+            "pin": "753c89094cc0743ce09e7d89d37f5e43629a437ca607a02243262b955fc01e29"
+          },
+          "artifacts/gold/reconciliation.json": {
+            "at_anchor": "b187827ed12f2fffaa0b60fd1ec65bb923397cefc873460bec92541c65cde152",
+            "at_commit": "b187827ed12f2fffaa0b60fd1ec65bb923397cefc873460bec92541c65cde152",
+            "pin": "b187827ed12f2fffaa0b60fd1ec65bb923397cefc873460bec92541c65cde152"
+          },
+          "artifacts/gold_2/dsl_trace.json": {
+            "at_anchor": "e2a046a0e456208fb20f618352edf38d173cd69f0decab48e1b6f5a9676bb619",
+            "at_commit": "e2a046a0e456208fb20f618352edf38d173cd69f0decab48e1b6f5a9676bb619",
+            "pin": "e2a046a0e456208fb20f618352edf38d173cd69f0decab48e1b6f5a9676bb619"
+          },
+          "artifacts/gold_2/expected_execution.json": {
+            "at_anchor": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753",
+            "at_commit": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753",
+            "pin": "5891966f6b7fe6c2814fb40e599381cbc1a6d671af86ce9abc3dee92908c1753"
+          },
+          "artifacts/gold_2/gold2_fixture.csv": {
+            "at_anchor": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
+            "at_commit": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79",
+            "pin": "59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79"
+          },
+          "artifacts/gold_2/manifest.json": {
+            "at_anchor": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f",
+            "at_commit": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f",
+            "pin": "2940161945af0847ce71453498938f2c2e588d464d9bb892d18d1911c4648b0f"
+          },
+          "artifacts/gold_2/python_trace.json": {
+            "at_anchor": "d0d571498dd848fc756a20237f281ea9a4dafe3ad262661f4fc6855e4138e655",
+            "at_commit": "d0d571498dd848fc756a20237f281ea9a4dafe3ad262661f4fc6855e4138e655",
+            "pin": "d0d571498dd848fc756a20237f281ea9a4dafe3ad262661f4fc6855e4138e655"
+          },
+          "artifacts/gold_2/reconciliation.json": {
+            "at_anchor": "9d68bbc1b830039c7097868efb02367a6226af0628041d140276af796dd848c3",
+            "at_commit": "9d68bbc1b830039c7097868efb02367a6226af0628041d140276af796dd848c3",
+            "pin": "9d68bbc1b830039c7097868efb02367a6226af0628041d140276af796dd848c3"
+          }
+        },
+        "reasons": [],
+        "recorded": "32664ac4b4a24ff3ab6335363e6bf99349c064a6",
+        "relation": "DESCENDANT_FROZEN_BYTES_IDENTICAL"
+      },
+      "state": "VALID",
+      "tick_path_divergence": {
+        "every_tick": {
+          "note": "first differing exit at deal index 33",
+          "record": {
+            "classification": "TICK_PATH_DIVERGENCE",
+            "deal_index": 33,
+            "note": "first exit whose time/price differs from the m1_ohlc leg; every deal before it is identical (time, side, volume, price, pnl). Observed and named, never a python<->MT5 divergence by itself.",
+            "observed": true,
+            "reference_deal": {
+              "lines": [
+                "LK\t0\t10:48:01.140\tCore 1\t2024.01.03 08:30:40   [2024.01.03 08:30:40] [INFO] DEAL #35 EURUSD.G2 vol=3.52 price=1.10007 pnl=137.28",
+                "DH\t0\t10:48:01.140\tCore 1\t2024.01.03 08:30:40   deal #35 sell 3.52 EURUSD.G2 at 1.10007 done (based on order #35)"
+              ],
+              "pnl": 137.28,
+              "price": 1.10007,
+              "side": "sell",
+              "ticket": 35,
+              "time": "2024.01.03 08:30:40",
+              "volume": 3.52
+            },
+            "reference_model": "m1_ohlc",
+            "tick_deal": {
+              "lines": [
+                "IF\t0\t10:48:40.845\tCore 1\t2024.01.03 08:30:05   [2024.01.03 08:30:05] [INFO] DEAL #35 EURUSD.G2 vol=3.52 price=1.10011 pnl=151.36",
+                "CM\t0\t10:48:40.845\tCore 1\t2024.01.03 08:30:05   deal #35 sell 3.52 EURUSD.G2 at 1.10011 done (based on order #35)"
+              ],
+              "pnl": 151.36,
+              "price": 1.10011,
+              "side": "sell",
+              "ticket": 35,
+              "time": "2024.01.03 08:30:05",
+              "volume": 3.52
+            },
+            "ticket": 35
+          }
+        }
+      },
+      "trade_sources": {
+        "every_tick": "tester agent log",
+        "m1_ohlc": "tester agent log",
+        "real_ticks": "not applicable (leg not launched)"
+      }
+    }
+  },
+  "log_sourced_legs": [
+    "gold1:every_tick",
+    "gold1:m1_ohlc",
+    "gold2:every_tick",
+    "gold2:m1_ohlc"
+  ],
+  "missing": [
+    "safety_restart"
+  ],
+  "model_identities": {
+    "gold1:every_tick": {
+      "model_source": "tester agent log",
+      "reasons": [],
+      "state": "VALID"
+    },
+    "gold1:m1_ohlc": {
+      "model_source": "tester agent log",
+      "reasons": [],
+      "state": "VALID"
+    },
+    "gold1:real_ticks": {
+      "model_source": "not applicable (leg not launched)",
+      "not_applicable": true,
+      "reasons": [],
+      "state": "VALID"
+    },
+    "gold2:every_tick": {
+      "model_source": "tester agent log",
+      "reasons": [],
+      "state": "VALID"
+    },
+    "gold2:m1_ohlc": {
+      "model_source": "tester agent log",
+      "reasons": [],
+      "state": "VALID"
+    },
+    "gold2:real_ticks": {
+      "model_source": "not applicable (leg not launched)",
+      "not_applicable": true,
+      "reasons": [],
+      "state": "VALID"
+    }
+  },
+  "not_applicable_legs": [
+    "gold1:real_ticks",
+    "gold2:real_ticks"
+  ],
+  "partial": false,
+  "real_tick_coverage": {
+    "coverage": "REAL_TICK_COVERAGE_NONE",
+    "reasons": [],
+    "state": "VALID"
+  },
+  "reasons": [
+    "missing artifacts: ['safety_restart']",
+    "archive manifest INVALID: [\"archive manifest does not bind: ['safety/restart.json']\"]",
+    "safety evidence missing: ['restart']",
+    "['gold1:real_ticks', 'gold2:real_ticks']: NOT_APPLICABLE_BAR_ONLY_FIXTURE (bar-only fixture, leg not launched): no report exists and none is required; real-tick coverage NONE never yields MT5_VALIDATED",
+    "trade source for ['gold1:every_tick', 'gold1:m1_ohlc', 'gold2:every_tick', 'gold2:m1_ohlc']: tester agent log (PASS_FROM_LOG log trade list; no report exists)"
+  ],
+  "safety": {
+    "hedging": {
+      "reasons": [],
+      "result": "INDEPENDENT_POSITIONS_ISOLATED_BY_MAGIC",
+      "state": "VALID"
+    },
+    "kill_switch": {
+      "reasons": [],
+      "result": "ZERO_NEW_ORDERS_WHILE_LATCHED",
+      "state": "VALID"
+    },
+    "lost_response": {
+      "reasons": [],
+      "result": "LOST_RESPONSE_ADOPTED_NO_DUPLICATE",
+      "state": "VALID"
+    },
+    "meta_reduce": {
+      "reasons": [],
+      "result": "ALL_SIZES_LE_RISK_APPROVED",
+      "state": "VALID"
+    },
+    "netting": {
+      "reasons": [],
+      "result": "NET_ONE_POSITION_PER_SYMBOL",
+      "state": "VALID"
+    },
+    "restart": {
+      "reasons": [
+        "restart evidence missing"
+      ],
+      "state": "MISSING"
+    },
+    "risk_veto": {
+      "reasons": [],
+      "result": "ENTRIES_VETOED_FOR_THE_DAY",
+      "state": "VALID"
+    },
+    "sl_verify": {
+      "reasons": [],
+      "result": "SL_STRIPPED_AND_RESTORED",
+      "state": "VALID"
+    }
+  },
+  "scope": [
+    "gold1",
+    "gold2"
+  ],
+  "symbolspec": {
+    "field_bases": {
+      "name": {
+        "declared_tester_symbols": {
+          "gold1": "EURUSD.G1",
+          "gold2": "EURUSD.G2"
+        },
+        "gold": "gold1",
+        "name": "EURUSD.G1",
+        "name_is_declared_tester_symbol": true,
+        "path": "Custom\\Mql5Bot\\gold\\EURUSD.G1",
+        "path_prefix_ok": true,
+        "path_prefix_required": "Custom\\Mql5Bot\\gold\\",
+        "rule": "S8-SPEC-3 custom-symbol identity"
+      },
+      "tick_value_profit": {
+        "export_readback": 0.0,
+        "frozen": 1.0,
+        "gold": "gold1",
+        "reasons": [],
+        "rule": "S8-SPEC-3 custom-symbol tick_value_profit",
+        "witness_a": {
+          "file": "symbolspec/import_gold1.json",
+          "ok": true,
+          "readback": "1.0000000000"
+        },
+        "witness_b": {
+          "contract_size": 100000.0,
+          "currency_profit": "USD",
+          "deposit_currency": {
+            "tester/gold1_every_tick.ini": "USD",
+            "tester/gold1_m1_ohlc.ini": "USD"
+          },
+          "product": 1.0,
+          "tick_size": 1e-05
+        }
+      }
+    },
+    "field_classes": {
+      "contract_size": "EXACT_MATCH",
+      "currency_profit": "EXACT_MATCH",
+      "digits": "UNSUPPORTED_BROKER_DIFFERENCE",
+      "freeze_level_points": "EXACT_MATCH",
+      "name": "EXACT_MATCH",
+      "point": "EXACT_MATCH",
+      "stops_level_points": "EXACT_MATCH",
+      "tick_size": "EXACT_MATCH",
+      "tick_value_loss": "UNSUPPORTED_BROKER_DIFFERENCE",
+      "tick_value_profit": "DERIVED_EXACT_MATCH",
+      "volume_limit": "EXACT_MATCH",
+      "volume_max": "EXACT_MATCH",
+      "volume_min": "EXACT_MATCH",
+      "volume_step": "EXACT_MATCH"
+    },
+    "identity": {
+      "broker": "MetaQuotes Ltd.",
+      "server": "MetaQuotes-Demo",
+      "symbol": "EURUSD.G1",
+      "terminal_build": 6256,
+      "timestamp": "2026-10-12T17:45:44Z"
+    },
+    "reasons": [],
+    "state": "VALID"
+  },
+  "trade_sources": {
+    "gold1": {
+      "every_tick": "tester agent log",
+      "m1_ohlc": "tester agent log",
+      "real_ticks": "not applicable (leg not launched)"
+    },
+    "gold2": {
+      "every_tick": "tester agent log",
+      "m1_ohlc": "tester agent log",
+      "real_ticks": "not applicable (leg not launched)"
+    }
+  },
+  "verdict": "NOT_VERIFIED_ARTIFACT_MISMATCH",
+  "verifier": "mql5bot.owner_gate"
+}

@@ -1,0 +1,22 @@
+{
+    "stage":  0,
+    "name":  "self_protection",
+    "status":  "PASS",
+    "reason":  "HEAD relates to the frozen anchor (== or newer descendant), tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located, mql5bot IN-REPO (C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\python\\mql5bot\\__init__.py v1.0.0). NOTE: HEAD 32664ac4b4a24ff3ab6335363e6bf99349c064a6 is newer than and descends from the frozen anchor 6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7; the frozen artifacts (verified separately) are what is certified, not the SHA",
+    "scope":  [
+                  "gold1",
+                  "gold2"
+              ],
+    "partial":  false,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-174443\\decide_506aa03d001942169b40f65e6cac1be6.json",
+                          "sha256":  "d436097f21100d228a94baa7ea2956994defc0503b27afa8d03f4f6f0e0c884b"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-174443\\decide_19f0d97c9b224771afb2a95a87d388ef.json",
+                          "sha256":  "e3bdff4e5f4e59a417a8f8d3db85e365c4b5d80639d8e5faaad820a65eb8e837"
+                      }
+                  ],
+    "utc":  "2026-10-12T17:44:47.7459656Z"
+}
