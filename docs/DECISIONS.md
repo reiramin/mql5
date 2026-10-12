@@ -5022,3 +5022,68 @@ byte-copied to
 Status: built, unit-tested, never run live. Proof is the next
 `[runner: gold1]` run.
 
+## DEMO-CHECK-CRLF-1 + GATE-EXIT-1 — gate_run52 stage 7: the connection check's export path carried a CR (2026-10-12)
+
+**Evidence** (gate-reports `reports/gate_run52`, `c8bc022`, `-Golds gold2
+-DemoSafety`):
+- stages 0-5 PASS, and `symbol_state` is created_fresh;
+- stage 7 FAILED `[demo_restore_not_connected]` for restart, netting and
+  hedging: "the credential-less launch wrote no export";
+- stage 8 did not run, so this run has no gold2 reconciliation;
+- the gate exit code was not captured by the runner's wrapper.
+
+The terminal journal shows each check launch "authorized on
+MetaQuotes-Demo ... terminal synchronized ... demo account - hedging mode".
+The Experts log shows: `[mql5bot] export FAILED: cannot open
+Mql5Bot\demo_connect_check\ EURUSD.json err=5004`.
+
+**Cause.** The character before `EURUSD.json` is a carriage return, not a
+space.
+- `check_preset_text()`, `export_ini()` and `startup_ini()` join their
+  lines with CRLF.
+- The harness wrote them with `Path.write_text` in text mode, which on
+  Windows turns each LF into CRLF, so the lines ended CR CR LF.
+- MT5 kept a CR in `InpExportDir`, and the exporter's `InpExportDir + sym`
+  named an invalid file.
+
+The gate's own stage-3 preset (ps1 `WriteAllText`) is byte-exact, which
+is why stage 3 always passed. Reproduced in
+`tests/test_demo_check_crlf.py` under the Windows text-mode emulation.
+
+**Change (python/ + tools/ only; mql5/ untouched).**
+- `demo_harness.write_crlf_text` writes the CRLF config files with
+  `newline=""`. The four call sites are the EA startup ini, the export
+  inis with and without login, and the check preset.
+- The EA preset (`render_set`, LF-joined) is unchanged.
+- `owner_gate.ps1` `Finish-Gate` (GATE-EXIT-1) computes the exit code
+  once and records it before `exit`, in three places: `gate_exit_code.txt`
+  in the evidence dir, `exit_code` in `gate_summary.json`, and a
+  `GATE_EXIT_CODE=` line. The wrapper that missed it is the runner's own,
+  not in tools/, so the gate records the code itself.
+
+**Tests.**
+- `tests/test_demo_check_crlf.py`:
+  - the old write reproduces the CR CR LF and the stray CR;
+  - every written value carries no whitespace;
+  - the export path is exactly `Mql5Bot\demo_connect_check\EURUSD.json`;
+  - no MT5 config text goes through a translating write.
+
+  3 of them fail on the previous harness.
+- `tests/test_gate_scope.py`: the exit-code record matches the process
+  exit code. The pinned "only certified exits 0" rule is kept in its new
+  form.
+
+**Self-review.**
+- **(a) Does any acceptance rule get weaker?** No.
+  - The connection check is unchanged and still FAILS without an export.
+  - The exit code is unchanged; it is now also recorded.
+- **(b) Do the gold legs change behaviour at default inputs?** No. Only
+  the demo harness's file bytes change; nothing in mql5/ or artifacts/.
+- **(c) Are new checks re-computed by the verifier?** The demo runs are
+  still graded at stage 8 from their run.json and EX5 binding.
+  `exit_code` is a record, not a verdict input.
+
+Status: built, unit-tested, never run live. Proof is the
+`[runner: demo-in-gate]` run: stage 7 PASS, stage 8 grading all 8 safety
+files, gold2 MATCH 37/37.
+

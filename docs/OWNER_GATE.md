@@ -187,6 +187,10 @@ nothing.**
   `certified_with_log_graded_legs`. It always ends
   `GATE_RESULT=partial_<last stage reached>`, for example
   `partial_tester_legs` or `partial_reconciliation`. The exit code is always 1.
+  The gate records its own exit code before it exits (GATE-EXIT-1):
+  `gate_exit_code.txt` in the evidence directory, `exit_code` in
+  `gate_summary.json`, and a `GATE_EXIT_CODE=` console line after
+  `GATE_RESULT=`. Only `certified` exits 0.
 - `gate_summary.json` carries `"scope"` (e.g. `["gold2"]`),
   `"certifiable": false`, `"partial": true`, `"excluded"`
   (each excluded gold with the reason) and `"unscoped_result"` (what an

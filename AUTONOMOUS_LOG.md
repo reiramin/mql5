@@ -1931,3 +1931,25 @@ Fixed forward in the next commit (no amend, no force-push):
 
 The full suite was re-run, with pytest's own exit code captured, before
 that commit. No PR was opened or merged on the failing commit.
+
+## 2026-10-12 — gate_run52/53 read; DEMO-CHECK-CRLF-1 + GATE-EXIT-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Merged before this:** PR #48 (S8-PATH-1), `93d6e45`, `[runner: gold1]`.
+**gate_run53:** gold1 MATCH/VALID, 18/18 in both models, no divergence.
+
+**gate_run52** (gold2 -DemoSafety): stage 7 FAILED. The check launch WAS
+connected; the exporter could not open `demo_connect_check\<CR>EURUSD.json`
+(err=5004). Cause: CRLF-joined config text written in Windows text mode
+became CR CR LF.
+
+**Done:**
+- the harness writes its MT5 config files byte-exact;
+- the gate records its own exit code;
+- tests: `test_demo_check_crlf.py` and `test_gate_scope.py`;
+- docs: DECISIONS, BLOCKED, OWNER_GATE.
+
+**NOT done, and why:**
+- **A live run:** built, unit-tested, never run live; proof is the
+  `[runner: demo-in-gate]` run.
+- **gold2 37/37 in this state:** not re-measured, because gate_run52
+  never reached stage 8.

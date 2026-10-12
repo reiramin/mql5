@@ -249,12 +249,16 @@ function Resolve-GateResult([string]$gateResult) {
 function Finish-Gate([string]$gateResult) {
     $unscoped = $gateResult
     $gateResult = Resolve-GateResult $gateResult
+    # GATE-EXIT-1 (gate_run52: the runner's wrapper captured no exit code):
+    # the gate records its own exit code in its evidence before it exits
+    $exitCode = if ($gateResult -eq "certified") { 0 } else { 1 }
     $summary = [ordered]@{
         gate            = "owner_mt5_certification"
         utc             = (Get-Date).ToUniversalTime().ToString("o")
         evidence_dir    = $Evidence
         first_blocking  = $Script:Blocked
         gate_result     = $gateResult
+        exit_code       = $exitCode
         scope           = @($Script:Scope)
         partial         = $Script:Partial
         # a scoped run can never certify, whatever stage it reaches
@@ -278,7 +282,10 @@ function Finish-Gate([string]$gateResult) {
     Write-Host ("  first_blocking_stage: {0}" -f ($Script:Blocked))
     Write-Host ("  summary: {0}  ({1})" -f $sumPath, (Get-Sha256 $sumPath))
     Write-Host ("GATE_RESULT={0}" -f $gateResult)
-    if ($gateResult -eq "certified") { exit 0 } else { exit 1 }
+    $exitPath = Join-Path $Evidence "gate_exit_code.txt"
+    [IO.File]::WriteAllText($exitPath, ("{0}`r`n" -f $exitCode), [Text.Encoding]::ASCII)
+    Write-Host ("GATE_EXIT_CODE={0}  ({1})" -f $exitCode, $exitPath)
+    exit $exitCode
 }
 
 # =====================================================================
