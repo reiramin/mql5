@@ -32,10 +32,14 @@ These narrow the NEVER-modify rule above; everything not listed stays fully prot
    b. the SAFETY-GATE-1 bug fix (MQLInfoInteger instead of bare MQL_TESTER constants).
    At default inputs the gold legs must behave identically. Every such change is listed
    in docs/DECISIONS.md and is proven only by the owner terminal's stage-1 strict compile.
-2. artifacts/gold/ (gold1 fixture + expected_execution) and
+   c. FILL-MODE-1: the order filling-mode selection in mql5/Include/Mql5Bot/SymbolSpec.mqh
+   (and its callers in TradeManager.mqh) may be fixed so the EA picks a filling mode the
+   broker's SYMBOL_FILLING_MODE flags actually allow. Gold-leg results must stay identical
+   (proven by the next gate run's reconciliation).
+3. artifacts/gold/ (gold1 fixture + expected_execution) and
    artifacts/owner_mt5_gate/frozen_inputs.json may be regenerated/re-anchored ONCE for
    gold1, by the existing S8-REANCHOR procedure, with hashes produced by the tools
    (never hand-typed) and a DECISIONS.md entry.
-3. Status wording: report the gate exactly as the latest gate run on branch
+4. Status wording: report the gate exactly as the latest gate run on branch
    gate-reports shows it (the "stage 5 is FAIL / stages 6-10 never ran" line above
    describes an older state).
