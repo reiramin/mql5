@@ -1,0 +1,70 @@
+# gate_run58 stage 4 journal lines (local time UTC-7). Redaction: accounts-file logins/passwords -> <REDACTED> (18 occurrences replaced); client IP -> <IP>.
+## terminal journal logs/20261013.log
+183:IH	0	02:03:52.556	Startup	successfully initialized from start config "C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-090302\import_EURUSD.G1.ini"
+184:FJ	0	02:03:52.586	Terminal	MetaTrader 5 x64 build 6256 started for MetaQuotes Ltd.
+185:FL	0	02:03:52.586	Terminal	Windows 10 build 19045 on VMware, 4 x Intel Core i9-9980HK  @ 2.40GHz, AVX2, 6 / 9 Gb memory, 18 / 59 Gb disk, UAC, GMT-8
+186:QF	0	02:03:52.586	Terminal	C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075
+187:DD	0	02:03:52.586	Terminal	launched with C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-090302\import_EURUSD.G1.ini
+188:NI	0	02:03:52.587	MCP	started on 127.0.0.1:22346
+189:CM	0	02:03:54.808	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 1
+190:CI	0	02:03:54.808	Network	'<REDACTED>': previous successful authorization performed from <IP> on 2026.10.13 12:03:43
+191:IF	0	02:03:55.185	MQL5	7 inputs read from script 'Mql5Bot\Mql5BotImportFixture' set file "C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Presets\mql5bot_import_EURUSD.G1.set"
+192:QR	0	02:03:55.191	Scripts	script Mql5BotImportFixture (EURUSD,H1) loaded successfully
+193:MM	0	02:03:55.425	Scripts	script Mql5BotImportFixture (EURUSD,H1) closes terminal with code 11
+194:IG	0	02:03:55.425	Scripts	script Mql5BotImportFixture (EURUSD,H1) removed
+195:LS	0	02:03:55.789	Network	'<REDACTED>': terminal synchronized with MetaQuotes Ltd.: 0 positions, 0 orders, 12306 symbols, 0 spreads
+196:FJ	0	02:03:55.789	Network	'<REDACTED>': trading has been enabled, demo account - hedging mode
+197:FN	0	02:03:55.789	Network	'<REDACTED>': balance management has been disabled - demo account
+198:MF	0	02:03:57.029	Terminal	exit with code 11
+199:RP	0	02:03:57.654	Network	'<REDACTED>': disconnected from MetaQuotes-Demo
+200:LI	0	02:03:57.727	Terminal	stopped with 0
+201:DO	0	02:03:57.836	Terminal	shutdown with 11
+202:CF	0	02:04:01.064	Startup	successfully initialized from start config "C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-090302\export_symbolspec_EURUSD.G1.ini"
+203:GO	0	02:04:01.094	Terminal	MetaTrader 5 x64 build 6256 started for MetaQuotes Ltd.
+204:HI	0	02:04:01.095	Terminal	Windows 10 build 19045 on VMware, 4 x Intel Core i9-9980HK  @ 2.40GHz, AVX2, 6 / 9 Gb memory, 18 / 59 Gb disk, UAC, GMT-8
+205:KI	0	02:04:01.095	Terminal	C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075
+206:EK	0	02:04:01.095	Terminal	launched with C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-090302\export_symbolspec_EURUSD.G1.ini
+207:HF	0	02:04:01.096	MCP	started on 127.0.0.1:22346
+208:KQ	0	02:04:03.272	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 1
+209:MM	0	02:04:03.272	Network	'<REDACTED>': previous successful authorization performed from <IP> on 2026.10.13 12:03:54
+210:HS	0	02:04:03.680	MQL5	2 inputs read from script 'Mql5Bot\Mql5BotExportSymbolSpec' set file "C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Presets\mql5bot_export_symbolspec_EURUSD.G1.set"
+211:MH	0	02:04:03.686	Scripts	script Mql5BotExportSymbolSpec (EURUSD.G1,H1) loaded successfully
+212:IE	0	02:04:03.697	Scripts	script Mql5BotExportSymbolSpec (EURUSD.G1,H1) closes terminal with code 2
+213:EL	0	02:04:03.697	Scripts	script Mql5BotExportSymbolSpec (EURUSD.G1,H1) removed
+214:EL	0	02:04:04.266	Network	'<REDACTED>': terminal synchronized with MetaQuotes Ltd.: 0 positions, 0 orders, 12306 symbols, 0 spreads
+215:KR	0	02:04:04.266	Network	'<REDACTED>': trading has been enabled, demo account - hedging mode
+216:KF	0	02:04:04.266	Network	'<REDACTED>': balance management has been disabled - demo account
+217:KJ	0	02:04:05.315	Terminal	exit with code 2
+218:PH	0	02:04:06.123	Network	'<REDACTED>': disconnected from MetaQuotes-Demo
+219:OQ	0	02:04:06.204	Terminal	stopped with 0
+220:LD	0	02:04:06.318	Terminal	shutdown with 2
+221:LR	0	02:04:09.577	Startup	successfully initialized from start config "C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-090302\import_EURUSD.G2.ini"
+222:IP	0	02:04:09.607	Terminal	MetaTrader 5 x64 build 6256 started for MetaQuotes Ltd.
+223:LR	0	02:04:09.608	Terminal	Windows 10 build 19045 on VMware, 4 x Intel Core i9-9980HK  @ 2.40GHz, AVX2, 6 / 9 Gb memory, 18 / 59 Gb disk, UAC, GMT-8
+224:OP	0	02:04:09.608	Terminal	C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075
+225:CN	0	02:04:09.608	Terminal	launched with C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-090302\import_EURUSD.G2.ini
+226:DS	0	02:04:09.609	MCP	started on 127.0.0.1:22346
+227:KD	0	02:04:11.891	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 1
+228:RP	0	02:04:11.891	Network	'<REDACTED>': previous successful authorization performed from <IP> on 2026.10.13 12:04:03
+229:QO	0	02:04:12.229	MQL5	7 inputs read from script 'Mql5Bot\Mql5BotImportFixture' set file "C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Presets\mql5bot_import_EURUSD.G2.set"
+230:PL	0	02:04:12.235	Scripts	script Mql5BotImportFixture (EURUSD,H1) loaded successfully
+231:GH	0	02:04:12.465	Scripts	script Mql5BotImportFixture (EURUSD,H1) closes terminal with code 8
+232:QN	0	02:04:12.465	Scripts	script Mql5BotImportFixture (EURUSD,H1) removed
+233:LM	0	02:04:12.974	Network	'<REDACTED>': terminal synchronized with MetaQuotes Ltd.: 0 positions, 0 orders, 12306 symbols, 0 spreads
+234:FS	0	02:04:12.974	Network	'<REDACTED>': trading has been enabled, demo account - hedging mode
+235:FG	0	02:04:12.974	Network	'<REDACTED>': balance management has been disabled - demo account
+236:EK	0	02:04:14.047	Terminal	exit with code 8
+237:GJ	0	02:04:14.677	Network	'<REDACTED>': disconnected from MetaQuotes-Demo
+238:QF	0	02:04:14.726	Terminal	stopped with 0
+239:IE	0	02:04:14.833	Terminal	shutdown with 8
+## Experts log MQL5/Logs/20261013.log
+33:JH	0	02:03:55.201	Mql5BotImportFixture (EURUSD,H1)	[import] STARTUP fixture_csv=Mql5Bot\gold_import\gold_fixture.csv manifest=Mql5Bot\gold_import\manifest.json symbol_spec=Mql5Bot\broker_exports\EURUSD.json
+34:HQ	0	02:03:55.201	Mql5BotImportFixture (EURUSD,H1)	[import] STARTUP symbol=EURUSD.G1 group=Mql5Bot\gold out_dir=Mql5Bot\gold_import_out out_file=Mql5Bot\gold_import_out\EURUSD.G1.json
+35:CG	0	02:03:55.201	Mql5BotImportFixture (EURUSD,H1)	[import] STARTUP out_rel=Mql5Bot\gold_import_out\EURUSD.G1.json out_abs=C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\gold_import_out\EURUSD.G1.json
+36:MK	0	02:03:55.224	Mql5BotImportFixture (EURUSD,H1)	[import] SYMBOL_STATE adopted_verified: every settable property of the surviving custom symbol EURUSD.G1 already equals the manifest spec; ZERO property writes, no deselect needed
+37:KH	0	02:03:55.425	Mql5BotImportFixture (EURUSD,H1)	[import] EURUSD.G1: 720 bars, dataset hash MATCHES manifest 074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3 symbol_state=adopted_verified -> Mql5Bot\gold_import_out\EURUSD.G1.json
+39:MJ	0	02:04:12.253	Mql5BotImportFixture (EURUSD,H1)	[import] STARTUP fixture_csv=Mql5Bot\gold_import\gold_fixture.csv manifest=Mql5Bot\gold_import\manifest.json symbol_spec=Mql5Bot\broker_exports\EURUSD.json
+40:KO	0	02:04:12.253	Mql5BotImportFixture (EURUSD,H1)	[import] STARTUP symbol=EURUSD.G2 group=Mql5Bot\gold out_dir=Mql5Bot\gold_import_out out_file=Mql5Bot\gold_import_out\EURUSD.G2.json
+41:DF	0	02:04:12.253	Mql5BotImportFixture (EURUSD,H1)	[import] STARTUP out_rel=Mql5Bot\gold_import_out\EURUSD.G2.json out_abs=C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\gold_import_out\EURUSD.G2.json
+42:KJ	0	02:04:12.322	Mql5BotImportFixture (EURUSD,H1)	[import] SYMBOL_STATE adopted_verified: every settable property of the surviving custom symbol EURUSD.G2 already equals the manifest spec; ZERO property writes, no deselect needed
+43:MQ	0	02:04:12.464	Mql5BotImportFixture (EURUSD,H1)	[import] EURUSD.G2 REFUSED [symbol_state]: adopt-in-place: CustomRatesDelete left 5760 bar(s) on EURUSD.G2; a prior fixture's bars must never survive into this dataset (last_error=0)

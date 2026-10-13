@@ -1,0 +1,186 @@
+{
+    "gate":  "owner_mt5_certification",
+    "utc":  "2026-10-13T09:04:15.9040245Z",
+    "evidence_dir":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302",
+    "first_blocking":  "fixture_import",
+    "gate_result":  "fixture_import",
+    "exit_code":  1,
+    "scope":  [
+                  "gold1",
+                  "gold2"
+              ],
+    "partial":  false,
+    "certifiable":  true,
+    "excluded":  [
+
+                 ],
+    "scope_error":  "",
+    "unscoped_result":  "fixture_import",
+    "real_tick_coverage":  {
+
+                           },
+    "stages":  [
+                   {
+                       "stage":  0,
+                       "name":  "self_protection",
+                       "status":  "PASS",
+                       "reason":  "HEAD relates to the frozen anchor (== or newer descendant), tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located, mql5bot IN-REPO (C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\python\\mql5bot\\__init__.py v1.0.0). NOTE: HEAD ab312d55eefd7458ddc2bc92b6fcd770acf2f955 is newer than and descends from the frozen anchor 6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7; the frozen artifacts (verified separately) are what is certified, not the SHA",
+                       "scope":  [
+                                     "gold1",
+                                     "gold2"
+                                 ],
+                       "partial":  false,
+                       "artifacts":  [
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\decide_6743578222c24277ba2bd7506243c8c4.json",
+                                             "sha256":  "243c62e74dc89132311484ca52b488e31eaa169286626fce5a5d094e99e700b2"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\decide_3fadd3d796f74c1ebf6bf6cb5e426a5b.json",
+                                             "sha256":  "e3bdff4e5f4e59a417a8f8d3db85e365c4b5d80639d8e5faaad820a65eb8e837"
+                                         }
+                                     ],
+                       "utc":  "2026-10-13T09:03:09.2269678Z"
+                   },
+                   {
+                       "stage":  1,
+                       "name":  "strict_compile",
+                       "status":  "PASS",
+                       "reason":  "0 errors, 0 warnings; targets clean: DslParityRunner.mq5, Mql5Bot.mq5, Mql5BotDownloadData.mq5, Mql5BotExportSymbolSpec.mq5, Mql5BotImportFixture.mq5",
+                       "scope":  [
+                                     "gold1",
+                                     "gold2"
+                                 ],
+                       "partial":  false,
+                       "artifacts":  [
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\compile-20261013-090310.log",
+                                             "sha256":  "d95b848bb498f4be6f5ec05b00996b2962dd6e6d5b49f65d14f716beef640838"
+                                         }
+                                     ],
+                       "utc":  "2026-10-13T09:03:27.0684278Z"
+                   },
+                   {
+                       "stage":  2,
+                       "name":  "dsl_parity",
+                       "status":  "PASS",
+                       "reason":  "14/14 fixtures EXACT + tampered refused",
+                       "scope":  [
+                                     "gold1",
+                                     "gold2"
+                                 ],
+                       "partial":  false,
+                       "artifacts":  [
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\dsl_compare_report.txt",
+                                             "sha256":  "32a053bc4eedbee8e0c84d48026bca03f45eaf708b43141e6067d8c76bdc76bf"
+                                         }
+                                     ],
+                       "utc":  "2026-10-13T09:03:39.1008773Z"
+                   },
+                   {
+                       "stage":  3,
+                       "name":  "broker_parity",
+                       "status":  "PASS",
+                       "reason":  "12 MATCH rows; crypto PENDING excluded: BTC:sizer.behaviour, BTC:tick_value_denomination; EURUSD export: gate-run Mql5BotExportSymbolSpec (this run) C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\symbolspec_EURUSD.json",
+                       "scope":  [
+                                     "gold1",
+                                     "gold2"
+                                 ],
+                       "partial":  false,
+                       "artifacts":  [
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\parity_report.json",
+                                             "sha256":  "29c033375f6d75edb9ecd36591724f4e6ab56a98aeece3201b9d2a55f0992206"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\export_symbolspec_EURUSD.set",
+                                             "sha256":  "9a211478b12778864db08adc535adec54a397e9286539d1f1aabce07ff1da54a"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\export_symbolspec_EURUSD.ini",
+                                             "sha256":  "d23c1c790469ad66e43ec78f84b49778ffb32ec1cbac0c61eb63d8b7703931b3"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Files\\Mql5Bot\\broker_exports\\EURUSD.json",
+                                             "sha256":  "413d5cc3b1dc677dcfdba544b4fd4fea613e52b25f59665901fac2aa2e3d5ce7"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\symbolspec_EURUSD.json",
+                                             "sha256":  "413d5cc3b1dc677dcfdba544b4fd4fea613e52b25f59665901fac2aa2e3d5ce7"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\decide_e9879e4dc77e4ee7960ddb1e0e93e9a3.json",
+                                             "sha256":  "0cebb593fba9c3caea816e7f8954ba5cd95362d400ed8f054398e10bce5452a8"
+                                         }
+                                     ],
+                       "utc":  "2026-10-13T09:03:50.3426341Z"
+                   },
+                   {
+                       "stage":  4,
+                       "name":  "fixture_import",
+                       "status":  "FAIL",
+                       "reason":  "[json_refused] EURUSD.G2: importer REFUSED at stage \u0027symbol_state\u0027 (last_error=0): adopt-in-place: CustomRatesDelete left 5760 bar(s) on EURUSD.G2; a prior fixture\u0027s bars must never survive into this dataset",
+                       "scope":  [
+                                     "gold1",
+                                     "gold2"
+                                 ],
+                       "partial":  false,
+                       "artifacts":  [
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\import_EURUSD.G1.set",
+                                             "sha256":  "52cfb12343bf3291fead2ce9c0637f3c86cd102da0f38ffed916d800e6205061"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\import_EURUSD.G1_preset_decoded.txt",
+                                             "sha256":  "376b832349876c4de58c3e8b9a55c0050560e2e852c818238fd7c43b498d28fc"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Files\\Mql5Bot\\gold_import_out\\EURUSD.G1.json",
+                                             "sha256":  "ecdc773da062fbe93a617e7e5ce5b2e247616fb09cc53c650dc62cf14df4714c"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\import_EURUSD.G1.json",
+                                             "sha256":  "ecdc773da062fbe93a617e7e5ce5b2e247616fb09cc53c650dc62cf14df4714c"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\export_symbolspec_EURUSD.G1.set",
+                                             "sha256":  "9a211478b12778864db08adc535adec54a397e9286539d1f1aabce07ff1da54a"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\export_symbolspec_EURUSD.G1.ini",
+                                             "sha256":  "bcdf5bb26b91db8f01addf7f0484987956fd667ddaf87d18caf9287287c4f430"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Files\\Mql5Bot\\broker_exports\\EURUSD.G1.json",
+                                             "sha256":  "ff1efab08697fcecb25231be82693e9ac6bc95490c6f1e9aed79f840d888d77c"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\symbolspec_EURUSD.G1.json",
+                                             "sha256":  "ff1efab08697fcecb25231be82693e9ac6bc95490c6f1e9aed79f840d888d77c"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\decide_2713c894abb84b46bcc9eb7e295defab.json",
+                                             "sha256":  "6562d37eb568229e9ea17f3cb02169331f9e7354d23fab74c260c01e5f2ecfb8"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\import_EURUSD.G2.set",
+                                             "sha256":  "d87b62bf78b2c69342c02db326285fc806a386266495a8861b427f5cf01fccf2"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\import_EURUSD.G2_preset_decoded.txt",
+                                             "sha256":  "99bf72aba9ec29130e0e7922ac4ea7a2d1f22ba033830c552aabe2c4727cda41"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Files\\Mql5Bot\\gold_import_out\\EURUSD.G2.json",
+                                             "sha256":  "fc7c4d116d278cc08b4278facf3627e38bdeac6bb4a5dac6487f0b9c5786086a"
+                                         },
+                                         {
+                                             "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-090302\\import_EURUSD.G2.json",
+                                             "sha256":  "fc7c4d116d278cc08b4278facf3627e38bdeac6bb4a5dac6487f0b9c5786086a"
+                                         }
+                                     ],
+                       "utc":  "2026-10-13T09:04:15.8887103Z"
+                   }
+               ]
+}
