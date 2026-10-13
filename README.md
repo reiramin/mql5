@@ -24,13 +24,41 @@ One codebase, two layers that stay in lockstep:
 
 ---
 
+## Certification status
+
+**MT5 execution-parity and safety certificate, bar models, no real-tick
+claim, no profitability claim.**
+
+- **Run.** gate_run59 tested master `ab312d5` on the owner's Windows MT5
+  terminal, 2026-10-13. It ended `GATE_RESULT=certified_with_log_graded_legs`
+  (exit code 1 by design: every gold leg was graded from the tester log).
+  Stages 0-10 PASS.
+- **Verdict.** The stage-8 verifier's verdict is `MT5_VALIDATED_BAR_MODELS`.
+- **Gold reconciliation.** gold1 MATCH 18/18 and gold2 MATCH 37/37, in both
+  `m1_ohlc` and `every_tick`.
+- **Safety.** All 8 safety results VALID, including the live demo restart,
+  netting and hedging tests.
+- **Scope.** Execution parity of the EA with the frozen Python expectation
+  on the frozen gold fixtures, plus the 8 safety behaviours. There is no
+  real-tick leg (the fixtures are bar-only). It makes no statement about
+  returns.
+- **Evidence.** The [gate_run59 report](https://github.com/reiramin/mql5/blob/db13f551ce0c110b5fb91ab8445d5773ca1232df/reports/gate_run59/SUMMARY.md) and the
+  [certificate](https://github.com/reiramin/mql5/blob/db13f551ce0c110b5fb91ab8445d5773ca1232df/reports/gate_run59/certificate/certificate.md), both on branch
+  `gate-reports`. The certificate is bound by sha256 to
+  `reconciliation_verify.json` and `archive_manifest.json`.
+- **Showcase.** How it was built and verified: [docs/SHOWCASE.md](docs/SHOWCASE.md).
+
+The "Current status" table further down records the 2026-09-20 run and is
+kept as history. This section supersedes it.
+
 ## Reading this repository in 15 minutes
 
 For a reviewer. **The thesis:** the value here is a system that refuses its
-own evidence, not one that claims to be finished. The certification gate ran
-on the owner's machine and stopped itself at stage 5 — stages 0–4 PASS,
-stage 5 FAIL, stages 6–10 never ran, nothing certified — and the repository
-says so everywhere instead of rounding it up.
+own evidence, not one that claims to be finished. On its 2026-09-20 run the
+certification gate stopped itself at stage 5 (stages 0–4 PASS, stage 5 FAIL,
+stages 6–10 never ran), and the repository said so instead of rounding it up.
+Every later failure was root-caused the same way, until gate_run59 certified
+(see "Certification status" above).
 
 1. **[docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md)** (5 min) — the account
    of record: what is proven, with hashes, and what has never been proven.
@@ -68,6 +96,9 @@ another:
    (separate, later states).
 
 ## Current status (honest, not collapsed)
+
+> **History (2026-09-20 run).** Superseded by "Certification status"
+> above (gate_run59, 2026-10-13).
 
 The owner ran the full certification gate on 2026-09-20 (MT5 build 6184,
 Windows 10). The gate is an **11-stage ladder (stages 0–10)** that
@@ -108,8 +139,9 @@ of it and must not be read as more.
   Windows/MetaEditor/terminal; never converted to PASS by assumption.
 
 This repository state **must not be read as real-money validation**:
-no MT5 runtime evidence exists yet, and nothing here implies
-profitability.
+the MT5 evidence (gate_run59) covers execution parity on frozen bar
+fixtures and demo-account safety behaviours only, no live-money run exists,
+and nothing here implies profitability.
 
 ## The execution-surface boundary (binding)
 
