@@ -655,13 +655,24 @@ function Invoke-DemoInGate([string]$outDir, [string[]]$accArgs) {
         Write-Host ("[owner-gate] demo harness {0}: exit {1}" -f $t, $hp.ExitCode)
         if (Test-Path -LiteralPath $hOut) { [void]$arts.Add((New-Artifact $hOut)) }
         $runJson = Join-Path (Join-Path $outDir $t) "run.json"
-        if (Test-Path -LiteralPath $runJson) { [void]$arts.Add((New-Artifact $runJson)) }
+        if (Test-Path -LiteralPath $runJson) {
+            [void]$arts.Add((New-Artifact $runJson))
+            # HARNESS-SUSPEND-1: a run the host suspended is INTERRUPTED and
+            # invalid; no later test runs on this gate
+            $rs = $null
+            try { $rs = Get-DataProp (Get-Content -LiteralPath $runJson -Raw | ConvertFrom-Json) "status" } catch { $rs = $null }
+            if ($rs -eq "INTERRUPTED") {
+                Write-Host ("[owner-gate] demo harness {0}: INTERRUPTED (host suspended); no further demo test runs" -f $t)
+                break
+            }
+        }
     }
     $oc = Invoke-Decide @("demo-in-gate-outcome", "--dir", $outDir)
     [void]$arts.Add((New-Artifact $oc.raw))
     $reasons = @()
     if ($oc.data -and (Get-DataProp $oc.data "reasons")) { $reasons = @(Get-DataProp $oc.data "reasons") }
-    return [pscustomobject]@{ ok = $oc.ok; reasons = $reasons; ran = $ran; artifacts = $arts }
+    $interrupted = [bool]($oc.data -and (Get-DataProp $oc.data "interrupted"))
+    return [pscustomobject]@{ ok = $oc.ok; reasons = $reasons; ran = $ran; artifacts = $arts; interrupted = $interrupted }
 }
 
 # create the append-only evidence root now (deferred from startup): every
@@ -1447,6 +1458,10 @@ if ($DemoSafety) {
     $demoInGateDir = Join-Path $Evidence "demo_safety"
     $dig = Invoke-DemoInGate $demoInGateDir $demoAccArgs
     foreach ($a in $dig.artifacts) { [void]$s7Art.Add($a) }
+    if ($dig.interrupted) {
+        Record-Stage 7 "demo_safety" "FAIL" ("[demo_host_suspended] host suspended during the demo harness: the run is INTERRUPTED and invalid (the host must not sleep or hibernate during a gate, docs/OWNER_GATE.md): " + (@($dig.reasons) -join "; ") + " (harness: " + ($dig.ran -join ", ") + ")") @($s7Art) | Out-Null
+        Finish-Gate "demo_safety"
+    }
     if (-not $dig.ok) {
         Record-Stage 7 "demo_safety" "FAIL" ("[demo_terminal_not_restored] the terminal is NOT left logged in to the hedging account and connected without credentials -- every later gate launch would fail stage 3: " + (@($dig.reasons) -join "; ") + " (harness: " + ($dig.ran -join ", ") + ")") @($s7Art) | Out-Null
         Finish-Gate "demo_safety"

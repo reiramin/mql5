@@ -962,3 +962,94 @@ def test_cli_refuses_without_accounts(tmp_path):
                         capture_output=True, text=True, check=False)
     assert cp.returncode == 1
     assert "no accounts file" in json.loads(cp.stdout)["error"]
+
+
+# --- HARNESS-SUSPEND-1 (gate_run57) -----------------------------------------
+
+class FakeClock:
+    """A wall clock that a sleep advances; ``jump`` seconds are added
+    during the ``jump_at``-th sleep (a host suspend)."""
+
+    def __init__(self, jump_at: int | None = None, jump: float = 0):
+        self.t = 1_791_844_983.0                   # 2026-10-12T22:43:03Z
+        self.n, self.jump_at, self.jump = 0, jump_at, jump
+
+    def __call__(self) -> float:
+        return self.t
+
+    def sleep(self, s: float) -> None:
+        self.n += 1
+        self.t += s
+        if self.n == self.jump_at:
+            self.t += self.jump
+
+
+def _clocked_harness(tmp_path, accounts, clock):
+    h, fake = _harness(tmp_path, accounts, "restart")
+    h.sleep, h.clock = clock.sleep, clock
+    return h, fake
+
+
+def test_a_host_suspend_interrupts_the_run_and_never_continues(
+        tmp_path, accounts):
+    # gate_run57: the restart run's steps jumped 22:43:03 -> 07:44:31 UTC
+    clock = FakeClock(jump_at=1, jump=9 * 3600 + 88)
+    h, fake = _clocked_harness(tmp_path, accounts, clock)
+    rec = h.run()
+    assert rec["status"] == dh.STATUS_INTERRUPTED
+    assert rec["error"].startswith("[host_suspended] host suspended: ")
+    assert rec["suspended"]["gap_s"] == 9 * 3600 + 88
+    assert rec["suspended"]["from_utc"] == "2026-10-12T22:43:03+00:00"
+    # the test is not continued: no kill-and-relaunch of probe 1; only the
+    # restore's cleanup launch follows
+    assert fake.launches == [1, 3]
+    assert not any("KILLED" in s["step"] for s in rec["steps"])
+    steps = [s["step"] for s in rec["steps"]]
+    assert steps.index("host suspended") < steps.index("error")
+    assert rec["restore"]["ok"] is True       # cleanup still ran
+    on_disk = json.loads((tmp_path / "out/restart/run.json").read_text())
+    assert on_disk["status"] == "INTERRUPTED"
+
+
+def test_step_times_come_from_the_injected_clock(tmp_path, accounts):
+    clock = FakeClock()
+    h, _ = _clocked_harness(tmp_path, accounts, clock)
+    rec = h.run()
+    assert rec["status"] == "COMPLETED"
+    assert rec["suspended"] is None
+    assert rec["steps"][0]["utc"] == "2026-10-12T22:43:03+00:00"
+
+
+@pytest.mark.parametrize("jump,suspended", [
+    (dh.SUSPEND_GAP_S, False), (dh.SUSPEND_GAP_S + 1, True)])
+def test_the_suspend_threshold(tmp_path, accounts, jump, suspended):
+    clock = FakeClock(jump_at=1, jump=jump)
+    h, _ = _clocked_harness(tmp_path, accounts, clock)
+    h._pace_reset()
+    if suspended:
+        with pytest.raises(dh.HostSuspended, match=r"\[host_suspended\]"):
+            h._pace(1)
+    else:
+        h._pace(1)
+    assert (h.suspended is not None) is suspended
+
+
+def test_slow_work_inside_one_iteration_counts_too(tmp_path, accounts):
+    # the gap is measured iteration to iteration, not only across the sleep
+    clock = FakeClock()
+    h, _ = _clocked_harness(tmp_path, accounts, clock)
+    h._pace_reset()
+    h._pace(1)
+    clock.t += dh.SUSPEND_GAP_S + 5               # suspended while polling
+    with pytest.raises(dh.HostSuspended):
+        h._pace(1)
+
+
+def test_every_polling_loop_paces_through_the_guard():
+    src = (REPO / "python/mql5bot/demo_harness.py").read_text("utf-8")
+    body = src[src.index("class Harness:"):]
+    assert body.count("self.sleep(") == 1          # only inside _pace
+    for fn in ("def _wait_start(", "def _wait(", "def _observe("):
+        i = body.index(fn)
+        seg = body[i:body.index("\n    def ", i + 1)]
+        assert "self._pace_reset()" in seg and "self._pace(1)" in seg, fn

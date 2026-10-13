@@ -231,7 +231,10 @@ def test_ps1_stage_7_sits_between_stage_5_and_stage_8():
     assert '$demoInGateDir = Join-Path $Evidence "demo_safety"' in body
     assert "Invoke-DemoInGate $demoInGateDir $demoAccArgs" in body
     assert "[demo_terminal_not_restored]" in body
-    assert body.count('Finish-Gate "demo_safety"') == 2
+    assert body.count('Finish-Gate "demo_safety"') == 3
+    # HARNESS-SUSPEND-1: a suspended run is its own named failure, first
+    assert body.index("if ($dig.interrupted) {") < body.index(
+        "[demo_host_suspended]") < body.index("[demo_terminal_not_restored]")
     assert "NOT a safety grade" in body
 
 
@@ -277,14 +280,17 @@ restore = {"ok": not bad, "margin_mode": 2,
                       "launch is NOT connected") if bad else "",
            "connect_check": {"sync_unmet": "terminal not connected" if bad
                              else "", "synced": not bad, "margin_mode": 2}}
-json.dump({"status": "FAILED" if bad else "COMPLETED", "restore": restore,
-           "argv": a}, open(os.path.join(d, "run.json"), "w"))
+susp = os.environ.get("FAKE_SUSPENDED_TEST") == test
+status = "INTERRUPTED" if susp else "FAILED" if bad else "COMPLETED"
+json.dump({"status": status, "restore": restore, "argv": a,
+           "error": "[host_suspended] host suspended: x" if susp else None},
+          open(os.path.join(d, "run.json"), "w"))
 print(json.dumps({"ok": not bad}))
-sys.exit(1 if bad else 0)
+sys.exit(1 if bad or susp else 0)
 '''
 
 
-def _run_fn(tmp_path: Path, bad: str = ""):
+def _run_fn(tmp_path: Path, bad: str = "", suspended: str = ""):
     pwsh = _pwsh()
     if not pwsh:
         pytest.skip("no PowerShell host on this machine")
@@ -307,11 +313,13 @@ def _run_fn(tmp_path: Path, bad: str = ""):
         ("$r = Invoke-DemoInGate (Join-Path $Evidence 'demo_safety') "
          "@('--accounts', 'C:\\acc.json')"),
         ("[Console]::Out.Write((ConvertTo-Json -InputObject @{ ok = $r.ok; "
-         "reasons = @($r.reasons); ran = @($r.ran) } -Compress))"),
+         "reasons = @($r.reasons); ran = @($r.ran); "
+         "interrupted = $r.interrupted } -Compress))"),
     ])
     script = tmp_path / "h.ps1"
     script.write_text(body, encoding="utf-8")
-    env = dict(os.environ, FAKE_BAD_TEST=bad)
+    env = dict(os.environ, FAKE_BAD_TEST=bad,
+               FAKE_SUSPENDED_TEST=suspended)
     cp = subprocess.run([pwsh, "-NoProfile", "-ExecutionPolicy", "Bypass",
                          "-File", str(script)], capture_output=True,
                         text=True, env=env, check=False, timeout=300)
@@ -347,3 +355,41 @@ def test_no_credential_reaches_the_gate_evidence(tmp_path):
         if f.is_file():
             text = f.read_text(errors="replace")
             assert not re.search(r"s3cret|Password=", text), f
+
+
+# --------------------------------------------- HARNESS-SUSPEND-1 (gate_run57)
+
+def test_an_interrupted_run_is_a_named_failure_first(tmp_path):
+    for t in dh.TESTS:
+        _run(tmp_path, t)
+    _run(tmp_path, "restart", status=dh.STATUS_INTERRUPTED)
+    r = dh.demo_in_gate_outcome(tmp_path)
+    # its restore is fine, it is still invalid
+    assert r["ok"] is False and r["interrupted"] is True
+    assert r["reasons"] == ["[demo_host_suspended] restart: x"]
+
+
+def test_no_interrupted_run_no_flag(tmp_path):
+    for t in dh.TESTS:
+        _run(tmp_path, t)
+    assert dh.demo_in_gate_outcome(tmp_path)["interrupted"] is False
+
+
+def test_decider_fails_an_interrupted_run(tmp_path):
+    for t in dh.TESTS:
+        _run(tmp_path, t)
+    _run(tmp_path, "hedging", status=dh.STATUS_INTERRUPTED)
+    cp = _decide("demo-in-gate-outcome", "--dir", str(tmp_path))
+    assert cp.returncode == 1
+    out = json.loads(cp.stdout)
+    assert out["interrupted"] is True
+    assert out["reasons"][0].startswith("[demo_host_suspended] hedging")
+
+
+def test_invoke_demo_in_gate_stops_after_an_interrupted_run(tmp_path):
+    r, ev = _run_fn(tmp_path, suspended="restart")
+    assert r["ran"] == ["restart=exit 1"]       # no further test runs
+    assert not (ev / "demo_safety" / "netting").exists()
+    assert r["ok"] is False and r["interrupted"] is True
+    assert r["reasons"][0] == ("[demo_host_suspended] restart: "
+                               "[host_suspended] host suspended: x")

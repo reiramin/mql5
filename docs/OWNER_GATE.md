@@ -196,6 +196,21 @@ carries a tag:
 The full run needs FX market hours (the demo tests place live demo
 orders) and the local demo accounts file. Neither is in the repo.
 
+**Runner rules (HARNESS-SUSPEND-1, gate_run57).**
+- The host must not sleep or hibernate during a gate. Disable sleep,
+  hibernation and lid-close suspend for the whole run (on a laptop: plugged
+  in, "never sleep"). The same holds for the VM the terminal runs in.
+- A run that spans a host suspend is **invalid**, whatever it shows. The
+  demo harness watches the wall clock between its polling iterations
+  (about 1 s apart). A gap of more than 300 s aborts the test at once,
+  never continuing it. The run's `run.json` then has `"status":
+  "INTERRUPTED"`, an error starting `[host_suspended] host suspended`, and
+  a `suspended` record (`from_utc`, `to_utc`, `gap_s`). The harness still
+  runs its restore, so the probe position is closed and the terminal is
+  left on the hedging account.
+- Stage 7 then FAILs with `[demo_host_suspended]`, and no later demo test
+  runs in that gate. Re-run the whole gate with the host kept awake.
+
 ## Scoped (partial) runs: `-Golds`
 
 ```
