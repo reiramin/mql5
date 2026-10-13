@@ -1,0 +1,214 @@
+{
+    "stage":  5,
+    "name":  "tester_legs",
+    "status":  "PASS_FROM_LOG",
+    "reason":  "legs: 0 passed from report, 4 passed from log (PASS_FROM_LOG, source: tester agent log), 0 blocked, 0 failed, 2 not applicable (NOT_APPLICABLE_BAR_ONLY_FIXTURE: not launched, not a pass). Real-tick coverage NONE: gold1: real-tick coverage NONE (bar-only fixture); gold2: real-tick coverage NONE (bar-only fixture) -- the real_ticks leg was not run (owner decision 2026-10-03, DECISIONS.md option 2); this stage proves nothing about real ticks. dataset hash intact after the legs. gold1_m1_ohlc: exit 1; PASS_FROM_LOG (evidence class distinct from the report-based PASS; source: tester agent log) ? this leg\u0027s own window shows successfully finished, 192 bars for EURUSD.G1, history quality 0%, and MT5 ran the requested model \u00271 minute OHLC\u0027. No report metrics exist for this leg. Tester log (this leg only): HL\t0\t04:07:20.779\tTester\tlast test passed with result \"successfully finished\" in 0:00:17.107 | PD\t0\t04:07:19.668\tCore 1\tEURUSD.G1,H1: 768 ticks, 192 bars generated. Environment synchronized in 0:00:00.049. Test passed in 0:00:17.107. | GI\t2\t04:07:02.569\tTester\tquality of analyzed history is 0% (216 minute bars, tick volume errors 0, spread errors 0) | GQ\t0\t04:07:08.671\tCore 1\tEURUSD.G1,H1 (MetaQuotes-Demo): 1 minutes OHLC ticks generating | QF\t0\t04:07:08.671\tCore 1\t2024.01.30 00:00:00   [mql5bot] DSL bundle loaded from common: Mql5Bot\\gold_bundles\\ema_crossover_ref_v1_EURUSD.G1.bundle.json | FM\t0\t04:07:08.671\tCore 1\t2024.01.30 00:00:00   [2024.01.30 00:00:00] [INFO] generic DSL execution enabled: ema_crossover_ref; gold1_every_tick: exit 1; PASS_FROM_LOG (evidence class distinct from the report-based PASS; source: tester agent log) ? this leg\u0027s own window shows successfully finished, 192 bars for EURUSD.G1, history quality 0%, and MT5 ran the requested model \u0027Every tick\u0027. No report metrics exist for this leg. Tester log (this leg only): GM\t0\t04:08:06.361\tTester\tlast test passed with result \"successfully finished\" in 0:00:17.229 | PG\t0\t04:08:05.218\tCore 1\tEURUSD.G1,H1: 287040 ticks, 192 bars generated. Environment synchronized in 0:00:00.033. Test passed in 0:00:17.229 (including ticks preprocessing 0:00:00.016). | OE\t2\t04:07:47.997\tTester\tquality of analyzed history is 0% (216 minute bars, tick volume errors 0, spread errors 0) | MR\t0\t04:07:54.100\tCore 1\tEURUSD.G1,H1 (MetaQuotes-Demo): every tick generating | QP\t0\t04:07:54.100\tCore 1\t2024.01.30 00:00:00   [mql5bot] DSL bundle loaded from common: Mql5Bot\\gold_bundles\\ema_crossover_ref_v1_EURUSD.G1.bundle.json | FS\t0\t04:07:54.100\tCore 1\t2024.01.30 00:00:00   [2024.01.30 00:00:00] [INFO] generic DSL execution enabled: ema_crossover_ref; gold1_real_ticks: NOT_APPLICABLE_BAR_ONLY_FIXTURE: fixture artifacts/gold/gold_fixture.csv is bar-only (fixture header is the bar schema time,open,high,low,close,volume and the manifest declares no tick dataset); the stage-4 importer writes bars only (CustomRatesUpdate, no CustomTicksAdd), so a real-ticks test of this symbol has no ticks to run on. Leg NOT launched per owner decision 2026-10-03 (DECISIONS.md option 2). Real-tick coverage: NONE (bar-only fixture). NOT a pass -- leg NOT launched, NOT a pass; gold2_m1_ohlc: exit 1; PASS_FROM_LOG (evidence class distinct from the report-based PASS; source: tester agent log) ? this leg\u0027s own window shows successfully finished, 2880 bars for EURUSD.G2, history quality 100%, and MT5 ran the requested model \u00271 minute OHLC\u0027. No report metrics exist for this leg. Tester log (this leg only): EM\t0\t04:08:41.856\tTester\tlast test passed with result \"successfully finished\" in 0:00:06.160 | NH\t0\t04:08:40.723\tCore 1\tEURUSD.G2,M1: 11520 ticks, 2880 bars generated. Environment synchronized in 0:00:00.034. Test passed in 0:00:06.160. | RN\t0\t04:08:34.570\tTester\tquality of analyzed history is 100% | PO\t0\t04:08:40.673\tCore 1\tEURUSD.G2,M1 (MetaQuotes-Demo): 1 minutes OHLC ticks generating | EN\t0\t04:08:40.673\tCore 1\t2024.01.02 00:00:00   [mql5bot] DSL bundle loaded from common: Mql5Bot\\gold_bundles\\gold2_multifactor_v1_EURUSD.G2.bundle.json | LM\t0\t04:08:40.673\tCore 1\t2024.01.02 00:00:00   [2024.01.02 00:00:00] [INFO] generic DSL execution enabled: gold2_multifactor; gold2_every_tick: exit 1; PASS_FROM_LOG (evidence class distinct from the report-based PASS; source: tester agent log) ? this leg\u0027s own window shows successfully finished, 2880 bars for EURUSD.G2, history quality 100%, and MT5 ran the requested model \u0027Every tick\u0027. No report metrics exist for this leg. Tester log (this leg only): KM\t0\t04:09:14.579\tTester\tlast test passed with result \"successfully finished\" in 0:00:07.072 | DJ\t0\t04:09:13.430\tCore 1\tEURUSD.G2,M1: 1894944 ticks, 2880 bars generated. Environment synchronized in 0:00:00.084. Test passed in 0:00:07.072 (including ticks preprocessing 0:00:00.062). | QM\t0\t04:09:06.366\tTester\tquality of analyzed history is 100% | KN\t0\t04:09:12.469\tCore 1\tEURUSD.G2,M1 (MetaQuotes-Demo): every tick generating | LJ\t0\t04:09:12.469\tCore 1\t2024.01.02 00:00:00   [mql5bot] DSL bundle loaded from common: Mql5Bot\\gold_bundles\\gold2_multifactor_v1_EURUSD.G2.bundle.json | EQ\t0\t04:09:12.469\tCore 1\t2024.01.02 00:00:00   [2024.01.02 00:00:00] [INFO] generic DSL execution enabled: gold2_multifactor; gold2_real_ticks: NOT_APPLICABLE_BAR_ONLY_FIXTURE: fixture artifacts/gold_2/gold2_fixture.csv is bar-only (fixture header is the bar schema time,open,high,low,close,volume and the manifest declares no tick dataset); the stage-4 importer writes bars only (CustomRatesUpdate, no CustomTicksAdd), so a real-ticks test of this symbol has no ticks to run on. Leg NOT launched per owner decision 2026-10-03 (DECISIONS.md option 2). Real-tick coverage: NONE (bar-only fixture). NOT a pass -- leg NOT launched, NOT a pass; gold1: post-leg dataset hash intact (074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3); gold2: post-leg dataset hash intact (59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79)",
+    "scope":  [
+                  "gold1",
+                  "gold2"
+              ],
+    "partial":  false,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\decide_bb6ac354843e456fb8256c9a6b680ede.json",
+                          "sha256":  "372bf4bc324a6dfde0fe8a8ce2cf415841d66d3d374d513b68367cb18f4161d7"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\decide_ff5e43915e2d48bd9af8bb9a2cbf1e44.json",
+                          "sha256":  "28a09101b4b0a3a6f64316879c3c9ee686206ed5ecaf61c5a59c182c7f54e209"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\decide_28bf8c6c7c364d55a999f5ac303bf3ac.json",
+                          "sha256":  "eb33d310ef493dd515da3b85f6d7f18c9fa8071dd1a5e15a18eee0984f11c95d"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_m1_ohlc_bundle.json",
+                          "sha256":  "4b484450287ea008b2723c2bad7127e01c3f750943eca0746e65de7deeeafcda"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_m1_ohlc.ini",
+                          "sha256":  "10418e3bc130224a0b7e006227753d4a1695a8b2948aaef626154a102446d04e"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_m1_ohlc_cmdline.txt",
+                          "sha256":  "98677092c6c28d590a8d9447f4199bf742d522a22e781ce2716c19aa928864f4"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_m1_ohlc_stdout.txt",
+                          "sha256":  "ba6676779211c56e0ac07d53a84e7e5a0dad965f8d52db8b029f693edc9ca5a3"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_m1_ohlc_stderr.txt",
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_m1_ohlc_journal.txt",
+                          "sha256":  "00890b1977c398ba02f53a77466f746d06bb74c0bec4f8ef185350d30dbb8738"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_m1_ohlc_window.txt",
+                          "sha256":  "f7d9541f47d7a0dce036f33d38ce1ffdbc3bc63b734421c591eddba4fcca48ee"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester\\runs\\gold1_m1_ohlc_m1_1791889616\\tester.ini",
+                          "sha256":  "721e6970076947150b830517c9c3569a4782f669636802181813b0a689e48725"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_m1_ohlc_journal_tail.txt",
+                          "sha256":  "a4f8d4e507251d72fb9bbf8e1d4167ea9cb623d58b219b2ca421dcd31c575949"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\decide_00ae9b5b739d444d811c22f5e0a0ca01.json",
+                          "sha256":  "348317ae283be8f8c17cbc429cfc5bb16fc87fe2bb5d7c35a2838a595f50a530"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_m1_ohlc_log_trades.json",
+                          "sha256":  "ee17b3ede4084dfa60a57870dfe4497eaa1be78a50de0eb051e9e8e301ef8c49"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\decide_d03caa90eb3744d1b8d0790bc3fb5f6d.json",
+                          "sha256":  "3b353f097179be536dc9b05e9780e85a9b3a5f5424c58bc4429420eb9e9a74ab"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_every_tick_bundle.json",
+                          "sha256":  "4b484450287ea008b2723c2bad7127e01c3f750943eca0746e65de7deeeafcda"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_every_tick.ini",
+                          "sha256":  "7592dd0d63b464666f74b1a0d30f3db1ca486bfb689bc1a25ee20ee9af676a5b"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_every_tick_cmdline.txt",
+                          "sha256":  "b6ce4be4d75750fa896c001ed5e82978350dcaa02eccb3244567e6f176b1c49e"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_every_tick_stdout.txt",
+                          "sha256":  "6e5b4ed08ade1d90de7d796d957100c5bfb14685f6b5e439701535c971f51c07"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_every_tick_stderr.txt",
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_every_tick_journal.txt",
+                          "sha256":  "9e4d157d4c63d04c6e5e9335f4d23090bedc2b956f01ed055248d8df281d114d"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_every_tick_window.txt",
+                          "sha256":  "485ff657c27043cf9940ec48050aa22f3c67a46e40c7a4690ff4218b3e8fafc7"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester\\runs\\gold1_every_tick_m0_1791889663\\tester.ini",
+                          "sha256":  "12c969698cb587359edc6ab2db854a0e1667bbdd644bcb2068943b53824ce102"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_every_tick_journal_tail.txt",
+                          "sha256":  "420e43764c2fdee4bae0cb01a9cb4eda3d7706bf8833ad0cbaf7aaea927cd1ea"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\decide_301b7ae79a3a4b72b93f357872bbfc79.json",
+                          "sha256":  "8f5d3519a8333cece98161aeebc06b087189c0bb5c1bb7ecb220249642176a91"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold1_every_tick_log_trades.json",
+                          "sha256":  "5030e9661c55833c312af879f2058628af1cf9ee33ed312b84bcb894cf1246d9"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\decide_9450fdb02c234dde8fb5642baa3cd085.json",
+                          "sha256":  "7ceb513a7c6e156706cb0266952f2a0fd210308b6c74ecf7af4b8c094073c8ee"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_m1_ohlc_bundle.json",
+                          "sha256":  "eff744bbf8e9520ba539669bacebcf057935ef91989184ce07c7e567cd28b80b"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_m1_ohlc.ini",
+                          "sha256":  "ddad7e3cac53fe956d9e2d62584c63945db4167147e34a9ef7f593039a7b3197"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_m1_ohlc_cmdline.txt",
+                          "sha256":  "40887feee1f525a65f30594598a019115000715a079ff57994b849a7ac83d30a"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_m1_ohlc_stdout.txt",
+                          "sha256":  "ad6630602bf321eb863bb90eb19a56df11fab0691d970ef257022d3fa1090d50"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_m1_ohlc_stderr.txt",
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_m1_ohlc_journal.txt",
+                          "sha256":  "3b2fe60c1ae0f71ba78e8a091fc2a85f90a16c299550635e49763ebb37338fde"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_m1_ohlc_window.txt",
+                          "sha256":  "89edadee5ac9059acf063269474c12a0b79b2bb7d81ba5c3f8e40548bd7799c6"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester\\runs\\gold2_m1_ohlc_m1_1791889709\\tester.ini",
+                          "sha256":  "0dc950afe22f701d3b92133b8c428d76f267db64ad735bfefd4165cb9f404a15"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_m1_ohlc_journal_tail.txt",
+                          "sha256":  "e615e49393139ea419a744f266007cde82b3b13d565fa044a5d3c9a54c0097f0"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\decide_4f1e4bc918ad40a98dbf43be92e63299.json",
+                          "sha256":  "549467a13e214db591d92ef79d09fdcd2f5f2b014dc05906198631a5ff1048b7"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_m1_ohlc_log_trades.json",
+                          "sha256":  "7e42ef38a50a8b4d368fd8a1df03ce37922a248462754ea9f4aa913978aabb2f"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\decide_76a8bdfad9b041c598459886fc4b43a9.json",
+                          "sha256":  "9add60f74640d1385fc891e849ffecd13d9b09190619817f5a418b8837620353"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_every_tick_bundle.json",
+                          "sha256":  "eff744bbf8e9520ba539669bacebcf057935ef91989184ce07c7e567cd28b80b"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_every_tick.ini",
+                          "sha256":  "7155ea684a405afed3152a2d8800eb7fcc672a326c99ce6d6a8fca8c9549f13b"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_every_tick_cmdline.txt",
+                          "sha256":  "b8c24dba1b93add3133389ba787f8897c81e62c70367067b7ee5b7219d55e64e"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_every_tick_stdout.txt",
+                          "sha256":  "a441a599dae1000e4906fb8ba7d29df78861f72986d9b6d906b40898c4882ce0"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_every_tick_stderr.txt",
+                          "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_every_tick_journal.txt",
+                          "sha256":  "ad604fa0ac17c381c48824e46ba3f8137ac523f0ab5d50a220d9bbb9139abfc8"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_every_tick_window.txt",
+                          "sha256":  "040206fba0581371554a23f076ad795c3c3f19f9bddf16dff03d085d21615625"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester\\runs\\gold2_every_tick_m0_1791889741\\tester.ini",
+                          "sha256":  "aadb6f77f8ee28085dc120f1476c57ee704ffd9ead4fa28e61febc769ead9838"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_every_tick_journal_tail.txt",
+                          "sha256":  "6ab3f2e4dd9c15410eba2980365b948da878586352efd335dfac3eae82390f1d"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\decide_62ff59db47cb4dab87e05e0fa639f37e.json",
+                          "sha256":  "251d2031c3819d4c7c8aecc7c6d72d32d7064f03c65e1b3d576a202f1c5722c7"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-110534\\tester_gold2_every_tick_log_trades.json",
+                          "sha256":  "73d9c68c6db6d43e83e46a77e12350fd5c3f8e54288c04090ba148a46c37acb1"
+                      }
+                  ],
+    "utc":  "2026-10-13T11:09:37.5605984Z"
+}
