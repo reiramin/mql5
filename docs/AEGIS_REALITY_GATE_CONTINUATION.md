@@ -1,5 +1,7 @@
 # AEGIS — REALITY GATE CONTINUATION AUDIT (session 2026-09-07)
 
+> Historical (2026-09-07). Superseded by OWNER_GATE.md.
+
 **Branch:** `arena/01a07c73-mql5bot` (session-pinned).
 **Parent work:** `arena/01a070b0-mql5bot` tip `b8004f81` (166 commits),
 merged into this branch by fast-forward at session start — no history

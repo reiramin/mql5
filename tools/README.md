@@ -7,10 +7,21 @@ runner) and its output is pasted back into the session — this sandbox has no
 MetaEditor and no MetaTrader 5, so **no compile or backtest result may ever
 be claimed without a real tool log** (HANDOFF §10).
 
-## Canonical owner protocol (single source of truth)
+## The owner gate (canonical)
 
-The tools in this directory execute the canonical TEN-step owner sequence
-defined in `docs/MT5_ROUNDTRIP.md`: `compile.ps1` = steps 1–2 (strict
+The certification protocol is `owner_gate.ps1` (docs/OWNER_GATE.md): it
+runs stages 0–10 itself, with `owner_gate_decide.py` making every decision
+(including the stage-10 `issue-certificate`), `demo_safety_harness.py` for
+the stage-7 demo tests, `verify_owner_mt5_gate.py` at stage 8 and
+`owner_evidence_bind.py` at stage 9. `certify_strategy.py` is not part of
+the certificate (STAGE10-CERT-1); it is kept for the empirical lane.
+
+## Historical: the manual ten-step sequence
+
+> Historical (2026-09-20). Superseded by the owner gate above.
+
+The tools in this directory executed the ten-step owner sequence defined
+in `docs/MT5_ROUNDTRIP.md`: `compile.ps1` = steps 1–2 (strict
 compile + compiler-log verification), `broker_symbol_parity.py` +
 `Mql5BotExportSymbolSpec.mq5` = step 3 (SymbolSpec export), fixture/data
 preparation = step 4, `run_mt5_backtest.py` = steps 5–7 (M1-OHLC /

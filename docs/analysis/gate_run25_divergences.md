@@ -1,5 +1,7 @@
 # gate_run25: three MT5 ↔ Python divergences (gold2, read-only analysis)
 
+> Historical (2026-10-03). Superseded by DECISIONS.md and the gate_run59 certificate.
+
 Date: 2026-10-03. Branch `feat/real-ticks-not-applicable` (base `144bff7`).
 No code was changed for this analysis, and nothing under `mql5/` was
 touched. Every fix below is a proposal.

@@ -28,8 +28,11 @@ You are the AEGIS autonomous worker. One task per run, then stop.
 4. Do that one task only, within the rules of CLAUDE.md: never touch mql5/,
    artifacts/, evidence/, logs_owner/, frozen_inputs.json,
    certification_manifest.json or any manifest; no new third-party
-   dependency; no profit claim; the gate result (stages 0-4 PASS, stage 5
-   FAIL, stages 6-10 never run) is never restated as anything better.
+   dependency; no profit claim; the gate result is reported exactly as the
+   latest run on branch gate-reports shows it (since gate_run59:
+   certified_with_log_graded_legs, MT5_VALIDATED_BAR_MODELS — an MT5
+   execution-parity and safety certificate, bar models, no real-tick claim,
+   no profitability claim) and never restated as anything better.
    Anything built but not run against a live system is described as
    "built, unit-tested, never run live".
 5. Verify: install with `pip install -e ".[dev]" -r requirements.txt` and a

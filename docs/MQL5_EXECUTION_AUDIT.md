@@ -1,5 +1,7 @@
 # MQL5 EXECUTION AUDIT — Mission 3 / AEGIS Phase 2
 
+> Historical (2026-09-20). Superseded by ARCHITECTURE.md and CERTIFICATION.md.
+
 Source-level audit of every trade path in `mql5/` against the five-stage
 contract **REQUEST → RESULT → VERIFICATION → RECOVERY → FAILURE**. This is a
 code audit, not a live-behaviour certification: MT5 compile and Strategy

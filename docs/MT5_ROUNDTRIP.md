@@ -1,5 +1,7 @@
 # AEGIS — MT5 TRUTH ROUND-TRIP (owner workflow, Phase 3 hardening)
 
+> Historical (2026-09-20). Superseded by OWNER_GATE.md (tools/owner_gate.ps1 runs these steps itself).
+
 Blocker 8 deliverable. The exact TEN-step sequence a TERMINAL OWNER
 (a Windows machine with a real MetaTrader 5 installation) runs to move
 a strategy from `EMPIRICAL_VALIDATION_PENDING` toward `VERIFIED`.

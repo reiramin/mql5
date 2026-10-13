@@ -2,8 +2,8 @@
 
 The owner's web console: six pages over the data that already exists in the
 system — the factory store, the safety chain, the telemetry bridge, and the
-gate evidence. **Built, unit-tested, never run live.** Nothing in this project
-is certified — see [OWNER_DELIVERY.md](OWNER_DELIVERY.md).
+gate evidence. **Built, unit-tested, never run live.** What is certified is
+the gate_run59 result: MT5 execution-parity and safety certificate, bar models, no real-tick claim, no profitability claim (README "Certification status").
 
 کنسول وبِ مالک: شش صفحه روی داده‌هایی که همین حالا در سیستم وجود دارد. ساخته
 و تست‌شده؛ هرگز در محیط زنده اجرا نشده است. هیچ چیزِ این پروژه گواهی نشده است.
@@ -86,7 +86,7 @@ console's same-origin proxy (`MQL5BOT_TELEMETRY_URL`); when the bridge is
 unreachable the page shows not-connected and the last-seen time.
 
 ### Certification — `/certification`
-**Read-only.** The 11-stage gate as a rail, read from the evidence directory
+**Read-only.** The gate's stages 0–10 (there is no stage 6) as a rail, read from the evidence directory
 the owner points the console at (`MQL5BOT_EVIDENCE_DIR`): per stage
 PASS / FAIL / BLOCKED / NOT RUN with the gate's own reason strings and
 artifact hashes; the stage-5 legs individually with their verdict class and
@@ -107,8 +107,9 @@ and when MT5 was last seen (from the latest heartbeat).
 - It cannot resume trading from Telegram (stop is Telegram-easy,
   resume is console-only — [TELEGRAM.md](TELEGRAM.md)).
 - It does not prove anything: the gate result on the certification page is
-  the gate's own file, and today it reads `GATE_RESULT=tester_legs` — stage 5
-  FAIL, stages 6–10 never run, nothing VERIFIED.
+  the gate's own file. It shows whatever the evidence directory it is
+  pointed at holds; the latest run of record (gate_run59) reads
+  `GATE_RESULT=certified_with_log_graded_legs`.
 
 ## Environment variables (names only)
 

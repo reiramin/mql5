@@ -1,5 +1,7 @@
 # META LAYER — SEMANTICS REVIEW (empirical-gate mission, Phase 1)
 
+> Historical (2026-09-20). Superseded by META_LAYER_CONTRACT.md.
+
 Audits contract v1.1.1 against the implementation (`meta_layer.py`,
 `meta_oos.py`, `Allocation.mqh`, `Mql5Bot.mq5`).  Verdict: internally
 consistent; ONE wording blur found and corrected (ML-9, contract

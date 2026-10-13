@@ -11,7 +11,7 @@
 | `python/mql5bot/__main__.py`, `api/__main__.py`, `notify/telegram_ops.py` | runnable entry points: `python -m mql5bot`, `python -m mql5bot.api`, `python -m mql5bot.notify.telegram_ops` |
 | `factory/`, `schemas/` | gates config, strategy JSON schema |
 | `examples/strategies/` | example specs (incl. intentionally invalid/unsupported cases) |
-| `tools/` | certification & owner tooling (compile.ps1, certify_strategy.py, run_mt5_backtest.*, build_gold*_standard.py, verify_owner_mt5_gate.py, owner_evidence_bind.py, broker_symbol_parity.py) |
+| `tools/` | the owner gate (`owner_gate.ps1`, `owner_gate_decide.py` incl. the stage-10 `issue-certificate`), `verify_owner_mt5_gate.py`, `owner_evidence_bind.py`, `demo_safety_harness.py`, `broker_symbol_parity.py`, compile.ps1, run_mt5_backtest.*, build_gold*_standard.py; `certify_strategy.py` (empirical lane, not part of the certificate) |
 | `scripts/install_mql5.py` | EA deployment into the MT5 data folder |
 | `tests/` | pytest suite (contract pins live in `test_docs_contract.py`) |
 | `artifacts/` | FROZEN evidence: `gold/`, `gold_2/`, `owner_mt5_gate/` |
@@ -23,7 +23,7 @@
 
 - **Canonical (change deliberately, with doc updates):** `SPEC.md`,
   `SYSTEM_INVARIANTS.md`, `STATE_MODEL.md`, `DECISIONS.md`,
-  `CERTIFICATION.md`, `MT5_ROUNDTRIP.md`, `KILL_SWITCH.md`,
+  `CERTIFICATION.md`, `OWNER_GATE.md`, `KILL_SWITCH.md`,
   `SAFETY_GOVERNANCE.md`, `META_LAYER_CONTRACT.md`, `WFA_CONTRACT.md`.
 - **Frozen evidence (never edit):** `artifacts/gold/`,
   `artifacts/gold_2/`, `artifacts/owner_mt5_gate/` templates'

@@ -8,8 +8,9 @@ former `TELEGRAM_ALERTS.md`).
 
 > **Built and unit-tested; never run live.** Nothing here has talked to
 > Telegram's servers or a running EA. Treat it as untested until you have run
-> it yourself. And nothing in this project is certified — see
-> [OWNER_DELIVERY.md](OWNER_DELIVERY.md).
+> it yourself. What is certified (gate_run59) is the EA's execution parity
+> and safety behaviour: MT5 execution-parity and safety certificate, bar models, no real-tick claim, no profitability claim —
+> not this Telegram surface.
 
 ## Running it
 

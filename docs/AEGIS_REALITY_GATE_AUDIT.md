@@ -1,5 +1,7 @@
 # AEGIS — REALITY GATE AUDIT
 
+> Historical (2026-09-20). Superseded by OWNER_GATE.md and CERTIFICATION.md.
+
 **Mission:** Python → DSL → MQL5 → MT5 gold-standard reconciliation
 (execution-boundary proof). **Branch:** `arena/01a070b0-mql5bot`.
 **Frozen Gold Standard:** `ema_crossover_ref` @

@@ -1,9 +1,10 @@
 # AEGIS — EMPIRICAL LANE OWNER PACKAGE DEFINITION (prepared, NOT executed)
 
 Status: **PENDING_OWNER / NOT_EXECUTED.** This document DEFINES the
-empirical-lane owner package. It is preparation only: execution happens
-after the Gold MT5 lane returns runtime evidence and passes
-reconciliation. Until then no empirical run may be claimed, and this
+empirical-lane owner package. It is preparation only. Its precondition —
+the Gold MT5 lane returning runtime evidence that passes reconciliation —
+was met by gate_run59 (`MT5_VALIDATED_BAR_MODELS`); the lane itself has not
+been run, needs human approval, and no empirical run may be claimed. This
 file must not be read as evidence of any kind.
 
 ## Lane separation (why this exists)

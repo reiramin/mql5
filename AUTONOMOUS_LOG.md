@@ -2174,3 +2174,17 @@ ruff exit 0; full pytest exit 0 (pytest's own exit code).
 **NOT done:** STATE_MODEL and SAFETY_GOVERNANCE needed no change. The
 console's own code still says "11-stage" (`api/templates/certification.html`,
 `api/main.py`). That is code, not docs, and is left for a separate change.
+
+## 2026-10-13 — DOCS-SYNC-1 PR C (remaining docs); branch `claude/aegis-safety-fixes-20aen5`
+
+**Done:**
+- 20 historical banners; WINDOWS_OWNER_HANDOFF was marked in PR B.
+- 11 partly-stale docs fixed in place, plus tools/README.md and
+  mql5_dsl_runtime/README.md.
+- No file deleted.
+
+The details, and the items found but not resolved (console code still
+says "11-stage"; the artifacts/ manuals were not touched; whether the
+CLAUDE.md exceptions still hold), are in DECISIONS "DOCS-SYNC-1 PR C".
+
+ruff exit 0; full pytest exit 0 (pytest's own exit code).

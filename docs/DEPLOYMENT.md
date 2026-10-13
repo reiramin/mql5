@@ -6,7 +6,7 @@ recommends the split one.
 
 > **This procedure has never been deployed or drilled.** It is a plan, not a
 > proven configuration. No uptime test, recovery drill, or live run has been
-> performed (see [OWNER_DELIVERY.md](OWNER_DELIVERY.md)). Treat every step as
+> performed. Treat every step as
 > untested until you have run it yourself.
 
 Nothing here contains a secret. Every credential is referenced by the name of

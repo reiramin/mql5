@@ -56,8 +56,11 @@ row remains PENDING. This is observability only: no runtime risk semantics
 changed, and no Python sizer or runtime risk file is modified.
 
 The previous PENDING-forever result was a harness defect, not proof that the
-broker was safe. Stage A repairs the measurement path, but broker parity is
-**STILL NOT VERIFIED**. BTC remains an owner-side open measurement: no BTC
+broker was safe. Stage A repairs the measurement path. Since then the owner
+gate's stage 3 (`broker_parity`) compares the live EURUSD export against the
+frozen spec on every run and passed in gate_run59; that is the parity
+evidence of record, produced on the owner host and not committed here. BTC
+remains an owner-side open measurement, excluded from stage 3: no BTC
 verdict is claimed until a real owner export supplies an accepted witness.
 
 The sizer primitives (`round_to_tick`, `normalize_volume` floor semantics,
@@ -96,9 +99,9 @@ a dashboard green, and none is fabricated.
 
 | Item | Status |
 |---|---|
-| Export script (`Mql5BotExportSymbolSpec.mq5`) | WRITTEN (compile owner-gated) |
+| Export script (`Mql5BotExportSymbolSpec.mq5`) | compiled clean in every gate stage 1; run by stage 3 |
 | Harness (`tools/broker_symbol_parity.py`) | COMPLETE, tested |
 | Schema validation + strict fail-fast | COMPLETE, tested |
 | Owner probe capture (EURUSD/XAUEUR/US30/BTC) | CAPTURED on Windows (`denomination_probe.ok=true`) — see provenance section |
 | Owner exports committed to this repo | **NOT COMMITTED** (`data/` gitignored; not repo-reproducible) |
-| Parity verdict (in this repository) | **NOT VERIFIED** — rendered only when exports are committed and the harness runs |
+| Parity verdict (in this repository) | **NOT VERIFIED here** — no export is committed. On the owner host stage 3 renders it on every gate run (EURUSD PASS in gate_run59; BTC excluded) |

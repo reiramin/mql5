@@ -1,5 +1,7 @@
 # gate_run28 divergence analysis (HEAD 999126a, `-Golds gold2`, time-paired reconciliation)
 
+> Historical (2026-10-03). Superseded by DECISIONS.md and the gate_run59 certificate.
+
 Read-only analysis. Nothing in `mql5/`, `artifacts/` or any frozen input was
 changed. Every claim is labelled **MEASURED** (a file/line or a locally
 re-run frozen artifact) or **INFERRED** (consistent with the measurements but

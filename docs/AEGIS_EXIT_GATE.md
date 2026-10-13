@@ -1,5 +1,7 @@
 # AEGIS exit-gate report — META REALISM / MULTI-ASSET / REGIME / DRIFT (Phase 32)
 
+> Historical (2026-09-20). Superseded by META_PRODUCTION_VALIDATION.md.
+
 Mission: make `MetaPortfolioEngine` represent the same causal,
 multi-asset, risk-aware process that will eventually influence MT5 —
 **without ML, without new strategies, without parameter optimization,

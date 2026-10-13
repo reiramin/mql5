@@ -1,5 +1,7 @@
 # Aegis — Implementation Audit (evidence-based)
 
+> Historical (2026-09-20). Superseded by ARCHITECTURE.md and BLOCKED.md.
+
 Audited against `docs/SPEC.md` (v4, consolidated, sections 0–18) on branch
 `arena/01a06cdc-mql5bot` at commit `817d20d441317872e8b1222f7c4eccce5bf5646b`
 ("Update merging instructions in HANDOFF.md"). Baseline verified in this
