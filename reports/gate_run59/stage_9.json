@@ -1,0 +1,18 @@
+{
+    "stage":  9,
+    "name":  "archive_manifest",
+    "status":  "PASS",
+    "reason":  "evidence bound by owner_evidence_bind.py (no hand-typed hash); scope: bar models",
+    "scope":  [
+                  "gold1",
+                  "gold2"
+              ],
+    "partial":  false,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-092414\\archive_manifest.json",
+                          "sha256":  "1db44f20b2edf73471b9dc95d662e8aa7374579a4dd99a6d1530827b0c699583"
+                      }
+                  ],
+    "utc":  "2026-10-13T09:36:59.9576691Z"
+}

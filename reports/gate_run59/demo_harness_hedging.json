@@ -1,0 +1,104 @@
+{
+  "ok": true,
+  "schema": "mql5bot.demo_safety_run/2",
+  "test": "hedging",
+  "status": "COMPLETED",
+  "account_role": "hedging",
+  "symbol": "EURUSD",
+  "period": "M1",
+  "ex5_sha256": "26fd36a90a62ddaa3ab2fa47c686a2ba85432389b1a8ba4c5b54a8596cec276b",
+  "steps": [
+    {
+      "utc": "2026-10-13T09:32:15+00:00",
+      "step": "start",
+      "test": "hedging",
+      "account_role": "hedging"
+    },
+    {
+      "utc": "2026-10-13T09:32:15+00:00",
+      "step": "terminal_started",
+      "probe": 2
+    },
+    {
+      "utc": "2026-10-13T09:32:21+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-13T09:32:46+00:00",
+      "step": "seen: account probe + cleanup"
+    },
+    {
+      "utc": "2026-10-13T09:32:46+00:00",
+      "step": "terminal stopped"
+    },
+    {
+      "utc": "2026-10-13T09:32:46+00:00",
+      "step": "restore: log back in to the hedging account"
+    },
+    {
+      "utc": "2026-10-13T09:32:46+00:00",
+      "step": "terminal_started",
+      "probe": 3
+    },
+    {
+      "utc": "2026-10-13T09:32:51+00:00",
+      "step": "seen: EA START"
+    },
+    {
+      "utc": "2026-10-13T09:32:52+00:00",
+      "step": "seen: restore cleanup"
+    },
+    {
+      "utc": "2026-10-13T09:32:52+00:00",
+      "step": "terminal stopped after restore"
+    },
+    {
+      "utc": "2026-10-13T09:32:52+00:00",
+      "step": "restore: persist the hedging login (KeepPrivate=1, terminal exits by itself)"
+    },
+    {
+      "utc": "2026-10-13T09:32:52+00:00",
+      "step": "terminal_started",
+      "script": "persist hedging login"
+    },
+    {
+      "utc": "2026-10-13T09:32:59+00:00",
+      "step": "terminal exited by itself: persist hedging login"
+    },
+    {
+      "utc": "2026-10-13T09:32:59+00:00",
+      "step": "terminal_started",
+      "script": "credential-less connection check"
+    },
+    {
+      "utc": "2026-10-13T09:33:07+00:00",
+      "step": "terminal exited by itself: credential-less connection check"
+    },
+    {
+      "utc": "2026-10-13T09:33:07+00:00",
+      "step": "connection check: credential-less launch connected",
+      "margin_mode": 2
+    },
+    {
+      "utc": "2026-10-13T09:33:07+00:00",
+      "step": "restore",
+      "ok": true
+    }
+  ],
+  "error": null,
+  "suspended": null,
+  "ea_log_lines": 14,
+  "restore": {
+    "account_role": "hedging",
+    "login_sha256": "991e28ce2767f08dabdaddac273f8640288501b88880fe07b44b910e8eafb8ee",
+    "margin_mode": 2,
+    "ok": true,
+    "reason": "",
+    "connect_check": {
+      "sync_unmet": "",
+      "synced": true,
+      "margin_mode": 2
+    }
+  },
+  "note": "no login, password or server is recorded (the restore login is a prefixed sha256); the EA log lines are the evidence, graded at stage 8"
+}

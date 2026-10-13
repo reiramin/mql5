@@ -1,0 +1,26 @@
+{
+    "stage":  10,
+    "name":  "certify",
+    "status":  "PASS",
+    "reason":  "certificate issued for verdict MT5_VALIDATED_BAR_MODELS (certificate scope: bar models; no profitability claim) [real-tick coverage: gold1=NONE (bar-only fixture); gold2=NONE (bar-only fixture)]",
+    "scope":  [
+                  "gold1",
+                  "gold2"
+              ],
+    "partial":  false,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-092414\\decide_b19416af07554eef82637f668c23f748.json",
+                          "sha256":  "83593f89b364726c346f718150f632ba1593c5dddbe7df6679ffc2e439644646"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-092414\\certificate\\certificate.json",
+                          "sha256":  "0d6f87d284630061e87522e7727717457770648143f9e97d26d0d73422e32ce6"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261013-092414\\certificate\\certificate.md",
+                          "sha256":  "093c9f07fe07200bd6db9fd54d7d13f1942221bfccd0665af590f8f64c19aebd"
+                      }
+                  ],
+    "utc":  "2026-10-13T09:37:01.0153605Z"
+}

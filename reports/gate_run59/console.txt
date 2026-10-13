@@ -1,0 +1,178 @@
+[runner] start 2026-10-13 09:24:13Z args: -DemoSafety
+[owner-gate] evidence dir: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414
+[owner-gate] mql5bot resolved IN-REPO: C:\Users\ramin\Desktop\mql5\gate_run12\python\mql5bot\__init__.py (v1.0.0)
+[owner-gate] NOTE: HEAD ab312d55eefd7458ddc2bc92b6fcd770acf2f955 is newer than and descends from the frozen anchor 6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7; the frozen artifacts (verified separately) are what is certified, not the SHA
+[owner-gate] stage 0 self_protection: PASS -- HEAD relates to the frozen anchor (== or newer descendant), tree clean, autocrlf ok, frozen hashes + 42 dsl bound files verified, toolchain located, mql5bot IN-REPO (C:\Users\ramin\Desktop\mql5\gate_run12\python\mql5bot\__init__.py v1.0.0). NOTE: HEAD ab312d55eefd7458ddc2bc92b6fcd770acf2f955 is newer than and descends from the frozen anchor 6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7; the frozen artifacts (verified separately) are what is certified, not the SHA
+[owner-gate] stage 1 strict_compile: PASS -- 0 errors, 0 warnings; targets clean: DslParityRunner.mq5, Mql5Bot.mq5, Mql5BotDownloadData.mq5, Mql5BotExportSymbolSpec.mq5, Mql5BotImportFixture.mq5
+[owner-gate] stage 2 dsl_parity: PASS -- 14/14 fixtures EXACT + tampered refused
+[owner-gate] stage 3 broker_parity: PASS -- 12 MATCH rows; crypto PENDING excluded: BTC:sizer.behaviour, BTC:tick_value_denomination; EURUSD export: gate-run Mql5BotExportSymbolSpec (this run) C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\symbolspec_EURUSD.json
+[owner-gate] import JSON sha256 before copy ecdc773da062fbe93a617e7e5ce5b2e247616fb09cc53c650dc62cf14df4714c / after copy ecdc773da062fbe93a617e7e5ce5b2e247616fb09cc53c650dc62cf14df4714c
+[owner-gate] import JSON sha256 before copy 77180e41db8b19b829b0d712263267c0fd66af71e11b82950e662e87ecf4f6d9 / after copy 77180e41db8b19b829b0d712263267c0fd66af71e11b82950e662e87ecf4f6d9
+[owner-gate] stage 4 fixture_import: PASS -- both gold fixtures imported; round-trip dataset hash == manifest; custom-symbol exports (this run): gold1=C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\symbolspec_EURUSD.G1.json, gold2=C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\symbolspec_EURUSD.G2.json; custom-symbol probes (recorded, never failed): gold1: margin_probe NOT_APPLICABLE_CUSTOM_SYMBOL_BARS_ONLY (recorded, not a failure); denomination_probe NOT_APPLICABLE_CUSTOM_SYMBOL_BARS_ONLY (recorded, not a failure) | gold2: margin_probe NOT_APPLICABLE_CUSTOM_SYMBOL_BARS_ONLY (recorded, not a failure); denomination_probe NOT_APPLICABLE_CUSTOM_SYMBOL_BARS_ONLY (recorded, not a failure)
+ini written: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_m1_ohlc.ini  (report: gold1_m1_ohlc)
+ini written: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_every_tick.ini  (report: gold1_every_tick)
+ini written: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_m1_ohlc.ini  (report: gold2_m1_ohlc)
+ini written: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_every_tick.ini  (report: gold2_every_tick)
+[owner-gate] stage 5 tester_legs: PASS_FROM_LOG -- legs: 0 passed from report, 4 passed from log (PASS_FROM_LOG, source: tester agent log), 0 blocked, 0 failed, 2 not applicable (NOT_APPLICABLE_BAR_ONLY_FIXTURE: not launched, not a pass). Real-tick coverage NONE: gold1: real-tick coverage NONE (bar-only fixture); gold2: real-tick coverage NONE (bar-only fixture) -- the real_ticks leg was not run (owner decision 2026-10-03, DECISIONS.md option 2); this stage proves nothing about real ticks. dataset hash intact after the legs. gold1_m1_ohlc: exit 1; PASS_FROM_LOG (evidence class distinct from the report-based PASS; source: tester agent log) — this leg's own window shows successfully finished, 192 bars for EURUSD.G1, history quality 0%, and MT5 ran the requested model '1 minute OHLC'. No report metrics exist for this leg. Tester log (this leg only): EH	0	02:26:01.153	Tester	last test passed with result "successfully finished" in 0:00:17.258 | MO	0	02:25:59.983	Core 1	EURUSD.G1,H1: 768 ticks, 192 bars generated. Environment synchronized in 0:00:00.078. Test passed in 0:00:17.258. | FN	2	02:25:42.753	Tester	quality of analyzed history is 0% (216 minute bars, tick volume errors 0, spread errors 0) | FI	0	02:25:48.845	Core 1	EURUSD.G1,H1 (MetaQuotes-Demo): 1 minutes OHLC ticks generating | LN	0	02:25:48.845	Core 1	2024.01.30 00:00:00   [mql5bot] DSL bundle loaded from common: Mql5Bot\gold_bundles\ema_crossover_ref_v1_EURUSD.G1.bundle.json | OD	0	02:25:48.845	Core 1	2024.01.30 00:00:00   [2024.01.30 00:00:00] [INFO] generic DSL execution enabled: ema_crossover_ref; gold1_every_tick: exit 1; PASS_FROM_LOG (evidence class distinct from the report-based PASS; source: tester agent log) — this leg's own window shows successfully finished, 192 bars for EURUSD.G1, history quality 0%, and MT5 ran the requested model 'Every tick'. No report metrics exist for this leg. Tester log (this leg only): CH	0	02:26:46.911	Tester	last test passed with result "successfully finished" in 0:00:17.521 | EN	0	02:26:45.771	Core 1	EURUSD.G1,H1: 287040 ticks, 192 bars generated. Environment synchronized in 0:00:00.030. Test passed in 0:00:17.521 (including ticks preprocessing 0:00:00.015). | NM	2	02:26:28.257	Tester	quality of analyzed history is 0% (216 minute bars, tick volume errors 0, spread errors 0) | LI	0	02:26:34.360	Core 1	EURUSD.G1,H1 (MetaQuotes-Demo): every tick generating | HK	0	02:26:34.360	Core 1	2024.01.30 00:00:00   [mql5bot] DSL bundle loaded from common: Mql5Bot\gold_bundles\ema_crossover_ref_v1_EURUSD.G1.bundle.json | CJ	0	02:26:34.360	Core 1	2024.01.30 00:00:00   [2024.01.30 00:00:00] [INFO] generic DSL execution enabled: ema_crossover_ref; gold1_real_ticks: NOT_APPLICABLE_BAR_ONLY_FIXTURE: fixture artifacts/gold/gold_fixture.csv is bar-only (fixture header is the bar schema time,open,high,low,close,volume and the manifest declares no tick dataset); the stage-4 importer writes bars only (CustomRatesUpdate, no CustomTicksAdd), so a real-ticks test of this symbol has no ticks to run on. Leg NOT launched per owner decision 2026-10-03 (DECISIONS.md option 2). Real-tick coverage: NONE (bar-only fixture). NOT a pass -- leg NOT launched, NOT a pass; gold2_m1_ohlc: exit 1; PASS_FROM_LOG (evidence class distinct from the report-based PASS; source: tester agent log) — this leg's own window shows successfully finished, 2880 bars for EURUSD.G2, history quality 100%, and MT5 ran the requested model '1 minute OHLC'. No report metrics exist for this leg. Tester log (this leg only): QH	0	02:27:21.505	Tester	last test passed with result "successfully finished" in 0:00:06.304 | KQ	0	02:27:20.296	Core 1	EURUSD.G2,M1: 11520 ticks, 2880 bars generated. Environment synchronized in 0:00:00.042. Test passed in 0:00:06.304. | LQ	0	02:27:14.010	Tester	quality of analyzed history is 100% | GF	0	02:27:20.112	Core 1	EURUSD.G2,M1 (MetaQuotes-Demo): 1 minutes OHLC ticks generating | NE	0	02:27:20.112	Core 1	2024.01.02 00:00:00   [mql5bot] DSL bundle loaded from common: Mql5Bot\gold_bundles\gold2_multifactor_v1_EURUSD.G2.bundle.json | CD	0	02:27:20.112	Core 1	2024.01.02 00:00:00   [2024.01.02 00:00:00] [INFO] generic DSL execution enabled: gold2_multifactor; gold2_every_tick: exit 1; PASS_FROM_LOG (evidence class distinct from the report-based PASS; source: tester agent log) — this leg's own window shows successfully finished, 2880 bars for EURUSD.G2, history quality 100%, and MT5 ran the requested model 'Every tick'. No report metrics exist for this leg. Tester log (this leg only): DH	0	02:27:54.989	Tester	last test passed with result "successfully finished" in 0:00:07.137 | LQ	0	02:27:53.764	Core 1	EURUSD.G2,M1: 1894944 ticks, 2880 bars generated. Environment synchronized in 0:00:00.031. Test passed in 0:00:07.137 (including ticks preprocessing 0:00:00.062). | RD	0	02:27:46.635	Tester	quality of analyzed history is 100% | ME	0	02:27:52.737	Core 1	EURUSD.G2,M1 (MetaQuotes-Demo): every tick generating | FQ	0	02:27:52.737	Core 1	2024.01.02 00:00:00   [mql5bot] DSL bundle loaded from common: Mql5Bot\gold_bundles\gold2_multifactor_v1_EURUSD.G2.bundle.json | KH	0	02:27:52.737	Core 1	2024.01.02 00:00:00   [2024.01.02 00:00:00] [INFO] generic DSL execution enabled: gold2_multifactor; gold2_real_ticks: NOT_APPLICABLE_BAR_ONLY_FIXTURE: fixture artifacts/gold_2/gold2_fixture.csv is bar-only (fixture header is the bar schema time,open,high,low,close,volume and the manifest declares no tick dataset); the stage-4 importer writes bars only (CustomRatesUpdate, no CustomTicksAdd), so a real-ticks test of this symbol has no ticks to run on. Leg NOT launched per owner decision 2026-10-03 (DECISIONS.md option 2). Real-tick coverage: NONE (bar-only fixture). NOT a pass -- leg NOT launched, NOT a pass; gold1: post-leg dataset hash intact (074530cd5b7424dc2138698e2ec72c176bf033c589474d3fde004d87e83728d3); gold2: post-leg dataset hash intact (59cd339f6ebd2070ffa726c9b4dbaf6074ef232fd2a391afcacb8c3e8bf3dd79)
+[owner-gate] demo harness restart: exit 0
+[owner-gate] demo harness netting: exit 0
+[owner-gate] demo harness hedging: exit 0
+[owner-gate] stage 7 demo_safety: PASS -- demo harness ran restart, netting, hedging with THIS run's stage-1 EX5 into C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\demo_safety (harness: restart=exit 0, netting=exit 0, hedging=exit 0); every restore left the terminal on the hedging account, connected without credentials. NOT a safety grade: the runs are graded at stage 8
+ini written: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_kill_switch.ini  (report: safety_kill_switch)
+ini written: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_risk_veto.ini  (report: safety_risk_veto)
+ini written: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_meta_reduce.ini  (report: safety_meta_reduce)
+ini written: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_sl_verify.ini  (report: safety_sl_verify)
+ini written: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_lost_response.ini  (report: safety_lost_response)
+report written: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\reconciliation_verify.json
+powershell.exe : 
+At C:\Users\ramin\mql5_runner\run_gate.ps1:17 char:1
++ & powershell -ExecutionPolicy Bypass -File "tools\owner_gate.ps1" -Da ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[verdict] MT5_VALIDATED_BAR_MODELS
+  - all owner evidence verified against the frozen record on the bar models — no real-tick claim; m1_ohlc + every_tick 
+only
+  - ['gold1:real_ticks', 'gold2:real_ticks']: NOT_APPLICABLE_BAR_ONLY_FIXTURE (bar-only fixture, leg not launched): no 
+report exists and none is required; real-tick coverage NONE never yields MT5_VALIDATED
+  - trade source for ['gold1:every_tick', 'gold1:m1_ohlc', 'gold2:every_tick', 'gold2:m1_ohlc']: tester agent log 
+(PASS_FROM_LOG log trade list; no report exists)
+[owner-gate] stage 8 reconciliation: PASS -- bindings + 8a-8d verified; gold parity holds on the owner terminal [verdict MT5_VALIDATED_BAR_MODELS: bar models -- no real-tick claim; m1_ohlc + every_tick only] [gold1_m1_ohlc: log trade list placed (35 deals); gold1_every_tick: log trade list placed (35 deals); gold2_m1_ohlc: log trade list placed (74 deals); gold2_every_tick: log trade list placed (74 deals); safety leg safety_kill_switch: tester leg ran (exit 1); window kept for grading; safety leg safety_risk_veto: tester leg ran (exit 1); window kept for grading; safety leg safety_meta_reduce: tester leg ran (exit 1); window kept for grading; safety leg safety_sl_verify: tester leg ran (exit 1); window kept for grading; safety leg safety_lost_response: tester leg ran (exit 1); window kept for grading] [trade source for gold1:every_tick, gold1:m1_ohlc, gold2:every_tick, gold2:m1_ohlc: tester agent log (log trade list, from_log=true; no report)]
+[owner-gate] stage 9 archive_manifest: PASS -- evidence bound by owner_evidence_bind.py (no hand-typed hash); scope: bar models
+[owner-gate] stage 10 certify: PASS -- certificate issued for verdict MT5_VALIDATED_BAR_MODELS (certificate scope: bar models; no profitability claim) [real-tick coverage: gold1=NONE (bar-only fixture); gold2=NONE (bar-only fixture)]
+
+[owner-gate] ===== SUMMARY (machine-readable) =====
+  stage 0  self_protection        PASS
+      243c62e74dc89132311484ca52b488e31eaa169286626fce5a5d094e99e700b2  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_f7bd37de0aa64cf484e984a0fc7e3489.json
+      e3bdff4e5f4e59a417a8f8d3db85e365c4b5d80639d8e5faaad820a65eb8e837  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_0b5c6bde3eec431f86343b1dea5e66c2.json
+  stage 1  strict_compile         PASS
+      c098db28600274286c1f84eddbdf4a71c59942860333407ce2ec76cae1e781b5  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\compile-20261013-092419.log
+  stage 2  dsl_parity             PASS
+      32a053bc4eedbee8e0c84d48026bca03f45eaf708b43141e6067d8c76bdc76bf  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\dsl_compare_report.txt
+  stage 3  broker_parity          PASS
+      e026f393eab62958204222ee6be3665e53dbe2d0b2f72ac5f102a7c3c25fe7d3  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\parity_report.json
+      9a211478b12778864db08adc535adec54a397e9286539d1f1aabce07ff1da54a  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\export_symbolspec_EURUSD.set
+      d23c1c790469ad66e43ec78f84b49778ffb32ec1cbac0c61eb63d8b7703931b3  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\export_symbolspec_EURUSD.ini
+      0f13297b6eaf782eb7d374d0f00389ff6f8c402c3e407a8a43551bd47901bb29  C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\broker_exports\EURUSD.json
+      0f13297b6eaf782eb7d374d0f00389ff6f8c402c3e407a8a43551bd47901bb29  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\symbolspec_EURUSD.json
+      79cae31b138a52b285a0f6d53a28026957da19c076744369493ae7e582d20993  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_4a0fe3a048a84df7b41d603489d227ec.json
+  stage 4  fixture_import         PASS
+      52cfb12343bf3291fead2ce9c0637f3c86cd102da0f38ffed916d800e6205061  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\import_EURUSD.G1.set
+      376b832349876c4de58c3e8b9a55c0050560e2e852c818238fd7c43b498d28fc  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\import_EURUSD.G1_preset_decoded.txt
+      ecdc773da062fbe93a617e7e5ce5b2e247616fb09cc53c650dc62cf14df4714c  C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\gold_import_out\EURUSD.G1.json
+      ecdc773da062fbe93a617e7e5ce5b2e247616fb09cc53c650dc62cf14df4714c  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\import_EURUSD.G1.json
+      9a211478b12778864db08adc535adec54a397e9286539d1f1aabce07ff1da54a  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\export_symbolspec_EURUSD.G1.set
+      bcdf5bb26b91db8f01addf7f0484987956fd667ddaf87d18caf9287287c4f430  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\export_symbolspec_EURUSD.G1.ini
+      8420c52d0c5256eac1b5284f11811c5af1fe00667f69ac00b9eb1ff2749f853d  C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\broker_exports\EURUSD.G1.json
+      8420c52d0c5256eac1b5284f11811c5af1fe00667f69ac00b9eb1ff2749f853d  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\symbolspec_EURUSD.G1.json
+      34173ea16410c4afeacc1bbf9b2b83186e4e2b4b29ae7adcf4d6b9ca5e0c91bd  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_561b446e684e4b72b2a556cd23aefb79.json
+      d87b62bf78b2c69342c02db326285fc806a386266495a8861b427f5cf01fccf2  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\import_EURUSD.G2.set
+      99bf72aba9ec29130e0e7922ac4ea7a2d1f22ba033830c552aabe2c4727cda41  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\import_EURUSD.G2_preset_decoded.txt
+      77180e41db8b19b829b0d712263267c0fd66af71e11b82950e662e87ecf4f6d9  C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\gold_import_out\EURUSD.G2.json
+      77180e41db8b19b829b0d712263267c0fd66af71e11b82950e662e87ecf4f6d9  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\import_EURUSD.G2.json
+      9a211478b12778864db08adc535adec54a397e9286539d1f1aabce07ff1da54a  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\export_symbolspec_EURUSD.G2.set
+      96bed4ae11b674a930ba0c392754bd4decc5c4966ad6ed02c58a82b3f6a0dec8  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\export_symbolspec_EURUSD.G2.ini
+      d08fa51d87320387e434295f28e660a8279407410e20fa1223ce339719edf9d1  C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Files\Mql5Bot\broker_exports\EURUSD.G2.json
+      d08fa51d87320387e434295f28e660a8279407410e20fa1223ce339719edf9d1  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\symbolspec_EURUSD.G2.json
+      7bbfaa83db18381e64eb767cb54541f96c7ce52a0818eb66e1942b16265ba315  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_d9cd9a6e1652430b96fd71a70ac8e08e.json
+  stage 5  tester_legs            PASS_FROM_LOG
+      372bf4bc324a6dfde0fe8a8ce2cf415841d66d3d374d513b68367cb18f4161d7  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_ebb89996d56c408eb9a7283fb2c575b5.json
+      28a09101b4b0a3a6f64316879c3c9ee686206ed5ecaf61c5a59c182c7f54e209  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_1f9475d406e7483fa4f0134eb1714315.json
+      f9736d8f49d6975b75b30e67e953c10f383b66215b77ce90a1520d21905e2a8a  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_5aecc01b4de448c584775296471a9871.json
+      4b484450287ea008b2723c2bad7127e01c3f750943eca0746e65de7deeeafcda  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_m1_ohlc_bundle.json
+      10418e3bc130224a0b7e006227753d4a1695a8b2948aaef626154a102446d04e  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_m1_ohlc.ini
+      abd30669cdf2091953ede2f725cb14a17d2e10808754bdf4eba93e251e184f3c  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_m1_ohlc_cmdline.txt
+      396b2aab9e220810b60276c40a635d4010309a6903b90f5f34816720909e88d9  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_m1_ohlc_stdout.txt
+      e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_m1_ohlc_stderr.txt
+      d45b658f8bf33dfd99ed75e2de99c808451eb3a2cc22085dccafaa876136d93d  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_m1_ohlc_journal.txt
+      e08e24c50d4e59809b8b28379507f996f22ce2cf488c199b0a31fcc5a6f7e91f  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_m1_ohlc_window.txt
+      1ea480a50808683923cc7f1d36cc6de04024d1bc06c644333df86f363d619c2a  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester\runs\gold1_m1_ohlc_m1_1791883537\tester.ini
+      c90d440608215e432e6764a309fb46521344c00bbe17d06273cf1451818851e8  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_m1_ohlc_journal_tail.txt
+      f711421cc3125b99564fe57abfde780dfe893f097f6f630d7aff30df89ff108a  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_f3494006837546a9bf58e6a382adbdc7.json
+      2d19207acc20958cd8aee6ced2bcf9a57467005096db04b563f33d14508e18cf  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_m1_ohlc_log_trades.json
+      8ab195514865f999c55b9e35e29f8c936b346aebe1a8aee67fddc2d63d26a798  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_660427a7e9ee4826aa0753841ede7cf9.json
+      4b484450287ea008b2723c2bad7127e01c3f750943eca0746e65de7deeeafcda  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_every_tick_bundle.json
+      7592dd0d63b464666f74b1a0d30f3db1ca486bfb689bc1a25ee20ee9af676a5b  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_every_tick.ini
+      ce2f3f2f314db83f14bb22bec76b3839f6a3acd6c58aa40f62d084aa78845f35  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_every_tick_cmdline.txt
+      0bca4940a5381707f5d897127c89e1d911ddf84653836221d5f4d682b6177bad  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_every_tick_stdout.txt
+      e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_every_tick_stderr.txt
+      ec3f91fcfc4ff7726bcd1b088a0a5df49e9fd6b2a4043aa293201b4f5c54c60f  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_every_tick_journal.txt
+      ed8fb819b7c382fa4a964bd6a043ef824a84d700bffb52390990e29f9277e0d5  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_every_tick_window.txt
+      b8752a2e201cdfaa64c5450c845e094cc908cee2a2f4c9f0dba6185196256fe2  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester\runs\gold1_every_tick_m0_1791883583\tester.ini
+      6995613e0b54ef4e3734cc83e9c16f02b3462826a90c1746661f43e68f11a457  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_every_tick_journal_tail.txt
+      4ec1466029938ca4236e55d5573499936f761f3dcd51bf5217ba81858b16cee7  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_77298d8221694fd59b391241ee68bf9a.json
+      01fabf21267c625eeb6bce5f211141a5e97212adf4aa1bb569e18ad20c3d2a96  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold1_every_tick_log_trades.json
+      50ea54d0d7a95282fdc3f7622db68645f6901395411c8799d8ba8c3fe3e3927f  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_27f92c99b567414f82c7186d297aebe5.json
+      eff744bbf8e9520ba539669bacebcf057935ef91989184ce07c7e567cd28b80b  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_m1_ohlc_bundle.json
+      ddad7e3cac53fe956d9e2d62584c63945db4167147e34a9ef7f593039a7b3197  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_m1_ohlc.ini
+      12081a0aba0e9f4f302d6bdc20fdee081368e6ef3189fd7fcd784af92fe8bcb0  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_m1_ohlc_cmdline.txt
+      30231c7b6a8f1595b5a10a47a5f7ee0407c4cb1b44e8ea7153235ec11ee29f38  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_m1_ohlc_stdout.txt
+      e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_m1_ohlc_stderr.txt
+      89a64844ef0b95d6317c9159bf638c991f879a1ab8833607354cdbeea351b58f  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_m1_ohlc_journal.txt
+      76fb6f9a880f5833408fb9b2790852188756e1f0a55eac6d5c642de624d86b26  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_m1_ohlc_window.txt
+      e85c70f0fb0403e505d7956e517087abd1dfb9abf219557a3423289f833ce4cb  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester\runs\gold2_m1_ohlc_m1_1791883628\tester.ini
+      c273cf6ce4253ee22ddb3def34336c694ce7340751cf5bb7ea40591b78f32df8  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_m1_ohlc_journal_tail.txt
+      3285ee0cd3b433db07900e443a2fc7cb37e86b0a9bc09a02b1bd258f99bca555  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_52c65f3c0fd346e0adfbfad9b000baf6.json
+      c3b3706d910aa5caad996d3f81974393f0e1ea6e1225e4b6bd76a57bfa2292f7  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_m1_ohlc_log_trades.json
+      373ec81cfa8402d28e055e9bb89651417786b1332890dc32bdff0cb9fb98290f  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_c76b93594d704293aa2799380cee602d.json
+      eff744bbf8e9520ba539669bacebcf057935ef91989184ce07c7e567cd28b80b  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_every_tick_bundle.json
+      7155ea684a405afed3152a2d8800eb7fcc672a326c99ce6d6a8fca8c9549f13b  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_every_tick.ini
+      034443d36efe851ed372c35114fdbd9291fac6cfe81adb52307a75ee03330e59  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_every_tick_cmdline.txt
+      29b360fa37f6993ba814d614a7dc6e1b483dba0eda6b060e5f8ebd6415c2498b  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_every_tick_stdout.txt
+      e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_every_tick_stderr.txt
+      6d6cbfb65935f3c27e6b4656cd9e042dee8d6d17fff12727c209192c1a490045  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_every_tick_journal.txt
+      4da62c92693c469f1a05d9400139a8720143efde0584d7a7d808d2c307a34ee9  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_every_tick_window.txt
+      ded0fb8cdb0c661da1eb3298a1393b706e1f7fbc8a21266a749d618cd8959fd6  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester\runs\gold2_every_tick_m0_1791883661\tester.ini
+      ce9c58aa1829c1787b9c39073ee778a6b30fd9bdfe80394aa7ccdbb2ba821916  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_every_tick_journal_tail.txt
+      6838b16097587bfb469804de4c815e3258941e90bee36111d5189bbdb52af11e  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_6806a64bde2143aab7a8de5570510b8c.json
+      32b973d362c022a840677b8b63e37761a8e3a8b96706f7c52caf60a85562e6a9  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_gold2_every_tick_log_trades.json
+  stage 7  demo_safety            PASS
+      0319dfb895202297ff2e90270db92b84134ed4152c9bc345e300db1bbd055fc8  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_f33d2ea2ce744e74957a4212d26cc94e.json
+      76bbf2900a7afaa36ddf97f3b62c7db65b74c57cb6decc969768605b69cf3daf  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\demo_harness_restart.json
+      c83c8a40c04a6620605654ac02087798ba25a41b371e4eff68920e598fbba937  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\demo_safety\restart\run.json
+      d4f945f27d43a9ff1ac84ce90a438d21c8ecae8252c42c10c9a0d14bffa64b95  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\demo_harness_netting.json
+      0ef7eb88e7548c96288e866df0d28d3d40b84e9922398312d8e38f4fe4f5bbbb  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\demo_safety\netting\run.json
+      dbe6bf8c0c7760f30162ac1a6d58781522b7eb2b1698a8428dfb9381db0d0ac8  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\demo_harness_hedging.json
+      600fdb95b4cc4294ed29e1a0a9a3695d4310f2133557a4cff12ef4133de0da04  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\demo_safety\hedging\run.json
+      1c149be2b69677d0d64aa53c8f429fd1c0fbf2ed54563b8b30d4f5a2714a21ba  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_28af5a4d7dee462aa12ee9112d97cd89.json
+  stage 8  reconciliation         PASS
+      2507ef5f0ca9b5427181af5dc7505f697762a5ab2eeebdfd3dc44f0904af6a25  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\reconciliation_verify.json
+      b6c65c5e3dc80ae1c2039ddf0c9631f3bf4bd2253db552590e27c7b8f14bc217  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_86d5694ae2c04086960b19e38499fcd8.json
+      63edcce3c8f00a9260205844c1b34ee3a64e639ccf8a573ef1666f6cf3ef6666  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_e0fe802442c4453890ef125d5a746f7b.json
+      e072b33e9c8f3d7b53502bc89384802ce32d94207c1e8cb6ce6db34c5be6c54c  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_kill_switch.ini
+      8c4ffd63e9a81470bc47859dee0ceb8f500cae2250710686f03cdd1352e6b761  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_kill_switch_window.txt
+      0aa0254fc7c64d6f37d5df1688f169d5d200e611c9a638ce7bf08f4781074476  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_3253a9a449e0404482d3c207cb0df68c.json
+      76d77e69623cdd2f10d77a9fec05eaad10d9958ad991c080c97bd849c2a882b0  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_df82ce0d6ff944f6803635328ffcf91f.json
+      cbc816b70c1e36ec536675d1d3a85859be5b473d01ea874e8fe9c5aa154265c3  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_risk_veto.ini
+      8e15b518931e94ab0ad5fb13cad191753b2964f0caa128f834bd3c71de874368  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_risk_veto_window.txt
+      7aab87d8bf6605247cc405c14258455cbb0adb40c6e89629908794228b3ce2d8  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_5014e8d683b64fe29b0d59a14636b801.json
+      cc52968d417f93eac52030519b215671c4295184be6648a729768caf45b93716  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_fdf71fd094694aa881bb75edebbc06fc.json
+      25b3c368f4c6a099981143ed9f3148ee7f95272f46d53ccfd9d83302d0978b38  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_meta_reduce.ini
+      887967f985e4db5166e034c6987df43f208eb63eb942c7cc144e67819acc84a0  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_meta_reduce_window.txt
+      448224bcc5279c074fc44d1f881f662900ba8947f6684f75102ca1fd9fd400f9  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_5dd49ec054714a0faf6bd4d0a9520062.json
+      7feebe5fb6c156f1689654fa14848c89b5934595e28499d2c9ffb70f783eae9c  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_3a1db78f81044efe864562221d29accc.json
+      1f6b5a08179fb051eae54eb234966c62579d1c46f8810129834623e246afbf16  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_sl_verify.ini
+      045125833d0ec12ae5962342bbbd4499654d0bd650ca6df46ba797c8faaf7154  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_sl_verify_window.txt
+      2e296eb07c452cb782ac5e1eb2d5ee6bc0fdc5f23f171d02b23168262057ab88  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_df267c51b06140caa73c31a59d836457.json
+      dde2cb1e7c30b563609bab694de1b4573e311eeddc6f8d698aa5bd83a1cb9e5f  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_38aa12eaba7e4aa389bf9167ed1940a8.json
+      a4c8be7113f9e2cce5fdc645549edea90505719968f2dc86f05ba50286eb7707  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_lost_response.ini
+      3153b0ecfadbb5850c6f69cb64384df1da2e6cb3584a6055bd4b6f3c7bac1ab1  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\tester_safety_lost_response_window.txt
+      5458700415d54f1c144593d0aac5a54ef13a619fa421c5177335f7ad5ce73f27  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_3ae3b41f6f1540148da3a7515e4fa7af.json
+      9ecfb78fa40442af238226483e38db70c436e6ab002c19e783500c1852c19a95  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_2e50f175adb545a5b8c58b446f0682b3.json
+      1c0ba54167de4422a2890e5b6a89cb724e8b61242955a0ea5b1c42328e35f393  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_48c08ffab5774f9c8c34c42ca20f6852.json
+      2e08bfb5b8ea6216ab1b2aa5ddcf8cb50c7b6d8c536ea6edf72fa190e332f428  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_c82a5e0af990467fb5447486784e32bb.json
+      69f7557e73210d8b233465af52fe55c39e0dc6e41e3645533f681a94d79f9249  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_54a18e30533a4ef89734eb60e72a4d8d.json
+  stage 9  archive_manifest       PASS
+      1db44f20b2edf73471b9dc95d662e8aa7374579a4dd99a6d1530827b0c699583  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\archive_manifest.json
+  stage 10 certify                PASS
+      83593f89b364726c346f718150f632ba1593c5dddbe7df6679ffc2e439644646  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\decide_b19416af07554eef82637f668c23f748.json
+      0d6f87d284630061e87522e7727717457770648143f9e97d26d0d73422e32ce6  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\certificate\certificate.json
+      093c9f07fe07200bd6db9fd54d7d13f1942221bfccd0665af590f8f64c19aebd  C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\certificate\certificate.md
+  first_blocking_stage: 
+  summary: C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\gate_summary.json  (90bc27d435a477604e8e100ee6bf481f08c1b407e34551ef05ecd84db567a779)
+GATE_RESULT=certified_with_log_graded_legs
+GATE_EXIT_CODE=1  (C:\Users\ramin\Desktop\mql5\gate_run12\evidence\owner_gate\20261013-092414\gate_exit_code.txt)
+[runner] end 2026-10-13 09:37:01Z exit 1
+
+[exited with code 1]
