@@ -2139,3 +2139,23 @@ ruff exit 0; full pytest exit 0 (pytest's own exit code).
 - **Not exercised by a normal run.** Unless a stale symbol is present
   again, the next run will most likely take the adopt or created_fresh
   path, so the self-heal branch itself may stay unexercised.
+
+## 2026-10-13 — DOCS-SYNC-1 PR A (entry docs); branch `claude/aegis-safety-fixes-20aen5`
+
+**Done:**
+- README, `docs/README.md` (full index), SHOWCASE (links verified, "How to
+  reproduce"), HANDOFF, PROGRESS, TASKS, CHANGELOG (#45–#55), and the
+  CLAUDE.md exception status lines.
+- The false "no DSL interpreter" pin corrected, with a source check added.
+- Two read-only audit agents classified every file under `docs/`. Their
+  findings drive PR B and PR C, and each is verified before an edit.
+
+ruff exit 0; full pytest exit 0 (pytest's own exit code).
+
+**NOT done in PR A:** the operating docs (PR B) and the remaining `docs/`
+files (PR C).
+
+**Open question for the owner:** the CLAUDE.md exceptions are "valid until
+the final certificate is issued". gate_run59 issued a certificate, and
+IMPORT-SELFHEAL-1 (1.e) was added after it at the owner's request. Whether
+the exceptions still hold is the owner's call.

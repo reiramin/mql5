@@ -1,6 +1,56 @@
 # TASKS
 
-## CURRENT BACKLOG — ordered, blockers named (2026-09-20)
+## OPEN ITEMS (2026-10-13, after the gate_run59 certification)
+
+gate_run59 certified (`certified_with_log_graded_legs`,
+`MT5_VALIDATED_BAR_MODELS`): MT5 execution-parity and safety certificate,
+bar models, no real-tick claim, no profitability claim. Only open work is
+listed here; `docs/BLOCKED.md` has the details.
+
+**Built, unit-tested, never run live (waiting for a gate run that needs them):**
+
+1. **[ ] SPEC-WAIT-2** — the EA's WAITING_SYMBOL retry/give-up path (bound
+   `InpSpecWaitSeconds` = 180). gate_run59's demo launches never waited.
+2. **[ ] HARNESS-SUSPEND-1** — the harness's INTERRUPTED abort on a host
+   suspend. gate_run59 had no suspend.
+3. **[ ] IMPORT-SELFHEAL-1** (#55) — the importer's drop-and-recreate of a
+   symbol whose bars will not wipe. The next `[runner: full]` run compiles
+   and runs the importer; the recreate branch runs only if a stale symbol
+   appears again.
+
+**Optional owner items (outside the CLAUDE.md exceptions, not blocking):**
+
+4. **[ ] EA log stamps are stale at OnInit** — `Logger.mqh` stamps with
+   `TimeCurrent()`; `TimeGMT()` would make the log chronological
+   (`docs/BLOCKED.md`).
+5. **[ ] Log WHY the DSL series build failed** — the exact two-call-site
+   change is in `docs/BLOCKED.md`.
+6. **[ ] `#property link` in `Mql5Bot.mq5`** still names the old repository
+   (cosmetic; no exception covers it).
+
+**Never run (separate, later states — not part of the certificate):**
+
+7. **[ ] A real-tick tester leg** — needs a fixture with a tick dataset; the
+   gold fixtures are bar-only (`NOT_APPLICABLE_BAR_ONLY_FIXTURE`).
+8. **[ ] The empirical lane** (`docs/AEGIS_EMPIRICAL_LANE_PACKAGE.md`,
+   `tools/certify_strategy.py`): regimes, ≥100 trades per regime.
+9. **[ ] BTC denomination verdict** — still excluded from stage 3
+   (`docs/BROKER_SYMBOL_PARITY.md`).
+10. **[ ] Demo operation** (≥4 weeks, ≥30 trades) before any conclusion, and
+    the VPS deployment + recovery drill (`docs/DEPLOYMENT.md`) — never done.
+11. **[ ] DEV: wire the guided conversation to the real research validation**
+    — today it validates structure only ("SCHEMA-VALIDATED — structure only;
+    the strategy has NOT been tested").
+
+---
+
+## BACKLOG as of 2026-09-20 (historical)
+
+> Historical (2026-09-20). Superseded by "OPEN ITEMS" above: items 1–4 and
+> 6 were closed by the gate runs up to gate_run59 (gold1 rebuilt and
+> re-anchored, PASS_FROM_LOG grading, stage 8 reconciliation, stages 9–10
+> certificate); the rest are carried into OPEN ITEMS.
+
 
 The first full owner certification gate ran on 2026-09-20 and stopped at
 stage 5 (`GATE_RESULT=tester_legs`). See
