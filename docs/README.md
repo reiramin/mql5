@@ -25,6 +25,7 @@ supersedes it. The root-level files are listed at the end.
 |---|---|---|
 | [CERTIFICATION.md](CERTIFICATION.md) | The certification contract: scope surfaces, lanes, evidence layers, what a certificate claims | current |
 | [CERTIFICATION_GUIDE.md](CERTIFICATION_GUIDE.md) | How-to for the validation ladder: Gold / MT5 runtime / empirical / demo / live | current |
+| [SECURITY.md](SECURITY.md) | Strategy secrets (git-crypt), encrypted outputs (age), secret scan, account hardening checklist | current |
 | [DECISIONS.md](DECISIONS.md) | Binding decisions log (entries to 2026-10-03 newest on top; from 2026-10-04 appended at the end) | current |
 | [SAFETY_8A_8D_PLAN.md](SAFETY_8A_8D_PLAN.md) | The five Strategy Tester safety legs (kill_switch, risk_veto, lost_response, meta_reduce, sl_verify) | current |
 | [SAFETY_DEMO_PLAN.md](SAFETY_DEMO_PLAN.md) | The three live-demo safety tests (restart, netting, hedging) and the demo harness in stage 7 | current |

@@ -2188,3 +2188,25 @@ says "11-stage"; the artifacts/ manuals were not touched; whether the
 CLAUDE.md exceptions still hold), are in DECISIONS "DOCS-SYNC-1 PR C".
 
 ruff exit 0; full pytest exit 0 (pytest's own exit code).
+
+## 2026-10-13 — REPO-SECURITY-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Done:**
+- git-crypt rule + guard for `strategies/private/` (no file moved: every
+  existing strategy file is a gate/test/verifier input);
+- `tools/encrypt_outputs.py` (age; built-in age-v1 fallback on the optional
+  `cryptography`), with interop proven against the `age` binary using
+  throwaway keys;
+- `tools/secret_scan.py` + `.pre-commit-config.yaml`;
+- `docs/SECURITY.md`, a CI apt step for `age`, and DECISIONS / CHANGELOG
+  entries.
+
+ruff exit 0; full pytest exit 0 (pytest's own exit code).
+
+**NOT done (owner-only):**
+- creating the git-crypt and age keys, and running `git-crypt init`;
+- the GitHub settings (2FA, branch protection, secret scanning, Dependabot,
+  visibility).
+
+`docs/PLATFORM_DECISIONS` does not exist in the repo; D4 is recorded from
+the request.
