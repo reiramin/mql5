@@ -13,14 +13,14 @@ One codebase, two layers that stay in lockstep:
 | **Expert Advisor** | MQL5 | `mql5/` | Executes trades in MetaTrader 5 (owner environment) |
 | **Quant toolkit + certification** | Python | `python/mql5bot/` | Research, backtesting, gold-standard parity, owner-evidence verification |
 
-> **Start here:** [docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md) — the
-> plain-language delivery note: what is proven (with artifact hashes),
-> what has never been proven, and the checklist before any real account.
+> **Start here:** "Certification status" below, then
+> [docs/SHOWCASE.md](docs/SHOWCASE.md): what was built, how it was
+> verified, the bugs the process found, and its limits.
 >
 > **Then, if you are new:** [docs/INSTALLATION.md](docs/INSTALLATION.md)
 > (setup), [docs/USER_GUIDE.md](docs/USER_GUIDE.md) (how the system
-> works), [docs/MT5_SETUP_AND_OPERATION.md](docs/MT5_SETUP_AND_OPERATION.md)
-> (owner runbook), [docs/README.md](docs/README.md) (documentation map).
+> works), [docs/OWNER_GATE.md](docs/OWNER_GATE.md) (the certification gate
+> and how to run it), [docs/README.md](docs/README.md) (the docs index).
 
 ---
 
@@ -48,8 +48,19 @@ claim, no profitability claim.**
   `reconciliation_verify.json` and `archive_manifest.json`.
 - **Showcase.** How it was built and verified: [docs/SHOWCASE.md](docs/SHOWCASE.md).
 
-The "Current status" table further down records the 2026-09-20 run and is
-kept as history. This section supersedes it.
+## Repository map
+
+| Path | What it holds |
+|---|---|
+| `mql5/` | the Expert Advisor, its includes, and the gate's MQL5 scripts (fixture importer, SymbolSpec exporter, DSL parity runner) |
+| `python/mql5bot/` | the Python toolkit: DSL, backtester, cost model, gold expectations, stage-8 builder, verifier logic, demo harness, certificate |
+| `tools/` | the owner gate (`owner_gate.ps1`), its decider, the verifier, the evidence binder, compile and tester runners |
+| `docs/` | contracts, runbooks, decisions log; start at the [docs index](docs/README.md) |
+| `tests/` | the pytest suite (ruff + full suite must exit 0 before any commit) |
+| `artifacts/` | frozen gold fixtures and expectations, and the frozen owner-gate inputs (never edited by hand) |
+
+**Docs index:** [docs/README.md](docs/README.md) lists every document with
+its status (current / historical / superseded).
 
 ## Reading this repository in 15 minutes
 
@@ -60,16 +71,19 @@ stages 6–10 never ran), and the repository said so instead of rounding it up.
 Every later failure was root-caused the same way, until gate_run59 certified
 (see "Certification status" above).
 
-1. **[docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md)** (5 min) — the account
-   of record: what is proven, with hashes, and what has never been proven.
+1. **[docs/SHOWCASE.md](docs/SHOWCASE.md)** (5 min) — what is certified,
+   how, and what is not claimed; it links the certificate and the
+   gate_run59 report.
 2. **[tools/owner_gate.ps1](tools/owner_gate.ps1)** (5 min) — the 11-stage
    gate itself: it self-protects (stage 0 refuses a dirty tree or a changed
    frozen hash), walks the stages, and stops at the first failure.
-3. **One `stage_5.json`** (2 min) — the gate writes one `stage_<n>.json` per
-   stage plus `gate_summary.json` into `evidence\owner_gate\<UTC>\` (layout:
-   [docs/OWNER_GATE.md](docs/OWNER_GATE.md)). Evidence is owner-side and
-   gitignored; the 2026-09-20 run is `evidence\owner_gate\20260920-092713`.
-   Read how a BLOCKED leg is recorded as BLOCKED — not as a pass.
+3. **One `stage_<n>.json`** (2 min) — the gate writes one `stage_<n>.json`
+   per stage plus `gate_summary.json` into `evidence\owner_gate\<UTC>\`
+   (layout: [docs/OWNER_GATE.md](docs/OWNER_GATE.md)). Evidence is
+   owner-side and gitignored; the runner publishes each run's records to
+   `reports/gate_run<N>/` on branch `gate-reports` (gate_run59 is the
+   certified run). Read how a BLOCKED or not-applicable leg is recorded as
+   such — never as a pass.
 4. **The console** (3 min) — `pip install uvicorn`, set
    `MQL5BOT_CONSOLE_TOKEN` in your environment, run `python -m mql5bot.api`,
    and open `http://127.0.0.1:8000/` (add `?lang=fa` for Persian). See
@@ -95,32 +109,16 @@ another:
 5. **Demo / live evidence** — live-like and real-money operation
    (separate, later states).
 
-## Current status (honest, not collapsed)
+## History
 
-> **History (2026-09-20 run).** Superseded by "Certification status"
-> above (gate_run59, 2026-10-13).
-
-The owner ran the full certification gate on 2026-09-20 (MT5 build 6184,
-Windows 10). The gate is an **11-stage ladder (stages 0–10)** that
-self-protects, walks the stages, and STOPS at the first failure. This
-run reached `GATE_RESULT=tester_legs`: **stages 0–4 PASS, stage 5 FAIL,
-stages 6–10 never ran.** The complete plain-language account — with the
-per-stage hashes and every per-leg verdict — is
-[docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md); this table is a summary
-of it and must not be read as more.
-
-| Item | State | Evidence |
-|---|---|---|
-| Python toolkit + tests | **IMPLEMENTED, RESEARCH-VALIDATED** | deterministic suite (see CI) |
-| Gold #1 / Gold #2 semantic parity (Python↔DSL) | **GOLD_SEMANTIC_PASS** (local) | `artifacts/gold/`, `artifacts/gold_2/` — frozen, hash-chained |
-| Gate stage 0 self-protection · 1 strict compile (0/0) · 2 DSL parity (14/14) · 3 broker parity (12 MATCH) · 4 fixture import | **MT5-VALIDATED** on the 2026-09-20 run | owner-side evidence dir `evidence\owner_gate\20260920-092713` (gitignored, not committed); hashes in `docs/OWNER_DELIVERY.md` |
-| Gate stage 5 Strategy Tester legs | **FAIL** (`GATE_RESULT=tester_legs`) | 3 legs FAIL (gold #1 fixture too short / no proving line), 2 legs BLOCKED_OWNER_ENVIRONMENT (build 6184 wrote no Report file — a BLOCKED leg is **not** a pass) |
-| Gate stages 6–10 (reconciliation incl. 8a–8d, archive, certify) | **NEVER RUN** | gate stopped at stage 5 |
-| Cross-engine reconciliation (Python↔MQL5 executed trades, stage 8) | **NEVER RUN** | the binding parity claim of the architecture is unproven |
-| Empirical lane | **PENDING_OWNER** | package defined (`docs/AEGIS_EMPIRICAL_LANE_PACKAGE.md`), not executed |
-| Operator interfaces (Telegram alerts, Persian/RTL console) | **IMPLEMENTED, unit-tested, NEVER RUN LIVE** | `python/mql5bot/notify/telegram.py`, `python/mql5bot/i18n.py` + console templates |
-| Demo / Live | **NOT_READY** | demo never auto-starts; no live capital in this workflow |
-| Overall | **NOT CERTIFIED · PRODUCTION = NOT_READY · nothing is VERIFIED** | `docs/OWNER_DELIVERY.md` |
+The first full gate run (2026-09-20, MT5 build 6184) stopped at stage 5:
+stages 0–4 PASS, stage 5 FAIL (`GATE_RESULT=tester_legs`), stages 6–10 never
+ran, nothing certified. That run is recorded verbatim in
+[docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md). Every later failure was
+root-caused in a PR and logged in [docs/DECISIONS.md](docs/DECISIONS.md),
+until gate_run59 (2026-10-13) certified; see "Certification status" above.
+The empirical lane, demo trading and live trading are separate, later
+states and have not been run.
 
 **Status vocabulary — these are NOT synonyms:**
 
@@ -131,12 +129,31 @@ of it and must not be read as more.
   minimum applies (Gold #2 is valid with its 56 trades), and it never
   implies MT5-VALIDATED or VERIFIED.
 - **MT5-VALIDATED** — proven in the MetaTrader 5 Strategy Tester on
-  owner-produced, hash-bound artifacts.
+  owner-produced, hash-bound artifacts. The verifier's verdicts are
+  `MT5_VALIDATED` (all tester models incl. real ticks) and
+  `MT5_VALIDATED_BAR_MODELS` (m1_ohlc + every_tick only, no real-tick
+  claim: the certified verdict); a scoped run's best is
+  `MT5_VALIDATED_PARTIAL_SCOPE`, which certifies nothing.
 - **EMPIRICAL-VALIDATED / DEMO-VALIDATED / LIVE-VALIDATED / VERIFIED** —
   later, separate states with their own prerequisites
   (`docs/CERTIFICATION.md`).
 - **BLOCKED_OWNER_ENVIRONMENT** — requires the owner's
   Windows/MetaEditor/terminal; never converted to PASS by assumption.
+
+**Gate results (`GATE_RESULT=`, see [docs/OWNER_GATE.md](docs/OWNER_GATE.md)):**
+
+- `certified` — every stage passed and every gold leg was graded from an
+  MT5 report. Exit code 0 (the only result that exits 0).
+- `certified_with_log_graded_legs` — every stage passed, but at least one
+  gold leg was graded from the tester agent log (MT5 wrote no report).
+  Exit code 1 by design. This is the certified gate_run59 result.
+- `partial_<stage>` — a scoped (`-Golds`) run, e.g. `partial_reconciliation`;
+  it certifies nothing and is refused stages 9–10.
+- `<stage name>` — the first stage that failed, e.g. `fixture_import`
+  (gate_run58), `demo_safety` (gate_run57), `reconciliation`. The names are
+  `self_protection`, `strict_compile`, `dsl_parity`, `broker_parity`,
+  `fixture_import`, `tester_legs`, `demo_safety`, `reconciliation`,
+  `archive_manifest`, `certify`.
 
 This repository state **must not be read as real-money validation**:
 the MT5 evidence (gate_run59) covers execution parity on frozen bar
@@ -145,20 +162,29 @@ and nothing here implies profitability.
 
 ## The execution-surface boundary (binding)
 
-The EA's five built-in strategy engines (`ema_crossover`,
-`rsi_reversal`, `donchian_breakout`, `bollinger_reversal`,
-`macd_momentum`) are the ONLY MQL5 execution surface — the EA contains
-no DSL interpreter, so a generated/DSL strategy cannot enter EA
-execution unless it maps onto one of those five engines. Generated
-strategies run on the Python research stack; their MT5 path beyond the
-five built-ins is BLOCKED_OWNER_ENVIRONMENT. Binding scope model:
-`docs/CERTIFICATION.md` §Certification scope surfaces.
+The EA executes strategies in exactly two ways, and both reach orders
+only through the same RiskManager/TradeManager chain:
+
+1. **Five built-in strategy engines** (`ema_crossover`, `rsi_reversal`,
+   `donchian_breakout`, `bollinger_reversal`, `macd_momentum`), selected by
+   the `InpStrategy` enum input.
+2. **An optional hash-bound DSL bundle runtime** (`InpDslBundleFile`,
+   `mql5/Include/Mql5Bot/DslBundle.mqh`). It is fail-closed: the bundle hash,
+   `spec_hash` and `semantic_hash` are re-derived and must bind; only the
+   indicator kinds this runtime implements with verified parity (EMA, RSI,
+   ATR, DONCHIAN, HIGHEST, LOWEST) are accepted; the bundle's market must
+   equal the chart. The gold legs of the certified run execute through it.
+
+A generated strategy that uses any other indicator kind is refused by the
+EA and stays on the Python research stack; its MT5 path is
+BLOCKED_OWNER_ENVIRONMENT. Binding scope model: `docs/CERTIFICATION.md`
+§Certification scope surfaces.
 
 | Surface | What it is | Evidence class |
 |---|---|---|
 | **RESEARCH SURFACE** | Python / DSL / Factory — 71 contract-declared indicator kinds | deterministic tests |
-| **EXECUTION SURFACE** | MQL5 EA — five built-in strategy engines | owner runtime evidence |
-| **OWNER-PENDING SURFACE** | new/generated semantics requiring runtime validation | none yet |
+| **EXECUTION SURFACE** | MQL5 EA — five built-in engines + the fail-closed DSL bundle runtime (6 indicator kinds) | owner runtime evidence (gate_run59: the gold legs, via the DSL bundle runtime) |
+| **OWNER-PENDING SURFACE** | other indicator kinds and generated semantics requiring runtime validation | none yet |
 
 ## What can run where
 
@@ -297,8 +323,10 @@ Details: [docs/FACTORY_GUIDE.md](docs/FACTORY_GUIDE.md),
   not forecasts.
 - No guarantee of **broker compatibility** — every broker SymbolSpec
   must be exported and compared on the owner's terminal first.
-- No guarantee of **MT5 runtime behavior** — until owner tester
-  evidence reconciles against the gold fixtures.
+- No guarantee of **MT5 runtime behavior** beyond what gate_run59
+  certified: execution parity on the two frozen bar fixtures in the
+  `m1_ohlc` and `every_tick` models, and the 8 safety behaviours. No
+  real-tick leg, no other symbol or broker.
 - No **automatic demo or live trading** — demo requires MT5 validation
   + clean reconciliation + safety evidence + broker confirmation +
   human approval; live requires everything after that, independently.
@@ -318,9 +346,9 @@ documents: `docs/SPEC.md`, `docs/SYSTEM_INVARIANTS.md`,
 commands) and `docs/DEPLOYMENT.md` (the split always-on deployment —
 a procedure, never deployed or drilled).
 
-Historical state: `HANDOFF.md` (agent/engineering continuity),
-`PROGRESS.md` (execution history), `TASKS.md` (work queue),
-`CHANGELOG.md`. The `docs/AEGIS_*.md` audit records are engineering
+Project state: `HANDOFF.md` (agent/engineering continuity),
+`PROGRESS.md` (execution history), `TASKS.md` (open work),
+`CHANGELOG.md`, `AUTONOMOUS_LOG.md` (per-session agent log). The `docs/AEGIS_*.md` audit records are engineering
 evidence — users should not need them to operate the project.
 
 ## Research evidence, not promises

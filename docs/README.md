@@ -1,112 +1,135 @@
-# Documentation Map
+# Docs index
 
-Two levels: **human onboarding/operations** (these guides) and
-**canonical engineering documents** (authoritative contracts — the
-guides link to them instead of duplicating them).
+Every file under `docs/`, one line each. **Status:** *current* means it
+describes the code and the gate as they are now (gate_run59 certified;
+master after `50cdb71`); *historical* means a dated, point-in-time record
+that is kept, not edited with later knowledge, and names the file that
+supersedes it. The root-level files are listed at the end.
 
-## Start Here
 
-| Document | Purpose |
-|---|---|
-| [OWNER_DELIVERY.md](OWNER_DELIVERY.md) | **Read first.** The plain-language account of record: what is proven (with hashes), what has never been proven, and the pre-live checklist. Everything else must agree with it. |
-| [INSTALLATION.md](INSTALLATION.md) | Python environment, optional extras, what works on Linux/macOS vs Windows+MT5 |
-| [USER_GUIDE.md](USER_GUIDE.md) | How the system works bar-by-bar: strategies, Risk, Kill Switch, Meta, positions, restarts |
-| [MT5_SETUP_AND_OPERATION.md](MT5_SETUP_AND_OPERATION.md) | Complete owner-side runbook: compile, install, presets, Strategy Tester, safety, evidence |
-| [FACTORY_GUIDE.md](FACTORY_GUIDE.md) | The AEGIS Factory workflow from idea to retirement |
-| [CERTIFICATION_GUIDE.md](CERTIFICATION_GUIDE.md) | The 11-stage gate and the validation ladder: Gold / MT5 runtime / empirical / demo / live |
+## Start here
 
-## Operator experience
+| File | What it is | Status |
+|---|---|---|
+| [SHOWCASE.md](SHOWCASE.md) | What AEGIS is, how it was built and verified, bugs found, numbers, limits; links the certificate | current |
+| [OWNER_GATE.md](OWNER_GATE.md) | The certification gate: stages 0–10, runner tags, runner rules, exit codes, evidence layout | current |
+| [BLOCKED.md](BLOCKED.md) | What is open or not yet run live | current |
+| [INSTALLATION.md](INSTALLATION.md) | Python environment, optional extras, what runs on Linux/macOS vs Windows+MT5 | current |
+| [USER_GUIDE.md](USER_GUIDE.md) | How the system works bar by bar: strategies, Risk, Kill Switch, Meta, positions, restarts | current |
+| [MT5_SETUP_AND_OPERATION.md](MT5_SETUP_AND_OPERATION.md) | Owner-side runbook: compile, install, presets, Strategy Tester, safety, evidence | current |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Failure classes and known gate failure modes, each with its decision ID and remedy | current |
 
-The daily-use surfaces for the owner. Each is **built, unit-tested, and never
-run live**.
+## Certification and evidence
 
-| Document | Purpose |
-|---|---|
-| [ROADMAP_UX.md](ROADMAP_UX.md) | The operator-experience plan: Telegram-first, Persian status page, split deployment, guided conversation |
-| [TELEGRAM.md](TELEGRAM.md) | Telegram alerts, daily digest, and the four commands (`status`/`positions`/`report`/`stop`); asymmetric friction |
-| [CONSOLE.md](CONSOLE.md) | The operator console (CONSOLE v2, commits `920c139`..`fb5cdc1`; offline since `b06c7b3`): six pages, auth, live updates, the certification rail — and the three hard rules |
-| [PERSIAN_CONSOLE.md](PERSIAN_CONSOLE.md) | The opt-in Persian/RTL presentation layer and the Persian status page |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | The split always-on deployment (a procedure — never deployed or drilled) |
+| File | What it is | Status |
+|---|---|---|
+| [CERTIFICATION.md](CERTIFICATION.md) | The certification contract: scope surfaces, lanes, evidence layers, what a certificate claims | current |
+| [CERTIFICATION_GUIDE.md](CERTIFICATION_GUIDE.md) | How-to for the validation ladder: Gold / MT5 runtime / empirical / demo / live | current |
+| [DECISIONS.md](DECISIONS.md) | Binding decisions log (entries to 2026-10-03 newest on top; from 2026-10-04 appended at the end) | current |
+| [SAFETY_8A_8D_PLAN.md](SAFETY_8A_8D_PLAN.md) | The five Strategy Tester safety legs (kill_switch, risk_veto, lost_response, meta_reduce, sl_verify) | current |
+| [SAFETY_DEMO_PLAN.md](SAFETY_DEMO_PLAN.md) | The three live-demo safety tests (restart, netting, hedging) and the demo harness in stage 7 | current |
+| [BROKER_SYMBOL_PARITY.md](BROKER_SYMBOL_PARITY.md) | Broker SymbolSpec handling and the stage-3 parity contract | current |
+| [AEGIS_EMPIRICAL_LANE_PACKAGE.md](AEGIS_EMPIRICAL_LANE_PACKAGE.md) | Definition of the empirical lane (prepared, never executed) | current |
+| [analysis/gate_run25_divergences.md](analysis/gate_run25_divergences.md) | gate_run25 gold2 divergence analysis | historical (2026-10-03); superseded by DECISIONS.md and the gate_run59 certificate |
+| [analysis/gate_run28_divergences.md](analysis/gate_run28_divergences.md) | gate_run28 divergence analysis | historical (2026-10-03); superseded by DECISIONS.md and the gate_run59 certificate |
+| [analysis/gate_run29_missing_0808.md](analysis/gate_run29_missing_0808.md) | gate_run29 single MISSING_IN_MT5 analysis | historical (2026-10-04); superseded by DECISIONS.md and the gate_run59 certificate |
+| [OWNER_DELIVERY.md](OWNER_DELIVERY.md) | Account of the first full gate run (2026-09-20, stopped at stage 5) | historical (2026-09-20 run); superseded by OWNER_GATE.md and README "Certification status" |
+| [MT5_ROUNDTRIP.md](MT5_ROUNDTRIP.md) | The manual ten-step owner protocol used before the automated gate | historical (2026-09-20); superseded by OWNER_GATE.md |
+| [WINDOWS_OWNER_HANDOFF.md](WINDOWS_OWNER_HANDOFF.md) | Windows owner handoff for the pre-gate compile and re-anchor | historical (2026-09-20); superseded by OWNER_GATE.md and MT5_SETUP_AND_OPERATION.md |
 
-## Architecture / Contracts
+## Architecture and contracts
 
-| Document | Purpose |
-|---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Layered model for humans; authority boundaries |
-| [SPEC.md](SPEC.md) | Canonical technical specification (authoritative) |
-| [SYSTEM_INVARIANTS.md](SYSTEM_INVARIANTS.md) | Safety/correctness invariants that never weaken |
-| [STATE_MODEL.md](STATE_MODEL.md) | Strategy lifecycle state machine |
-| [DECISIONS.md](DECISIONS.md) | Binding decisions log (change it deliberately) |
+| File | What it is | Status |
+|---|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Layered model and authority boundaries | current |
+| [SPEC.md](SPEC.md) | SPEC v4: the original design specification (aspirational; the tree differs in places, see its note) | current |
+| [SYSTEM_INVARIANTS.md](SYSTEM_INVARIANTS.md) | Safety and correctness invariants that never weaken | current |
+| [STATE_MODEL.md](STATE_MODEL.md) | Strategy lifecycle state machine | current |
+| [KILL_SWITCH.md](KILL_SWITCH.md) | Emergency veto contract (Python and EA) | current |
+| [SAFETY_GOVERNANCE.md](SAFETY_GOVERNANCE.md) | Safety governance of the discovery layer | current |
+| [ALLOCATION_CIRCUIT_BREAKER.md](ALLOCATION_CIRCUIT_BREAKER.md) | Allocation circuit breaker in the discovery safety layer | current |
+| [EXTERNAL_WATCHDOG.md](EXTERNAL_WATCHDOG.md) | External watchdog component | current |
+| [EXECUTION_STRESS_OBSERVED.md](EXECUTION_STRESS_OBSERVED.md) | Measured execution-stress degradation (Phase 10) | current |
 
-## Risk / Execution
+## Operator experience (built, unit-tested, never run live)
 
-| Document | Purpose |
-|---|---|
-| [KILL_SWITCH.md](KILL_SWITCH.md) | Emergency veto contract |
-| [SAFETY_GOVERNANCE.md](SAFETY_GOVERNANCE.md) | Safety governance model |
-| [MQL5_EXECUTION_AUDIT.md](MQL5_EXECUTION_AUDIT.md) | MQL5 execution-path audit |
-| [BROKER_SYMBOL_PARITY.md](BROKER_SYMBOL_PARITY.md) | Broker SymbolSpec handling + parity contract |
-| [EXECUTION_STRESS_OBSERVED.md](EXECUTION_STRESS_OBSERVED.md) | Observed execution stress behavior |
+| File | What it is | Status |
+|---|---|---|
+| [ROADMAP_UX.md](ROADMAP_UX.md) | The operator-experience plan: Telegram-first, Persian status page, split deployment, guided conversation | current |
+| [TELEGRAM.md](TELEGRAM.md) | Telegram alerts, daily digest and the four commands | current |
+| [CONSOLE.md](CONSOLE.md) | The operator console (CONSOLE v2): pages, auth, live updates, the certification rail | current |
+| [PERSIAN_CONSOLE.md](PERSIAN_CONSOLE.md) | The opt-in Persian/RTL presentation layer | current |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | The split always-on deployment (a procedure, never deployed or drilled) | current |
 
-## Research / Meta
+## Research and meta layer
 
-| Document | Purpose |
-|---|---|
-| [META_LAYER_CONTRACT.md](META_LAYER_CONTRACT.md) | Meta layer contract (reduce-only allocation) |
-| [META_LAYER_IMPLEMENTATION_SPEC.md](META_LAYER_IMPLEMENTATION_SPEC.md) | Meta implementation spec |
-| [AUTONOMOUS_STRATEGY_DISCOVERY.md](AUTONOMOUS_STRATEGY_DISCOVERY.md) | Discovery system overview |
-| [DISCOVERY_SCORE.md](DISCOVERY_SCORE.md) | 16-component Discovery Score |
-| [INDICATOR_UNIVERSE.md](INDICATOR_UNIVERSE.md) | 71-kind research indicator universe |
-| [WFA_CONTRACT.md](WFA_CONTRACT.md) / [WFA_CPCV_REVIEW.md](WFA_CPCV_REVIEW.md) | Walk-forward / CPCV validation contracts |
-| [STAGED_PIPELINE.md](STAGED_PIPELINE.md) | Staged research pipeline |
-| [STRATEGY_DECAY.md](STRATEGY_DECAY.md) | Decay/recovery policy |
-| [ML_VS_LLM_BOUNDARY.md](ML_VS_LLM_BOUNDARY.md) | ML vs LLM responsibility boundary |
+| File | What it is | Status |
+|---|---|---|
+| [META_LAYER_CONTRACT.md](META_LAYER_CONTRACT.md) | Meta layer contract v1.1.1 (reduce-only allocation) | current |
+| [META_LAYER_IMPLEMENTATION_SPEC.md](META_LAYER_IMPLEMENTATION_SPEC.md) | Contract-to-code spec for meta_layer.py | current |
+| [META_LAYER_VALIDATION.md](META_LAYER_VALIDATION.md) | Measured meta validation / red team | current |
+| [META_PRODUCTION_VALIDATION.md](META_PRODUCTION_VALIDATION.md) | MetaPortfolioEngine validation record | current |
+| [META_OOS_CANONICAL.md](META_OOS_CANONICAL.md) | Canonical meta out-of-sample protocol | current |
+| [META_PORTFOLIO_EVENT_ORDER.md](META_PORTFOLIO_EVENT_ORDER.md) | Canonical meta portfolio event order | current |
+| [META_REPLAY_CONVENTIONS.md](META_REPLAY_CONVENTIONS.md) | Replay identity conventions | current |
+| [META_PERF_BENCHMARK.json](META_PERF_BENCHMARK.json) | Meta performance benchmark output (measurement) | current |
+| [CORRELATION_CONVENTIONS.md](CORRELATION_CONVENTIONS.md) | Meta-layer correlation conventions | current |
+| [REGIME_MATRIX.md](REGIME_MATRIX.md) | Frozen regime matrix measurement (with REGIME_MATRIX.json) | current |
+| [REGIME_MATRIX.json](REGIME_MATRIX.json) | Regime matrix data | current |
+| [VERSION_CONSISTENCY.md](VERSION_CONSISTENCY.md) | Version carriers (meta contract 1.1.1) | current |
+| [AUTONOMOUS_STRATEGY_DISCOVERY.md](AUTONOMOUS_STRATEGY_DISCOVERY.md) | Discovery platform overview and status | current |
+| [DISCOVERY_SCORE.md](DISCOVERY_SCORE.md) | 16-component Discovery Score | current |
+| [INDICATOR_UNIVERSE.md](INDICATOR_UNIVERSE.md) | 71-kind research indicator universe | current |
+| [WFA_CONTRACT.md](WFA_CONTRACT.md) | Walk-forward contract | current |
+| [WFA_CPCV_REVIEW.md](WFA_CPCV_REVIEW.md) | WFA / CPCV cross-audit | current |
+| [CV_STATE_CONTRACT.md](CV_STATE_CONTRACT.md) | CV/WFA state-crossing contract | current |
+| [STAGED_PIPELINE.md](STAGED_PIPELINE.md) | Staged research pipeline and manifests | current |
+| [STRATEGY_DECAY.md](STRATEGY_DECAY.md) | Decay / recovery controller | current |
+| [ML_VS_LLM_BOUNDARY.md](ML_VS_LLM_BOUNDARY.md) | ML vs LLM authority boundary | current |
+| [BENCHMARK_FAST.md](BENCHMARK_FAST.md) | FAST engine scope and measured benchmark | current |
+| [FACTORY_GUIDE.md](FACTORY_GUIDE.md) | The Strategy Factory workflow from idea to retirement | current |
 
-## Certification / Evidence
+## Development and operations
 
-| Document | Purpose |
-|---|---|
-| [CERTIFICATION.md](CERTIFICATION.md) | Binding scope model + two certification lanes + evidence layers |
-| [MT5_ROUNDTRIP.md](MT5_ROUNDTRIP.md) | Canonical TEN-step owner protocol (single source of truth) |
-| [CERTIFICATION_GUIDE.md](CERTIFICATION_GUIDE.md) | Human-facing validation-ladder guide |
-| [AEGIS_REALITY_GATE_AUDIT.md](AEGIS_REALITY_GATE_AUDIT.md) | Reality-gate audit record (§85–§90 incl. attack matrices) |
-| [AEGIS_REALITY_GATE_CONTINUATION.md](AEGIS_REALITY_GATE_CONTINUATION.md) | Gate continuation log (§17a–§17g) |
-| [AEGIS_EXIT_GATE.md](AEGIS_EXIT_GATE.md) | Exit-gate record |
-| [AEGIS_EMPIRICAL_LANE_PACKAGE.md](AEGIS_EMPIRICAL_LANE_PACKAGE.md) | Empirical lane owner package definition (prepared, not executed) |
-| `../artifacts/owner_mt5_gate/README.md` | Owner execution package manual + evidence directory contract |
+| File | What it is | Status |
+|---|---|---|
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Contributor guide: layout, quality gates, canonical files | current |
+| [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) | Pre-release sequence and the owner-side gate | current |
+| [AUTONOMOUS_WORKER.md](AUTONOMOUS_WORKER.md) | The daily autonomous-worker task prompt | current |
+| [README.md](README.md) | This index | current |
 
-## Operations
+## Historical audit and phase records (point-in-time; not edited with later knowledge)
 
-| Document | Purpose |
-|---|---|
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Failure classes: symptom, cause, inspection, safe resolution |
-| [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) | Final pre-release sequence + owner-side gate |
-| [DEVELOPMENT.md](DEVELOPMENT.md) | Contributor guide: layout, standards, canonical files |
-| [AUTONOMOUS_WORKER.md](AUTONOMOUS_WORKER.md) | The daily "AEGIS autonomous worker" task: its self-contained prompt (one DEV task per run) |
+| File | What it is | Status |
+|---|---|---|
+| [AEGIS_CONVERGENCE_AUDIT_2026-09.md](AEGIS_CONVERGENCE_AUDIT_2026-09.md) | Mac code-lane convergence audit / gap table | historical (2026-09); superseded by CERTIFICATION.md and ARCHITECTURE.md |
+| [AEGIS_FINAL_CONVERGENCE_AUDIT.md](AEGIS_FINAL_CONVERGENCE_AUDIT.md) | Pre-coding convergence audit (§1–86) | historical (2026-09-20); superseded by ARCHITECTURE.md |
+| [AEGIS_REALITY_GATE_AUDIT.md](AEGIS_REALITY_GATE_AUDIT.md) | Python→DSL→MQL5→MT5 reality-gate audit (§85–§90) | historical (2026-09-20); superseded by OWNER_GATE.md and CERTIFICATION.md |
+| [AEGIS_REALITY_GATE_CONTINUATION.md](AEGIS_REALITY_GATE_CONTINUATION.md) | Reality-gate continuation log (§17a–§17g) | historical (2026-09-07); superseded by OWNER_GATE.md |
+| [AEGIS_EXIT_GATE.md](AEGIS_EXIT_GATE.md) | Phase-32 exit report: meta realism, multi-asset, regime, drift | historical (2026-09-20); superseded by META_PRODUCTION_VALIDATION.md |
+| [PHASE3_FINAL_REPORT.md](PHASE3_FINAL_REPORT.md) | Phase 3 acceptance report | historical (2026-09-04); superseded by SHOWCASE.md |
+| [PHASE3_GATE.md](PHASE3_GATE.md) | Phase 3 integrity gate record | historical (2026-09-05); superseded by OWNER_GATE.md |
+| [MASTER_PRODUCTION_CONVERGENCE_AUDIT.md](MASTER_PRODUCTION_CONVERGENCE_AUDIT.md) | Existence-vs-integration audit | historical (2026-09-20); superseded by ARCHITECTURE.md |
+| [IMPLEMENTATION_AUDIT.md](IMPLEMENTATION_AUDIT.md) | SPEC v4 implementation audit | historical (2026-09-20); superseded by ARCHITECTURE.md and BLOCKED.md |
+| [MQL5_EXECUTION_AUDIT.md](MQL5_EXECUTION_AUDIT.md) | Source-level audit of the EA's trade paths | historical (2026-09-20); superseded by ARCHITECTURE.md and CERTIFICATION.md |
+| [META_LAYER_SEMANTICS_REVIEW.md](META_LAYER_SEMANTICS_REVIEW.md) | Review of meta contract v1.1.1 against the code | historical (2026-09-20); superseded by META_LAYER_CONTRACT.md |
+| [META_REALISM_AUDIT.md](META_REALISM_AUDIT.md) | Trace of meta_portfolio at 61d55ab | historical (2026-09-20); superseded by META_PRODUCTION_VALIDATION.md |
+| [AUTONOMOUS_STRATEGY_DISCOVERY_GAP.md](AUTONOMOUS_STRATEGY_DISCOVERY_GAP.md) | Discovery gap matrix at baseline 81d6d1d | historical (2026-09-20); superseded by AUTONOMOUS_STRATEGY_DISCOVERY.md |
+| [STRATEGY_FACTORY_GAP_ANALYSIS.md](STRATEGY_FACTORY_GAP_ANALYSIS.md) | Factory gap analysis at baseline ba672ff | historical (2026-09-06); superseded by FACTORY_GUIDE.md |
+| [STRATEGY_FACTORY_IMPLEMENTATION_AUDIT.md](STRATEGY_FACTORY_IMPLEMENTATION_AUDIT.md) | Factory integration-gate audit | historical (2026-09-20); superseded by FACTORY_GUIDE.md |
 
-## Historical / audit records — point-in-time, do not edit
-
-Every `AEGIS_*`, `PHASE3_*`, `*_AUDIT.md`, `*_REVIEW.md`,
-`*_GAP_ANALYSIS.md`, `MASTER_PRODUCTION_CONVERGENCE_AUDIT.md`,
-`IMPLEMENTATION_AUDIT.md`, `STRATEGY_FACTORY_*` and `META_*` analysis file
-is a **point-in-time record** of a past gate or review. They are engineering
-evidence and are **not edited with later knowledge** — updating a dated audit
-would falsify the record it exists to preserve. They are not required reading
-for operating the project. Where an old document describes a state superseded
-by a later gate, the later document — and above all
-[OWNER_DELIVERY.md](OWNER_DELIVERY.md) — is authoritative (see `DECISIONS.md`).
-
-## Root-level continuity files
+## Root-level files
 
 | File | Role |
 |---|---|
-| `README.md` | Public front door |
-| `CHANGELOG.md` | Version history |
-| `HANDOFF.md` | Agent/engineering continuity |
-| `PROGRESS.md` | Execution history/status |
-| `TASKS.md` | Active work queue |
-| `CLAUDE.md` | Rules for any agent working in this repository |
+| `README.md` | Front door: certification status, repository map, quick start |
+| `CLAUDE.md` | Rules for any agent working in this repository, and the owner-scoped exceptions with their status |
+| `CHANGELOG.md` | Changes per decision ID with PR numbers |
+| `HANDOFF.md` | Agent/engineering continuity; its CURRENT STATE POINTER is authoritative |
+| `PROGRESS.md` | Execution history; its CURRENT STATE block is authoritative |
+| `TASKS.md` | Open items only (older backlogs kept below as history) |
 | `AUTONOMOUS_LOG.md` | Dated per-session log of agent work (branch, commits, exit codes, what was not done) |
 
 **Rule:** documentation must never become more optimistic than the
-implementation and the evidence.
+implementation and the evidence. Gate status is reported exactly as the
+latest run on branch `gate-reports` shows it.

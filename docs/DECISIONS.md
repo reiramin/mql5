@@ -5606,3 +5606,50 @@ only):
 
 Status: built, unit-tested, never run live. Merge with `[runner: full]`,
 so the next gate run compiles it at stage 1 and runs it at stage 4.
+
+## DOCS-SYNC-1 — every Markdown file brought in line with the certified state (2026-10-13)
+
+**Request (owner, 2026-10-13).** Before any new feature work, sync every
+Markdown file with the certified state (gate_run59; master `50cdb71` or
+later). There are three PRs, each merged with `[runner: pytest]`:
+- A: entry docs;
+- B: operating docs;
+- C: everything else under `docs/`.
+
+The certificate wording stays exact: "MT5 execution-parity and safety
+certificate, bar models, no real-tick claim, no profitability claim".
+evidence/, logs_owner/, certification_manifest.json, the frozen golds and
+the gate-reports are not touched.
+
+**PR A (entry docs).**
+- README:
+  - Certification status first, then a repository map and a docs-index link.
+  - The 2026-09-20 status table collapsed into a "History" paragraph.
+  - The status vocabulary now lists every `GATE_RESULT` value and the
+    verifier verdicts.
+  - The execution-surface section now names both of the EA's surfaces.
+- `docs/README.md` is a full index: every file under `docs/`, with a
+  status column.
+- SHOWCASE: links and numbers re-checked against gate-reports `db13f55`
+  (34 files in gate_run59; 22 published reports, gate_run38–59), plus
+  "How to reproduce".
+- HANDOFF / PROGRESS: new current-state blocks.
+- TASKS: open items only.
+- CHANGELOG: one entry per decision ID, #45–#55.
+- CLAUDE.md: one status line per owner-scoped exception.
+
+**A false pin corrected.** `tests/test_docs_contract.py` pinned the README
+sentence "the EA contains no DSL interpreter". The EA has an optional,
+fail-closed, hash-bound DSL bundle runtime (`InpDslBundleFile`,
+`DslBundle.mqh`; kinds EMA, RSI, ATR, DONCHIAN, HIGHEST, LOWEST), and the
+certified gold legs run through it.
+- The pin now requires the truthful two-surface wording, and the false
+  sentence to stay gone.
+- A new test checks the README's runtime description against the EA source:
+  the input, the hash re-derivation and the kind list.
+
+**Self-review:**
+- (a) Docs plus one test pin. The pin is corrected, not loosened: it
+  checks more than before.
+- (b) No code changes.
+- (c) No new gate check.

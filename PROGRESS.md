@@ -6,8 +6,33 @@
 > archive of past sessions — it names old branches (`arena/…`), superseded
 > phase numbers and historical test counts that are **NOT** the current
 > state and must not be read as such. History is preserved, never rewritten.
-> Canonical status also lives in `docs/DECISIONS.md` (newest on top) and
+> Canonical status also lives in `docs/DECISIONS.md` (entries up to
+> 2026-10-03 newest on top; from 2026-10-04 on appended at the end) and
 > `HANDOFF.md`.
+
+---
+
+## CURRENT STATE (authoritative) — 2026-10-13, branch `master`
+
+**Gate.** gate_run59 (branch `gate-reports`, commit `db13f55`) tested master
+`ab312d5`: `GATE_RESULT=certified_with_log_graded_legs`, stages 0–10 PASS
+(stage 5 PASS_FROM_LOG), verifier verdict `MT5_VALIDATED_BAR_MODELS`, gold1
+18/18 and gold2 37/37 MATCH in both bar models, 8/8 safety VALID, certificate
+and archive manifest produced, 0 leak hits. **MT5 execution-parity and
+safety certificate, bar models, no real-tick claim, no profitability claim.**
+
+**Since the certified commit:** IMPORT-SELFHEAL-1 (#55, master `50cdb71`,
+built, unit-tested, never run live), the certification record + SHOWCASE
+(#54) and DOCS-SYNC-1 (docs only).
+
+**Not proven live:** the SPEC-WAIT-2 WAITING_SYMBOL retry/give-up path, the
+HARNESS-SUSPEND-1 INTERRUPTED abort, IMPORT-SELFHEAL-1's recreate branch.
+
+**Verification of each change:** ruff and the full pytest suite exit 0
+before every commit (pytest's own exit code), CI green on Python
+3.10–3.12, then the tagged gate run on the owner's terminal. The per-PR
+record is `AUTONOMOUS_LOG.md`; the per-decision record is
+`docs/DECISIONS.md`; open items are `docs/BLOCKED.md` and `TASKS.md`.
 
 ---
 
@@ -35,7 +60,7 @@ stages 6–10 never run; nothing is certified.
 
 ---
 
-## CURRENT STATE (authoritative) — 2026-09-20, branch `master`
+## PRIOR STATE — 2026-09-20, branch `master` (superseded by the 2026-10-13 CURRENT STATE above)
 
 **Lane.** CODE-COMPLETE / RESEARCH-COMPLETE on Mac; the first full owner
 gate run is DONE and stopped at stage 5. RUNTIME-PENDING and OWNER-PENDING

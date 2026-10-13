@@ -110,15 +110,39 @@ def test_scope_boundary_docs_match_source_truth():
     # the false claim must stay gone
     assert "reach MT5 through the same EA pipeline" not in readme
     assert "reaches MT5 through the same EA pipeline" not in readme
-    # the truthful surface statement must stay present
-    assert "ONLY MQL5 execution surface" in readme
-    assert "no DSL interpreter" in readme
+    # the truthful surface statement must stay present. DOCS-SYNC-1
+    # (2026-10-13): the former pin "no DSL interpreter" was itself false --
+    # the EA carries an optional, fail-closed DSL bundle runtime
+    # (InpDslBundleFile, DslBundle.mqh) and the certified gold legs run
+    # through it. The README now names both surfaces; the false sentence
+    # must stay gone.
+    assert "executes strategies in exactly two ways" in readme
+    assert "optional hash-bound DSL bundle runtime" in readme
+    assert "no DSL interpreter" not in readme
+    assert "ONLY MQL5 execution surface" not in readme
     # the binding scope model must stay present and named
     cert = (DOCS / "CERTIFICATION.md").read_text(encoding="utf-8")
     assert "Certification scope surfaces" in cert
     assert "Execution-certified surface" in cert
     assert "Research-certified surface" in cert
     assert "Owner-pending surface" in cert
+
+
+def test_readme_dsl_runtime_sentence_matches_the_ea():
+    """DOCS-SYNC-1: the README's description of the EA's DSL bundle
+    runtime is checked against the source: the input exists, the loader
+    re-derives the bundle hash, and the supported kinds are exactly the six
+    the README names."""
+    repo = Path(__file__).resolve().parents[1]
+    ea = (repo / "mql5/Experts/Mql5Bot/Mql5Bot.mq5").read_text(
+        encoding="utf-8")
+    assert 'input string                  InpDslBundleFile = "";' in ea
+    bundle = (repo / "mql5/Include/Mql5Bot/DslBundle.mqh").read_text(
+        encoding="utf-8")
+    assert '"|EMA|RSI|ATR|DONCHIAN|HIGHEST|LOWEST|"' in bundle
+    assert "bundle_hash is RE-DERIVED" in bundle
+    readme = (repo / "README.md").read_text(encoding="utf-8")
+    assert "(EMA, RSI,\n   ATR, DONCHIAN, HIGHEST, LOWEST)" in readme
 
 
 def test_mql5_execution_surface_is_exactly_five_builtin_engines():

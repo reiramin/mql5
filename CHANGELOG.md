@@ -3,6 +3,59 @@
 All notable changes to mql5bot are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Certified — gate_run59 (2026-10-13)
+
+gate_run59 (branch `gate-reports`, `db13f55`) tested master `ab312d5` and
+ended `GATE_RESULT=certified_with_log_graded_legs`: stages 0–10 PASS, verifier
+verdict `MT5_VALIDATED_BAR_MODELS`, gold1 18/18 and gold2 37/37 MATCH in both
+bar models, 8/8 safety VALID. **MT5 execution-parity and safety certificate,
+bar models, no real-tick claim, no profitability claim.** Entries below are
+one per decision ID, newest first, with the PR that merged it; details are
+in `docs/DECISIONS.md`. PRs #30–#44 (stage-8 hardening, safety legs 8a–8d,
+the demo harness, IMPORT-CHART-1, WIN-NEWLINE-1, DEMO-HARNESS-RELAUNCH-1)
+are recorded there and in `AUTONOMOUS_LOG.md`.
+
+- **IMPORT-SELFHEAL-1** (#55) — the fixture importer drops and recreates a
+  custom symbol whose `CustomRatesDelete` leaves bars behind (gate_run58),
+  refusing only if the drop fails. CLAUDE.md exception 1.e. Built,
+  unit-tested, never run live.
+- **Certification record + `docs/SHOWCASE.md`** (#54) — docs only.
+- **HARNESS-SUSPEND-1** (#53) — the demo harness aborts a run spanning a
+  host suspend (>300 s wall-clock gap) as INTERRUPTED; stage 7 FAILs it as
+  `[demo_host_suspended]`. Built, unit-tested, never run live.
+- **SPEC-WAIT-2** (#53) — WAITING_SYMBOL calls `SymbolSelect` and logs the
+  spec field values each second; bound raised 60 → 180 s. Built,
+  unit-tested, never run live.
+- **SPEC-WAIT-1** (#52) — a live start on an unsynchronized symbol waits in
+  WAITING_SYMBOL (no new positions) instead of failing init. CLAUDE.md
+  exception 1.d. Its ordinary-start path ran in gate_run59.
+- **HARNESS-INIT-FAIL-1** (#52) — the harness fails a launch whose EA init
+  fails, by name, instead of waiting 900 s.
+- **STAGE10-CERT-1** (#51) — stage 10 certifies the stage-8 verifier's
+  verdict (`owner_gate_decide.py issue-certificate`) instead of running
+  `certify_strategy.py`. Proven by gate_run59's certificate.
+- **STAGE8-EMPTY-NOTBUILT-1** (#50) — StrictMode-safe property names for an
+  empty JSON object; stage 8 no longer crashes before the verifier runs.
+- **RESTART-GRADE-1** (#50) — the restart grader orders events by log
+  position, not by the stale `TimeCurrent()` stamp.
+- **DEMO-CHECK-CRLF-1** (#49) — generated ini files are written with
+  `newline=""`, so the connection check's export path carries no stray CR.
+- **GATE-EXIT-1** (#49) — the gate records its own exit code
+  (`gate_exit_code.txt`, `exit_code`, `GATE_EXIT_CODE=`).
+- **S8-PATH-1** (#48) — the gold1 window run resolves a bar touching both
+  SL and TP in MT5's M1-OHLC tick order; gold1 MATCH 18/18.
+- **WARMUP-FROMDATE-1** (#47) — the gold1 legs start where the EA has its
+  `InpDslBars` of history.
+- **DEMO-IN-GATE-1** (#46) — stage 7 runs the demo harness inside the gate
+  with that run's own stage-1 EX5.
+- **DEMO-LOGIN-PERSIST-1** (#46) — the harness leaves the terminal logged in
+  to the hedging account with the password kept, and proves it with a
+  credential-less launch.
+- **FILL-MODE-1** (#45) — the EA picks a filling mode the broker's
+  `SYMBOL_FILLING_MODE` flags allow. CLAUDE.md exception 1.c.
+- **STAGE3-SYNC-QUOTE-1** (#45) — the stage-3 FAIL text names the exporter's
+  unmet readiness condition.
+
 ## Unreleased — CONSOLE v2, CDN fix, review polish (2026-09-29)
 
 The MQL5 sources under `mql5/` are unchanged (frozen anchor `a85cba3`). The

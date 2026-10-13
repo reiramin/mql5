@@ -1,83 +1,48 @@
 # AEGIS — PROJECT HANDOFF (mental roadmap, decisions, state, todo)
 Read this together with `docs/SPEC.md` (v4). SPEC is canonical for WHAT to build; this file is canonical for WHERE we are, WHY decisions were made, and WHAT to do next. If they conflict, SPEC wins for engineering, this file wins for process/state.
 
-> **CURRENT STATE POINTER (2026-09-20 — first full owner gate run + the
-> operator-experience wave).** The authoritative *current* status is
-> [docs/OWNER_DELIVERY.md](docs/OWNER_DELIVERY.md) (the account that goes to
-> the owner), then `PROGRESS.md` → CURRENT STATE and `docs/DECISIONS.md`
-> (newest on top). The design narrative in §0–§14 below is retained as
-> roadmap/rationale; where a §-item predates the current state, this pointer
-> wins.
+> **CURRENT STATE POINTER (2026-10-13, DOCS-SYNC-1).** Read in this order:
+> [README.md](README.md) "Certification status", [docs/SHOWCASE.md](docs/SHOWCASE.md),
+> [docs/OWNER_GATE.md](docs/OWNER_GATE.md) (how the gate runs),
+> [docs/BLOCKED.md](docs/BLOCKED.md) (what is open), [TASKS.md](TASKS.md),
+> and [docs/DECISIONS.md](docs/DECISIONS.md) (entries up to 2026-10-03 are
+> newest on top; from 2026-10-04 on they are appended at the end). Where any section below predates this
+> pointer, this pointer wins.
 >
-> **Where the gate stands.** The owner ran the 11-stage certification gate on
-> 2026-09-20 (MT5 build 6184, Windows 10). Result: `GATE_RESULT=tester_legs`
-> — **stages 0–4 PASS, stage 5 (Strategy Tester legs) FAIL, stages 6–10
-> never ran.** Nothing is VERIFIED; no strategy has ever been certified.
-> Stages 0–4 PASS is owner-side evidence (`evidence\owner_gate\20260920-092713`,
-> gitignored); the hashes are in the delivery note.
+> **Where the gate stands.** gate_run59 (branch `gate-reports`, commit
+> `db13f55`) tested master `ab312d5` and ended
+> `GATE_RESULT=certified_with_log_graded_legs`: stages 0–10 PASS (stage 5
+> PASS_FROM_LOG; there is no stage 6), verifier verdict
+> `MT5_VALIDATED_BAR_MODELS`, gold1 18/18 and gold2 37/37 MATCH in `m1_ohlc`
+> and `every_tick`, 8/8 safety VALID, certificate and archive manifest
+> produced. **MT5 execution-parity and safety certificate, bar models, no
+> real-tick claim, no profitability claim.**
 >
-> **Done (proven on the 2026-09-20 run):** stage 0 self-protection, stage 1
-> strict compile 0/0, stage 2 DSL parity 14/14, stage 3 broker parity 12
-> MATCH, stage 4 fixture import.
+> **Built, unit-tested, never run live** (in or after the certified commit):
+> the SPEC-WAIT-2 WAITING_SYMBOL retry/give-up path, the HARNESS-SUSPEND-1
+> INTERRUPTED abort, IMPORT-SELFHEAL-1 (master `50cdb71`), the Telegram
+> operator, the FastAPI console (CONSOLE v2), the guided strategy
+> conversation, and the split deployment in `docs/DEPLOYMENT.md` (never
+> deployed or drilled).
 >
-> **Built, unit-tested, NEVER run against a live system** (the
-> operator-experience wave, Python/docs/tests only — `mql5/` untouched):
-> - Telegram: the alert channel (`notify/telegram.py`) plus the operator
->   surface (`notify/telegram_ops.py`) — daily digest, per-trade
->   notifications, and the `status`/`positions`/`report`/`stop` commands.
->   Asymmetric friction: `stop` trips the kill switch immediately; there is
->   NO resume from Telegram (`KillSwitch.manual_stop` escalate-only). Runs as
->   `python -m mql5bot.notify.telegram_ops` (env-only config).
-> - The FastAPI operator console (`api/`), `python -m mql5bot.api`, and its
->   opt-in Persian RTL status page (`?lang=fa`); English default is
->   byte-identical. Presentation layer `i18n.py`; needs `uvicorn` (not a
->   bundled dep) to serve.
-> - The guided strategy conversation (`factory/conversation.py`, routes
->   `/guided/start` + `/guided/validate`) and `LlmInterpreter`
->   (`factory/interpreter.py`). The conversation REQUIRES the owner to accept
->   the restatement (content-bound `acceptance_token`) and ENDS at
->   **SCHEMA-VALIDATED — structure only; the strategy has NOT been tested.**
-> - Entry points: `python -m mql5bot`, `python -m mql5bot.api`,
->   `python -m mql5bot.notify.telegram_ops` (commit `3061ca6`).
-> - Docs: `docs/ROADMAP_UX.md`, `docs/TELEGRAM.md`, `docs/DEPLOYMENT.md`,
->   `docs/PERSIAN_CONSOLE.md`.
+> **Not run at all:** a real-tick tester leg (the fixtures are bar-only),
+> the empirical lane, demo trading beyond the safety probes, live trading.
 >
+> **How work happens now.** Three roles (docs/SHOWCASE.md): the owner /
+> reviewer; the developer agent (branch, PR with a self-review checklist,
+> ruff + full pytest exit 0 before every commit, DECISIONS +
+> AUTONOMOUS_LOG entries, merge with a runner tag); the Windows MT5 runner
+> agent (runs `tools/owner_gate.ps1` for the tag, publishes
+> `reports/gate_run<N>/` to `gate-reports` after a credential leak check).
 >
-> **CONSOLE v2 (commits `920c139`..`fb5cdc1`) — built, unit-tested, never run
-> live.** Token authentication (`MQL5BOT_CONSOLE_TOKEN`, signed session
-> cookie, the runner refuses a non-loopback bind without it), a shared
-> offline shell with the not-yet-proven banner, live updates via a
-> same-origin telemetry proxy, and the pages `/strategies`, `/strategy/{sid}`,
-> `/new`, `/trades`, `/certification` (read-only gate rail) and `/settings`
-> (health checklist, env var names only). See `docs/CONSOLE.md`.
-> **CDN fix `b06c7b3`** — the two legacy templates no longer load htmx from
-> unpkg.com; every template is offline, guarded by
-> `tests/test_templates_offline.py`.
+> **`mql5/` is protected.** CLAUDE.md allows changes only under the listed
+> owner exceptions (1.a–1.e); every change there is proven only by the next
+> gate run's stage-1 strict compile and reconciliation.
 >
 > **Known cosmetic item (frozen, deliberately not fixed):**
-> `mql5/Experts/Mql5Bot/Mql5Bot.mq5` line 24 still carries
-> `#property link "https://github.com/raminhdev/mql5bot"`. The repository is
-> `reiramin/mql5`. Editing it would invalidate the compile-of-record, so it
-> waits for the next owner recompile.
->
-> **Untouched / not built:** the DSL bundle path in MT5 (the tester ran the
-> compiled-in default, `InpDslBundleFile` empty); the split deployment in `docs/DEPLOYMENT.md`
-> has **never been deployed or drilled**; no telemetry provider is wired into
-> the Telegram/console state (they report "not connected").
->
-> **Open blockers:**
-> - stage 5 FAIL: MT5 build 6184 writes no `[Tester]` Report file (the two
->   gold #2 legs ran clean but are BLOCKED_OWNER_ENVIRONMENT — not a pass,
->   nothing to parse); the gold #1 H1 fixture (120 bars) is too short for
->   MT5's warm-up reservation (start moved past the end of the data).
-> - stages 6–10 never run — including stage 8, the binding Python↔MQL5
->   executed-trade reconciliation.
-> - BTC denomination still PENDING (excluded from stage 3).
-> - no demo, no live, no VPS, no recovery drill.
->
-> **Do not touch `mql5/`.** The 2026-09-20 compile-of-record is valid for
-> HEAD `81520e6`; any change under `mql5/` invalidates it and forces the
-> whole 0–10 chain to be re-run on the owner's Windows machine.
+> `mql5/Experts/Mql5Bot/Mql5Bot.mq5` still carries
+> `#property link "https://github.com/raminhdev/mql5bot"`; the repository is
+> `reiramin/mql5`. No exception covers it.
 
 ---
 ## 0. One-paragraph summary
@@ -236,6 +201,8 @@ RED TEAM REVIEW — no new features. Read docs/SPEC.md and the code of Release <
 ---
 ## (Convergence mission, 2026-09-06) Where the system stands NOW
 
+> Historical (2026-09-06). Superseded by the CURRENT STATE POINTER above.
+
 - Branch `arena/01a070b0-mql5bot`. The AEGIS autonomous layer
   (factory + indicator universe + discovery governance + operator
   console) is IMPLEMENTED and RESEARCH-VALIDATED on synthetic data;
@@ -270,6 +237,9 @@ RED TEAM REVIEW — no new features. Read docs/SPEC.md and the code of Release <
 
 ---
 ## Reality-Gate Closure (2026-09-08) — owner handoff for the MT5 round-trip
+
+> Historical (2026-09-08). Superseded by docs/OWNER_GATE.md: `tools/owner_gate.ps1`
+> now runs these steps itself, and gate_run59 certified.
 
 **Overall status: `REALITY_GATE_BLOCKED` — `PRODUCTION = NOT_READY`.**
 The sandbox has proven everything that can be proven without a MetaTrader 5
@@ -313,6 +283,9 @@ reported AS OBSERVED and classified BEFORE any code change.
 
 ---
 # OWNER ACTION REQUIRED — the ten canonical steps (mechanical view)
+
+> Historical (2026-09-08). Superseded by docs/OWNER_GATE.md: the owner no longer runs
+> these steps by hand; the gate automates them (stages 0–10).
 
 This is a SHORTCUT view of the canonical TEN-step protocol in
 `docs/MT5_ROUNDTRIP.md` (the single source of truth — every step below

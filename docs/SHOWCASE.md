@@ -174,6 +174,14 @@ test. The details are in `docs/DECISIONS.md`.
   on a live demo account after a hard kill.
 - **Leak check:** 0 hits across the 34 published files of gate_run59.
 
+## How to reproduce
+
+1. Windows host with MetaTrader 5 and MetaEditor, a clean clone, Python 3.10–3.12; the host must not sleep during the run.
+2. For the live demo stage, a local demo-accounts file outside the repository (hedging + netting accounts), and FX market hours.
+3. Run `powershell -ExecutionPolicy Bypass -File tools\owner_gate.ps1 -DataFolder "<MT5 data folder>" -DemoSafety` (the `[runner: full]` command).
+4. Read `GATE_RESULT=` / `GATE_EXIT_CODE=` and `evidence\owner_gate\<UTC>\` (`stage_<n>.json`, `reconciliation_verify.json`, `certificate/`).
+5. Everything else (runner tags, scoped runs, runner rules, what each stage checks): [OWNER_GATE.md](OWNER_GATE.md).
+
 ## Limitations (read these)
 
 - **Bar models only.** `m1_ohlc` and `every_tick` over bar fixtures. There
