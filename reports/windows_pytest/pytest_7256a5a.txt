@@ -1,0 +1,66 @@
+# Windows runner full pytest run ([runner: pytest] trigger)
+# Tree: master 7256a5ac294734e5415e6f14edf99de4e57960ac (C:\Users\ramin\Desktop\mql5\gate_run12), 2026-10-13 12:34:17 - 12:57:51 UTC
+#   commit: "DOCS-SYNC-1 B: operating docs in line with the certified state (#57) [runner: pytest]"
+# Command: PYTHONUTF8=1 python -m pytest -q --no-header -p no:cacheprovider -rf
+# Python 3.12 (Windows 10). ruff not installed (neither `ruff` nor `python -m ruff`): ruff NOT run.
+# Exit code: 0. FAILED: 0, ERROR: 0 (no FAILED or ERROR lines in the output).
+# Counts from the progress markers (no summary line is printed; pyproject addopts "-q" + -q):
+#   2766 passed (.), 13 skipped (s), 0 F, 0 E.
+# git status --porcelain empty before and after.
+........................................................................ [  2%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [ 10%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 20%]
+.................................................................s...... [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+.......s..........................................ssssssss.ss........... [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 64%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 85%]
+........................................................................ [ 88%]
+.......................s................................................ [ 90%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 98%]
+...........................................                              [100%]
+============================== warnings summary ===============================
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\ramin\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\ramin\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+tests\test_gold2_standard.py:391
+  C:\Users\ramin\Desktop\mql5\gate_run12\tests\test_gold2_standard.py:391: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow
+
+tests/test_cv_state_leakage.py: 14 warnings
+  C:\Users\ramin\Desktop\mql5\gate_run12\python\mql5bot\metrics.py:32: RuntimeWarning: invalid value encountered in scalar power
+    cagr = (equity.iloc[-1] / equity.iloc[0]) ** (1.0 / years) - 1.0
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
