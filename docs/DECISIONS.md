@@ -5801,6 +5801,12 @@ artifact. evidence/, logs_owner/, certification_manifest.json, the golds and
 
   The tests skip, by name, when a tool is missing. CI now installs `age`
   (a non-fatal apt step).
+- **What CI covers.** On PR #59's first CI run, `age` installed but the
+  optional `cryptography` package was absent. So the 9 python-engine tests
+  skipped there; they pass locally. One more test therefore needs only the
+  `age` binary: a throwaway `age-keygen` key, the CLI with the age engine,
+  and `age -d` must give back the exact tar. That test runs end-to-end in
+  CI.
 - Measured here: the python engine's output decrypts with `age -d`, and
   `age` output decrypts with the python decrypter.
 

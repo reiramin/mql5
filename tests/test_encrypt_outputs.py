@@ -140,3 +140,26 @@ def test_the_committed_recipients_file_holds_no_private_key():
     assert all(eo.parse_recipient(r)
                for r in eo.load_recipients(REPO / "security" /
                                            "age_recipients.txt"))
+
+
+@needs_age
+def test_age_engine_end_to_end_without_the_python_crypto(tmp_path):
+    """Runs wherever the `age` binary exists (CI installs it), even without
+    `cryptography`: a throwaway age-keygen key, the CLI with the age
+    engine, and `age -d` give back the exact deterministic tar."""
+    key = tmp_path / "id.txt"
+    gen = subprocess.run(["age-keygen", "-o", str(key)], capture_output=True,
+                         text=True, check=True)
+    rcpt = next(w for w in (gen.stderr + gen.stdout).split()
+                if w.startswith("age1"))
+    assert len(eo.parse_recipient(rcpt)) == 32     # our bech32 reads it
+    d = _outputs(tmp_path, 70000)
+    out = tmp_path / "r.tar.age"
+    cp = subprocess.run([sys.executable, str(TOOL), str(d), "--out", str(out),
+                         "--recipient", rcpt, "--recipients-file",
+                         str(tmp_path / "none.txt"), "--engine", "age"],
+                        capture_output=True, text=True, check=False)
+    assert cp.returncode == 0, cp.stderr
+    plain = subprocess.run(["age", "-d", "-i", str(key), str(out)],
+                           capture_output=True, check=True).stdout
+    assert plain == eo.tar_directory(d)
