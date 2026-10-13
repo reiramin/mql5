@@ -1,5 +1,7 @@
 # AEGIS convergence audit & gap closure — 2026-09 (Mac/code agent)
 
+> Historical (2026-09). Superseded by CERTIFICATION.md and ARCHITECTURE.md.
+
 > **Lane.** CODE-side work on Mac. All MT5/MetaEditor/Strategy-Tester/
 > broker/EX5 reality remains **OWNER-PENDING** and is never fabricated.
 > Repo stays fail-closed and provenance-correct. Baseline HEAD at mission

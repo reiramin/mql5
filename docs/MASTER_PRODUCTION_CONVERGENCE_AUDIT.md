@@ -1,5 +1,7 @@
 # AEGIS Master Production Convergence Audit
 
+> Historical (2026-09-20). Superseded by ARCHITECTURE.md.
+
 **Mission:** master production convergence (§1–§96). **Branch:** `arena/01a070b0-mql5bot`.
 Supersedes nothing: extends `docs/AEGIS_FINAL_CONVERGENCE_AUDIT.md` (kept for
 history) with the stricter existence-vs-integration classification (§2).

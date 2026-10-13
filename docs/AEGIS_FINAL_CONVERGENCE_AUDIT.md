@@ -1,5 +1,7 @@
 # AEGIS Final Convergence Audit
 
+> Historical (2026-09-20). Superseded by ARCHITECTURE.md.
+
 **Mission:** final convergence (§1–§86). **Branch:** `arena/01a070b0-mql5bot`.
 This document records the pre-coding audit, the legacy-path classification,
 and the exact state in which the convergence work started.

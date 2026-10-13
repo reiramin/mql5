@@ -1,5 +1,7 @@
 # META REALISM AUDIT — pre-ML production gate (Phase 1)
 
+> Historical (2026-09-20). Superseded by META_PRODUCTION_VALIDATION.md.
+
 Trace of `python/mql5bot/meta_portfolio.py` (commit `61d55ab`) along
 data → signals → as-of statistics → Meta factors → weights → schedule →
 portfolio → sizing → costs → fills → PnL → attribution → next rebalance,

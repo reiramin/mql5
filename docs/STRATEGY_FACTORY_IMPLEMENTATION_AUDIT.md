@@ -1,5 +1,7 @@
 # AEGIS STRATEGY FACTORY — IMPLEMENTATION AUDIT
 
+> Historical (2026-09-20). Superseded by FACTORY_GUIDE.md.
+
 Integration-gate §1 deliverable. Statuses: IMPLEMENTED (executable
 evidence exists and runs green), PARTIAL (core exists, named gaps),
 NOT_IMPLEMENTED, BLOCKED.

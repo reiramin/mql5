@@ -1,5 +1,7 @@
 # PHASE 3 — INTEGRITY GATE RECORD (2026-09-05)
 
+> Historical (2026-09-05). Superseded by OWNER_GATE.md.
+
 Verdict of this record: **PHASE 3 SOFTWARE_PASS** — all 16 exit-gate
 criteria hold with evidence.  This is a software-integrity verdict
 only: it makes no profitability, production-readiness or MT5-verified

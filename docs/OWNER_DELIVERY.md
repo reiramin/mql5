@@ -1,5 +1,7 @@
 # Owner Delivery — what you are receiving, and what is proven
 
+> Historical (2026-09-20 run, written 2026-10-01). Superseded by OWNER_GATE.md and the README "Certification status" (gate_run59 certified).
+
 Read this before anything else. It is written for a competent
 non-programmer. Every claim below is backed by a named file (with its
 SHA-256 fingerprint where one was produced, so you can check it has not

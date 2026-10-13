@@ -1,5 +1,7 @@
 # gate_run29 — the one MISSING_IN_MT5: python short 0.02 at 2024-01-02T08:08
 
+> Historical (2026-10-04). Superseded by DECISIONS.md and the gate_run59 certificate.
+
 Run: gate_run29, HEAD 5392cc4, `-Golds gold2`, re-anchored frozen inputs.
 Both log-sourced legs (m1_ohlc, every_tick) report it identically:
 74 deals → 37 entries PAIRED_BY_TIME, **1 MISSING_IN_MT5**, 0 EXTRA_IN_MT5.

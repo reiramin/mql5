@@ -3,9 +3,17 @@
 This is a design document, not a task list. It explains **why** the
 operator experience should change, so that whoever implements it can
 follow the reasoning and disagree with evidence rather than with a
-checkbox. It agrees with [OWNER_DELIVERY.md](OWNER_DELIVERY.md): nothing
-in this system is proven beyond the evidence that exists for it, and no
-screen may imply otherwise.
+checkbox. Nothing in this system is proven beyond the evidence that exists
+for it, and no screen may imply otherwise.
+
+> **Status (2026-10-13).** Phases 1, 2 and 4 are built: the Telegram
+> operator ([TELEGRAM.md](TELEGRAM.md)), the Persian status page
+> ([PERSIAN_CONSOLE.md](PERSIAN_CONSOLE.md)), the console
+> ([CONSOLE.md](CONSOLE.md)) and the guided conversation
+> (`factory/conversation.py`) — built, unit-tested, never run live.
+> Phase 3 (the split deployment, [DEPLOYMENT.md](DEPLOYMENT.md)) is a
+> procedure that has never been deployed or drilled. The "today" sentences
+> in the phases below describe the state when this plan was written.
 
 ## The core problem — one system, two users
 
@@ -76,7 +84,8 @@ appear in any message.
 > full operator console around it (six sections, owner-token auth, live
 > SSE updates, the certification rail) are implemented — see
 > [CONSOLE.md](CONSOLE.md). Nothing about being built changes what is
-> proven: the gate still stands at stage 5 FAIL.
+> proven: the operator surfaces are built, unit-tested and never run live;
+> the gate's certificate (gate_run59) covers the EA, not these surfaces.
 
 A single phone-first, right-to-left Persian page that answers the three
 questions above the fold: a **traffic light** and **one plain-Persian
@@ -156,7 +165,7 @@ this flow **ends at SCHEMA VALIDATION** — a well-formedness check, nothing
 more. Two things have **not** happened and must be shown as explicit,
 not-yet-done steps: **(a)** the Python research validation — backtest,
 robustness, out-of-sample — which needs a dataset and has not run; and
-**(b)** the owner-run 11-stage MT5 certification gate. The flow must
+**(b)** the owner-run MT5 certification gate (stages 0–10). The flow must
 never end at "added to MetaTrader". If the owner ever feels that one
 button in this conversation tested their strategy or made it live, the
 entire value of this project is gone.

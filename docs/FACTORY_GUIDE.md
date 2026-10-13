@@ -118,8 +118,8 @@ here is the DSL schema/parse gate (well-formedness); there is no
 backtest, robustness, out-of-sample or market data. The flow **ends at
 schema validation** and surfaces the two not-yet-done steps explicitly:
 the Python research validation (backtest / robustness / out-of-sample,
-which needs a dataset and has not run) and the owner-run 11-stage MT5
-certification gate. No endpoint here promotes a strategy toward MT5 or a
+which needs a dataset and has not run) and the owner-run MT5
+certification gate (stages 0–10, docs/OWNER_GATE.md). No endpoint here promotes a strategy toward MT5 or a
 live account. This surface is **built and unit-tested; never run live.**
 
 ## What Factory MAY do
@@ -151,9 +151,10 @@ disabled by the Factory or the UI.
 ## The execution boundary (read this twice)
 
 The Factory's 71-indicator research universe does not create MT5
-execution capability. The EA executes exactly five built-in engines;
-there is no DSL interpreter in MQL5. A generated strategy that does
-not map onto one of the five engines stays research-only
+execution capability. The EA executes the five built-in engines and
+certified DSL bundles through its fail-closed DSL runtime, which accepts
+only six indicator kinds (EMA, RSI, ATR, DONCHIAN, HIGHEST, LOWEST). A
+generated strategy that uses any other kind stays research-only
 (BLOCKED_OWNER_ENVIRONMENT) — no workaround, no "same pipeline" claim.
 
 ## Artifacts retained

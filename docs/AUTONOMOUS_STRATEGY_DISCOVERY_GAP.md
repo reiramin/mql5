@@ -1,5 +1,7 @@
 # AEGIS — AUTONOMOUS STRATEGY DISCOVERY: GAP MATRIX
 
+> Historical (2026-09-20). Superseded by AUTONOMOUS_STRATEGY_DISCOVERY.md.
+
 Mission §2 deliverable. Maps the target autonomous-discovery platform
 (§0–§104) against what already exists at baseline commit `81d6d1d`
 (integration gate passed: 1023 tests green).

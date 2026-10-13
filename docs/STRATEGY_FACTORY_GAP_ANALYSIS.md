@@ -1,5 +1,7 @@
 # Strategy Factory — Gap Analysis (mission §3)
 
+> Historical (2026-09-06). Superseded by FACTORY_GUIDE.md.
+
 Date: 2026-09-06 · Baseline: `ba672ff` (837 passed / 1 skipped, ruff clean)
 Target contract: `docs/SPEC.md` v4 (Release B `dsl`, Release C `factory`,
 Release E no-code conversational intake) + the AEGIS Strategy Factory

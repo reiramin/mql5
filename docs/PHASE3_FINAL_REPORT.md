@@ -1,5 +1,7 @@
 # PHASE 3 / PERFORMANCE & SELECTION HARDENING — Final acceptance report
 
+> Historical (2026-09-04). Superseded by SHOWCASE.md.
+
 ## CURRENT COMMIT
 
 `a943af1` on `arena/01a06cdc-mql5bot` (pushed; base of the A–G chain:

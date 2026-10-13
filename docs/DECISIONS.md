@@ -5700,3 +5700,59 @@ code before it was edited.
     tests;
   - a note on SPEC.md that it is the original v4 design.
 - **STATE_MODEL.md**: checked, current, unchanged.
+
+### DOCS-SYNC-1 PR C (everything else, 2026-10-13) and the closing record
+
+**Historical banners (20 files).** Each gets the one-line banner
+"Historical (<date>). Superseded by <file>.", and nothing is deleted:
+- AEGIS_CONVERGENCE_AUDIT_2026-09, AEGIS_FINAL_CONVERGENCE_AUDIT,
+  AEGIS_REALITY_GATE_AUDIT, AEGIS_REALITY_GATE_CONTINUATION,
+  AEGIS_EXIT_GATE;
+- PHASE3_FINAL_REPORT, PHASE3_GATE, MASTER_PRODUCTION_CONVERGENCE_AUDIT,
+  IMPLEMENTATION_AUDIT, MQL5_EXECUTION_AUDIT;
+- META_LAYER_SEMANTICS_REVIEW, META_REALISM_AUDIT,
+  AUTONOMOUS_STRATEGY_DISCOVERY_GAP, STRATEGY_FACTORY_GAP_ANALYSIS,
+  STRATEGY_FACTORY_IMPLEMENTATION_AUDIT;
+- OWNER_DELIVERY, MT5_ROUNDTRIP;
+- analysis/gate_run25, gate_run28, gate_run29.
+
+WINDOWS_OWNER_HANDOFF was marked historical in PR B, so 21 files are
+historical in all.
+
+**Partly stale, fixed in place:**
+- AUTONOMOUS_WORKER: the gate-result rule.
+- BROKER_SYMBOL_PARITY: stage 3 is the parity evidence of record; BTC is
+  still excluded.
+- CONSOLE: the certified state; stages 0–10, not "11-stage".
+- DEVELOPMENT: the tools list and canonical files.
+- FACTORY_GUIDE: the EA's DSL runtime; the stage numbering.
+- TELEGRAM, USER_GUIDE: the certified state; the EA's DSL runtime.
+- AEGIS_EMPIRICAL_LANE_PACKAGE: its precondition is met, but the lane has
+  not run.
+- DEPLOYMENT: the OWNER_DELIVERY reference.
+- ROADMAP_UX: a status banner; stages 0–10.
+- RELEASE_CHECKLIST: the owner release gate as of gate_run59, with the
+  real-tick leg still open.
+- Outside docs/: tools/README.md (the owner gate is canonical; the
+  ten-step section is historical) and mql5_dsl_runtime/README.md (the
+  runtime's status).
+
+**Current, unchanged:** ALLOCATION_CIRCUIT_BREAKER,
+AUTONOMOUS_STRATEGY_DISCOVERY, BENCHMARK_FAST, CORRELATION_CONVENTIONS,
+CV_STATE_CONTRACT, DISCOVERY_SCORE, EXECUTION_STRESS_OBSERVED,
+EXTERNAL_WATCHDOG, INDICATOR_UNIVERSE, META_* (contract, implementation
+spec, validation, OOS, event order, production validation, replay,
+perf benchmark), ML_VS_LLM_BOUNDARY, PERSIAN_CONSOLE, REGIME_MATRIX,
+STAGED_PIPELINE, STRATEGY_DECAY, VERSION_CONSISTENCY, WFA_CONTRACT,
+WFA_CPCV_REVIEW, STATE_MODEL, SAFETY_GOVERNANCE.
+
+**Found, not resolved here (code, not docs):**
+- `api/templates/certification.html` and `api/main.py` still describe the
+  gate as "11-stage". The gate numbers stages 0–10 and has no stage 6.
+- `artifacts/**/*.md` (the owner package manual, checklist and report
+  template) are under `artifacts/` and were not touched (CLAUDE.md
+  NEVER-modify). Some of their PENDING_OWNER wording predates gate_run59.
+- CLAUDE.md headlines the owner-scoped exceptions as "valid until the
+  final certificate is issued". gate_run59 issued a certificate, and
+  exception 1.e was added after it at the owner's request. Whether the
+  exceptions still hold is the owner's decision.

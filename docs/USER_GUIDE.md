@@ -5,11 +5,11 @@ Written for the project owner. Exact contracts live in `SPEC.md`,
 how the pieces behave together. Numbers and semantics here always defer
 to those documents.
 
-> **Status — read first.** Nothing in this project is certified. The first
-> full owner gate run (2026-09-20) reached stages 0–4 PASS, stage 5 FAIL,
-> and stages 6–10 never ran; no strategy is VERIFIED and none has traded a
-> demo or a live account. The account of record is
-> [OWNER_DELIVERY.md](OWNER_DELIVERY.md). The bot trades **only while
+> **Status — read first.** gate_run59 (2026-10-13) certified the EA: MT5 execution-parity and safety certificate, bar models, no real-tick claim, no profitability claim.
+> It covers execution parity on two frozen gold fixtures and eight safety
+> behaviours; the only demo-account trading has been the gate's safety
+> probes (restart, netting, hedging), and nothing has traded a live
+> account. See the README "Certification status". The bot trades **only while
 > MetaTrader 5 is running and connected** — close the terminal or sleep the
 > PC and it stops (see [MT5_SETUP_AND_OPERATION.md](MT5_SETUP_AND_OPERATION.md)
 > and [DEPLOYMENT.md](DEPLOYMENT.md)).
@@ -47,8 +47,10 @@ agree (see `CERTIFICATION_GUIDE.md`).
 
 `ema_crossover`, `rsi_reversal`, `donchian_breakout`,
 `bollinger_reversal`, `macd_momentum` — selected by the `InpStrategy`
-enum input. This is the entire MQL5 execution surface: there is no DSL
-interpreter in the EA, so nothing else can execute there.
+enum input — or a certified DSL bundle named by `InpDslBundleFile`, run
+by the EA's fail-closed DSL runtime (six indicator kinds: EMA, RSI, ATR,
+DONCHIAN, HIGHEST, LOWEST; the gate's gold legs run this way). Nothing else
+can execute there.
 
 ## Order execution and retries
 
