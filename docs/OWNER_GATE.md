@@ -6,11 +6,33 @@ One command the Windows owner runs. Every DECISION lives in committed code
 prompt: the script orchestrates, records, and stops; it does not judge by
 hand.
 
-This document describes what the script DOES. It makes no claim that any
-compile, tester run, dataset import, broker-parity or certification step has
-passed — those outcomes are produced only when the owner runs the command on
-a real terminal, and each is recorded truthfully (PASS / PASS_FROM_LOG /
-FAIL / SKIP / BLOCKED / REFUSED) in the evidence directory.
+This document describes what the script DOES. Outcomes are produced only
+when the owner runs the command on a real terminal, and each is recorded
+truthfully (PASS / PASS_FROM_LOG / FAIL / SKIP / BLOCKED / REFUSED) in the
+evidence directory.
+
+**Latest result.** gate_run59 (branch `gate-reports`, `db13f55`; master
+`ab312d5`, `[runner: full]`) ended `GATE_RESULT=certified_with_log_graded_legs`:
+stages 0–10 PASS (stage 5 PASS_FROM_LOG), verifier verdict
+`MT5_VALIDATED_BAR_MODELS`, 8/8 safety VALID, certificate issued. MT5
+execution-parity and safety certificate, bar models, no real-tick claim, no
+profitability claim.
+
+**The stages at a glance** (there is no stage 6; `GATE_RESULT=` names the
+first failing stage):
+
+| # | Name | What it proves |
+|---|---|---|
+| 0 | `self_protection` | clean tree, frozen hashes, anchor relation, tools located, scope valid; with `-DemoSafety` the demo preflight (market open, accounts file) |
+| 1 | `strict_compile` | MetaEditor strict compile, 0 errors / 0 warnings, every shipped target |
+| 2 | `dsl_parity` | 14/14 DSL fixtures EXACT, tampered bundle refused |
+| 3 | `broker_parity` | the live SymbolSpec export matches the frozen spec |
+| 4 | `fixture_import` | each gold fixture imported as a custom symbol, round-trip dataset hash = manifest |
+| 5 | `tester_legs` | gold legs in `m1_ohlc` and `every_tick` (real_ticks NOT_APPLICABLE on bar-only fixtures) |
+| 7 | `demo_safety` | only with `-DemoSafety`: restart, netting, hedging on demo accounts; terminal restored |
+| 8 | `reconciliation` | stage-8 package built, the five tester safety legs (8a–8d) run, verifier verdict |
+| 9 | `archive_manifest` | `owner_evidence_bind.py manifest` binds the evidence by sha256 |
+| 10 | `certify` | certificate of the stage-8 verifier verdict (STAGE10-CERT-1) |
 
 ## The single command
 
@@ -49,7 +71,7 @@ All output lands under `evidence\owner_gate\<UTC>\`, append-only: one
 
 ## Stages (stop at the first FAIL)
 
-- **A. Self-protection** — aborts with a NAMED reason unless: `HEAD` relates
+- **0. Self-protection** (`self_protection`) — aborts with a NAMED reason unless: `HEAD` relates
   to the frozen `source.commit` acceptably (it equals the anchor, or is a
   clean **descendant** of it — a legitimate newer commit, recorded as a NOTE,
   never a hard abort; an **older**, **diverged**, or **unknown** anchor
@@ -81,15 +103,25 @@ All output lands under `evidence\owner_gate\<UTC>\`, append-only: one
   `CustomRatesUpdate`, and requires the round-tripped dataset hash to
   re-derive the manifest `dataset_hash`. The importer refuses and creates
   nothing on any missing property or hash mismatch.
-- **5-7. Tester legs** — the six legs (Gold #1/#2 × m1_ohlc / every_tick /
-  real_ticks); the raw report and sidecar are archived and the ACTUAL model
+- **5. Tester legs** (`tester_legs`) — the six legs (Gold #1/#2 × m1_ohlc /
+  every_tick / real_ticks); the raw report and sidecar are archived and the ACTUAL model
   is read from the report and journal, not the requested one. A gold whose
   fixture is DERIVED bar-only (bar-schema header, no tick dataset in the
   manifest) has its real_ticks leg recorded `NOT_APPLICABLE_BAR_ONLY_FIXTURE`
   and not launched (owner decision 2026-10-03). It is tallied separately,
   never as a pass, and `gate_summary.json` carries `"real_tick_coverage":
   "NONE (bar-only fixture)"` for that gold.
-- **8. Reconciliation** — the full bindings object plus the safety sub-checks
+- **7. Demo safety** (`demo_safety`, only with `-DemoSafety`;
+  DEMO-IN-GATE-1) — re-checks the market window, then runs the demo harness
+  (`tools/demo_safety_harness.py`) for restart, netting and hedging with THIS
+  run's stage-1 EX5, and asks `owner_gate_decide.py demo-in-gate-outcome`
+  whether every run left the terminal on the hedging account, connected
+  without credentials (DEMO-LOGIN-PERSIST-1). Named FAILs:
+  `[demo_host_suspended]` (HARNESS-SUSPEND-1, checked first),
+  `[demo_terminal_not_restored]` with `[demo_restore_not_connected]` /
+  `[demo_run_missing]`, and `demo harness NOT run: [market_closed] ...`. It
+  does not grade the tests; stage 8 does. Details: docs/SAFETY_DEMO_PLAN.md.
+- **8. Reconciliation** (`reconciliation`) — the full bindings object plus the safety sub-checks
   (kill-switch; restart; retry/adoption/SlGuard; netting and hedging) via
   `verify_owner_mt5_gate.py`. A first divergence is classified
   (`SIZING_MISMATCH` / `RISK_MISMATCH` / ...) and FAILS stage 8 with its
@@ -124,8 +156,8 @@ the trade comparison never ran.
 
 Before stage 8 verifies, the gate now runs `owner_gate_decide.py
 build-stage8-package` (`python/mql5bot/stage8_package.py`). It fills the
-package from that run's own outputs and never types a value by hand. This is
-built and unit-tested, and has never run live.
+package from that run's own outputs and never types a value by hand. It has
+run in every gate that reached stage 8, gate_run59 included.
 
 | Package path | Built from | Notes |
 |---|---|---|
@@ -150,37 +182,35 @@ exists, and the stage-8 reason quotes them. `binding_verified: false` means
 the binding chain failed. In that case the divergence is shown but never
 classified as the expected sizing divergence.
 
-**Gaps the gate cannot close (as of 2026-10-04):**
-- `source_commit` / `SOURCE_COMMIT` is the gate's HEAD. The 2026-10-04
-  re-anchor moved the frozen anchor to `734bb8d` (the PR #18 merge), which
-  clears stage 0 and the gold hash bindings — but `verify_compile`
-  (`owner_gate.py`) and the reconciliation cross-check still require
-  `SOURCE_COMMIT` to EQUAL the anchor, while the gate always runs at a
-  descendant (the re-anchor commit itself descends from the anchor; at the
-  anchor commit its own older `frozen_inputs.json` fails stage 0). So
-  compile evidence and the reconciliation binding stay MISMATCHED under the
-  current equality rule; changing that rule is an owner decision (see
-  `docs/DECISIONS.md` S8-REANCHOR-1).
-- The SymbolSpec exporter emits no `broker`, `timestamp` or `terminal_build`
-  key, so the verifier's SymbolSpec contract is INVALID on the real export.
-- `broker`, `terminal_build` and `account_mode` are unmeasured in the
-  environment record unless a window states them.
-- The log-sourced trade-count comparison the verifier already had compares
-  Python TRADES with MT5 DEALS (56 vs 74 in gate_run26). That rule is
-  unchanged here and flagged for an owner decision.
+**Former gaps, now closed** (listed as gaps on 2026-10-04):
+- The anchor relation: compile evidence and the reconciliation binding now
+  accept a clean descendant of the frozen anchor whose frozen bytes are
+  identical (S8-ANCHOR-REL-1, `owner_gate.py` `source_commit_relation`).
+- The SymbolSpec exporter now writes `broker`, `timestamp` and
+  `terminal_build` (`Mql5BotExportSymbolSpec.mq5`).
+- `broker`, `terminal_build` and `account_mode` in the environment record
+  are still written only when a window states them; anything unmeasured is
+  listed under `unmeasured`.
+- The log-sourced count comparison no longer compares Python TRADES with
+  MT5 DEALS (56 vs 74 in gate_run26): it compares the expected in-window
+  entries with the log list's entry deals (`entry_count:<model>`, S8-COUNT-1;
+  `owner_gate.py`), and keeps the frozen trade count only as a recorded
+  presence guard. gate_run59: gold1 18/18, gold2 37/37 entries paired.
 
-**What 8a–8d still need from the owner, on MT5.** These are
-`safety/kill_switch|risk_veto|meta_reduce|sl_verify|lost_response|restart.json`
-and `safety/netting.json` / `safety/hedging.json`. Each must state `action`,
-`initial_state`, `resulting_state` and `observed_result`, plus a file-bound
-`raw_evidence` `{path, sha256}` inside the package (from `owner_evidence_bind.py
-bind`), plus `expected_result`: a file is VALID only when the observed
-result IS the expected one (SAFETY-RESULT-1). Since SAFETY-8A-8D-1 the gate
-runs four of them as Strategy Tester legs in stage 8 (kill_switch,
-risk_veto, meta_reduce, sl_verify) and writes `safety/<test>.json` only
-from those legs' graded windows (docs/SAFETY_8A_8D_PLAN.md). lost_response,
-restart, netting and hedging are demo-only: the gate never writes them, so
-stage 8 keeps FAILING on them until they are run on demo.
+**The eight safety files.** `safety/<test>.json` for kill_switch,
+risk_veto, lost_response, meta_reduce, sl_verify, restart, netting and
+hedging. Each states `action`, `initial_state`, `resulting_state`,
+`observed_result`, `expected_result` and a file-bound `raw_evidence`
+`{path, sha256}`; a file is VALID only when the observed result IS the
+expected one (SAFETY-RESULT-1). The gate writes them itself:
+- **five Strategy Tester legs in stage 8** (SAFETY-8A-8D-1, SAFETY-DEMO-1):
+  kill_switch, risk_veto, lost_response, meta_reduce, sl_verify — from each
+  leg's graded window (docs/SAFETY_8A_8D_PLAN.md);
+- **three live demo tests in stage 7** (DEMO-IN-GATE-1): restart, netting,
+  hedging — graded at stage 8 from this run's `demo_safety/<test>/ealog.txt`
+  (docs/SAFETY_DEMO_PLAN.md).
+
+gate_run59: all eight VALID.
 
 ## Runner trigger tags
 
@@ -192,6 +222,37 @@ carries a tag:
 | `[runner: gold1]` / `[runner: gold2]` | `owner_gate.ps1 -Golds gold1` (or `gold2`) | one gold, stages 0-5 and 8; 9-10 REFUSED (scoped) |
 | `[runner: demo-in-gate]` | `owner_gate.ps1 -Golds gold2 -DemoSafety` | gold2 plus the live demo tests (stage 7); 9-10 REFUSED (scoped) |
 | `[runner: full]` | `owner_gate.ps1 -DemoSafety` (no `-Golds`) | **the certification run**: gold1 + gold2 + demo, stages 0-10. Stage 10 issues the certificate when the verifier's unscoped verdict is `MT5_VALIDATED_BAR_MODELS` (or `MT5_VALIDATED`). |
+| `[runner: pytest]` | the full pytest suite on the Windows host (no gate) | Windows-only behaviour of the Python suite; report under `reports/windows_pytest/` |
+
+The exact commands (the data folder is the terminal's, e.g.
+`%APPDATA%\MetaQuotes\Terminal\<terminal_id>`):
+
+```
+# [runner: gold1] / [runner: gold2]
+powershell -ExecutionPolicy Bypass -File tools\owner_gate.ps1 -DataFolder "<data folder>" -Golds gold1
+# [runner: demo-in-gate]
+powershell -ExecutionPolicy Bypass -File tools\owner_gate.ps1 -DataFolder "<data folder>" -Golds gold2 -DemoSafety
+# [runner: full]
+powershell -ExecutionPolicy Bypass -File tools\owner_gate.ps1 -DataFolder "<data folder>" -DemoSafety
+```
+
+**Market window.** `-DemoSafety` places live demo orders, so the demo
+preflight (`owner_gate_decide.py demo-preflight`) runs at stage 0 and again
+at the start of stage 7; outside FX market hours (Friday 20:00 UTC to Sunday
+22:15 UTC, and the daily 20:45–22:15 UTC rollover) it FAILs
+`[market_closed]` and the harness never runs.
+
+**Exit code.** The gate records its own exit code before it exits
+(GATE-EXIT-1): `gate_exit_code.txt` in the evidence directory, `exit_code`
+in `gate_summary.json`, and a `GATE_EXIT_CODE=` line after `GATE_RESULT=`.
+Only `certified` exits 0; `certified_with_log_graded_legs` exits 1 by design.
+
+**Leak check.** Before publishing `reports/gate_run<N>/` to `gate-reports`,
+the runner scans every published file for the demo logins and passwords
+(raw and UTF-16) and records the count in that run's `SUMMARY.md`
+(gate_run59: 34 files, 0 hits). This is the runner's procedure, not repo
+code; the gate itself never writes a credential (the harness records only a
+hashed login).
 
 The full run needs FX market hours (the demo tests place live demo
 orders) and the local demo accounts file. Neither is in the repo.
@@ -258,12 +319,12 @@ them.
 
 The frozen record is governed by an owner-authority re-anchor (see
 `artifacts/owner_mt5_gate/frozen_inputs.json` `source.note` and the
-`docs/DECISIONS.md` 2026-09-18 and S8-REANCHOR-1 entries). The anchor is
-now `734bb8da918d224f1d8c50947fcc38078001b2d6` (2026-10-04, the PR #18
-merge carrying the flip-next-bar regenerated `artifacts/gold_2`); before
-that it was `a85cba3` — the 227bf66 anchor predated the generic DSL
+`docs/DECISIONS.md` 2026-09-18, S8-REANCHOR-1 and S8-REANCHOR-2 entries). The
+anchor is now `6299de341e3bbc0d5fbd9d0bd7235e8f99c64ae7` (S8-REANCHOR-2,
+2026-10-07, the gold1 regeneration); before that it was `734bb8d`
+(S8-REANCHOR-1, 2026-10-04) and `a85cba3` — the 227bf66 anchor predated the generic DSL
 runtime, the reserved-word compile fix and the P0-1 sizing fix (`4257f1e`),
-so it could never be the commit to run. Stage A no longer requires `HEAD` to equal the anchor: a clean `HEAD`
+so it could never be the commit to run. Stage 0 no longer requires `HEAD` to equal the anchor: a clean `HEAD`
 that **descends** from the anchor, with every frozen artifact byte-identical,
 PASSES with a recorded NOTE (`SELF_PROTECT_HEAD_AHEAD_OF_ANCHOR`). Only an
 **older** HEAD, a **diverged** HEAD, an **unknown** anchor, a changed frozen

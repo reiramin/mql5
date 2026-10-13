@@ -2159,3 +2159,18 @@ files (PR C).
 the final certificate is issued". gate_run59 issued a certificate, and
 IMPORT-SELFHEAL-1 (1.e) was added after it at the owner's request. Whether
 the exceptions still hold is the owner's call.
+
+## 2026-10-13 — DOCS-SYNC-1 PR B (operating docs); branch `claude/aegis-safety-fixes-20aen5`
+
+**Done:** OWNER_GATE, CERTIFICATION (now the contract), CERTIFICATION_GUIDE
+(now the how-to), SAFETY_DEMO_PLAN, SAFETY_8A_8D_PLAN, KILL_SWITCH,
+MT5_SETUP_AND_OPERATION, TROUBLESHOOTING (known-failure-modes table),
+INSTALLATION, WINDOWS_OWNER_HANDOFF (historical banner), ARCHITECTURE,
+SYSTEM_INVARIANTS (INV-EA-1/2), SPEC (note), and README "11-stage" wording.
+Details are in DECISIONS "DOCS-SYNC-1 PR B".
+
+ruff exit 0; full pytest exit 0 (pytest's own exit code).
+
+**NOT done:** STATE_MODEL and SAFETY_GOVERNANCE needed no change. The
+console's own code still says "11-stage" (`api/templates/certification.html`,
+`api/main.py`). That is code, not docs, and is left for a separate change.

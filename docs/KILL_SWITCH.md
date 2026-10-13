@@ -34,4 +34,4 @@ surface that can leave a halt. Leaving `EMERGENCY_HALT` still requires
 a lost, unlocked phone: the worst it can do is stop the bot, never start it.
 This is built and unit-tested; never run live.
 
-**MQL5 side: PARTIAL** — the EA-side enforcement point exists in the safety chain, but a live-terminal proof is owner-compilable only (§75/§76); no MT5 claims are made.
+**MQL5 side: proven in the Strategy Tester** — the kill_switch safety leg (stage 8, SAFETY-8A-8D-1) latches the switch after the first entry and requires zero new orders while latched; gate_run59 graded it VALID (`ZERO_NEW_ORDERS_WHILE_LATCHED`). It has not been exercised on a live or demo account, and the Telegram `stop` path has never run live.

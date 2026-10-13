@@ -94,6 +94,17 @@ Baseline: commit `0bf5724` — 686 passed, 1 skipped, ruff clean.
 | INV-DATA-2 | The audit flags every corruption class: duplicate timestamps, disorder, impossible OHLC, non-positive/non-finite prices, missing columns, empty frames. | — | `test_inv_data_2_quality_audit_catches_corruption` |
 | INV-DATA-3 | The committed REAL dataset (VIX daily) is audited AS RAW (known corruption reported, never hidden), cleaned only via an explicit change log, and its manifest sha256 gate is enforced. | — | `test_inv_data_3_real_dataset_audited_then_explicitly_cleaned` |
 
+## EA execution invariants (source-pinned; proven only by a gate run)
+
+| ID | Statement | Tolerance | Test |
+|---|---|---|---|
+| INV-EA-1 | While the EA is in WAITING_SYMBOL (a live start on an unsynchronized symbol, SPEC-WAIT-1/2) it opens no new positions, logs no START line and ignores trade transactions; OnTimer/OnTick only retry the spec build, bounded by `InpSpecWaitSeconds`. In the Strategy Tester a failed spec build fails init as before. | — | `tests/test_spec_wait.py` (`test_handlers_only_pump_while_waiting`, `test_start_line_and_trading_setup_only_after_the_spec_is_built`, `test_trade_transactions_ignored_while_waiting`, `test_tester_fails_init_exactly_as_before`) |
+| INV-EA-2 | Every live order uses a filling mode the broker's `SYMBOL_FILLING_MODE` flags allow (FOK iff the FOK flag, IOC iff the IOC flag, RETURN iff not market execution); no live order path hard-codes a filling mode (FILL-MODE-1). | — | `tests/test_fill_mode.py` (`test_allowed_and_preferred_per_mask_and_execution_mode`, `test_no_hard_coded_filling_mode_in_a_live_order_path`, `test_every_live_deal_chooses_through_spec_choose_filling`) |
+
+These two are MQL5-source invariants checked by source tests; their runtime
+proof is the gate (stage-1 strict compile, gold reconciliation). The
+WAITING_SYMBOL wait/give-up path itself has never run live.
+
 ## Authority model (non-invertible)
 
 `STRATEGY signals → META/PORTFOLIO allocation → RISK + EXECUTION final veto.`

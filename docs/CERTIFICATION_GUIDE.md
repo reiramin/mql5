@@ -1,9 +1,9 @@
 # Certification Guide — the validation ladder
 
-This is the human-facing view. Binding definitions: `CERTIFICATION.md`
-(scope surfaces, two lanes, evidence layers A–F), `MT5_ROUNDTRIP.md`
-(TEN-step owner protocol), `AEGIS_REALITY_GATE_AUDIT.md` (attack
-matrices), `AEGIS_EMPIRICAL_LANE_PACKAGE.md` (empirical package).
+This is the how-to. The contract — what a certificate is and what it does
+and does not claim — is [CERTIFICATION.md](CERTIFICATION.md); the gate, its
+stages, runner tags and commands are [OWNER_GATE.md](OWNER_GATE.md); the
+empirical package is `AEGIS_EMPIRICAL_LANE_PACKAGE.md`.
 
 ## The core rule
 
@@ -11,89 +11,81 @@ matrices), `AEGIS_EMPIRICAL_LANE_PACKAGE.md` (empirical package).
 MT5 validation; gold pass ⇏ empirical qualification; empirical pass
 without reconciliation ⇏ VERIFIED; parser success ⇏ anything runtime.
 
-## The 11-stage owner gate — where it actually stands
+## Getting a certificate, step by step
 
-The owner runs the whole ladder with one command
-(`tools/owner_gate.ps1`); it self-protects, walks stages 0–10, and STOPS
-at the first failure. The first full run (2026-09-20, MT5 build 6184) is
-the account of record in [OWNER_DELIVERY.md](OWNER_DELIVERY.md); this
-guide must not overstate it:
+1. **Merge with a runner tag.** `[runner: full]` makes the Windows MT5
+   runner run `owner_gate.ps1 -DemoSafety` (gold1 + gold2 + demo, stages
+   0–10). Scoped tags (`[runner: gold1]`, `[runner: gold2]`,
+   `[runner: demo-in-gate]`) run part of it and certify nothing.
+2. **The gate runs itself** and stops at the first failure: self-protection,
+   strict compile, DSL parity, broker parity, fixture import, tester legs,
+   demo safety, reconciliation (with the five tester safety legs), archive
+   manifest, certificate. There is no stage 6.
+3. **Read the result** in the run's report on branch `gate-reports`
+   (`reports/gate_run<N>/SUMMARY.md`): `GATE_RESULT=`, `GATE_EXIT_CODE=`,
+   each `stage_<n>.json`, `reconciliation_verify.json` (the verdict, the
+   gold pairing counts, the safety block) and, when issued,
+   `certificate/certificate.md`.
+4. **On a failure,** the first failing stage names the reason. Root-cause it
+   from the raw lines in the report, fix it in a PR (never by loosening a
+   rule or editing evidence), and merge with the tag that re-runs it.
 
-| Stage | Result on the 2026-09-20 run |
-|---|---|
-| 0 self-protection · 1 strict compile (0/0) · 2 DSL parity (14/14) · 3 broker parity (12 MATCH) · 4 fixture import | **PASS** (MT5-VALIDATED for that run; evidence is owner-side, gitignored) |
-| 5 Strategy Tester legs | **FAIL** (`GATE_RESULT=tester_legs`) — 3 legs FAIL, 2 legs BLOCKED_OWNER_ENVIRONMENT (build 6184 wrote no `[Tester]` Report file; a BLOCKED leg is **not** a pass) |
-| 6–10 reconciliation (incl. 8a–8d), archive, certify | **NEVER RUN** — the gate stopped at stage 5 |
+**Where it stands (gate_run59, 2026-10-13).**
+`GATE_RESULT=certified_with_log_graded_legs`; stages 0–10 PASS (stage 5
+PASS_FROM_LOG); verdict `MT5_VALIDATED_BAR_MODELS`; gold1 18/18 and gold2
+37/37 MATCH in `m1_ohlc` and `every_tick`; 8/8 safety VALID; certificate
+issued. MT5 execution-parity and safety certificate, bar models, no
+real-tick claim, no profitability claim. The first full run (2026-09-20,
+stopped at stage 5) is kept as history in
+[OWNER_DELIVERY.md](OWNER_DELIVERY.md).
 
-**PASS_FROM_LOG — its own evidence class (built, unit-tested, never run
-live).** Because build 6184 writes no Report file, stage 5 can now grade a
-no-report leg from its OWN tester-log window
-(`python/mql5bot/tester_log_grader.py`). A leg is `PASS_FROM_LOG` only when
-that window shows ALL of: "successfully finished", bars > 0 for the leg's
-symbol, a history-quality line, and a model statement equal to the
-requested model. Anything less keeps the leg's existing verdict (FAIL,
-FAIL_INSUFFICIENT_FIXTURE_HISTORY, FAIL_NO_TICK_HISTORY or
-BLOCKED_OWNER_ENVIRONMENT). A window showing the EA refused the DSL bundle at
-OnInit is a FAIL that says so; a window showing `no history data, stop
-testing` is FAIL_NO_TICK_HISTORY (gate_run23; see docs/DECISIONS.md).
-Since the 2026-10-03 owner decision, a bar-only gold's real_ticks leg is not
-launched at all. It is recorded `NOT_APPLICABLE_BAR_ONLY_FIXTURE`, with
-real-tick coverage `NONE (bar-only fixture)`, and is never a pass. This is
-built and unit-tested, and has never run live.
+**PASS_FROM_LOG — its own evidence class.** MT5 build 6184 writes no
+`[Tester]` Report file, so stage 5 grades a no-report leg from its OWN
+tester-log window (`python/mql5bot/tester_log_grader.py`). A leg is
+`PASS_FROM_LOG` only when that window shows ALL of: "successfully
+finished", bars > 0 for the leg's symbol, a history-quality line, and a
+model statement equal to the requested model. Anything less keeps the
+leg's verdict (FAIL, FAIL_INSUFFICIENT_FIXTURE_HISTORY,
+FAIL_NO_TICK_HISTORY or BLOCKED_OWNER_ENVIRONMENT). Every gold leg of
+gate_run59 was graded this way.
 
 - It **proves**: MT5 ran this leg to completion, on this symbol, with
   bars > 0, at the stated history quality, in the requested model. The
   verdict quotes the exact lines and names the source ("tester agent log").
 - It does **not** prove: anything a report states. There are no report
   metrics (profit factor, drawdown, trade statistics). The deal list is
-  only what the EA printed (`DEAL #…` lines). Side and open/close come
-  only from MT5's own deal lines and are otherwise left empty.
+  only what the EA printed (`DEAL #…` lines).
 - It is **never** the report-based PASS. A stage with any log-graded leg
-  records `PASS_FROM_LOG`, not `PASS`. Its summary counts legs passed from
-  report versus from log. A gate that reaches the end on it reports
-  `GATE_RESULT=certified_with_log_graded_legs`, not `certified`.
-- It does **not** change the record above. On the lines captured from
-  gate runs 16/17 the gold2 M1-OHLC window does grade PASS_FROM_LOG, but
-  the gold1 legs still FAIL, so stage 5 is still FAIL.
-- Stage 8 accepts a PASS_FROM_LOG log trade list as a leg's trade source
-  when no report exists, and names the source as the tester agent log. A
-  list with zero deals is compared, not rejected. Against gold2's frozen
-  56-trade contract, zero deals is a **divergence**.
+  records `PASS_FROM_LOG`, and a gate that reaches the end on it reports
+  `GATE_RESULT=certified_with_log_graded_legs`, not `certified` (exit 1).
 
-**Legs run the gold strategy (built, unit-tested, never run live).** The
-measured gate_run17 root cause was that the EA ran its compiled-in default
-strategy (`InpDslBundleFile` empty). Each leg now derives its strategy and
-risk inputs from the gold manifest, loads the gold's DSL bundle, and fails
-before launch if any input cannot be derived. Gold1's manifest pins no
-`engine_config.allow_short`, so its legs now fail before launch on that
-field. A leg only passes from log if the EA logged that it loaded the
-expected strategy. See DECISIONS.md (STAGE 5 R9).
+**Real ticks are not applicable.** A bar-only gold's real_ticks leg is not
+launched; it is recorded `NOT_APPLICABLE_BAR_ONLY_FIXTURE`, real-tick
+coverage `NONE (bar-only fixture)`, and is never a pass (owner decision
+2026-10-03).
 
-**Partial (scoped) runs certify nothing.** `owner_gate.ps1 -Golds gold2`
-runs only gold2's import, legs and stage-8 comparison. This exists so a
-first real Python↔MQL5 comparison can happen while gold1 awaits
-regeneration. Such a run is evidence about gold2 only:
-- It ends `GATE_RESULT=partial_<stage>` and never `certified`.
-- Stage 8 can at best report `MT5_VALIDATED_PARTIAL_SCOPE`, which is not a
-  positive verdict.
-- Stages 9 and 10 are refused (recorded `REFUSED`, not run), and
-  `gate_summary.json` says `"certifiable": false`.
+**Legs run the gold strategy.** Each leg derives its strategy and risk
+inputs from the gold manifest and loads the gold's DSL bundle into the EA's
+DSL bundle runtime; it fails before launch if any input cannot be derived,
+and passes from log only if the EA logged that it loaded the expected
+strategy (STAGE 5 R9).
 
-A partial result says nothing about the excluded golds and is never
-MT5-VALIDATED, VERIFIED or certified. (Built, unit-tested, never run live.)
-
-**Nothing is VERIFIED.** Stage 8 (the binding Python↔MQL5 executed-trade
-reconciliation) has never run, and only a run that ends
-`GATE_RESULT=certified` can put VERIFIED on anything.
+**Partial (scoped) runs certify nothing.** `-Golds gold2` runs only gold2's
+import, legs and stage-8 comparison. It ends `GATE_RESULT=partial_<stage>`;
+stage 8 can at best report `MT5_VALIDATED_PARTIAL_SCOPE` (not positive);
+stages 9 and 10 are refused; `gate_summary.json` says
+`"certifiable": false`.
 
 ## Lane 1 — GOLD semantic lane
 
 Question: *do the Python, DSL and MQL5 implementations agree on the
 controlled fixture?*
 
-- **Gold #1** — 16-trade fixture, frozen at `artifacts/gold/`
-  (manifest, fixture, traces, expected execution, reconciliation).
-- **Gold #2** — 56-trade fixture,
+- **Gold #1** — 18-trade fixture, frozen at `artifacts/gold/`
+  (manifest, fixture, traces, expected execution, reconciliation;
+  regenerated once under S8-REANCHOR-2).
+- **Gold #2** — 56-trade fixture (37 entries fall inside the tested
+  window and are paired),
   `GOLD_2_RECONSTRUCTED_NEW_PROVENANCE`, frozen at `artifacts/gold_2/`.
 - Deterministic, replayable, hash-chained. The golds are NEVER
   regenerated to match reality — a mismatch is evidence, investigated
@@ -115,8 +107,8 @@ contract predicts?*
   identity triad, real-tick coverage record, field-by-field
   reconciliation, safety exercises.
 - The verifier (`tools/verify_owner_mt5_gate.py`) consumes the
-  returned directory and assigns the verdict mechanically. Until owner
-  artifacts exist this lane is **BLOCKED_OWNER_ENVIRONMENT**.
+  returned directory and assigns the verdict mechanically. State:
+  `MT5_VALIDATED_BAR_MODELS` (gate_run59): no real-tick leg.
 
 ## Lane 3 — EMPIRICAL lane
 
@@ -147,12 +139,16 @@ any earlier lane; never started by tooling.
 
 A software → B gold semantics → C MT5 runtime → D empirical → E demo →
 F live. Each layer has its own artifacts and its own gate; none
-substitutes for another. Current states: A/B PROVEN locally; C/D/E
-BLOCKED_OWNER_ENVIRONMENT / PENDING; F not begun.
+substitutes for another. Current states: A/B PROVEN locally; C
+certified for the bar models (gate_run59); D not run; E limited to the
+three stage-7 demo safety probes; F not begun.
 
 ## Statuses you will see
 
-`GOLD_SEMANTIC_PASS` · `MT5_VALIDATED` · `EMPIRICAL_VALIDATED` ·
+`GOLD_SEMANTIC_PASS` · `MT5_VALIDATED` · `MT5_VALIDATED_BAR_MODELS`
+(bar models only, no real-tick claim; the certified verdict) ·
+`certified` / `certified_with_log_graded_legs` (gate results) ·
+`EMPIRICAL_VALIDATED` ·
 `DEMO_VALIDATED` · `VERIFIED` · `NOT_VERIFIED_*` (with exact reasons) ·
 `BLOCKED_OWNER_ENVIRONMENT` · `MT5_VALIDATED_PARTIAL_SCOPE` (scoped stage-8
 verification; not positive, certifies nothing) · `PASS_FROM_LOG` (stage-5 leg graded from

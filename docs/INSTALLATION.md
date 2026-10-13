@@ -140,3 +140,16 @@ The canonical lint scope is `python/ tests/ tools/ factory/`. A bare
 
 If tests fail at install time, see `TROUBLESHOOTING.md` before
 changing anything.
+
+## Known failure modes on the Windows MT5 host
+
+The gate's known failure modes, each with its remedy and decision ID, are
+in [TROUBLESHOOTING.md](TROUBLESHOOTING.md) "Known gate failure modes":
+- the selected-symbol refusal at fixture import (STAGE 4 R9/R10);
+- `CustomRatesDelete` leaving bars behind, now self-healed by the importer
+  (IMPORT-SELFHEAL-1);
+- the terminal not connected after the demo harness (DEMO-LOGIN-PERSIST-1);
+- a `\r` in config or export paths (DEMO-CHECK-CRLF-1);
+- the EA waiting in WAITING_SYMBOL (SPEC-WAIT-1/2).
+
+The host must not sleep during a gate (HARNESS-SUSPEND-1).

@@ -62,11 +62,28 @@ These are real, observed on the first full owner gate run. None is a bug to
 
 | Symptom | Cause | Resolution |
 |---|---|---|
-| stage 5 leg BLOCKED_OWNER_ENVIRONMENT; no backtest metrics | **MT5 build 6184 writes no `[Tester]` Report file**, so a leg that ran cleanly has nothing to parse | a BLOCKED leg is **not** a pass; use a build/config that emits the report, or an alternate parse source, then re-run. Never relabel BLOCKED as PASS |
+| stage 5 leg BLOCKED_OWNER_ENVIRONMENT; no backtest metrics | **MT5 build 6184 writes no `[Tester]` Report file**, so a leg that ran cleanly has nothing to parse | the alternate parse source now exists: the leg is graded from its own tester-log window (`PASS_FROM_LOG`, STAGE 5 R7). A BLOCKED leg is still **not** a pass; never relabel BLOCKED as PASS |
 | leg fails: "start time changed … to provide data at beginning" / "0 ticks, 0 bars generated" | **the fixture is too short for MT5's warm-up reservation** — MT5 reserves preceding history and moved the test start past the end of the data (the gold #1 H1 fixture is 120 bars) | rebuild the fixture with enough history for warm-up; do not shorten warm-up semantics |
 | import/tester leg refuses because a custom symbol is already selected | **a stale custom symbol was left SELECTED by a prior run** | the importer now adopts a symbol left selected (STAGE 4 R9/R10); if you hit it on an older path, deselect the symbol in Market Watch and re-run |
 | gate stops at stage 0 with a dirty-tree message | **the gate refuses a dirty working tree** — it must grade exactly the committed source | commit or stash your changes; the gate never grades an uncommitted tree |
 | gate stops at stage 0: `mql5bot` did not resolve in-repo | **the gate refused an out-of-repo `mql5bot`** — an installed copy in site-packages, not this repo's `python/` tree | ensure the repo's `python/` resolves first (tools use `tools/_bootstrap.py`); a gate grading a different copy of the code is not certifying the repo |
+
+## Known gate failure modes and their remedies (by decision ID)
+
+Each was hit on a real gate run and is fixed or handled in code; the
+decision entry in `docs/DECISIONS.md` has the evidence.
+
+| Symptom (where) | Cause | Remedy | Decision |
+|---|---|---|---|
+| stage 4 refuses: `cannot adopt the surviving custom symbol ... the release failed` (4305) | a custom symbol left SELECTED (or open on a chart) by a prior run must be deselected before its properties can be rewritten | verify-first adoption needs no deselect when the properties already match; otherwise close any chart on the symbol and re-run | STAGE 4 R9/R10 |
+| stage 4 refuses: `adopt-in-place: CustomRatesDelete left N bar(s)` (gate_run58) | the wipe of a surviving symbol's bars did not take | the importer now drops and recreates the symbol itself; if the drop also fails, close any chart on it, delete the custom symbol in the terminal, re-run (built, unit-tested, never run live) | IMPORT-SELFHEAL-1 |
+| stage 3 / later launches fail: terminal not connected after the demo harness | the harness's hard kill left the terminal without a saved login | every harness run ends logged in to the hedging account with `KeepPrivate=1` and proves a credential-less launch connects; stage 7 FAILs `[demo_terminal_not_restored]` otherwise | DEMO-LOGIN-PERSIST-1 |
+| connection check export path not found; a `\r` in a config or export path (gate_run52) | Windows text-mode writes turned `\r\n` into `\r\r\n` | ini files are written with `newline=""` | DEMO-CHECK-CRLF-1 |
+| EA log: `WAITING_SYMBOL: symbol spec not ready (tick_value_loss <= 0)`, then `gave up after N s WAITING_SYMBOL` (gate_run56/57) | a (re)launch after a hard kill or a connection drop; the symbol is not synchronized yet | the EA waits (no new positions), selects the symbol and logs the field values each second, bounded by `InpSpecWaitSeconds` (180); the harness names `[ea_init_failed]`. The retry lines show which field stays 0 (built, unit-tested, never run live) | SPEC-WAIT-1/2, HARNESS-INIT-FAIL-1 |
+| demo probe refused: `REFUSED: honoured only on a logged-in DEMO account` | the EA initialised before the terminal finished logging in | the harness relaunches once | DEMO-HARNESS-RELAUNCH-1 |
+| stage 7 FAIL `[demo_host_suspended]`; run.json `status: INTERRUPTED` | the host slept or hibernated during the run (gate_run57) | keep the host awake for the whole gate and re-run it; such a run is invalid (built, unit-tested, never run live) | HARNESS-SUSPEND-1 |
+| stage 0 or 7: `[market_closed]` | outside FX hours (Fri 20:00 – Sun 22:15 UTC, daily 20:45 – 22:15 UTC) | run `-DemoSafety` inside market hours | DEMO-IN-GATE-1 |
+| stage 5 leg with no `[Tester]` Report file | MT5 build 6184 writes none | the leg is graded from its own tester-log window (`PASS_FROM_LOG`); the run ends `certified_with_log_graded_legs`, never `certified` | STAGE 5 R7 |
 
 ## Environment availability
 

@@ -38,27 +38,36 @@ MT5 Broker
 
 | Boundary | Rule |
 |---|---|
-| **Signal authority** | the five built-in engines in `SignalEngine.mqh` (EA) / their Python twins; completed bars only |
+| **Signal authority** | the five built-in engines in `SignalEngine.mqh`, or a certified DSL bundle through the EA's DSL runtime (`DslBundle/DslExecution/DslRuntime.mqh`) / their Python twins; completed bars only |
 | **Allocation authority** | Meta may only REDUCE requested exposure |
 | **Capital veto** | Risk rejects or sizes down; nothing bypasses it |
 | **Emergency veto** | Kill Switch latches before new entries; exits still managed |
 | **Execution authority** | TradeManager exclusively. Factory, Research, ML, LLM, dashboard and UI have NO order path (source-scan tested) |
 | **Factory non-trading boundary** | Factory specifies; never executes; never imports the execution bridge |
-| **Five-engine MQL5 limit** | the EA executes exactly the five built-in engines; no DSL interpreter exists in MQL5 |
+| **MQL5 execution limit** | the EA executes the five built-in engines and DSL bundles whose hashes re-derive and whose indicator kinds are among the six the runtime implements (EMA, RSI, ATR, DONCHIAN, HIGHEST, LOWEST); anything else is refused at OnInit |
+| **Spec-wait boundary** | a live start on an unsynchronized symbol waits in WAITING_SYMBOL and opens no new positions until the symbol spec builds (SPEC-WAIT-1/2); never in the tester |
+| **Filling-mode boundary** | an order's filling mode is one the broker's `SYMBOL_FILLING_MODE` flags allow (FILL-MODE-1) |
 | **Evidence boundary** | only hash-bound, provenance-consistent artifacts count as evidence (`owner_gate.py`) |
 | **Owner certification boundary** | MT5 runtime evidence can only be produced on the owner's Windows terminal; the sandbox verifies, never produces |
 
 ## The two runtimes
 
 - **MQL5 EA** (`mql5/`): Config (enums/constants), Session, Signal
-  Engine, Risk Manager, Trade Manager, Position Guard, SlGuard, Magic
-  Map, Retry Queue, Allocation, Kill Switch, Logger, Telemetry.
+  Engine, DSL runtime (DslBundle, DslJson, DslCanon, DslIndicators,
+  DslSeries, DslExecution, DslRuntime), Risk Manager, Trade Manager,
+  Position Guard, SlGuard, Magic Map, Retry Queue, Allocation, State
+  Store, SymbolSpec, Kill Switch, Logger, Telemetry. Gate scripts in
+  `mql5/Scripts/Mql5Bot/`: the fixture importer, the SymbolSpec exporter,
+  the DSL parity runner, the data downloader.
 - **Python toolkit** (`python/mql5bot/`): strategies, indicators,
   backtest engine, metrics, sizer + SymbolSpec, optimizer, reports,
   dashboard, telemetry bridge, data layer, DSL runtime,
   indicator_universe, factory, discovery, meta layer, certification
   (`certify.py`, `status.py`), owner evidence consumer (`owner_gate.py`),
-  MT5 tester tooling (`mt5tester.py`).
+  MT5 tester tooling (`mt5tester.py`), the stage-8 package builder
+  (`stage8_package.py`), the safety-leg graders (`safety_legs.py`), the
+  demo harness (`demo_harness.py`), the stage-10 certificate
+  (`gate_certificate.py`).
 
 The twins agree by construction on completed-bar semantics and are
 pinned by the gold fixtures (`artifacts/gold/`, `artifacts/gold_2/`).
@@ -90,19 +99,28 @@ drilled — see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Data flow (certification)
 
+The gate (`tools/owner_gate.ps1`, docs/OWNER_GATE.md) runs this chain as
+stages 0–10 (no stage 6):
+
 ```
-frozen source anchor
-   → compile evidence (log, metadata, EX5 hash)
-   → broker SymbolSpec export
-   → tester legs (3 models × Gold #1/#2) with model-identity triads
+frozen source anchor                          (stage 0)
+   → compile evidence (log, metadata, EX5 hash)   (stage 1)
+   → DSL parity                                    (stage 2)
+   → broker SymbolSpec export + parity             (stage 3)
+   → gold fixture import (custom symbols)          (stage 4)
+   → tester legs (bar models × Gold #1/#2; real ticks NOT_APPLICABLE
+     on bar-only fixtures)                         (stage 5)
+   → live demo safety: restart, netting, hedging   (stage 7, -DemoSafety)
+   → five tester safety legs + stage-8 package     (stage 8)
    → parsed reports (bound to raw reports)
    → reconciliation (binding chain: SOURCE→FIXTURE→CONFIG→DATASET→
      SYMBOLSPEC→EX5→MODEL→REPORT→RECONCILIATION)
    → first-divergence engine + closed taxonomy
    → safety / netting / hedging raw evidence
    → real-tick coverage record
-   → archive manifest (every file hash-bound)
-   → verifier verdict (explainable, fail-closed)
+   → verifier verdict (explainable, fail-closed)  (stage 8)
+   → archive manifest (every file hash-bound)      (stage 9)
+   → certificate of the verifier verdict           (stage 10)
 ```
 
 Any broken edge invalidates the leg; no downstream record conceals an

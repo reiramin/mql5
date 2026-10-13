@@ -5653,3 +5653,50 @@ certified gold legs run through it.
   checks more than before.
 - (b) No code changes.
 - (c) No new gate check.
+
+### DOCS-SYNC-1 PR B (operating docs, 2026-10-13)
+
+Each stale statement was found by a read-only audit and checked against the
+code before it was edited.
+
+- **OWNER_GATE.md**
+  - New: a stages-at-a-glance table (0–10, no stage 6) and a stage-7
+    `demo_safety` entry.
+  - "A." becomes stage 0 and "5-7" becomes stage 5. The stage-8 package
+    builder is marked as run.
+  - The 2026-10-04 "gaps" are recorded as closed: S8-ANCHOR-REL-1 accepts
+    a clean descendant; the exporter writes broker/timestamp/terminal_build
+    (`Mql5BotExportSymbolSpec.mq5`); the S8-COUNT-1 entry-count rule.
+  - The safety section: five tester legs (lost_response included) and
+    three demo tests, all eight VALID in gate_run59.
+  - Added: the `[runner: pytest]` tag, the exact command per tag, the
+    market-window rule (from `fx_market_closed`), the exit-code file and
+    the runner's leak check.
+  - The anchor is now `6299de3` (S8-REANCHOR-2).
+- **CERTIFICATION.md** is now the contract:
+  - when the certificate is issued, and what it claims and does not;
+  - `certify_strategy.py` is not part of it and is kept for the empirical
+    lane;
+  - evidence layer C is certified for the bar models;
+  - real ticks are tester Model 4 (model 3 is refused);
+  - the scope surfaces name the EA's DSL bundle runtime.
+- **CERTIFICATION_GUIDE.md** is the how-to: a step-by-step and the current
+  state. Gold #1 is 18 trades.
+- **SAFETY_DEMO_PLAN / SAFETY_8A_8D_PLAN / KILL_SWITCH**
+  - the 8 pinned results and where each runs;
+  - the live-demo mechanism by decision ID;
+  - the formerly-untested items, now measured.
+- **MT5_SETUP_AND_OPERATION / TROUBLESHOOTING / INSTALLATION /
+  WINDOWS_OWNER_HANDOFF**
+  - the EA's two execution surfaces;
+  - a known-failure-modes table, one row per decision ID;
+  - WINDOWS_OWNER_HANDOFF marked historical, with a pointer to that table.
+- **ARCHITECTURE / SYSTEM_INVARIANTS / SPEC**
+  - the DSL runtime and the gate scripts in the component list;
+  - the data flow mapped to stages 0–10;
+  - the SPEC-WAIT and FILL-MODE boundaries;
+  - new INV-EA-1 (no new positions while WAITING_SYMBOL) and INV-EA-2
+    (filling mode allowed by the broker flags), each mapped to its source
+    tests;
+  - a note on SPEC.md that it is the original v4 design.
+- **STATE_MODEL.md**: checked, current, unchanged.

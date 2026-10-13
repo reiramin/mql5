@@ -1,9 +1,11 @@
 # MT5 Setup and Operation (Owner Runbook)
 
-This is the owner-side operating manual. The canonical protocol is the
-TEN-step sequence in `MT5_ROUNDTRIP.md`; the frozen artifact package is
-`artifacts/owner_mt5_gate/`. This guide explains the how; those two are
-authoritative for the what.
+This is the owner-side operating manual. The certification protocol is the
+automated gate, `tools/owner_gate.ps1` ([OWNER_GATE.md](OWNER_GATE.md)),
+which runs the steps below itself; the frozen artifact package is
+`artifacts/owner_mt5_gate/`. The manual ten-step protocol in
+`MT5_ROUNDTRIP.md` is historical. Known gate failure modes and their
+remedies are in [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 > **The bot trades only while MetaTrader 5 is running and connected.** If
 > you close the terminal or the PC sleeps, it stops — there is no
@@ -12,7 +14,9 @@ authoritative for the what.
 > the Python services on a cheap Linux host) and its restart-on-boot steps
 > are in [DEPLOYMENT.md](DEPLOYMENT.md). That deployment has **never been
 > deployed or drilled** — it is a procedure, not a proven configuration.
-> And nothing here is certified: see [OWNER_DELIVERY.md](OWNER_DELIVERY.md).
+> What is certified (gate_run59): MT5 execution-parity and safety
+> certificate, bar models, no real-tick claim, no profitability claim — see
+> the README "Certification status".
 
 ## Before first compile
 
@@ -76,15 +80,23 @@ Attach the EA to a chart of the certification symbol and select a
 preset/inputs. For telemetry, allow the collector URL via
 **Tools → Options → Expert Advisors → Allow WebRequest for listed URL**.
 
-## The five execution engines (and ONLY them)
+## What the EA can execute
 
-`ema_crossover`, `rsi_reversal`, `donchian_breakout`,
-`bollinger_reversal`, `macd_momentum` — chosen with the `InpStrategy`
-input. **The Python Factory / DSL / 71-indicator research universe does
-NOT mean arbitrary generated strategies can execute in the EA.** The EA
-has no DSL interpreter; anything beyond the five built-ins stays on
-the research surface until a real owner validation exists for it
-(BLOCKED_OWNER_ENVIRONMENT). Do not improvise a workaround.
+1. The five built-in engines — `ema_crossover`, `rsi_reversal`,
+   `donchian_breakout`, `bollinger_reversal`, `macd_momentum` — chosen with
+   the `InpStrategy` input.
+2. A certified DSL bundle named by `InpDslBundleFile` (read from the
+   terminal's `MQL5\Files` or the common files folder). The loader is
+   fail-closed: the bundle hash, `spec_hash` and `semantic_hash` must
+   re-derive, only EMA, RSI, ATR, DONCHIAN, HIGHEST and LOWEST are
+   accepted, and the bundle's market must equal the chart. The gate's gold
+   legs run this way.
+
+**The Python Factory / DSL / 71-indicator research universe does NOT mean
+arbitrary generated strategies can execute in the EA.** A bundle using any
+other kind is refused at OnInit; it stays on the research surface until a
+real owner validation exists for it (BLOCKED_OWNER_ENVIRONMENT). Do not
+improvise a workaround.
 
 ## Strategy Tester — three separate evidence layers
 
@@ -156,15 +168,20 @@ Then verify:
 python tools/verify_owner_mt5_gate.py <evidence-dir> --repo . --out report.json
 ```
 
-Exit 0 = positive verdict (`MT5_VALIDATED`). Exit 1 = negative with the
+Exit 0 = positive verdict (`MT5_VALIDATED` or `MT5_VALIDATED_BAR_MODELS`;
+`MT5_VALIDATED_PARTIAL_SCOPE` is never positive). Exit 1 = negative with the
 exact reasons — return the directory AS-IS; do not repair artifacts.
 Exit 2 = usage/configuration error.
 
-## Safety exercises (demo only)
+## Safety exercises
 
-Kill Switch, Risk veto, Meta reduce, SL verification, lost response,
-restart, netting, hedging — each requires action / initial state /
-resulting state / observed result / a bound raw-evidence artifact.
+The gate runs all eight itself. Kill Switch, Risk veto, Meta reduce, SL
+verification and lost response are Strategy Tester legs in stage 8
+(docs/SAFETY_8A_8D_PLAN.md); restart, netting and hedging run on demo
+accounts in stage 7 with `-DemoSafety` (docs/SAFETY_DEMO_PLAN.md). Each
+result requires action / initial state / resulting state / observed result
+/ a bound raw-evidence artifact, and is VALID only when the observed result
+equals the pinned expected one.
 Screenshots alone and prose ("passed") are rejected by the verifier.
 If the account type cannot exercise hedging: record
 `BLOCKED_OWNER_ENVIRONMENT`, not PASS.
