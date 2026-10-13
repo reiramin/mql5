@@ -29,8 +29,9 @@ One codebase, two layers that stay in lockstep:
 **MT5 execution-parity and safety certificate, bar models, no real-tick
 claim, no profitability claim.**
 
-- **Run.** gate_run59 tested master `ab312d5` on the owner's Windows MT5
-  terminal, 2026-10-13. It ended `GATE_RESULT=certified_with_log_graded_legs`
+- **Run.** gate_run59 first certified master `ab312d5` on the owner's
+  Windows MT5 terminal, 2026-10-13. The latest run, gate_run60, re-certified
+  master `50cdb71` (IMPORT-SELFHEAL-1) with the same results, 2026-10-13. It ended `GATE_RESULT=certified_with_log_graded_legs`
   (exit code 1 by design: every gold leg was graded from the tester log).
   Stages 0-10 PASS.
 - **Verdict.** The stage-8 verifier's verdict is `MT5_VALIDATED_BAR_MODELS`.
@@ -42,7 +43,8 @@ claim, no profitability claim.**
   on the frozen gold fixtures, plus the 8 safety behaviours. There is no
   real-tick leg (the fixtures are bar-only). It makes no statement about
   returns.
-- **Evidence.** The [gate_run59 report](https://github.com/reiramin/mql5/blob/db13f551ce0c110b5fb91ab8445d5773ca1232df/reports/gate_run59/SUMMARY.md) and the
+- **Evidence.** Latest: the [gate_run60 report](https://github.com/reiramin/mql5/blob/b3821b6145e830bb9bd71d367a4cf78578bb3a63/reports/gate_run60/SUMMARY.md) and
+  [certificate](https://github.com/reiramin/mql5/blob/b3821b6145e830bb9bd71d367a4cf78578bb3a63/reports/gate_run60/certificate/certificate.md). First: the [gate_run59 report](https://github.com/reiramin/mql5/blob/db13f551ce0c110b5fb91ab8445d5773ca1232df/reports/gate_run59/SUMMARY.md) and the
   [certificate](https://github.com/reiramin/mql5/blob/db13f551ce0c110b5fb91ab8445d5773ca1232df/reports/gate_run59/certificate/certificate.md), both on branch
   `gate-reports`. The certificate is bound by sha256 to
   `reconciliation_verify.json` and `archive_manifest.json`.

@@ -159,7 +159,8 @@ test. The details are in `docs/DECISIONS.md`.
 
 ## Numbers (from the reports)
 
-- **Certified on gate_run59** (master `ab312d5`):
+- **Certified on gate_run59** (master `ab312d5`), and re-certified with
+  the same results by gate_run60 (master `50cdb71`):
   - `GATE_RESULT=certified_with_log_graded_legs`;
   - stages 0-10 PASS;
   - verifier verdict `MT5_VALIDATED_BAR_MODELS`.

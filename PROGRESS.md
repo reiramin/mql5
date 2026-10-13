@@ -14,6 +14,10 @@
 
 ## CURRENT STATE (authoritative) — 2026-10-13, branch `master`
 
+**Latest run:** gate_run60 (`gate-reports` `b3821b6`) re-certified master
+`50cdb71` with the same results (IMPORT-SELFHEAL-1 compiled; its recreate
+branch not exercised).
+
 **Gate.** gate_run59 (branch `gate-reports`, commit `db13f55`) tested master
 `ab312d5`: `GATE_RESULT=certified_with_log_graded_legs`, stages 0–10 PASS
 (stage 5 PASS_FROM_LOG), verifier verdict `MT5_VALIDATED_BAR_MODELS`, gold1

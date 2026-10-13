@@ -2210,3 +2210,14 @@ ruff exit 0; full pytest exit 0 (pytest's own exit code).
 
 `docs/PLATFORM_DECISIONS` does not exist in the repo; D4 is recorded from
 the request.
+
+## 2026-10-13 — gate_run60 recorded; branch `claude/aegis-safety-fixes-20aen5`
+
+gate_run60 (`b3821b6`) re-certified master `50cdb71`: the same results as
+gate_run59. The IMPORT-SELFHEAL-1 recreate branch was not exercised (both
+symbols `adopted_verified`).
+
+**Updated:** README, SHOWCASE, CLAUDE.md status lines (1.e, 4), BLOCKED,
+TASKS, HANDOFF, PROGRESS, DECISIONS.
+
+ruff exit 0; full pytest exit 0 (pytest's own exit code).

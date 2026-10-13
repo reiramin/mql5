@@ -14,9 +14,9 @@ listed here; `docs/BLOCKED.md` has the details.
 2. **[ ] HARNESS-SUSPEND-1** — the harness's INTERRUPTED abort on a host
    suspend. gate_run59 had no suspend.
 3. **[ ] IMPORT-SELFHEAL-1** (#55) — the importer's drop-and-recreate of a
-   symbol whose bars will not wipe. The next `[runner: full]` run compiles
-   and runs the importer; the recreate branch runs only if a stale symbol
-   appears again.
+   symbol whose bars will not wipe. gate_run60 compiled the importer and
+   passed stage 4 (both symbols `adopted_verified`); the recreate branch runs
+   only if a stale symbol appears again.
 
 **Optional owner items (outside the CLAUDE.md exceptions, not blocking):**
 

@@ -5836,3 +5836,33 @@ commits documented, not required) and the names of future Actions secrets.
   unchanged.
 
 Status: built, unit-tested, never run live (no real key exists yet).
+
+## Status update: gate_run60 re-certifies master 50cdb71 (2026-10-13)
+
+**gate_run60** (gate-reports `b3821b6`, master `50cdb71`, IMPORT-SELFHEAL-1,
+FULL run):
+- `GATE_RESULT=certified_with_log_graded_legs`, stages 0–10 PASS (stage 5
+  PASS_FROM_LOG);
+- verdict `MT5_VALIDATED_BAR_MODELS`;
+- gold1 18/18 and gold2 37/37 MATCH in both models;
+- 8/8 safety VALID;
+- leak check: 34 files, 0 hits;
+- no run suspended; every step gap under 5 minutes.
+
+**Hashes** (computed from the published bytes; they equal the report's):
+- `certificate/certificate.json`
+  `5f86787041bac23fbc882672406877421594996016e2fffe8378c7ce48e8e326`;
+- `archive_manifest.json`
+  `bd624aa1285fe2c202c9df1bc2a5b12ad49e6c601c420f942e18cef7d121e11e`;
+- `reconciliation_verify.json`
+  `72a325ae57ec51da65a2a733680642d446119a113e24014c4abd5f863261eff1`.
+
+**IMPORT-SELFHEAL-1, scoped.** The importer compiled clean (stage 1) and
+stage 4 passed. Both symbols were `adopted_verified` (G1 720 bars, G2 5760
+bars, dataset hashes equal to the manifest), and no record carries
+`selfheal_leftover_bars`. So the drop+recreate branch was **not exercised**;
+it stays built, unit-tested, never run live. gate_run58's leftover-bar
+refusal did not recur.
+
+**Still not run live:** the SPEC-WAIT-2 wait path and the HARNESS-SUSPEND-1
+abort.
