@@ -2116,3 +2116,26 @@ deleted EURUSD.G2:
   as is.** A docs-contract test pins it, and changing it is outside this
   PR. The EA does carry an optional DSL bundle runtime, and SHOWCASE says
   so.
+
+## 2026-10-13 — IMPORT-SELFHEAL-1; branch `claude/aegis-safety-fixes-20aen5`
+
+**Done:**
+- **The importer change.** When the adopt wipe leaves bars behind, the
+  importer drops the custom symbol through the hardened
+  `DropCustomSymbolChecked` (which closes other charts) and recreates it on
+  the created-fresh path, recording `selfheal_leftover_bars`.
+  - If the drop fails, it refuses, naming the bars and the failing call.
+  - A fresh symbol that shows bars refuses as well.
+- **Authority.** CLAUDE.md exception 1.e (owner request 2026-10-13).
+- **Tests.** `tests/test_import_selfheal.py` (6 pins; they fail on the old
+  importer), and one R10 pin updated deliberately.
+- **Docs.** DECISIONS, BLOCKED.
+
+ruff exit 0; full pytest exit 0 (pytest's own exit code).
+
+**NOT done:**
+- **A live run.** Built, unit-tested, never run live. The stage-1 strict
+  compile and stage 4 of the next `[runner: full]` run are the proof.
+- **Not exercised by a normal run.** Unless a stale symbol is present
+  again, the next run will most likely take the adopt or created_fresh
+  path, so the self-heal branch itself may stay unexercised.

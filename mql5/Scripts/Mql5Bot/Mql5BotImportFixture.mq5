@@ -117,7 +117,18 @@
 //|  Either adopt path then wipes ALL bars (CustomRatesDelete + zero-   |
 //|  bar VERIFY -- no bar from a prior fixture may survive), rewrites   |
 //|  them from the fixture, and runs the UNCHANGED read-back            |
-//|  verification + round-trip dataset-hash check. Adoption is accepted |
+//|  verification + round-trip dataset-hash check.                      |
+//|   5. SELF-HEAL (IMPORT-SELFHEAL-1, gate_run58): when the wipe       |
+//|      leaves bars behind ("CustomRatesDelete left 5760 bar(s)"), the |
+//|      survivor is NOT adopted: it is dropped through the hardened    |
+//|      DropCustomSymbolChecked (close other charts, poll, bounded     |
+//|      deselect, bounded delete, SymbolExist verify) and the symbol   |
+//|      is recreated on the CREATED-FRESH path. The record carries     |
+//|      "selfheal_leftover_bars":N. If the drop fails the import       |
+//|      REFUSES naming both the leftover bars and the failing call; a  |
+//|      freshly created symbol that still shows bars REFUSES too (no   |
+//|      prior fixture's bar may ever survive into the dataset).        |
+//|  Adoption is accepted                                               |
 //|  only by passing exactly the evidence a fresh create must pass --   |
 //|  the gate's guarantee comes from that verification, not from the    |
 //|  symbol being new. A NON-custom (broker) symbol of the same name    |
@@ -531,6 +542,9 @@ int    g_adoptRewritten = -1;  // adopt path: N properties that DIFFERED and
                                // were rewritten (0 = verified in place,
                                // nothing written; -1 = not an adopt)
 int    g_dropAttempts   = 0;   // attempts made by the LAST DropCustomSymbolChecked
+int    g_selfHealBars   = -1;  // IMPORT-SELFHEAL-1: bars the adopt wipe left
+                               // behind before the symbol was dropped and
+                               // recreated (-1 = no self-heal ran)
 
 string SymbolStateJson()
   {
@@ -538,6 +552,8 @@ string SymbolStateJson()
    if(g_adoptRewritten >= 0)
       s += ",\"adopt_properties_rewritten\":" +
            IntegerToString(g_adoptRewritten);
+   if(g_selfHealBars >= 0)
+      s += ",\"selfheal_leftover_bars\":" + IntegerToString(g_selfHealBars);
    return s;
   }
 
@@ -1298,13 +1314,35 @@ void OnStart()
       ResetLastError();
       int leftoverBars = Bars(sym, tf);
       if(leftoverBars > 0)
-        { int lbErr = GetLastError();
-          RefuseAt(outPath, sym, "symbol_state",
-                   "adopt-in-place: CustomRatesDelete left "+
-                   IntegerToString(leftoverBars)+" bar(s) on "+sym+
-                   "; a prior fixture's bars must never survive into "
-                   "this dataset", lbErr);
-          return; }
+        {
+         // IMPORT-SELFHEAL-1 (gate_run58): the survivor cannot be adopted.
+         // Drop it (hardened release + bounded delete + verify gone) and
+         // recreate it on the created-fresh path; refuse only if the drop
+         // fails too.
+         int lbErr = GetLastError();
+         Print("[import] SELFHEAL: adopt-in-place CustomRatesDelete left ",
+               leftoverBars, " bar(s) on ", sym,
+               "; dropping the survivor and recreating it fresh");
+         string wc = ""; int le = 0;
+         if(!DropCustomSymbolChecked(sym, wc, le))
+           { RefuseAt(outPath, sym, "symbol_state",
+                      "adopt-in-place: CustomRatesDelete left "+
+                      IntegerToString(leftoverBars)+" bar(s) on "+sym+
+                      " (last_error="+IntegerToString(lbErr)+"), and the "
+                      "self-heal drop failed: "+wc+" after "+
+                      IntegerToString(g_dropAttempts)+" delete attempt(s); "
+                      "a prior fixture's bars must never survive into this "
+                      "dataset. Operator remediation: close any chart on "+
+                      sym+", delete the custom symbol in the terminal, then "
+                      "re-run the gate", le);
+             return; }
+         g_selfHealBars   = leftoverBars;
+         g_adoptRewritten = -1;
+         g_symbolState    = "unresolved";
+         needCreate       = true;
+         adopted          = false;
+         adoptDiffs       = 0;
+        }
      }
    else
      {
@@ -1326,6 +1364,17 @@ void OnStart()
       // written. Only now is the path proven, so only now may the record
       // carry it (a refusal above stays "unresolved").
       g_symbolState = "created_fresh";
+      // IMPORT-SELFHEAL-1: a fresh symbol must start empty -- the refusal
+      // for stale bars holds on every path, the recreate included
+      ResetLastError();
+      int freshBars = Bars(sym, tf);
+      if(freshBars > 0)
+        { RefuseAt(outPath, sym, "symbol_state",
+                   "created_fresh: "+sym+" shows "+IntegerToString(freshBars)+
+                   " bar(s) before the import wrote any; a prior fixture's "
+                   "bars must never survive into this dataset"+
+                   CleanupAfterFail(sym), GetLastError());
+          return; }
      }
 
    // ---- 2c. set every property ONE AT A TIME, checking each -------

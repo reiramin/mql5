@@ -11,8 +11,9 @@ in this file (gate_run55-57) is resolved and removed.
 
 gate_run58 stopped at stage 4 because `CustomRatesDelete` left 5760 bars
 on EURUSD.G2. The owner deleted the symbol by hand before gate_run59. The
-fix lets the importer fall back to deleting and recreating the symbol
-itself; it is in its own PR.
+importer now drops and recreates such a symbol itself (CLAUDE.md exception
+1.e). It is built, unit-tested, never run live; the next `[runner: full]`
+gate run is its proof.
 
 ## Not yet run live (built, unit-tested)
 

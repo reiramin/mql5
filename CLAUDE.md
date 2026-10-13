@@ -45,6 +45,12 @@ These narrow the NEVER-modify rule above; everything not listed stays fully prot
    2026-10-13) logs the error and shuts down. While waiting it manages
    existing positions only if the spec is available; otherwise it just waits. The START
    line is logged only once the spec is built. Gold-leg results must stay identical.
+   e. IMPORT-SELFHEAL-1 (owner request, 2026-10-13): in
+   mql5/Scripts/Mql5Bot/Mql5BotImportFixture.mq5, when the adopt-in-place wipe
+   (CustomRatesDelete) leaves bars behind, the importer drops the custom symbol
+   (closing any other chart on it) and recreates it on the created_fresh path; it
+   refuses only if that drop fails, and still refuses any stale bar on a fresh symbol.
+   The round-trip dataset-hash check is unchanged. Gold-leg results must stay identical.
 3. artifacts/gold/ (gold1 fixture + expected_execution) and
    artifacts/owner_mt5_gate/frozen_inputs.json may be regenerated/re-anchored ONCE for
    gold1, by the existing S8-REANCHOR procedure, with hashes produced by the tools
