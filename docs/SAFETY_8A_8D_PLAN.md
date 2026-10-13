@@ -2,8 +2,17 @@
 
 Owner authorization (2026-10-06): `mql5/Experts/Mql5Bot/` may get
 test-only inputs, default OFF. At their defaults the existing gold legs
-must behave byte-identically. Nothing here is MT5 evidence until a gate run
-produces it. Status: **built, unit-tested, never run live**.
+must behave byte-identically.
+
+**Status (gate_run59, 2026-10-13).** All eight results VALID. The five
+Strategy Tester legs ran in stage 8: kill_switch
+`ZERO_NEW_ORDERS_WHILE_LATCHED`, risk_veto `ENTRIES_VETOED_FOR_THE_DAY`,
+lost_response `LOST_RESPONSE_ADOPTED_NO_DUPLICATE`, meta_reduce
+`ALL_SIZES_LE_RISK_APPROVED`, sl_verify `SL_STRIPPED_AND_RESTORED`. The
+three demo tests ran in stage 7 (docs/SAFETY_DEMO_PLAN.md): restart
+`RESTART_RECOVERED_NO_DUPLICATE`, netting `NET_ONE_POSITION_PER_SYMBOL`,
+hedging `INDEPENDENT_POSITIONS_ISOLATED_BY_MAGIC`. The pinned expected
+values live in `owner_gate.SAFETY_PINNED_EXPECTED`.
 
 ## a. What the verifier requires
 
@@ -53,16 +62,17 @@ recorded as `INCONCLUSIVE_*` / `NOT_*`. That never passes.
 | meta_reduce (8a) | Meta scale 0.5 with no allocation file | **Strategy Tester** | `InpBaseGateWeight=0.5` (production) + `InpTestSafetyLog=true` (test-only: logs risk-approved vs final lots) | `ALL_SIZES_LE_RISK_APPROVED`: every final ≤ approved, at least one reduced, and the sent volume = final | 8 |
 | sl_verify (8c) | a secured position loses its SL | **Strategy Tester** | `InpTestStripSlEntries=3` (test-only): `PositionModify(sl=0)` on the first 3 secured positions; reports from `POSITION_SL` when the EA's protection (ProtectManagedPositions → SlGuard) restores it | `SL_STRIPPED_AND_RESTORED`: every applied strip is restored (closed-first is not counted) | 8 |
 | lost_response (8c) | ambiguous order result (TIMEOUT / lost response) → adoption before retry | **Strategy Tester** (TradeManager fault hook, authorized 2026-10-06; docs/SAFETY_DEMO_PLAN.md) | `InpTestUnsentTimeouts=1` + `InpTestLostResponses=1` | `LOST_RESPONSE_ADOPTED_NO_DUPLICATE` | 8 |
-| restart (8b) | restart the EA during a pending execution, an active retry, an open position, and an allocation poll | **demo** | none: a real EA/terminal restart; the tester cannot restart an EA | state reload line, unchanged magic, no duplicate exposure, orphan pendings cancelled/adopted | owner, on demo |
-| netting (8d) | gold leg on a NETTING account with opposite signals | **demo account** (netting) | none; the tester takes the account's margin mode, and gate_run35's account is hedging | journal: net flips, one position per symbol | owner, netting account |
-| hedging (8d) | independent positions, own magic/tickets | **demo** (hedging) | two EA instances with different magics; the tester runs one EA, and this EA holds one position at a time | independent tickets, no cross-contamination; or `blocked_owner_environment` | owner, on demo |
+| restart (8b) | hard-kill the terminal with a probe position open, relaunch | **demo** (hedging), demo harness | `InpTestDemoProbe=1` (demo-only); covers the open-position case only | `RESTART_RECOVERED_NO_DUPLICATE`: the relaunch adopts the position, no duplicate | 7 (graded at 8) |
+| netting (8d) | account-mode probe on a NETTING account | **demo** (netting), demo harness | `InpTestDemoProbe=2` (demo-only) | `NET_ONE_POSITION_PER_SYMBOL` | 7 (graded at 8) |
+| hedging (8d) | account-mode probe plus a raw order under magic+1 on a HEDGING account | **demo** (hedging), demo harness | `InpTestDemoProbe=2` (demo-only) | `INDEPENDENT_POSITIONS_ISOLATED_BY_MAGIC` | 7 (graded at 8) |
 
 **Tester-only (implemented):** kill_switch, risk_veto, meta_reduce,
 sl_verify, and lost_response (TradeManager fault hook, SAFETY-DEMO-1).
 
 **Demo (demo harness, docs/SAFETY_DEMO_PLAN.md):** restart, netting,
-hedging. Stage 8 keeps FAILING until those three exist, even if all five
-tester legs pass.
+hedging, run by the gate in stage 7 with `-DemoSafety` (DEMO-IN-GATE-1)
+and graded in stage 8. Stage 8 FAILs if any of the eight is missing or not
+VALID.
 
 ## c. Default-OFF guarantee
 
@@ -78,7 +88,7 @@ tester legs pass.
 - **Compile.** MQL5 cannot be compiled on the Mac. The strict 0/0 compile
   of the edited EA is the owner's stage 1.
 
-## Known risks (unmeasured until a gate run)
+## Known risks (measured: none occurred in gate_run59)
 
 - **OnTimer in the tester.** The risk_veto halt and the sl_verify pump run
   in `OnTimer`, which the tester simulates. If it does not fire, these

@@ -7,11 +7,34 @@ Owner authorization (Sal, 2026-10-06):
 
 At their defaults, the gold legs must behave as before.
 
-**Status.**
-- **Built and unit-tested:** the MQL5 edits are pinned by source tests.
-- **Harness:** run here only against a fake terminal.
-- **Never run against MT5 or a demo account:** nothing below is evidence
-  yet.
+**Status (gate_run59, 2026-10-13).** All four ran and are VALID:
+lost_response `LOST_RESPONSE_ADOPTED_NO_DUPLICATE` (Strategy Tester leg in
+stage 8), restart `RESTART_RECOVERED_NO_DUPLICATE`, netting
+`NET_ONE_POSITION_PER_SYMBOL`, hedging `INDEPENDENT_POSITIONS_ISOLATED_BY_MAGIC`
+(live demo, stage 7). The mechanism below is the one that produced them.
+Built, unit-tested, never run live: the SPEC-WAIT-2 retry/give-up path and
+the HARNESS-SUSPEND-1 abort (gate_run59 needed neither).
+
+**The live-demo mechanism, by decision ID:**
+- **DEMO-IN-GATE-1** — stage 7 runs the harness inside the gate with that
+  run's own stage-1 EX5 (a separately run harness is bound to another
+  compile and rejected, gate_run47).
+- **DEMO-LOGIN-PERSIST-1** — every run ends on the hedging account with the
+  password kept in the terminal's own store, proven by a credential-less
+  launch that must connect.
+- **DEMO-CHECK-CRLF-1** — generated ini files are written with
+  `newline=""`, so no path carries a stray `\r` (gate_run52).
+- **DEMO-HARNESS-RELAUNCH-1** — one relaunch when the EA initialises before
+  the demo login completes.
+- **HARNESS-INIT-FAIL-1** — a launch whose EA init fails is a named
+  `[ea_init_failed]`, not a 900 s timeout.
+- **SPEC-WAIT-1/2** — a relaunch on a not-yet-synchronized symbol waits in
+  WAITING_SYMBOL (no new positions, no START line, bounded at 180 s,
+  `SymbolSelect` + value logging each second) instead of failing init.
+- **RESTART-GRADE-1** — the restart grader orders events by log position,
+  not by the stale `TimeCurrent()` stamp.
+- **HARNESS-SUSPEND-1** — a run spanning a host suspend (>300 s
+  wall-clock gap) is INTERRUPTED; stage 7 FAILs `[demo_host_suspended]`.
 
 ## Overview
 
@@ -63,7 +86,7 @@ the fifth stage-8 safety leg.
 comment, which `FindRecentDeal` matches on. If it does not, the leg grades
 `NOT_ADOPTED` — a real finding, never hidden.
 
-## restart / netting / hedging — the demo harness (implemented, untested on MT5)
+## restart / netting / hedging — the demo harness
 
 **Command (Windows agent, no clicking).** Run one per test:
 
@@ -72,8 +95,9 @@ comment, which `FindRecentDeal` matches on. If it does not, the leg grades
         --data-folder "%APPDATA%\MetaQuotes\Terminal\<id>"
 
 Output: `evidence\demo_safety\<test>\ealog.txt` + `run.json` (gitignored).
-The next gate run picks them up (`-DemoEvidence`, default
-`evidence\demo_safety`).
+A standalone run like this is for diagnosis only: stage 8 accepts demo
+evidence only from the EX5 that same gate compiled, so the gate runs the
+harness itself in stage 7 (`-DemoSafety`, DEMO-IN-GATE-1).
 
 **What the harness does.**
 - **Preset.** Writes `MQL5\Presets\mql5bot_demo_<test>_<probe>.set`: the EA
@@ -202,16 +226,19 @@ gate run as the stage-1 compile:
      terminal on the hedging account, password kept, connected without
      credentials (DEMO-LOGIN-PERSIST-1).
 
-   If not, it FAILs loudly (`[demo_terminal_not_restored]`): every later
-   gate launch would fail stage 3. A PASS here is not a safety grade.
+   A run the host suspended FAILs first, as `[demo_host_suspended]`
+   (HARNESS-SUSPEND-1), and no later demo test runs. Otherwise, if a
+   restore did not hold, it FAILs loudly (`[demo_terminal_not_restored]`):
+   every later gate launch would fail stage 3. A PASS here is not a safety
+   grade.
 4. **Stage 8** grades this run's demo folder with the unchanged builder
    and verifier, including the EX5 binding.
 
 Without `-DemoSafety` nothing changes: there is no stage 7, and stage 8
 reads `-DemoEvidence` or `evidence\demo_safety` as before.
 
-Built, unit-tested (a pwsh execution of `Invoke-DemoInGate` with a
-stand-in harness), never run live.
+Ran live in every `-DemoSafety` gate since gate_run52; stage 7 PASS in
+gate_run55 and gate_run59.
 
 ## What the owner must do by hand
 
@@ -238,13 +265,15 @@ stand-in harness), never run live.
    00:05) and weekends; market orders are refused when the market is
    closed. Each run takes about 2–4 minutes.
 
-## Untested
+## Formerly untested, now measured (gate_run59)
 
-- **Compile.** The MQL5 edits were never compiled (no metaeditor here).
-- **Harness.** Never run on Windows / MT5. The process handling,
-  `[StartUp]` keys, UTF-16 log reading, kill semantics and timeouts were
-  exercised only against a fake terminal.
-- **Account mode.** Whether MetaQuotes-Demo reports `ACCOUNT_MARGIN_MODE`
-  0 / 2 as expected.
-- **Tester deal comment.** Whether the tester's deal comment matches the
-  request comment (affects lost_response).
+- **Compile.** The MQL5 edits compile clean in every stage 1.
+- **Harness.** Ran on Windows / MT5 in stage 7 (process handling,
+  `[StartUp]` keys, UTF-16 log reading, kill semantics).
+- **Account mode.** MetaQuotes-Demo reports `ACCOUNT_MARGIN_MODE` 0
+  (netting) and 2 (hedging) as expected.
+- **Tester deal comment.** lost_response graded
+  `LOST_RESPONSE_ADOPTED_NO_DUPLICATE`, so the adoption matched.
+
+Still not run live: the SPEC-WAIT-2 WAITING_SYMBOL give-up path and the
+HARNESS-SUSPEND-1 INTERRUPTED abort.

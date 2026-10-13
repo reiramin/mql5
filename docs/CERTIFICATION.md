@@ -1,20 +1,55 @@
-# Real-tick certification protocol (plan Phase F)
+# Certification contract
 
-`mql5bot.certify` + `tools/certify_strategy.py`. One idea: a result is
-VERIFIED only through the graded data ladder on the same EA and the
-same terminal, per regime — never through a single OHLC print.
+This is the contract: what a certificate is, what it claims and what it
+does not, and how the lanes and evidence layers relate. The how-to (running
+it, reading the result) is [CERTIFICATION_GUIDE.md](CERTIFICATION_GUIDE.md);
+the gate itself is [OWNER_GATE.md](OWNER_GATE.md).
 
-**Canonical owner protocol.** The ladder below runs inside the canonical
-TEN-step owner sequence defined in `docs/MT5_ROUNDTRIP.md` (single
-source of truth: strict compile → compiler-log verification → SymbolSpec
-export → fixture/data preparation → M1-OHLC baseline leg → Every-Tick
-leg → Every-Tick-real-ticks leg → Python↔MT5 comparison incl. the
-kill-switch seam and restart sub-checks → immutable archive/manifest →
-certification-state assignment). The data-grade ladder, regime sample
-and gates of this document are the CONTENT of canonical steps 5–8 and
-the input to step 10; they are not an independent protocol. Any
-shortened checklist must label itself a SHORTCUT and map its items onto
-those canonical step numbers.
+## The owner-gate certificate (STAGE10-CERT-1)
+
+**Who issues it.** Stage 10 of `tools/owner_gate.ps1`, through
+`owner_gate_decide.py issue-certificate` (`python/mql5bot/gate_certificate.py`).
+It certifies the stage-8 verifier's verdict; it never assigns a verdict of
+its own.
+
+**When.** Only when ALL of these hold, each refusal named:
+- the verifier report (`reconciliation_verify.json`) is unscoped
+  (`partial: false`), has `missing == []`, and its verdict is
+  `MT5_VALIDATED` or `MT5_VALIDATED_BAR_MODELS` (a `*_PARTIAL_SCOPE`
+  verdict is never accepted);
+- every gold (gold1, gold2) is `MATCH` / `VALID`;
+- all 8 safety results are `VALID`;
+- the stage-9 archive manifest binds that exact report by sha256.
+
+**What it claims** (gate_run59, `MT5_VALIDATED_BAR_MODELS`): **MT5
+execution-parity and safety certificate, bar models, no real-tick claim, no
+profitability claim.** Concretely:
+- the EA, compiled at the certified commit, executes the frozen Python
+  expectation on the two frozen gold fixtures trade for trade (gold1 18/18,
+  gold2 37/37 entries paired) in the Strategy Tester's `m1_ohlc` and
+  `every_tick` models;
+- the eight safety behaviours hold: kill switch, daily risk veto, lost
+  order response, meta-allocation reduce, SL strip-and-restore (Strategy
+  Tester legs) and restart, netting, hedging (live demo accounts).
+
+**What it does not claim:**
+- no real-tick behaviour (the fixtures are bar-only; the real_ticks legs are
+  `NOT_APPLICABLE_BAR_ONLY_FIXTURE`, never a pass);
+- no profitability, returns, drawdown or robustness on any other data;
+- no broker other than MetaQuotes-Demo, no symbol other than EURUSD (the
+  gold legs run on custom symbols built from the fixtures);
+- no statement about strategies other than the gold strategy, about
+  indicator kinds the EA's DSL runtime refuses, or about demo or live
+  operation beyond the three safety probes;
+- legs graded from the tester agent log are named in the certificate
+  (`trade_source`), and such a run ends `certified_with_log_graded_legs`,
+  never plain `certified`.
+
+**`tools/certify_strategy.py` is NOT part of the certificate.** It ran at
+stage 10 until STAGE10-CERT-1 (2026-10-12) replaced it. It is kept for the
+empirical lane and future real-tick work (its own tester ladder over market
+regimes with a required real-ticks leg and a 100-trade minimum); see
+"Empirical lane protocol" below.
 
 ## Two certification lanes (binding — FINAL CERTIFICATION MODEL LOCK)
 
@@ -64,23 +99,34 @@ pass AND the recorded Python↔MT5 reconciliation (fail-closed in
 | E | DEMO | actual demo-account observation (separate phase, never automatic after tester success) |
 | F | LIVE | actual capital (decision only after E and explicit human approval) |
 
-Layer A+B are PROVEN locally; C+D are BLOCKED_OWNER_ENVIRONMENT; E+F
-are not begun and never begin automatically.
+Layer A+B are PROVEN locally. Layer C is certified for the bar models
+(gate_run59, `MT5_VALIDATED_BAR_MODELS`; no real-tick run). Layer D
+(empirical) has not been run. Layer E is limited to the three demo safety
+probes of stage 7 (no demo operation). Layer F has not begun. E and F never
+begin automatically.
 
-## Data-grade ladder (tester models, per regime)
+## Empirical lane protocol (`mql5bot.certify` + `tools/certify_strategy.py`)
+
+Not part of the owner-gate certificate; never run. One idea: a result is
+VERIFIED only through the graded data ladder on the same EA and the same
+terminal, per regime — never through a single OHLC print.
+
+### Data-grade ladder (tester models, per regime)
 
 | Grade | MT5 model | Meaning |
 |---|---|---|
 | M1 OHLC | 1 | baseline built from 1-minute bars |
 | Every tick | 0 | synthetic ticks interpolated from M1 |
-| Every tick on real ticks | 3 | real-tick tick structure |
-| Real ticks | 4 | broker tick history |
+| Every tick based on real ticks | 4 | broker tick history |
+
+(Model 3 is MT5's math-calculations mode and is refused by
+`mt5tester.TesterConfig.validate()`; STAGE 5 R5.)
 
 Every required leg of the ladder must run and pass its gates for a
 VERIFIED verdict. Without an MT5 terminal host the legs cannot run and
 the verdict is NOT VERIFIED with the reason — nothing is guessed.
 
-## Regime sample (multi-regime, incl. bear and crash)
+### Regime sample (multi-regime, incl. bear and crash)
 
 | regime | window | character |
 |---|---|---|
@@ -89,7 +135,7 @@ the verdict is NOT VERIFIED with the reason — nothing is guessed.
 | trend_2021 | 2021.01.01–2021.06.30 | sustained trend |
 | range_2023 | 2023.01.01–2023.06.30 | choppy range |
 
-## Gates and explicit reports
+### Gates and explicit reports
 
 - **100-trade minimum** per required leg (and asserted in the verdict)
   — EMPIRICAL lane only; the gold fixtures are semantic correctness
@@ -115,7 +161,7 @@ the verdict is NOT VERIFIED with the reason — nothing is guessed.
   run bound to the same (strategy, params) manifest; recorded, never
   gates the verdict.
 
-## Usage
+### Usage
 
 ```bash
 # config.json mirrors mql5bot.certify.CertifyConfig
@@ -146,10 +192,12 @@ repository distinguishes exactly three surfaces; conflating them (e.g.
    `STRAT_RSI_REVERSAL`, `STRAT_DONCHIAN_BREAKOUT`,
    `STRAT_BOLLINGER_REVERSAL`, `STRAT_MACD_MOMENTUM`) plus the
    EA-side seams (session, risk, kill switch, SL guard, meta
-   allocation, retry/adoption). This is the ONLY surface that can ever
-   reach `VERIFIED` through the canonical TEN-step owner protocol
-   (`docs/MT5_ROUNDTRIP.md`), and every `VERIFIED` claim must cite
-   legs run on this surface.
+   allocation, retry/adoption), AND the EA's optional fail-closed DSL
+   bundle runtime (`InpDslBundleFile`, `DslBundle.mqh`) for the indicator
+   kinds it implements with verified parity (EMA, RSI, ATR, DONCHIAN,
+   HIGHEST, LOWEST). The certified gold legs run through that runtime.
+   This is the ONLY surface the owner gate can certify, and every MT5
+   claim must cite legs run on it.
 2. **Research-certified surface** — the Python/DSL stack: the 71-kind
    indicator universe, the DSL runtime, the backtest/portfolio engine,
    the factory lifecycle, Gold #1 and Gold #2
@@ -158,21 +206,23 @@ repository distinguishes exactly three surfaces; conflating them (e.g.
    the Python reference and the DSL runtime). PROVEN here NEVER means
    MT5-validated; it is a separate evidence class.
 3. **Owner-pending surface** — MQL5 parity of new/extended indicator
-   kinds and any generated-strategy execution path beyond the five
-   built-ins. Status: BLOCKED_OWNER_ENVIRONMENT until the owner leg
+   kinds (beyond the six the EA's DSL runtime implements) and any
+   generated strategy that uses them. Status: BLOCKED_OWNER_ENVIRONMENT until the owner leg
    exists. Unknown/unsupported kinds FAIL CLOSED at three layers:
    (a) the DSL schema rejects unknown indicators (`SchemaInvalid`,
-   pinned by `tests/test_dsl_core.py`); (b) the EA exposes only the
-   five-engine enum — there is no DSL interpreter in the MQL5 tree, so
-   an unsupported kind is structurally unable to enter execution;
+   pinned by `tests/test_dsl_core.py`); (b) the EA's DSL bundle loader
+   refuses any bundle that uses a kind outside its six, whose hashes do
+   not re-derive, or whose market differs from the chart (`DslBundle.mqh`),
+   so an unsupported kind cannot enter execution;
    (c) the factory lifecycle refuses unevidenced promotions
    (`lifecycle.py`: every promotion requires named evidence kinds).
 
 Generated-strategy trace: Factory intake → DSL spec (schema-gated) →
 Python research execution + evidence gates → promotion ladder
 (OOS_SURVIVOR → SHADOW → DEMO → LIVE_SMALL → LIVE, evidence-gated,
-human approvals) → MQL5 representation exists ONLY for the five
-built-in engines; anything else stays research-only. Nothing in the
+human approvals) → MQL5 execution exists only for the five built-in
+engines and for DSL bundles within the EA runtime's six kinds; anything
+else stays research-only. Nothing in the
 Factory, Research, ML, LLM, or Meta layers can send an order
 (source-scanned; red-team tests enforce the boundary).
 

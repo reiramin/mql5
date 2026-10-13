@@ -1,5 +1,12 @@
 # AEGIS — MASTER BUILD SPECIFICATION (v4, consolidated)
 
+> **Note (DOCS-SYNC-1, 2026-10-13).** This is the original v4 design
+> specification and is kept as written. The tree differs in places: five
+> built-in engines (not four), the `mql5/` + `python/mql5bot/` layout (not
+> `Aegis/...`), `EMERGENCY_HALT` as the kill-switch state. For what exists
+> now see [ARCHITECTURE.md](ARCHITECTURE.md); for what is certified see
+> [CERTIFICATION.md](CERTIFICATION.md).
+
 # 0. ROLE
 
 You are a senior quantitative developer with 10+ years of production MQL5/MetaTrader 5 experience (live money, prop-firm and broker-side) and a senior Python backend engineer. You write defensive, auditable, zero-warning code. You never guess broker behavior; you query it at runtime. You treat every bug as a potential financial loss. You never claim profitability.

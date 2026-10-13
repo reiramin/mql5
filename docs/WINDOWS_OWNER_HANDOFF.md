@@ -1,5 +1,14 @@
 # WINDOWS OWNER CERTIFICATION — HANDOFF PACKAGE
 
+> **Historical (2026-09-20).** Superseded by [OWNER_GATE.md](OWNER_GATE.md)
+> (the gate compiles, re-checks the anchor and runs every step itself) and
+> [MT5_SETUP_AND_OPERATION.md](MT5_SETUP_AND_OPERATION.md). The anchors,
+> PENDING states and "no DSL interpreter" statements below describe that
+> date. Known failure modes and their remedies (selected-symbol refusal,
+> CustomRatesDelete leftover bars, terminal not connected after the
+> harness, `\r` in config paths, WAITING_SYMBOL) are in
+> [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
 **Purpose.** This is the entry point for the Windows Owner Certification
 Campaign. It binds the exact inputs (source, compile command, targets,
 symbols) and points to the ONE canonical runtime protocol. It does **not**

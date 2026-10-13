@@ -74,8 +74,8 @@ Every later failure was root-caused the same way, until gate_run59 certified
 1. **[docs/SHOWCASE.md](docs/SHOWCASE.md)** (5 min) — what is certified,
    how, and what is not claimed; it links the certificate and the
    gate_run59 report.
-2. **[tools/owner_gate.ps1](tools/owner_gate.ps1)** (5 min) — the 11-stage
-   gate itself: it self-protects (stage 0 refuses a dirty tree or a changed
+2. **[tools/owner_gate.ps1](tools/owner_gate.ps1)** (5 min) — the gate
+   itself (stages 0–10; there is no stage 6): it self-protects (stage 0 refuses a dirty tree or a changed
    frozen hash), walks the stages, and stops at the first failure.
 3. **One `stage_<n>.json`** (2 min) — the gate writes one `stage_<n>.json`
    per stage plus `gate_summary.json` into `evidence\owner_gate\<UTC>\`
