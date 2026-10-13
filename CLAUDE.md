@@ -55,7 +55,7 @@ These narrow the NEVER-modify rule above; everything not listed stays fully prot
    (closing any other chart on it) and recreates it on the created_fresh path; it
    refuses only if that drop fails, and still refuses any stale bar on a fresh symbol.
    The round-trip dataset-hash check is unchanged. Gold-leg results must stay identical.
-      [status: used by IMPORT-SELFHEAL-1 (#55); built, unit-tested, never run live]
+      [status: used by IMPORT-SELFHEAL-1 (#55); compiled and stage 4 PASS in gate_run60, but the drop+recreate branch was not exercised (never run live)]
 3. artifacts/gold/ (gold1 fixture + expected_execution) and
    artifacts/owner_mt5_gate/frozen_inputs.json may be regenerated/re-anchored ONCE for
    gold1, by the existing S8-REANCHOR procedure, with hashes produced by the tools
@@ -64,4 +64,4 @@ These narrow the NEVER-modify rule above; everything not listed stays fully prot
 4. Status wording: report the gate exactly as the latest gate run on branch
    gate-reports shows it (the "stage 5 is FAIL / stages 6-10 never ran" line above
    describes an older state).
-   [status: in force; the latest run is gate_run59, certified_with_log_graded_legs]
+   [status: in force; the latest run is gate_run60, certified_with_log_graded_legs]

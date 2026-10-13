@@ -9,6 +9,9 @@ Read this together with `docs/SPEC.md` (v4). SPEC is canonical for WHAT to build
 > newest on top; from 2026-10-04 on they are appended at the end). Where any section below predates this
 > pointer, this pointer wins.
 >
+> **Latest run:** gate_run60 (`b3821b6`) re-certified master `50cdb71` with
+> the same results as below.
+>
 > **Where the gate stands.** gate_run59 (branch `gate-reports`, commit
 > `db13f55`) tested master `ab312d5` and ended
 > `GATE_RESULT=certified_with_log_graded_legs`: stages 0–10 PASS (stage 5

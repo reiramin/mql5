@@ -12,8 +12,9 @@ in this file (gate_run55-57) is resolved and removed.
 gate_run58 stopped at stage 4 because `CustomRatesDelete` left 5760 bars
 on EURUSD.G2. The owner deleted the symbol by hand before gate_run59. The
 importer now drops and recreates such a symbol itself (CLAUDE.md exception
-1.e). It is built, unit-tested, never run live; the next `[runner: full]`
-gate run is its proof.
+1.e). gate_run60 (master `50cdb71`) compiled it and passed stage 4, but both
+symbols were adopted cleanly, so the drop+recreate branch was not exercised:
+built, unit-tested, never run live.
 
 ## Not yet run live (built, unit-tested)
 
