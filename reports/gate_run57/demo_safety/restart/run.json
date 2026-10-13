@@ -1,0 +1,69 @@
+{
+  "schema": "mql5bot.demo_safety_run/2",
+  "test": "restart",
+  "status": "FAILED",
+  "account_role": "hedging",
+  "symbol": "EURUSD",
+  "period": "M1",
+  "ex5_sha256": "d08593986c6a98bf956c0ebbd225d8cd5f5d7be107f535a4c696a8eb64946d35",
+  "steps": [
+    {
+      "utc": "2026-10-12T22:43:03+00:00",
+      "step": "start",
+      "test": "restart",
+      "account_role": "hedging"
+    },
+    {
+      "utc": "2026-10-12T22:43:03+00:00",
+      "step": "terminal_started",
+      "probe": 1
+    },
+    {
+      "utc": "2026-10-13T07:44:31+00:00",
+      "step": "seen: EA init failed",
+      "detail": "[2026.10.13 01:42:36] [ERROR] symbol spec build failed: tick_value_loss <= 0 (gave up after 60 s WAITING_SYMBOL)"
+    },
+    {
+      "utc": "2026-10-13T07:44:31+00:00",
+      "step": "error",
+      "reason": "[ea_init_failed] [2026.10.13 01:42:36] [ERROR] symbol spec build failed: tick_value_loss <= 0 (gave up after 60 s WAITING_SYMBOL)"
+    },
+    {
+      "utc": "2026-10-13T07:44:31+00:00",
+      "step": "terminal stopped"
+    },
+    {
+      "utc": "2026-10-13T07:44:31+00:00",
+      "step": "restore: log back in to the hedging account"
+    },
+    {
+      "utc": "2026-10-13T07:44:31+00:00",
+      "step": "terminal_started",
+      "probe": 3
+    },
+    {
+      "utc": "2026-10-13T07:45:50+00:00",
+      "step": "seen: EA init failed",
+      "detail": "[2026.10.13 01:42:36] [ERROR] symbol spec build failed: tick_value_loss <= 0 (gave up after 60 s WAITING_SYMBOL)"
+    },
+    {
+      "utc": "2026-10-13T07:45:50+00:00",
+      "step": "terminal stopped after restore"
+    },
+    {
+      "utc": "2026-10-13T07:45:50+00:00",
+      "step": "restore",
+      "ok": false
+    }
+  ],
+  "error": "[ea_init_failed] [2026.10.13 01:42:36] [ERROR] symbol spec build failed: tick_value_loss <= 0 (gave up after 60 s WAITING_SYMBOL); restore failed: [ea_init_failed] [2026.10.13 01:42:36] [ERROR] symbol spec build failed: tick_value_loss <= 0 (gave up after 60 s WAITING_SYMBOL)",
+  "ea_log_lines": 3,
+  "restore": {
+    "account_role": "hedging",
+    "login_sha256": "991e28ce2767f08dabdaddac273f8640288501b88880fe07b44b910e8eafb8ee",
+    "margin_mode": null,
+    "ok": false,
+    "reason": "restore failed: [ea_init_failed] [2026.10.13 01:42:36] [ERROR] symbol spec build failed: tick_value_loss <= 0 (gave up after 60 s WAITING_SYMBOL)"
+  },
+  "note": "no login, password or server is recorded (the restore login is a prefixed sha256); the EA log lines are the evidence, graded at stage 8"
+}

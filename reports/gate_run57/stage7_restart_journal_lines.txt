@@ -1,0 +1,41 @@
+--- logs/20261012.log lines 3077-3082 (local time UTC-7) ---
+DM	0	15:43:05.103	Startup	successfully initialized from start config "C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_lg9k4c_e\startup.ini"
+KL	0	15:43:05.154	Terminal	MetaTrader 5 x64 build 6256 started for MetaQuotes Ltd.
+NF	0	15:43:05.154	Terminal	Windows 10 build 19045 on VMware, 4 x Intel Core i9-9980HK  @ 2.40GHz, AVX2, 4 / 9 Gb memory, 19 / 59 Gb disk, UAC, GMT-8
+HL	0	15:43:05.154	Terminal	C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075
+DF	0	15:43:05.154	Terminal	launched with C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_lg9k4c_e\startup.ini
+ND	0	15:43:05.156	MCP	started on 127.0.0.1:22346
+--- logs/20261013.log lines 1-27 (local time UTC-7) ---
+HM	0	00:43:18.658	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 1
+PI	0	00:43:18.658	Network	'<REDACTED>': previous successful authorization performed from 78.159.126.121 on 2026.10.13 01:42:19
+IG	0	00:43:19.380	MQL5	59 inputs read from expert 'Mql5Bot\Mql5Bot' set file "C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Presets\mql5bot_demo_restart_1.set"
+MO	0	00:43:19.394	Experts	expert Mql5Bot (EURUSD,M1) loaded successfully
+NF	0	00:44:33.963	Startup	successfully initialized from start config "C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_3_ec7243\startup.ini"
+FO	0	00:44:34.040	Terminal	MetaTrader 5 x64 build 6256 started for MetaQuotes Ltd.
+CH	0	00:44:34.040	Terminal	Windows 10 build 19045 on VMware, 4 x Intel Core i9-9980HK  @ 2.40GHz, AVX2, 4 / 9 Gb memory, 19 / 59 Gb disk, UAC, GMT-8
+II	0	00:44:34.040	Terminal	C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075
+QF	0	00:44:34.040	Terminal	launched with C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_3_ec7243\startup.ini
+CI	0	00:44:34.042	MCP	started on 127.0.0.1:22346
+LJ	0	00:44:36.543	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 1
+GF	0	00:44:36.543	Network	'<REDACTED>': previous successful authorization performed from 84.47.208.95 on 2026.10.13 10:44:21
+QH	0	00:44:38.964	MQL5	59 inputs read from expert 'Mql5Bot\Mql5Bot' set file "C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Presets\mql5bot_demo_restart_3.set"
+HO	0	00:44:38.975	Experts	expert Mql5Bot (EURUSD,M1) loaded successfully
+CH	1	00:45:38.332	Network	'<REDACTED>': connection to MetaQuotes-Demo lost
+HR	0	00:45:38.726	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point EU 1
+EQ	0	00:45:38.726	Network	'<REDACTED>': previous successful authorization performed from 84.47.208.95 on 2026.10.13 10:44:36
+DM	0	00:45:55.225	Startup	successfully initialized from start config "C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_0h41v6yr\startup.ini"
+CR	0	00:45:55.278	Terminal	MetaTrader 5 x64 build 6256 started for MetaQuotes Ltd.
+FD	0	00:45:55.278	Terminal	Windows 10 build 19045 on VMware, 4 x Intel Core i9-9980HK  @ 2.40GHz, AVX2, 4 / 9 Gb memory, 19 / 59 Gb disk, UAC, GMT-8
+PN	0	00:45:55.278	Terminal	C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075
+NR	0	00:45:55.278	Terminal	launched with C:\Users\ramin\AppData\Local\Temp\mql5bot_demo_0h41v6yr\startup.ini
+IF	0	00:45:55.280	MCP	started on 127.0.0.1:22346
+PR	0	00:45:58.555	Network	'<REDACTED>': authorized on MetaQuotes-Demo through Access Point HA
+CN	0	00:45:58.555	Network	'<REDACTED>': previous successful authorization performed from 78.159.126.121 on 2026.10.12 21:09:56
+MR	0	00:46:00.012	MQL5	59 inputs read from expert 'Mql5Bot\Mql5Bot' set file "C:\Users\ramin\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Presets\mql5bot_demo_netting_2.set"
+QK	0	00:46:00.023	Experts	expert Mql5Bot (EURUSD,M1) loaded successfully
+--- Logs/20261013.log lines 1-5 (local time UTC-7) ---
+CQ	0	00:43:25.894	Mql5Bot (EURUSD,M1)	[2026.10.13 01:42:36] [WARN] WAITING_SYMBOL: symbol spec not ready (tick_value_loss <= 0); retrying for up to 60 s, no new positions
+DL	0	00:44:45.269	Mql5Bot (EURUSD,M1)	[2026.10.13 01:42:36] [WARN] WAITING_SYMBOL: symbol spec not ready (tick_value_loss <= 0); retrying for up to 60 s, no new positions
+LD	0	00:46:28.936	Mql5Bot (EURUSD,M1)	[2026.10.13 01:42:36] [INFO] strategy id 'ema_crossover' -> magic <ACCOUNT>
+FD	0	00:46:28.937	Mql5Bot (EURUSD,M1)	[2026.10.13 01:42:36] [INFO] initialised: strategy=ema_crossover risk=1.00% sl=2.50 ATR tp=4.00 ATR
+NI	0	00:46:28.937	Mql5Bot (EURUSD,M1)	[2026.10.13 01:42:36] [INFO] TEST demo: START probe=3 magic=<ACCOUNT> own_positions=0 registry=0 engine=0 margin_mode=2

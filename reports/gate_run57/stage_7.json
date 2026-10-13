@@ -1,0 +1,46 @@
+{
+    "stage":  7,
+    "name":  "demo_safety",
+    "status":  "FAIL",
+    "reason":  "[demo_terminal_not_restored] the terminal is NOT left logged in to the hedging account and connected without credentials -- every later gate launch would fail stage 3: [demo_restore_not_connected] restart: restore failed: [ea_init_failed] [2026.10.13 01:42:36] [ERROR] symbol spec build failed: tick_value_loss \u003c= 0 (gave up after 60 s WAITING_SYMBOL) (harness: restart=exit 1, netting=exit 0, hedging=exit 0)",
+    "scope":  [
+                  "gold1",
+                  "gold2"
+              ],
+    "partial":  false,
+    "artifacts":  [
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-223713\\decide_f50b3d1d8b234627bf6394d480064750.json",
+                          "sha256":  "af7c576210e6a0d9ef8a0c9e87352990eb48769b837182cb48fdbdddd1e82c18"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-223713\\demo_harness_restart.json",
+                          "sha256":  "ba0e74e4b0b9cfead8c05d6966e985093a9ee160a1cb15a77221312abbafa9af"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-223713\\demo_safety\\restart\\run.json",
+                          "sha256":  "5478cb17448513739ead826f5ab07c17b760853d2c842d9efed545a457892924"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-223713\\demo_harness_netting.json",
+                          "sha256":  "99dd09a15dfb8ed2c30f2bcc48cb3706f90cc266f0b716bedd168acd21a90900"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-223713\\demo_safety\\netting\\run.json",
+                          "sha256":  "1068dc8e376aa227873e4de193b2d6f760038aad47823a4a6232b37615a0246c"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-223713\\demo_harness_hedging.json",
+                          "sha256":  "e792dd5260b31b2e468520073ad57f3006d516b4451ea7b9d18ff4e1bdf9aaad"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-223713\\demo_safety\\hedging\\run.json",
+                          "sha256":  "af618fd01f3a423cecd7c628c701d986ce360d75b93a9ade4d6deadeb67cc0b3"
+                      },
+                      {
+                          "path":  "C:\\Users\\ramin\\Desktop\\mql5\\gate_run12\\evidence\\owner_gate\\20261012-223713\\decide_ad94377fcfb345a7a30d7df5ba600947.json",
+                          "sha256":  "b62c87d97fa2753ae7d5ab957560d5501ef675909984a3e7ff9be9bf940623f7"
+                      }
+                  ],
+    "utc":  "2026-10-13T07:47:45.3464844Z"
+}
