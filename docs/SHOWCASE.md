@@ -164,9 +164,9 @@ test. The details are in `docs/DECISIONS.md`.
   - `GATE_RESULT=certified_with_log_graded_legs`;
   - stages 0-10 PASS;
   - verifier verdict `MT5_VALIDATED_BAR_MODELS`.
-- **Gate runs.** The numbered owner-gate runs reached gate_run59. The
-  `gate-reports` branch publishes the last 22 of them, gate_run38 to
-  gate_run59.
+- **Gate runs.** The numbered owner-gate runs reached gate_run60. The
+  `gate-reports` branch publishes the last 23 of them, gate_run38 to
+  gate_run60.
 - **gold1:** 18/18 entries paired in both tester models, 0 missing, 0
   extra.
 - **gold2:** 37/37 entries paired in both tester models, 0 missing, 0
@@ -199,4 +199,5 @@ test. The details are in `docs/DECISIONS.md`.
   symbols for the tester legs, live EURUSD for the demo tests).
 - **Not every path in the certified commit has run live.** The SPEC-WAIT-2
   retry path and the HARNESS-SUSPEND-1 abort path are built and
-  unit-tested. gate_run59 needed neither, so neither has run live.
+  unit-tested. gate_run59 and gate_run60 needed neither, so neither has
+  run live.
