@@ -1,0 +1,9 @@
+# REPO-SECURITY-1: age PUBLIC keys that research outputs are encrypted to
+# (tools/encrypt_outputs.py). Public keys only -- one "age1..." per line.
+# The matching private key (AGE-SECRET-KEY-1...) NEVER enters this
+# repository; it stays on the owner's machine (docs/SECURITY.md).
+#
+# Empty on purpose until the owner creates a key:
+#   age-keygen -o ~/.age/mql5bot-owner.txt
+# and pastes the printed "Public key: age1..." line below (without the
+# "Public key:" prefix). Until then tools/encrypt_outputs.py refuses to run.

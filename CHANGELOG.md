@@ -3,6 +3,17 @@
 All notable changes to mql5bot are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## REPO-SECURITY-1 (2026-10-13)
+
+- **REPO-SECURITY-1** — strategy secrets under `strategies/private/` are
+  encrypted at rest with git-crypt (rule + `tools/git_crypt_guard.py`, which
+  fails on a plaintext commit); `tools/encrypt_outputs.py` encrypts research
+  outputs to the owner's age key before upload; `tools/secret_scan.py` and
+  `.pre-commit-config.yaml` fail on secret-shaped content;
+  `docs/SECURITY.md` has the owner's setup and the account-hardening
+  checklist. No EA, gate, verifier or frozen-artifact change. Built,
+  unit-tested, never run live (no key exists yet).
+
 ## Certified — gate_run59 (2026-10-13)
 
 gate_run59 (branch `gate-reports`, `db13f55`) tested master `ab312d5` and

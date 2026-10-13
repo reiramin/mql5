@@ -18,3 +18,10 @@ tests/data/owner_gate/** -text
 # Python sources are authored and hashed as LF (build_dsl_parity_golden.py
 # and every parity fixture are byte-generated with "\n" only).
 *.py text eol=lf
+
+# REPO-SECURITY-1: strategy secrets (DSL bundles / parameter sets that are NOT
+# part of the certified golds) are encrypted at rest with git-crypt. Setup and
+# unlock: docs/SECURITY.md. tools/git_crypt_guard.py (and its test) fails if a
+# file under this path is ever committed in plaintext. The golds, artifacts/
+# and examples/strategies/ stay plaintext: they are evidence / gate inputs.
+strategies/private/** filter=git-crypt diff=git-crypt

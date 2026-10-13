@@ -1,0 +1,23 @@
+# REPO-SECURITY-1: local pre-commit hooks (docs/SECURITY.md).
+# Optional for contributors: `pip install pre-commit && pre-commit install`.
+# The same checks also run in CI through pytest (tests/test_secret_scan.py,
+# tests/test_git_crypt_guard.py), so skipping the hook never skips the check.
+repos:
+  - repo: local
+    hooks:
+      - id: secret-scan
+        name: secret scan (no credentials, keys or tokens in the tree)
+        entry: python tools/secret_scan.py
+        language: system
+        pass_filenames: true
+      - id: git-crypt-guard
+        name: strategies/private is committed encrypted
+        entry: python tools/git_crypt_guard.py
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: ruff
+        name: ruff (canonical scope)
+        entry: ruff check python/ tests/ tools/ factory/
+        language: system
+        pass_filenames: false

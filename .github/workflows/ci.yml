@@ -25,6 +25,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
+      - name: Install age (REPO-SECURITY-1 interop tests; optional)
+        run: sudo apt-get install -y age || echo "age not installed; its interop tests skip"
+
       - name: Install package
         run: |
           python -m pip install --upgrade pip

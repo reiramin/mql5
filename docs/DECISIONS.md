@@ -5756,3 +5756,77 @@ WFA_CPCV_REVIEW, STATE_MODEL, SAFETY_GOVERNANCE.
   final certificate is issued". gate_run59 issued a certificate, and
   exception 1.e was added after it at the owner's request. Whether the
   exceptions still hold is the owner's decision.
+
+## REPO-SECURITY-1 — strategy secrets encrypted at rest, outputs encrypted before upload, secret hygiene (owner decision D4, 2026-10-13)
+
+**Request.** Owner decision D4, Phase 1 of the platform decisions. The
+request names `docs/PLATFORM_DECISIONS`; no such file exists in the
+repository, so D4 is recorded here from the request.
+
+**Scope.** This changes no EA behaviour, gate stage, verifier rule or frozen
+artifact. evidence/, logs_owner/, certification_manifest.json, the golds and
+`tools/verify_owner_mt5_gate.py` are untouched.
+
+**1. git-crypt on `strategies/private/**`.**
+- Every existing strategy-shaped file is a gate, test or verifier input:
+  `examples/strategies/*.json` (read by `owner_gate.py`, `gold_leg_inputs.py`,
+  `gold2_reference.py`, `build_gold2_standard.py` and the tests) and
+  `artifacts/**` (golds, DSL parity bundles). So **no file moves**, and the
+  private path starts empty.
+- `.gitattributes` gains `strategies/private/** filter=git-crypt
+  diff=git-crypt`.
+- `tools/git_crypt_guard.py` (+ `tests/test_git_crypt_guard.py`, 8 tests)
+  reads the stored blobs: anything under the path without the
+  `\x00GITCRYPT\x00` header fails. It also fails if the rule is missing, or
+  if a gate, test or verifier input is routed through git-crypt.
+- `strategies/README.md` sits outside the path and stays readable.
+- No key was generated or committed. The owner's commands are in
+  docs/SECURITY.md.
+
+**2. `tools/encrypt_outputs.py`.**
+- It encrypts a directory, as a deterministic in-memory tar, to the age
+  recipients in `security/age_recipients.txt`. That file holds public keys
+  only and is empty until the owner adds one; the tool refuses without a
+  recipient.
+- Engine: the `age` binary when present. Otherwise a built-in age-v1 X25519
+  encryptor on the optional `cryptography` package. That package is not
+  added to the dependencies (CLAUDE.md: no new third-party dependency); it
+  is only imported.
+- `tests/test_encrypt_outputs.py` uses throwaway keypairs and covers:
+  - roundtrip at chunk boundaries (0, 1000, 65536, 2×65536+7 bytes);
+  - tampering and a wrong key are refused;
+  - two recipients;
+  - CLI behaviour;
+  - interop in both directions with the `age` binary.
+
+  The tests skip, by name, when a tool is missing. CI now installs `age`
+  (a non-fatal apt step).
+- Measured here: the python engine's output decrypts with `age -d`, and
+  `age` output decrypts with the python decrypter.
+
+**3. Secret hygiene.**
+- `tools/secret_scan.py` covers private keys, age secret keys, GitHub / AWS
+  / `sk-` / Slack / Google / Telegram tokens, MT5 ini and JSON
+  credentials, and the demo-accounts shape. It never prints a value.
+- `tests/test_secret_scan.py`: the tree scans clean; every pattern fires;
+  placeholders stay quiet.
+- The whitelist covers only the two fake demo-account fixtures and the
+  scanner's own tests. A test fails if an entry is stale or names a non-test
+  file.
+- `.pre-commit-config.yaml` adds local hooks: the scan, the guard, and ruff.
+- The tracked tree, scanned at this commit: 0 hits after the whitelist.
+- The runner's leak check is not repo code and was not re-run here: it
+  needs the runner's accounts file. It is unaffected, because nothing the
+  gate writes changed.
+
+**4. Docs.** `docs/SECURITY.md` covers setup, unlock, encrypted outputs,
+hygiene, the account-hardening checklist (nothing force-enabled; signed
+commits documented, not required) and the names of future Actions secrets.
+
+**Self-review.**
+- (a) No acceptance rule weakens. Three checks are added.
+- (b) The gold legs are untouched; there is no EA or gate change.
+- (c) These are repository checks, not gate checks; the verifier is
+  unchanged.
+
+Status: built, unit-tested, never run live (no real key exists yet).
