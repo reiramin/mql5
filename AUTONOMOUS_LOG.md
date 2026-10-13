@@ -2081,3 +2081,38 @@ recorded `pytest_exit=` line).
   `_script_run` waits) is not detected. The test phases are all polling
   loops.
 - **docs/SHOWCASE.md:** waits for a certified full run.
+
+## 2026-10-13 — CERTIFIED (gate_run59); certification recorded + docs/SHOWCASE.md; branch `claude/aegis-safety-fixes-20aen5`
+
+**Merged before this:** PR #53 (`ab312d5`, `[runner: full]`).
+- PR #53 was squash-merged, unlike the merge commits of earlier PRs, so
+  the branch could not fast-forward. To avoid a force-push I merged master
+  into the branch; its content now equals master.
+
+**gate_run58** (`ab312d5`): stage 4 FAIL, `CustomRatesDelete left 5760
+bar(s) on EURUSD.G2`.
+
+**gate_run59** (`ab312d5`, gate-reports `db13f55`), after the owner
+deleted EURUSD.G2:
+- `GATE_RESULT=certified_with_log_graded_legs`, stages 0-10 PASS;
+- `MT5_VALIDATED_BAR_MODELS`;
+- gold1 18/18 and gold2 37/37 MATCH, in both models;
+- 8/8 safety VALID;
+- certificate and archive manifest produced;
+- 0 leak hits.
+
+**Done:**
+- the certification recorded in DECISIONS (with the three hashes copied by
+  script and checked against the published bytes), BLOCKED (cleared) and
+  README ("Certification status"; the 2026-09-20 table marked as history);
+- docs/SHOWCASE.md.
+
+**NOT done / corrected:**
+- **HARNESS-SUSPEND-1 and SPEC-WAIT-2 are recorded as NOT proven live.**
+  The request said to record them as proven, but gate_run59's own report
+  says neither path was exercised. They stay built, unit-tested, never
+  run live.
+- **The stale README statement "the EA contains no DSL interpreter" is left
+  as is.** A docs-contract test pins it, and changing it is outside this
+  PR. The EA does carry an optional DSL bundle runtime, and SHOWCASE says
+  so.

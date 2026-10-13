@@ -1,69 +1,25 @@
-# BLOCKED / WAITING — open items (updated 2026-10-13, HARNESS-SUSPEND-1 + SPEC-WAIT-2)
+# BLOCKED / WAITING — open items (updated 2026-10-13, certified by gate_run59)
 
-Nothing below is a code blocker that this session can fix. Each item waits
-on an owner action or an input this session cannot produce.
+**Nothing blocks certification.** gate_run59 (gate-reports `db13f55`,
+master `ab312d5`) ended `GATE_RESULT=certified_with_log_graded_legs` with
+the verifier verdict `MT5_VALIDATED_BAR_MODELS`, stages 0-10 PASS, gold1
+18/18 and gold2 37/37 MATCH, and 8/8 safety VALID. The certificate is
+`reports/gate_run59/certificate/` on `gate-reports`. Every earlier blocker
+in this file (gate_run55-57) is resolved and removed.
 
-## Resolved by gate_run55 (`90041fe`, gold2 `-DemoSafety`)
+## Follow-up (not blocking): IMPORT-SELFHEAL-1
 
-- **Stage 7:** PASS.
-- **Stage 8:** PASS, verdict `MT5_VALIDATED_BAR_MODELS_PARTIAL_SCOPE`,
-  nothing missing.
-- **gold2:** MATCH, 37/37 in both models.
-- **Safety:** all 8 results VALID, including the live demo restart,
-  netting and hedging.
-- **gold1:** MATCH 18/18 (gate_run53).
-- **Proven live:** DEMO-CHECK-CRLF-1, STAGE8-EMPTY-NOTBUILT-1 and
-  RESTART-GRADE-1.
+gate_run58 stopped at stage 4 because `CustomRatesDelete` left 5760 bars
+on EURUSD.G2. The owner deleted the symbol by hand before gate_run59. The
+fix lets the importer fall back to deleting and recreating the symbol
+itself; it is in its own PR.
 
-## gate_run56 (FULL run, `32664ac`): restart MISSING; SPEC-WAIT-1 is the fix
+## Not yet run live (built, unit-tested)
 
-**Result:**
-- gold1 18/18 and gold2 37/37 MATCH in both models;
-- 7 of 8 safety results VALID;
-- **restart MISSING**: the probe-3 relaunch failed OnInit with `symbol
-  spec build failed: tick_value_loss <= 0` while the broker connection
-  dropped;
-- verdict `NOT_VERIFIED_ARTIFACT_MISMATCH`; no certificate.
+- The SPEC-WAIT-2 WAITING_SYMBOL retry and give-up path.
+- The HARNESS-SUSPEND-1 INTERRUPTED abort.
 
-**Fix,** built, unit-tested, never run live (owner decision, CLAUDE.md
-exception 1.d):
-- **SPEC-WAIT-1:** the EA waits in WAITING_SYMBOL, bounded at 60 s, instead
-  of failing init on a live start.
-- **HARNESS-INIT-FAIL-1:** the harness fails a launch whose EA init fails,
-  by name, without the 900 s wait.
-
-**Next:** the `[runner: full]` run. The EX5 changes, so the golds are
-re-run. Expected:
-- stages 0-10 PASS;
-- verdict `MT5_VALIDATED_BAR_MODELS`;
-- `GATE_RESULT=certified_with_log_graded_legs`.
-
-## gate_run57 (FULL run, `47c4705`): stage 7 FAIL; HARNESS-SUSPEND-1 + SPEC-WAIT-2
-
-**Result:**
-- stages 0-5 PASS (stage 5 PASS_FROM_LOG);
-- stage 7 FAIL `[demo_terminal_not_restored]`: the restart run's restore
-  gave up after 60 s WAITING_SYMBOL (`tick_value_loss <= 0`);
-- netting and hedging COMPLETED, each restore connected, so the terminal
-  was left restored;
-- stages 8-10 did not run: no verifier verdict, no certificate.
-
-**Causes and fixes,** built, unit-tested, never run live:
-- **HARNESS-SUSPEND-1.** The restart run spanned a ~9 h host sleep (steps
-  22:43:03 → 07:44:31 UTC). The harness now aborts such a run as
-  INTERRUPTED, and stage 7 FAILs it by name (`[demo_host_suspended]`).
-  - **Runner rule (owner action):** keep the host awake for the whole gate.
-- **SPEC-WAIT-2.** Two hedging launches stayed unbuilt past 60 s. The
-  WAITING_SYMBOL bound is now 180 s. Each retry calls `SymbolSelect` and
-  logs the spec field values, so the next run shows which field stays 0
-  and for how long.
-
-**Next:** the `[runner: full]` run. If restart still gives up after
-180 s, the retry lines are the evidence for the next decision. The bound
-is not raised again blindly.
-
-The gate_run56 section above is superseded by this one: SPEC-WAIT-1 ran
-live in gate_run57 and waited as built, but 60 s was not enough.
+gate_run59 needed neither (docs/DECISIONS.md, "CERTIFIED by gate_run59").
 
 ## Optional owner item (outside exception 1): EA log stamps are stale at OnInit
 
@@ -107,13 +63,3 @@ cover (only safety hooks, SAFETY-GATE-1, FILL-MODE-1). The exact change:
 It changes no decision, only the message. Gold legs at default inputs are
 identical. To make it, the owner adds an exception (or extends 1), and
 stage 1's strict compile proves it.
-
-## Waiting on the items above
-
-- **Task 4** (FULL run, stages 9-10) needs both golds and all 8 safety
-  files VALID.
-- **Task 5** (docs/SHOWCASE.md) states the final verdict, so it follows
-  task 4.
-
-No MT5 result is invented. This file is deleted once nothing in it is
-waiting.

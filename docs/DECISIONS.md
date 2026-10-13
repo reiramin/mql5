@@ -5495,3 +5495,43 @@ written. gate_run56 had the same symptom after the harness's hard kill.
 
 Status: built, unit-tested, never run live. The EX5 changes, so merge
 with `[runner: full]`.
+
+## Status update: CERTIFIED by gate_run59 (2026-10-13)
+
+**gate_run59** (gate-reports `db13f55`, master `ab312d5`, FULL run):
+- `GATE_RESULT=certified_with_log_graded_legs`, exit code 1 by design;
+- stages 0-10 PASS (stage 5 PASS_FROM_LOG);
+- stage-8 verifier verdict `MT5_VALIDATED_BAR_MODELS`.
+
+**Results:**
+- gold1 MATCH 18/18 and gold2 MATCH 37/37, in both `m1_ohlc` and
+  `every_tick`;
+- 8/8 safety VALID, with restart graded `RESTART_RECOVERED_NO_DUPLICATE`.
+
+**Artifacts** (sha256 copied by script from the report, not typed by hand):
+- `archive_manifest.json`: `1db44f20b2edf73471b9dc95d662e8aa7374579a4dd99a6d1530827b0c699583`;
+- `certificate/certificate.json`: `0d6f87d284630061e87522e7727717457770648143f9e97d26d0d73422e32ce6`;
+- `reconciliation_verify.json`: `2507ef5f0ca9b5427181af5dc7505f697762a5ab2eeebdfd3dc44f0904af6a25`.
+
+The report's leak check found 0 hits in 34 files.
+
+**gate_run58** (same commit) stopped at stage 4 with `CustomRatesDelete
+left 5760 bar(s) on EURUSD.G2` (adopt-in-place refused). The owner deleted
+the symbol, and gate_run59 imported it `created_fresh`. The follow-up is
+IMPORT-SELFHEAL-1.
+
+**What gate_run59 proves for HARNESS-SUSPEND-1 and SPEC-WAIT-2, scoped:**
+- **Present in the certified commit.** Both are in it, and they did not
+  break the run. The certified EX5 carries the SPEC-WAIT-2 code, and the
+  harness ran with the suspend guard (`suspended: null` in all three
+  run.json; maximum step gaps of 90 / 36 / 25 s).
+- **Neither path was exercised.** The report says "No `WAITING_SYMBOL`
+  line appears in any demo EA log of this run, and no run was suspended:
+  the SPEC-WAIT-2 wait path and the HARNESS-SUSPEND-1 abort path were not
+  exercised by this run (they were not needed, not proven)".
+- **So neither is proven live.** The WAITING_SYMBOL retry/give-up path
+  and the INTERRUPTED abort remain built, unit-tested, never run live.
+- **Proven live by this run:** the paths gate_run59 actually took. Those
+  are the full gate with stage 10's certificate (STAGE10-CERT-1), the
+  SPEC-WAIT-1 deferred-init wiring at an ordinary start (the START line
+  appeared as before), and the stage-7 outcome with no suspend.
