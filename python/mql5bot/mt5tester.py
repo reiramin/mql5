@@ -108,7 +108,7 @@ EA_INPUT_DEFAULTS: dict[str, object] = {
     "InpPendingExpireBars": 6,
     "InpDeviation": 30,
     "InpMaxRetries": 3,
-    "InpSpecWaitSeconds": 60,      # SPEC-WAIT-1 (live start only)
+    "InpSpecWaitSeconds": 180,     # SPEC-WAIT-1/-2 (live start only)
     "InpAllowShort": True,
     "InpMagic": 20240904,
     # --- Identity & state ---

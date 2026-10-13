@@ -27,6 +27,13 @@ For each run the harness:
   shaped exactly like the gate's stage-3 export (no ``[Common]``): the run
   FAILs unless that launch reports a connected terminal on the hedging
   account;
+* HARNESS-SUSPEND-1 (gate_run57): watches the wall clock between its
+  polling iterations; a jump of more than SUSPEND_GAP_S (the host slept or
+  hibernated) aborts the test at once -- it is never continued -- and the
+  run's ``status`` is INTERRUPTED, error ``[host_suspended] host
+  suspended: ...``. The restore below still runs (it closes the probe
+  position and puts the terminal back on the hedging account); an
+  INTERRUPTED run is invalid whatever the restore shows;
 * writes ``<out>\\<test>\\ealog.txt`` (the EA lines of the test),
   ``restore_ealog.txt`` (the EA lines of the restore) and ``run.json``
   (status, steps, UTC times, the EX5 sha256, the restore record with the
@@ -83,6 +90,12 @@ SPEC_WAIT_GAVE_UP = "WAITING_SYMBOL)"
 # seconds the EA log gets to show the not-logged-in refusal (which is a
 # relaunch, not a failure) after the journal reports a failed init
 INIT_FAIL_GRACE_S = 5
+# HARNESS-SUSPEND-1 (gate_run57): the restart run's steps jumped from
+# 2026-10-12 22:43:03 to 2026-10-13 07:44:31 UTC across a laptop sleep. A
+# polling iteration takes about one second; a wall-clock gap above this
+# between two consecutive iterations means the host was suspended
+SUSPEND_GAP_S = 300
+STATUS_INTERRUPTED = "INTERRUPTED"
 # DEMO-LOGIN-PERSIST-1: the credential-less connection check after the
 # restore runs the gate's own exporter (stage 3, owner_gate.ps1
 # Invoke-SymbolSpecExport) into a separate folder, never the gate's
@@ -104,6 +117,11 @@ def login_sha256(login: str) -> str:
 
 class HarnessError(RuntimeError):
     """A refused or failed harness step (the message names it)."""
+
+
+class HostSuspended(HarnessError):
+    """HARNESS-SUSPEND-1: the wall clock jumped between two polling
+    iterations (the host slept or hibernated); the run is INTERRUPTED."""
 
 
 def default_accounts_path() -> Path:
@@ -263,10 +281,13 @@ def demo_in_gate_outcome(out_dir: Path | str) -> dict:
     """After the gate's harness runs: is the terminal left logged in to the
     hedging account, its password kept, a credential-less launch connected?
     Every run's restore (with its connection check, DEMO-LOGIN-PERSIST-1)
-    must hold; otherwise the gate FAILs loudly. The tests themselves are
-    graded at stage 8, never here."""
+    must hold; otherwise the gate FAILs loudly. A run the host suspended
+    (HARNESS-SUSPEND-1, status INTERRUPTED) is invalid: a named
+    ``[demo_host_suspended]`` failure, listed first, whatever its restore
+    shows. The tests themselves are graded at stage 8, never here."""
     tests: dict = {}
     reasons: list[str] = []
+    suspended: list[str] = []
     for t in TESTS:
         run = Path(out_dir) / t / "run.json"
         if not run.is_file():
@@ -281,6 +302,9 @@ def demo_in_gate_outcome(out_dir: Path | str) -> dict:
         restore = rec.get("restore") if isinstance(rec, dict) else None
         restore = restore if isinstance(restore, dict) else {}
         cc = restore.get("connect_check")
+        if rec.get("status") == STATUS_INTERRUPTED:
+            suspended.append(f"[demo_host_suspended] {t}: "
+                             f"{rec.get('error') or 'host suspended'}")
         tests[t] = {"status": rec.get("status"),
                     "error": rec.get("error"),
                     "restore_ok": restore.get("ok"),
@@ -290,8 +314,9 @@ def demo_in_gate_outcome(out_dir: Path | str) -> dict:
             reasons.append(
                 f"[demo_restore_not_connected] {t}: "
                 f"{restore.get('reason') or 'no connection check recorded'}")
+    reasons = suspended + reasons
     return {"ok": not reasons, "reasons": reasons, "tests": tests,
-            "out_dir": str(out_dir)}
+            "interrupted": bool(suspended), "out_dir": str(out_dir)}
 
 
 class EaLogFollower:
@@ -373,8 +398,10 @@ class JournalFollower:
         return new
 
 
-def _utc() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+def _utc(epoch: float | None = None) -> str:
+    when = datetime.now(timezone.utc) if epoch is None else \
+        datetime.fromtimestamp(epoch, timezone.utc)
+    return when.isoformat(timespec="seconds")
 
 
 def sha256_file(path: Path) -> str | None:
@@ -383,14 +410,16 @@ def sha256_file(path: Path) -> str | None:
 
 
 class Harness:
-    """One demo run. ``launch(argv) -> process`` and ``sleep(s)`` are
-    injectable (tests use a fake terminal); defaults are subprocess.Popen
-    and time.sleep."""
+    """One demo run. ``launch(argv) -> process``, ``sleep(s)`` and
+    ``clock() -> epoch seconds`` are injectable (tests use a fake terminal
+    and a fake clock); defaults are subprocess.Popen, time.sleep and
+    time.time (the WALL clock: it is what jumps across a host suspend)."""
 
     def __init__(self, *, test: str, terminal: Path | str,
                  data_folder: Path | str, accounts: Path | str,
                  repo: Path | str, out_dir: Path | str,
-                 launch=None, sleep=None, timeout_s: int = 900,
+                 launch=None, sleep=None, clock=None,
+                 timeout_s: int = 900,
                  hold_s: int = 30, observe_s: int = 90):
         if test not in TESTS:
             raise HarnessError(f"unknown test {test!r}; one of {TESTS}")
@@ -400,6 +429,9 @@ class Harness:
         self.out = Path(out_dir) / test
         self.launch = launch or (lambda argv: subprocess.Popen(argv))
         self.sleep = sleep or time.sleep
+        self.clock = clock or time.time
+        self._tick_at: float | None = None
+        self.suspended: dict | None = None
         self.timeout_s, self.hold_s, self.observe_s = (timeout_s, hold_s,
                                                        observe_s)
         self.steps: list[dict] = []
@@ -412,7 +444,32 @@ class Harness:
 
     # -- steps ---------------------------------------------------------
     def _step(self, what: str, **extra) -> None:
-        self.steps.append({"utc": _utc(), "step": what, **extra})
+        self.steps.append({"utc": _utc(self.clock()), "step": what, **extra})
+
+    def _pace(self, seconds: int) -> None:
+        """Sleep between two polling iterations, then check the wall clock
+        (HARNESS-SUSPEND-1): more than SUSPEND_GAP_S beyond the expected
+        pause since the previous iteration means the host was suspended;
+        the run is aborted, never continued."""
+        if self._tick_at is None:
+            self._tick_at = self.clock()
+        self.sleep(seconds)
+        now = self.clock()
+        gap = now - self._tick_at - seconds
+        last, self._tick_at = self._tick_at, now
+        if gap > SUSPEND_GAP_S:
+            self.suspended = {"from_utc": _utc(last), "to_utc": _utc(now),
+                              "gap_s": int(gap)}
+            self._step("host suspended", **self.suspended)
+            raise HostSuspended(
+                f"[host_suspended] host suspended: the wall clock jumped "
+                f"{int(gap)} s between two harness polls ({_utc(last)} -> "
+                f"{_utc(now)}); the run is INTERRUPTED and invalid -- the "
+                "host must not sleep or hibernate during a gate")
+
+    def _pace_reset(self) -> None:
+        """A new polling loop starts measuring from now."""
+        self._tick_at = self.clock()
 
     def _write_ini(self, account: dict, probe: int) -> Path:
         preset = f"mql5bot_demo_{self.test}_{probe}.set"
@@ -456,7 +513,8 @@ class Harness:
                     f"the EA refused the demo probe on {START_LAUNCHES} "
                     "launches: not a logged-in DEMO account when it "
                     f"initialised ({EA_NOT_LOGGED_IN!r})")
-            self.sleep(10)
+            self._pace_reset()
+            self._pace(10)
         return mark
 
     def _init_failure(self, after: int) -> str | None:
@@ -477,6 +535,7 @@ class Harness:
         grace for the refusal line) or on timeout."""
         waited = 0
         failed_at = None
+        self._pace_reset()
         while True:
             self.log.poll()
             self.journal.poll()
@@ -496,11 +555,12 @@ class Harness:
             if waited >= self.timeout_s:
                 raise HarnessError(f"timeout after {waited}s waiting for "
                                    "'EA START' in the EA log")
-            self.sleep(1)
+            self._pace(1)
             waited += 1
 
     def _wait(self, needle: str, after: int, what: str) -> None:
         waited = 0
+        self._pace_reset()
         while True:
             self.log.poll()
             if self.log.has(needle, after):
@@ -509,13 +569,14 @@ class Harness:
             if waited >= self.timeout_s:
                 raise HarnessError(f"timeout after {waited}s waiting for "
                                    f"{what!r} in the EA log")
-            self.sleep(1)
+            self._pace(1)
             waited += 1
 
     def _observe(self, seconds: int) -> None:
+        self._pace_reset()
         for _ in range(seconds):
             self.log.poll()
-            self.sleep(1)
+            self._pace(1)
 
     def _kill(self, what: str) -> None:
         if self.proc is not None:
@@ -541,7 +602,8 @@ class Harness:
                            "probe position opened")
                 self._observe(self.hold_s)
                 self._kill("terminal KILLED with the probe position open")
-                self.sleep(10)
+                self._pace_reset()
+                self._pace(10)
                 mark = self._start(account, PROBE["restart"])
                 self._observe(self.observe_s)
                 self._kill("terminal stopped after observation")
@@ -559,6 +621,8 @@ class Harness:
             self._kill("terminal stopped")
             self._drop_ini()
         test_lines = list(self.log.lines)
+        # after a host suspend the test is NOT continued; the restore still
+        # runs (close the probe position, back on the hedging account)
         restore = self._restore()
         if not restore["ok"]:
             error = f"{error}; {restore['reason']}" if error \
@@ -692,11 +756,13 @@ class Harness:
         (self.out / "restore_ealog.txt").write_text(
             "\n".join(self.restore_lines) + "\n", encoding="utf-8")
         rec = {"schema": "mql5bot.demo_safety_run/2", "test": self.test,
-               "status": "FAILED" if error else "COMPLETED",
+               "status": (STATUS_INTERRUPTED if self.suspended
+                          else "FAILED" if error else "COMPLETED"),
                "account_role": ACCOUNT_ROLE[self.test],
                "symbol": SYMBOL, "period": PERIOD,
                "ex5_sha256": sha256_file(self.data / EA_REL),
                "steps": self.steps, "error": error,
+               "suspended": self.suspended,
                "ea_log_lines": len(test_lines),
                "restore": restore,
                "note": ("no login, password or server is recorded (the "

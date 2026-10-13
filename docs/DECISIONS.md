@@ -5362,3 +5362,136 @@ grace, instead of waiting 900 s.
 Status: built, unit-tested, never run live. The EX5 changes, so the
 golds are re-run: merge with `[runner: full]`.
 
+
+## HARNESS-SUSPEND-1 + SPEC-WAIT-2 — gate_run57's restart failure (2026-10-13)
+
+**gate_run57** (FULL run, `47c4705`, gate-reports `e03ae90`) stopped at
+stage 7:
+- stages 0-5 PASS (stage 5 PASS_FROM_LOG);
+- stage 7 FAIL `[demo_terminal_not_restored]`: the restart run's restore
+  failed with `[ea_init_failed] ... symbol spec build failed:
+  tick_value_loss <= 0 (gave up after 60 s WAITING_SYMBOL)`;
+- netting and hedging `COMPLETED`, each restore connected;
+- stages 8-10 did not run: no verifier verdict, no certificate.
+
+Two causes, read from `reports/gate_run57`:
+
+**1. HARNESS-SUSPEND-1: the restart run spanned a host sleep.** The
+`run.json` steps go from `terminal_started` probe 1 at 2026-10-12
+22:43:03 UTC straight to `seen: EA init failed` at 2026-10-13 07:44:31
+UTC. The journal agrees: the 20261012 log ends at the 15:43:05 local
+launch, and the 20261013 log starts at 00:43:18 local with
+`authorized on MetaQuotes-Demo`. The host slept for about 9 hours. The
+harness carried on as if nothing had happened.
+
+Fix (`python/mql5bot/demo_harness.py`, `tools/owner_gate.ps1`):
+- **Injectable clock.** `Harness(clock=...)` takes the clock, defaulting to
+  `time.time`, the wall clock, which is what jumps across a suspend. The
+  step times come from it.
+- **Gap check.** Every polling loop (`_wait_start`, `_wait`, `_observe`,
+  and the 10 s pauses) paces through `_pace`. It measures the wall clock
+  from one iteration to the next. A gap of more than `SUSPEND_GAP_S = 300`
+  beyond the expected pause raises `HostSuspended`.
+- **Abort.** The test is aborted and never continued. A `host suspended`
+  step records `from_utc`, `to_utc` and `gap_s`. `run.json` gets
+  `"status": "INTERRUPTED"`, an error `[host_suspended] host suspended: ...`
+  and a `suspended` record.
+- **Restore still runs.** It closes the probe position and puts the
+  terminal back on the hedging account. An INTERRUPTED run is invalid
+  whatever the restore shows.
+- **Stage 7 outcome.** `demo_in_gate_outcome` lists
+  `[demo_host_suspended] <test>: <error>` first and sets `interrupted`.
+  `Invoke-DemoInGate` stops after an INTERRUPTED run, so no further demo
+  test runs. Stage 7 FAILs `[demo_host_suspended] host suspended during
+  the demo harness: the run is INTERRUPTED and invalid ...`, a named
+  failure ahead of the restore check.
+- **Not covered.** A suspend inside a single blocking call is not checked:
+  the 60 s wait after a kill, and the persist/connection-check script waits
+  in `_script_run`. The test phases, where the terminal is followed, are
+  all polling loops.
+- **Runner rule** (docs/OWNER_GATE.md): the host must not sleep or
+  hibernate during a gate, and a run spanning a suspend is invalid.
+
+**2. SPEC-WAIT-2: 60 s was not enough after an unclean start.**
+From `stage7_restart_journal_lines.txt` (local time, UTC-7):
+
+| launch | authorized | WAITING_SYMBOL | gave up |
+|---|---|---|---|
+| probe 1, resumed after the sleep | 00:43:18 | 00:43:25 | ~00:44:25 (harness saw it at 00:44:31) |
+| probe 3 restore, after the harness's hard kill | 00:44:36 | 00:44:45 | ~00:45:45 (harness saw it at 00:45:50, after its 5 s grace) |
+
+Inside the second wait the journal has `connection to MetaQuotes-Demo
+lost` at 00:45:38, re-authorized at 00:45:38.7. The next launch, the
+netting run at 00:45:55, logged no WAITING_SYMBOL line; the EA lines that
+follow (00:46:28) are an initialisation and a START.
+
+Every EA line, including that START, is stamped `[2026.10.13 01:42:36]`.
+That is `TimeCurrent()`, the last quote time the terminal knew. So no
+EURUSD quote had arrived in any of those launches by the time the line was
+written. gate_run56 had the same symptom after the harness's hard kill.
+
+**What the EA did while waiting (code read at 47c4705):**
+- It did **not** call `SymbolSelect`.
+- It checked `SymbolIsSynchronized` only to decide whether a failed build
+  may keep waiting.
+- `BuildSymbolSpec` re-reads every field with `SymbolInfoDouble` on each
+  call: TICK_SIZE, TICK_VALUE_LOSS, TICK_VALUE_PROFIT, CONTRACT_SIZE,
+  POINT. `SYMBOL_TRADE_TICK_VALUE` itself is not part of the spec.
+- It logged **no** values, so the run cannot show which field stayed 0, or
+  for how long.
+
+**Fix (CLAUDE.md exception 1.d, live wait path only):**
+- `SymbolSelect(g_symbol, true)` when the wait starts, and before every
+  retry's build.
+- A new `SpecWaitProbe` in `SymbolSpec.mqh` logs once a second, as
+  `WAITING_SYMBOL retry <s> s: ...`. It reads fresh each time: `gmt`
+  (TimeGMT, so the line is timed despite the stale stamp), `connected`,
+  `synchronized`, `selected`, `tick_value`, `tick_value_loss`,
+  `tick_value_profit`, `tick_size`, `contract_size`, `point`, `deposit`,
+  `last_tick` (the symbol's last quote time, or `none`), plus `select_ok`
+  and the build result.
+- The lines are INFO and never contain `WAITING_SYMBOL)` or `[ERROR]`, so
+  the harness never reads them as a give-up.
+- **`InpSpecWaitSeconds` 60 → 180** (mirrored in `EA_INPUT_DEFAULTS`).
+  Both gate_run57 waits exceeded 60 s. The probe-3 symbol was still not
+  built 69 s after authorization. This is not a safety loosening: while
+  waiting the EA still opens no positions and manages nothing, and the
+  bound is still finite. Whether 180 s is enough is NOT known. The next
+  run's retry lines will show which field stays 0 and for how long.
+- The pinned restart expectation (`RESTART_RECOVERED_NO_DUPLICATE`), the
+  grader and the verifier are unchanged.
+
+**Tests:**
+- `tests/test_safety_demo.py` (a fake clock): a 9 h jump during the
+  restart hold makes the run INTERRUPTED, records the gap, and never
+  relaunches probe 1 (launches `[1, 3]`, the restore only). The threshold
+  test: 300 s is not a suspend, 301 s is. Slow work inside an iteration
+  counts too. Step times come from the injected clock. Every polling loop
+  goes through the guard.
+- `tests/test_demo_in_gate.py`: the outcome names `[demo_host_suspended]`
+  first; the decider exits 1; `Invoke-DemoInGate`, executed under pwsh,
+  stops after an INTERRUPTED restart; the stage-7 body has the named FAIL
+  before the restore FAIL.
+- `tests/test_spec_wait.py`: the probe reads every field fresh, with the
+  exact field list; each retry selects the symbol before the build and
+  logs before a give-up can end the wait; `SymbolSelect` sits only on the
+  live wait path; the retry lines never read as a give-up; the default is
+  180.
+
+**Self-review:**
+- **(a) Does any acceptance rule get weaker?** No. A suspended run is now
+  a FAIL where it used to continue. The verifier, the grader and the
+  pinned restart expectation are untouched. The longer wait admits no
+  trading while waiting.
+- **(b) Do the gold legs change behaviour at default inputs?** No.
+  `SymbolSelect`, the probe lines and the bound are all on the live
+  WAITING_SYMBOL path, which `SpecMayWait` never enters in the tester. A
+  tester ini filled from `EA_INPUT_DEFAULTS` now carries
+  `InpSpecWaitSeconds=180`, an input the tester path never reads. This is proven by the stage-1 strict compile and the
+  next run's reconciliation.
+- **(c) Are new checks re-computed by the verifier?** The INTERRUPTED
+  check is a stage-7 gate decision (`demo-in-gate-outcome`). The restart
+  run is still graded at stage 8 from its EA log.
+
+Status: built, unit-tested, never run live. The EX5 changes, so merge
+with `[runner: full]`.

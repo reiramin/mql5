@@ -92,7 +92,7 @@ input int                     InpPendingOffsetPoints = 10;           // Pending 
 input int                     InpPendingExpireBars = 6;              // Pending expiry (bars)
 input int                     InpDeviation   = 30;                   // Max price deviation (points)
 input int                     InpMaxRetries  = 3;                    // Order retries (RetryQueue cap)
-input int                     InpSpecWaitSeconds = 60;               // SPEC-WAIT-1: max wait for symbol sync at a live start (s)
+input int                     InpSpecWaitSeconds = 180;              // SPEC-WAIT-1/-2: max wait for symbol sync at a live start (s)
 input bool                    InpAllowShort  = true;                 // Allow short trades
 input long                    InpMagic       = 20240904;             // Legacy magic (registry off)
 
@@ -169,6 +169,7 @@ bool            g_testRestored[];         // ... and seen restored
 //--- SPEC-WAIT-1: WAITING_SYMBOL state (live start, symbol not synced yet)
 bool            g_specWaiting   = false;
 ulong           g_specWaitStart = 0;      // GetTickCount64() when the wait began
+int             g_specWaitLogged = -1;    // SPEC-WAIT-2: last second a retry was logged
 int             g_demoStep      = 0;      // demo probe step (InpTestDemoProbe)
 int             g_demoTicks     = 0;      // timer ticks since the last step
 #define DEMO_PROBE_FLAG "Mql5Bot\\State\\demo_probe_opened.flag"
@@ -625,6 +626,12 @@ int OnInit()
       g_log.Warn(StringFormat("WAITING_SYMBOL: symbol spec not ready (%s); "
                               "retrying for up to %d s, no new positions",
                               g_spec.reason, InpSpecWaitSeconds));
+      // SPEC-WAIT-2: make sure the symbol is in Market Watch (its quotes
+      // are then requested), and record what the terminal reports now
+      bool selected = SymbolSelect(g_symbol, true);
+      g_log.Info(StringFormat("WAITING_SYMBOL retry 0 s: %s select_ok=%d",
+                              SpecWaitProbe(g_symbol), (int)selected));
+      g_specWaitLogged = 0;
       EventSetTimer(1);
       return INIT_SUCCEEDED;
      }
@@ -844,13 +851,23 @@ int InitAfterSpec()
 //| SPEC-WAIT-1: retry the spec build while WAITING_SYMBOL. Once it   |
 //| builds, the deferred init runs (and logs START); past             |
 //| InpSpecWaitSeconds the EA logs the error and removes itself.      |
+//| SPEC-WAIT-2: SymbolSelect on every retry, and the spec fields the |
+//| terminal reports logged once a second (SpecWaitProbe).            |
 //+------------------------------------------------------------------+
 void SpecWaitPump()
   {
+   bool selected = SymbolSelect(g_symbol, true);   // SPEC-WAIT-2
    bool built    = BuildSymbolSpec(g_symbol, g_spec);
    bool waitable = built ||
                    SpecMayWait(false, SymbolIsSynchronized(g_symbol), g_spec.reason);
    int  waited   = (int)((GetTickCount64() - g_specWaitStart) / 1000);
+   if(waited != g_specWaitLogged)  // SPEC-WAIT-2: the values, once a second
+     {
+      g_specWaitLogged = waited;
+      g_log.Info(StringFormat("WAITING_SYMBOL retry %d s: %s select_ok=%d build=%s",
+                              waited, SpecWaitProbe(g_symbol), (int)selected,
+                              built ? "ok" : g_spec.reason));
+     }
    int  step     = SpecWaitDecision(built, waitable, waited, InpSpecWaitSeconds);
    if(step == SPEC_WAIT_WAIT)
       return;

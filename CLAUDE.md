@@ -41,7 +41,8 @@ These narrow the NEVER-modify rule above; everything not listed stays fully prot
    size, contract size or point <= 0, or SymbolIsSynchronized false), the EA does NOT fail
    init: it returns INIT_SUCCEEDED in a WAITING_SYMBOL state, opens no new positions,
    retries the spec build on OnTimer/OnTick, and only after a bounded wait
-   (InpSpecWaitSeconds, default 60) logs the error and shuts down. While waiting it manages
+   (InpSpecWaitSeconds, default 60; raised to 180 by SPEC-WAIT-2, owner request
+   2026-10-13) logs the error and shuts down. While waiting it manages
    existing positions only if the spec is available; otherwise it just waits. The START
    line is logged only once the spec is built. Gold-leg results must stay identical.
 3. artifacts/gold/ (gold1 fixture + expected_execution) and

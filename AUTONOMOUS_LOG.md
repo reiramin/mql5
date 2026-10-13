@@ -2040,3 +2040,44 @@ real-tick ladder. The owner chose a certificate of the verifier verdict
 - **A live run:** built, unit-tested, never run live. The stage-1 strict
   compile on the owner terminal is the compile proof.
 - **docs/SHOWCASE.md:** waits for a certified full run.
+
+## 2026-10-13 — gate_run57 (FULL) read; HARNESS-SUSPEND-1 + SPEC-WAIT-2; branch `claude/aegis-safety-fixes-20aen5`
+
+**Merged before this:** PR #52 (`47c4705`, `[runner: full]`).
+
+**gate_run57** (gate-reports `e03ae90`):
+- stages 0-5 PASS;
+- stage 7 FAIL `[demo_terminal_not_restored]`: the restart restore gave up
+  after 60 s WAITING_SYMBOL;
+- netting and hedging COMPLETED and restored;
+- stages 8-10 not run; no certificate.
+
+The restart run spanned a ~9 h host sleep (22:43:03 → 07:44:31 UTC).
+
+**Done:**
+- **HARNESS-SUSPEND-1:**
+  - an injectable wall clock;
+  - the iteration-to-iteration gap check (>300 s) in every polling loop,
+    giving `INTERRUPTED` / `[host_suspended]` and a test never continued;
+  - stage 7 `[demo_host_suspended]`, with no further demo tests;
+  - the OWNER_GATE.md runner rule.
+- **SPEC-WAIT-2:**
+  - `SymbolSelect` on entering the wait and on every retry;
+  - `SpecWaitProbe` logging the field values once a second;
+  - `InpSpecWaitSeconds` 60 → 180, with the CLAUDE.md 1.d text noting it.
+- **Tests:** fake-clock harness tests, stage-7 outcome/decider/pwsh tests,
+  and SPEC-WAIT-2 wiring tests.
+- **Docs:** DECISIONS, BLOCKED, OWNER_GATE.
+
+ruff exit 0; full pytest exit 0 (pytest's own exit code, read from the
+recorded `pytest_exit=` line).
+
+**NOT done:**
+- **A live run:** built, unit-tested, never run live. The stage-1 strict
+  compile on the owner terminal is the compile proof.
+- **Whether 180 s is enough:** not known. The retry lines of the next run
+  will show it.
+- **A suspend inside one blocking call** (`_kill`'s 60 s wait, the
+  `_script_run` waits) is not detected. The test phases are all polling
+  loops.
+- **docs/SHOWCASE.md:** waits for a certified full run.

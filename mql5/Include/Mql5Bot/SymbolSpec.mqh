@@ -163,6 +163,36 @@ int SpecWaitDecision(const bool built, const bool waitable, const int waited_s, 
   }
 
 //+------------------------------------------------------------------+
+//| SPEC-WAIT-2 (gate_run57): what the terminal reports for the spec  |
+//| fields on a WAITING_SYMBOL retry -- read fresh on every call -- so|
+//| the EA log shows which field stays 0 and for how long. gmt is the |
+//| computer's UTC (the log stamp is TimeCurrent, stale before the    |
+//| first quote); last_tick is the symbol's last quote time.          |
+//+------------------------------------------------------------------+
+string SpecWaitProbe(const string symbol)
+  {
+   MqlTick tick;
+   bool    hasTick = SymbolInfoTick(symbol, tick) && tick.time > 0;
+   return StringFormat("gmt=%s connected=%d synchronized=%d selected=%d "
+                       "tick_value=%.10g tick_value_loss=%.10g "
+                       "tick_value_profit=%.10g tick_size=%.10g "
+                       "contract_size=%.10g point=%.10g deposit=%s last_tick=%s",
+                       TimeToString(TimeGMT(), TIME_DATE | TIME_SECONDS),
+                       (int)TerminalInfoInteger(TERMINAL_CONNECTED),
+                       (int)SymbolIsSynchronized(symbol),
+                       (int)SymbolInfoInteger(symbol, SYMBOL_SELECT),
+                       SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE),
+                       SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE_LOSS),
+                       SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE_PROFIT),
+                       SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE),
+                       SymbolInfoDouble(symbol, SYMBOL_TRADE_CONTRACT_SIZE),
+                       SymbolInfoDouble(symbol, SYMBOL_POINT),
+                       AccountInfoString(ACCOUNT_CURRENCY),
+                       hasTick ? TimeToString(tick.time, TIME_DATE | TIME_SECONDS)
+                               : "none");
+  }
+
+//+------------------------------------------------------------------+
 //| Pure normalisers (match python/mql5bot/symbolspec.py semantics)  |
 //+------------------------------------------------------------------+
 

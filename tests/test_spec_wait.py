@@ -17,6 +17,20 @@ The three decision functions are EXECUTED here from
 mql5/Include/Mql5Bot/SymbolSpec.mqh through a strict line transpiler
 (one `if(...)` / one `return ...;` per line, anything else refused), so
 the tests read the source the EA compiles.
+
+SPEC-WAIT-2 (gate_run57, 47c4705, FULL run): the probe-3 restore launch
+after the harness's hard kill was authorized at 00:44:36 local, logged
+WAITING_SYMBOL (tick_value_loss <= 0) at 00:44:45 and gave up 60 s later
+(the harness saw the give-up at 07:45:50 UTC); the journal shows
+"connection to MetaQuotes-Demo lost" at 00:45:38 inside that minute. The
+probe-1 launch, resumed after a host sleep, also gave up after 60 s. The
+EA did NOT call SymbolSelect and logged no field values while waiting.
+Now every retry calls SymbolSelect(_Symbol, true), BuildSymbolSpec re-reads
+every field, and the values the terminal reports (SYMBOL_TRADE_TICK_VALUE,
+_LOSS, _PROFIT, TICK_SIZE, CONTRACT_SIZE, POINT, SymbolIsSynchronized,
+TERMINAL_CONNECTED, the last quote time) are logged once a second. The
+bound is 180 s (both gate_run57 waits exceeded 60 s); still no new
+positions while waiting, and the tester never waits.
 """
 
 from __future__ import annotations
@@ -174,9 +188,10 @@ def _body(sig: str) -> str:
 
 
 def test_input_default_and_python_mirror():
-    assert re.search(r"^input int\s+InpSpecWaitSeconds = 60;", EA,
+    # SPEC-WAIT-2: 60 s was exceeded by both gate_run57 waits
+    assert re.search(r"^input int\s+InpSpecWaitSeconds = 180;", EA,
                      re.MULTILINE)
-    assert mt.EA_INPUT_DEFAULTS["InpSpecWaitSeconds"] == 60
+    assert mt.EA_INPUT_DEFAULTS["InpSpecWaitSeconds"] == 180
 
 
 def test_oninit_waits_only_on_a_waitable_failure():
@@ -231,3 +246,78 @@ def test_pump_runs_the_deferred_init_or_gives_up_bounded():
     assert "if(InitAfterSpec() == INIT_SUCCEEDED)" in pump
     assert "gave up after %d s " in pump and "WAITING_SYMBOL)" in pump
     assert pump.rstrip().endswith("ExpertRemove();")
+
+
+# --------------------------------------------------------------------------
+# SPEC-WAIT-2: SymbolSelect and the values on every retry
+# --------------------------------------------------------------------------
+
+def _spec_fn(sig: str) -> str:
+    i = SPEC.index(sig)
+    return SPEC[i:SPEC.index("\n  }\n", i)]
+
+
+def test_the_probe_reads_every_spec_field_fresh():
+    probe = _spec_fn("string SpecWaitProbe(const string symbol)")
+    for read in ("SymbolIsSynchronized(symbol)",
+                 "TerminalInfoInteger(TERMINAL_CONNECTED)",
+                 "SymbolInfoInteger(symbol, SYMBOL_SELECT)",
+                 "SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE)",
+                 "SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE_LOSS)",
+                 "SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE_PROFIT)",
+                 "SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE)",
+                 "SymbolInfoDouble(symbol, SYMBOL_TRADE_CONTRACT_SIZE)",
+                 "SymbolInfoDouble(symbol, SYMBOL_POINT)",
+                 "SymbolInfoTick(symbol, tick)", "TimeGMT()"):
+        assert read in probe, read
+    fmt = re.search(r'StringFormat\((".*?)\n\s+[A-Z]', probe, re.DOTALL)[1]
+    fields = re.findall(r"(\w+)=%", "".join(re.findall(r'"([^"]*)"', fmt)))
+    assert fields == ["gmt", "connected", "synchronized", "selected",
+                      "tick_value", "tick_value_loss", "tick_value_profit",
+                      "tick_size", "contract_size", "point", "deposit",
+                      "last_tick"]
+
+
+def test_build_re_reads_every_field_each_call():
+    build = _spec_fn("bool BuildSymbolSpec(const string symbol, ")
+    for f in ("SYMBOL_POINT", "SYMBOL_TRADE_TICK_SIZE",
+              "SYMBOL_TRADE_TICK_VALUE_LOSS", "SYMBOL_TRADE_TICK_VALUE_PROFIT",
+              "SYMBOL_TRADE_CONTRACT_SIZE"):
+        assert f"SymbolInfoDouble(symbol, {f})" in build, f
+
+
+def test_every_retry_selects_the_symbol_and_logs_the_values():
+    pump = _body("void SpecWaitPump()")
+    first = pump.index("{") + 1
+    assert pump[first:].lstrip().startswith(
+        "bool selected = SymbolSelect(g_symbol, true);")
+    assert pump.index("SymbolSelect(g_symbol, true)") < pump.index(
+        "BuildSymbolSpec(g_symbol, g_spec)")
+    assert "if(waited != g_specWaitLogged)" in pump
+    assert '"WAITING_SYMBOL retry %d s: %s select_ok=%d build=%s"' in pump
+    assert "SpecWaitProbe(g_symbol)" in pump
+    # the values are logged BEFORE a give-up can end the wait
+    assert pump.index("SpecWaitProbe(g_symbol)") < pump.index(
+        "if(step == SPEC_WAIT_WAIT)")
+
+
+def test_entering_the_wait_selects_and_logs_once():
+    init = _body("int OnInit()")
+    branch = init[init.index("g_specWaiting   = true;"):]
+    assert branch.index("bool selected = SymbolSelect(g_symbol, true);") < \
+        branch.index("return INIT_SUCCEEDED;")
+    assert '"WAITING_SYMBOL retry 0 s: %s select_ok=%d"' in branch
+    # SymbolSelect only on the LIVE wait path: the tester path is unchanged
+    assert init.count("SymbolSelect(") == 1
+    assert init.index("if(!SpecMayWait(") < init.index("SymbolSelect(")
+
+
+def test_retry_lines_never_read_as_a_give_up_or_an_error():
+    from mql5bot import demo_harness as dh
+    for text in ('"WAITING_SYMBOL retry %d s: %s select_ok=%d build=%s"',
+                 '"WAITING_SYMBOL retry 0 s: %s select_ok=%d"'):
+        assert dh.SPEC_WAIT_GAVE_UP not in text and "[ERROR]" not in text
+    pump = _body("void SpecWaitPump()")
+    retry = pump[pump.index("if(waited != g_specWaitLogged)"):
+                 pump.index("if(step == SPEC_WAIT_WAIT)")]
+    assert "g_log.Info(" in retry and "g_log.Error(" not in retry

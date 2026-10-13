@@ -1,4 +1,4 @@
-# BLOCKED / WAITING — open items (updated 2026-10-12, RESTART-ORDER-1 + EMPTY-OBJ-1)
+# BLOCKED / WAITING — open items (updated 2026-10-13, HARNESS-SUSPEND-1 + SPEC-WAIT-2)
 
 Nothing below is a code blocker that this session can fix. Each item waits
 on an owner action or an input this session cannot produce.
@@ -37,6 +37,33 @@ re-run. Expected:
 - stages 0-10 PASS;
 - verdict `MT5_VALIDATED_BAR_MODELS`;
 - `GATE_RESULT=certified_with_log_graded_legs`.
+
+## gate_run57 (FULL run, `47c4705`): stage 7 FAIL; HARNESS-SUSPEND-1 + SPEC-WAIT-2
+
+**Result:**
+- stages 0-5 PASS (stage 5 PASS_FROM_LOG);
+- stage 7 FAIL `[demo_terminal_not_restored]`: the restart run's restore
+  gave up after 60 s WAITING_SYMBOL (`tick_value_loss <= 0`);
+- netting and hedging COMPLETED, each restore connected, so the terminal
+  was left restored;
+- stages 8-10 did not run: no verifier verdict, no certificate.
+
+**Causes and fixes,** built, unit-tested, never run live:
+- **HARNESS-SUSPEND-1.** The restart run spanned a ~9 h host sleep (steps
+  22:43:03 → 07:44:31 UTC). The harness now aborts such a run as
+  INTERRUPTED, and stage 7 FAILs it by name (`[demo_host_suspended]`).
+  - **Runner rule (owner action):** keep the host awake for the whole gate.
+- **SPEC-WAIT-2.** Two hedging launches stayed unbuilt past 60 s. The
+  WAITING_SYMBOL bound is now 180 s. Each retry calls `SymbolSelect` and
+  logs the spec field values, so the next run shows which field stays 0
+  and for how long.
+
+**Next:** the `[runner: full]` run. If restart still gives up after
+180 s, the retry lines are the evidence for the next decision. The bound
+is not raised again blindly.
+
+The gate_run56 section above is superseded by this one: SPEC-WAIT-1 ran
+live in gate_run57 and waited as built, but 60 s was not enough.
 
 ## Optional owner item (outside exception 1): EA log stamps are stale at OnInit
 
