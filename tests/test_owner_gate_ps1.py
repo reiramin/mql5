@@ -1784,12 +1784,18 @@ def test_r10_drop_is_cleanup_only_and_still_verifies_gone():
     assert loop.index("CustomRatesDelete(") < loop.index("ResetLastError()") \
         < loop.index("CustomSymbolDelete(") < loop.index("SymbolExist(")
     assert "g_dropAttempts = attempt" in body
-    # since R10 the pre-create path never drops: a survivor is adopted
-    # verify-first, so DropCustomSymbolChecked is called ONLY by the
-    # post-failure cleanup (definition + the one CleanupAfterFail call site)
-    assert src.count("DropCustomSymbolChecked(") == 2
+    # since R10 a survivor is adopted verify-first, never dropped up front.
+    # DropCustomSymbolChecked is called by the post-failure cleanup and,
+    # since IMPORT-SELFHEAL-1 (owner request 2026-10-13), by the self-heal
+    # fallback ONLY after the adopt wipe left bars behind (definition + two
+    # call sites); tests/test_import_selfheal.py pins where that one sits
+    assert src.count("DropCustomSymbolChecked(") == 3
     ci = src.index("string CleanupAfterFail")
     assert "DropCustomSymbolChecked(" in src[ci:src.index("\n  }", ci)]
+    body = src[src.index("void OnStart()"):]
+    assert body.index("CountPropertyDiffs(sym") \
+        < body.index("if(leftoverBars > 0)") \
+        < body.index("DropCustomSymbolChecked(sym")
 
 
 def test_r10_sleep_stays_bounded_and_only_in_release_and_drop():

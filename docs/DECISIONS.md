@@ -5535,3 +5535,74 @@ IMPORT-SELFHEAL-1.
   are the full gate with stage 10's certificate (STAGE10-CERT-1), the
   SPEC-WAIT-1 deferred-init wiring at an ordinary start (the START line
   appeared as before), and the stage-7 outcome with no suspend.
+
+## IMPORT-SELFHEAL-1 — OWNER REQUEST (CLAUDE.md exception 1.e): the importer recreates a symbol whose bars will not wipe (2026-10-13)
+
+**Evidence.** gate_run58 (gate-reports, `ab312d5`, FULL run) stopped at
+stage 4. The Experts log line, verbatim:
+
+```
+[import] EURUSD.G2 REFUSED [symbol_state]: adopt-in-place: CustomRatesDelete left 5760 bar(s) on EURUSD.G2; a prior fixture's bars must never survive into this dataset (last_error=0)
+```
+
+5760 is exactly the bar count of the EURUSD.G2 fixture that gate_run56 and
+gate_run57 had imported. The owner deleted the custom symbol by hand.
+gate_run59, on the same commit, imported it `created_fresh` (5760 bars,
+dataset hash equal to the manifest) and certified.
+
+**Authority.** This is an owner request (2026-10-13), added to CLAUDE.md as
+exception 1.e. The importer is `mql5/` and was covered by no earlier
+exception.
+
+**Change** (`mql5/Scripts/Mql5Bot/Mql5BotImportFixture.mq5`, the adopt path
+only):
+- **Self-heal.** When `Bars(sym, tf) > 0` after the adopt wipe, the
+  survivor is not adopted. It goes through the existing hardened
+  `DropCustomSymbolChecked`:
+  - close every other chart on the symbol (never the script's own);
+  - poll the asynchronous ChartClose, bounded;
+  - make a bounded deselect, then a bounded `CustomRatesDelete` +
+    `CustomSymbolDelete`;
+  - verify with `SymbolExist` that the symbol is gone.
+
+  The import then continues on the unchanged created-fresh path:
+  `CustomSymbolCreate`, the one shared `ApplySymbolProperties`, bars,
+  read-back and the round-trip dataset hash.
+- **New record field.** `selfheal_leftover_bars: N`; `symbol_state` ends
+  `created_fresh`.
+- **Refusals kept:**
+  - if the drop fails, the import refuses with `symbol_state`, naming the
+    leftover bars, the failing call and the number of delete attempts, plus
+    the operator remediation;
+  - new: a freshly created symbol that shows any bar before the import
+    writes one refuses too, and the debris is cleaned up.
+- **Unchanged:** the broker-symbol refusal, the verify-first adoption, and
+  the round-trip check.
+
+**Tests.**
+- `tests/test_import_selfheal.py` adds 6 source pins:
+  - the fallback order;
+  - the failed-drop refusal text;
+  - the fresh-path order through `ApplySymbolProperties`;
+  - the fresh-symbol bar refusal;
+  - the record field;
+  - the unchanged wipe and broker refusal.
+
+  They fail on the previous importer.
+- `test_r10_drop_is_cleanup_only_and_still_verifies_gone` now expects one
+  more `DropCustomSymbolChecked` call site, and pins it after the
+  property precheck and the leftover-bar check.
+
+**Self-review:**
+- **(a) Does any acceptance rule get weaker?** No. No prior fixture's bar
+  can enter the dataset: the drop is verified by `SymbolExist`, a fresh
+  symbol with bars refuses, and the round-trip dataset-hash check is
+  unchanged. The importer stops only where it used to stop needlessly.
+- **(b) Do the gold legs change behaviour at default inputs?** No. The
+  importer builds the same symbol, properties and bars on the same path
+  gate_run59 took (`created_fresh`). The EA is untouched.
+- **(c) Are new checks re-computed by the verifier?** The import record is
+  a stage-4 gate decision. The dataset hash is re-derived as before.
+
+Status: built, unit-tested, never run live. Merge with `[runner: full]`,
+so the next gate run compiles it at stage 1 and runs it at stage 4.
